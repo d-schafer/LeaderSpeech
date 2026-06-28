@@ -1,0 +1,30 @@
+source_id: chl_presidencia
+country: Chile
+source_language: Spanish
+start_urls:
+  - https://prensa.presidencia.cl/discursos.aspx
+renderer: static
+
+listing:
+  link_selector: "h3 a, .texto-busqueda a, table a"
+  link_pattern: 'discurso\.aspx\?id=\d+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["#main_ltTitulo", "h1", "title"]
+text:
+  selectors: ["#main_ltContenido", ".texto-bloque"]
+date:
+  selectors: ["#main_ltFEcha", "#main_ltFecha", "time"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  Chile's presidency press site serves individual speeches at discurso.aspx?id=...
+  and paginates the listing by page. Older speeches are on the legacy 2010-2014 site.
