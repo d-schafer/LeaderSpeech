@@ -4,6 +4,7 @@ source_language: Spanish
 start_urls:
   - https://prensa.presidencia.cl/discursos.aspx
 renderer: static
+verify_ssl: false
 
 listing:
   link_selector: "h3 a, .texto-busqueda a, table a"
@@ -21,7 +22,9 @@ title:
 text:
   selectors: ["#main_ltContenido", ".texto-bloque"]
 date:
-  selectors: ["#main_ltFecha", "time"]
+  selectors: ["#main_ltFEcha", ".fecha", "time"]
+context:
+  selectors: ["#main_ltBajada"]
 
 position: president
 date_languages: ["es"]
