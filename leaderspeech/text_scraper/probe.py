@@ -47,11 +47,11 @@ def _which_selector(soup, spec: FieldSpec | None):
     return None, 0
 
 
-def _sample_evenly(items: list, n: int):
-    if n < len(items):
-        step = max(len(items) // n, 1)
-        return [items[min(i * step, len(items) - 1)] for i in range(n)]
-    return list(items)
+def _sample_evenly(entries: list, n: int):
+    if n < len(entries):
+        step = max(len(entries) // n, 1)
+        return [entries[min(i * step, len(entries) - 1)] for i in range(n)]
+    return list(entries)
 
 
 def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
