@@ -37,6 +37,13 @@ def _which_selector(soup, spec: FieldSpec | None):
     """Return (matched_selector | None, n_elements) for the first selector that hits."""
     if spec is None:
         return None, 0
+
+
+def _sample_evenly(items: list, n: int):
+        if n < len(items):
+            step = max(len(items) // n, 1)
+            return [items[min(i * step, len(items) - 1)] for i in range(n)]
+        return list(items)
     for sel in spec.selectors:
         try:
             els = soup.select(sel)
@@ -65,11 +72,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 match_type=recipe.pagination.wayback_match_type,
                 collapse=recipe.pagination.wayback_collapse,
             )
-            if n < len(entries):
-                step = max(len(entries) // n, 1)
-                sample = [entries[min(int(i * step), len(entries) - 1)] for i in range(n)]
-            else:
-                sample = entries
+            sample = _sample_evenly(entries, n)
             report["listing"] = {
                 "mode": "wayback snapshots",
                 "snapshots_found": len(entries),
@@ -81,11 +84,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             # drift — a recipe can pass for recent pages but break on old ones. This
             # harvests every link first (slow for big sites; instant for sitemaps).
             links = harvest_links(recipe, fetcher)
-            if n < len(links):
-                step = max(len(links) // n, 1)
-                sample = [links[min(int(i * step), len(links) - 1)] for i in range(n)]
-            else:
-                sample = links
+            sample = _sample_evenly(links, n)
             report["listing"] = {"mode": "spread (full history)",
                                   "links_found": len(links), "sampled": len(sample)}
         else:
