@@ -95,6 +95,7 @@ class Recipe(BaseModel):
     # where + how to crawl
     start_urls: list[str]
     renderer: Renderer = Renderer.static
+    verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     listing: Listing
     pagination: Pagination = Field(default_factory=Pagination)
 

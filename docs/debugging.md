@@ -53,6 +53,7 @@ python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --retry-failed
 | `empty_text (no recipe match; generic also empty)` | `text` selectors don't match this page | inspect the page, update the `text` selector chain; if it's a JS page, set `renderer: js` |
 | many `via_generic_fallback` | the site redesigned, or older pages use a different layout | add the new/old selectors to the field's fallback chain |
 | `HTTPStatusError: ... 404/500` | dead or moved URL | usually fine to leave failed; for a whole dead source, use the Wayback fallback (`leaderspeech.text_scraper.wayback`) |
+| `CERTIFICATE_VERIFY_FAILED` / SSL error | the site's TLS cert chain is broken/incomplete (common on old gov sites) | set `verify_ssl: false` in the recipe |
 | `0 links harvested` | listing selector/pattern or pagination is wrong | re-check `listing` and `pagination` against the live page |
 
 ## Guarantees

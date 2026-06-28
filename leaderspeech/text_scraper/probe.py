@@ -52,7 +52,8 @@ def probe(recipe_path: str, n: int = 2) -> dict:
         "recipe": recipe.source_id, "country": recipe.country,
         "renderer": recipe.renderer.value, "listing": {}, "pages": [],
     }
-    fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0)
+    fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
+                      verify_ssl=recipe.verify_ssl)
     try:
         first = recipe.start_urls[0]
         html = fetcher.get(first)

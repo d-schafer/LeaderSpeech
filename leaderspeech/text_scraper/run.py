@@ -166,6 +166,7 @@ def scrape_recipe(
         retries=recipe.politeness.retries,
         backoff=recipe.politeness.backoff,
         respect_robots=respect_robots,
+        verify_ssl=recipe.verify_ssl,
     )
 
     def stamp() -> str:
