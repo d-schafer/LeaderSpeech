@@ -66,7 +66,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 collapse=recipe.pagination.wayback_collapse,
             )
             if n < len(entries):
-                step = len(entries) / n
+                step = max(len(entries) // n, 1)
                 sample = [entries[min(int(i * step), len(entries) - 1)] for i in range(n)]
             else:
                 sample = entries
@@ -82,7 +82,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             # harvests every link first (slow for big sites; instant for sitemaps).
             links = harvest_links(recipe, fetcher)
             if n < len(links):
-                step = len(links) / n
+                step = max(len(links) // n, 1)
                 sample = [links[min(int(i * step), len(links) - 1)] for i in range(n)]
             else:
                 sample = links
