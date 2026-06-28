@@ -76,6 +76,7 @@ class Fetcher:
         backoff: float = 5.0,
         timeout: float = 30.0,
         respect_robots: bool = False,
+        verify_ssl: bool = True,
         user_agent: str = USER_AGENT,
     ):
         self.renderer = renderer
@@ -85,6 +86,7 @@ class Fetcher:
         self.retries = retries
         self.backoff = backoff
         self.timeout = timeout
+        self.verify_ssl = verify_ssl
         self.user_agent = user_agent
         self._count = 0
         self._robots = RobotsCache(user_agent) if respect_robots else None
@@ -98,6 +100,7 @@ class Fetcher:
                 headers={"User-Agent": user_agent},
                 follow_redirects=True,
                 timeout=timeout,
+                verify=verify_ssl,  # many gov sites have broken cert chains
             )
         else:
             self._init_browser()
@@ -107,7 +110,10 @@ class Fetcher:
 
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
-        self._page = self._browser.new_page(user_agent=self.user_agent)
+        context = self._browser.new_context(
+            user_agent=self.user_agent, ignore_https_errors=not self.verify_ssl
+        )
+        self._page = context.new_page()
 
     @property
     def page(self):

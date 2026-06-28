@@ -39,6 +39,7 @@ with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speech
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
 | `start_urls` | yes | One or more listing-page URLs. |
 | `renderer` | no | `static` (default) or `js`. |
+| `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
 | `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, or `none` (default). |
