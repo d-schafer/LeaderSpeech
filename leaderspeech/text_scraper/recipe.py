@@ -31,6 +31,7 @@ class PaginationType(str, Enum):
     path = "path"                 # /discursos/2 style
     click = "click"               # click a "next" button (JS sites)
     url_list = "url_list"         # an explicit, pre-known list of pages
+    sitemap = "sitemap"           # enumerate all URLs from the site's sitemap(s)
     none = "none"                 # a single listing page, no pagination
 
 
@@ -55,6 +56,9 @@ class Pagination(BaseModel):
     max_pages: Optional[int] = None        # safety cap; None => stop on empty page
     next_selector: Optional[str] = None    # "next" button selector (click type)
     url_list: Optional[list[str]] = None   # explicit listing URLs (url_list type)
+    sitemap_urls: Optional[list[str]] = None  # sitemap.xml URLs (sitemap type); a
+    # sitemap index is followed into its children. URLs are kept if they match
+    # listing.link_pattern.
 
 
 class FieldSpec(BaseModel):
@@ -121,6 +125,8 @@ class Recipe(BaseModel):
             raise ValueError("click pagination needs 'next_selector'")
         if self.pagination.type == PaginationType.url_list and not self.pagination.url_list:
             raise ValueError("url_list pagination needs 'url_list'")
+        if self.pagination.type == PaginationType.sitemap and not self.pagination.sitemap_urls:
+            raise ValueError("sitemap pagination needs 'sitemap_urls'")
         # auto-fill numeric ISO code
         if self.iso3n is None and pycountry is not None:
             try:

@@ -82,3 +82,18 @@ def test_failure_is_logged_then_fixable_and_resumable(tmp_path, monkeypatch):
 
     # doc_ids stayed unique and contiguous across runs (ARG0001 then ARG0002)
     assert state["last_doc_num"] == 2
+
+
+def test_circuit_breaker_aborts_on_consecutive_failures(tmp_path, monkeypatch):
+    urls = [f"http://x/{i}-boom" for i in range(20)]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {u: "boom" for u in urls}
+
+    res = run.scrape_recipe(
+        _recipe(tmp_path), out_root=str(tmp_path / "s"), state_root=str(tmp_path / "st"),
+        max_consecutive_failures=5,
+    )
+    assert res["aborted_early"] is True
+    assert res["scraped_this_run"] == 0
+    assert res["failed_this_run"] == 5  # stopped right after the 5th, didn't grind through 20

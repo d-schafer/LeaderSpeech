@@ -9,6 +9,13 @@ body:
         One issue = one source = one recipe in `recipes/`. Fill in what you can by inspecting the site;
         see [`docs/recipes.md`](../blob/main/docs/recipes.md) for how. Blanks are fine — a partial
         recipe that scrapes title/text/date is already useful.
+
+        **Working this end to end (incl. agents):** follow
+        [`docs/agent_task_end_to_end.md`](../blob/main/docs/agent_task_end_to_end.md) — write the recipe,
+        prove it with `python -m leaderspeech.text_scraper.probe --recipe recipes/<id>.yml`, do a capped
+        run, scrape the full history, debug via [`docs/debugging.md`](../blob/main/docs/debugging.md), then
+        set the source's `recipe_status` to `validated` and open a PR. The "Definition of done" checklist is
+        in that runbook.
   - type: input
     id: country
     attributes:

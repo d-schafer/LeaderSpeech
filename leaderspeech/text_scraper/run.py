@@ -140,6 +140,7 @@ def scrape_recipe(
     limit: int | None = None,
     respect_robots: bool = False,
     retry_failed: bool = False,
+    max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
     recipe = load_recipe(recipe_path)
@@ -171,6 +172,8 @@ def scrape_recipe(
         return datetime.now().isoformat(timespec="seconds")
 
     n_scraped = n_generic = n_failed = 0
+    consecutive_fail = 0
+    aborted_early = False
     links: list[str] = []
     pending_rows: list[dict] = []
     errors: list[dict] = []
@@ -205,23 +208,35 @@ def scrape_recipe(
                                    "error": "empty_text (no recipe match; generic also empty)"})
                     failed.add(url)         # NOT seen -> retried after a recipe fix
                     n_failed += 1
+                    consecutive_fail += 1
                     log.warning("empty: %s", url)
-                    continue
-                state["last_doc_num"] += 1
-                doc_id = f"{alpha3}{state['last_doc_num']:04d}"
-                pending_rows.append(map_to_schema(rec, recipe, doc_id))
-                seen.add(url)
-                failed.discard(url)          # in case this was a previously-failed retry
-                n_scraped += 1
-                if via_generic:
-                    n_generic += 1
-                    log.info("recovered via generic extractor: %s", url)
+                else:
+                    state["last_doc_num"] += 1
+                    doc_id = f"{alpha3}{state['last_doc_num']:04d}"
+                    pending_rows.append(map_to_schema(rec, recipe, doc_id))
+                    seen.add(url)
+                    failed.discard(url)      # in case this was a previously-failed retry
+                    n_scraped += 1
+                    consecutive_fail = 0
+                    if via_generic:
+                        n_generic += 1
+                        log.info("recovered via generic extractor: %s", url)
             except Exception as e:
                 detail = f"{type(e).__name__}: {e}"
                 errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
                 failed.add(url)
                 n_failed += 1
+                consecutive_fail += 1
                 log.warning("error: %s :: %s", url, detail[:160])
+
+            # circuit breaker: a long unbroken run of failures means we're blocked or the
+            # recipe/site broke — stop with a clear signal instead of hammering on.
+            if consecutive_fail >= max_consecutive_failures:
+                aborted_early = True
+                log.error("ABORTING after %d consecutive failures — likely blocked, or the "
+                          "recipe/site changed. See the errors file. Fix, then --retry-failed.",
+                          consecutive_fail)
+                break
 
             if i % save_every == 0:  # checkpoint: flush rows, errors, and state
                 _append(out_path, pending_rows, SCHEMA_COLUMNS)
@@ -240,8 +255,13 @@ def scrape_recipe(
         _append(err_path, errors, ERROR_COLUMNS)
         state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
         save_state(state_path, state)
-        log.info("DONE %s | scraped=%d generic=%d failed=%d | last_doc_num=%d | out=%s",
-                 recipe.source_id, n_scraped, n_generic, n_failed, state["last_doc_num"], out_path)
+        attempted = n_scraped + n_failed
+        if attempted and n_failed / attempted > 0.5:
+            log.warning("HIGH FAILURE RATE: %d/%d failed — check the recipe selectors / pagination "
+                        "(or the site may be blocking).", n_failed, attempted)
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s | last_doc_num=%d | out=%s",
+                 recipe.source_id, n_scraped, n_generic, n_failed,
+                 " | ABORTED EARLY" if aborted_early else "", state["last_doc_num"], out_path)
         logging.getLogger("leaderspeech").removeHandler(log_handler)
         log_handler.close()
 
@@ -253,6 +273,7 @@ def scrape_recipe(
         "via_generic_fallback": n_generic,   # high => recipe selectors are drifting
         "failed_this_run": n_failed,
         "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
+        "aborted_early": aborted_early,       # circuit breaker tripped (likely blocked/broken)
         "last_doc_num": state["last_doc_num"],
         "output": str(out_path),
         "log": str(log_path),

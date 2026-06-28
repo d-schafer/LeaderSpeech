@@ -13,11 +13,11 @@ listing:
   link_pattern: '/emmanuel-macron/\d{4}/\d{2}/\d{2}/'
 
 pagination:
-  type: query_param
-  param: page
-  start: 1
-  step: 1
-  max_pages: 100
+  # The server-rendered listing only shows the latest ~100 items and ignores ?page=,
+  # so use the sitemap — it lists the full article history (2017-present).
+  type: sitemap
+  sitemap_urls:
+    - https://www.elysee.fr/sitemap.publication.xml
 
 title:
   selectors: ["h1", ".card__title"]

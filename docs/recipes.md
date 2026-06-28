@@ -22,6 +22,12 @@ agent assigned a "new source" issue — can produce a working recipe by inspecti
 If a site is too irregular to pin down, run `fallback_generic.extract_generic` on a couple of pages to
 get a draft, then tighten it into real selectors.
 
+**Watch for listings that only show recent items.** Some sites render only the latest ~N items and quietly
+ignore `?page=`, so a paginated crawl looks clean but stops a few weeks back. If you suspect this (or just
+want the full history), check the site's **sitemap** — `/<root>/sitemap.xml` and the entries in
+`/robots.txt`. A sitemap usually lists every article URL going back years; use `pagination.type: sitemap`
+with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speeches.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -35,12 +41,13 @@ get a draft, then tighten it into real selectors.
 | `renderer` | no | `static` (default) or `js`. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
-| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, or `none` (default). |
+| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
 | `pagination.next_selector` | for click | CSS selector of the "next" button. |
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
+| `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `title` / `text` / `date` | yes | Each is `{ selectors: [...] }`, an ordered fallback chain. First match wins. |
 | `speaker` / `context` | no | Same shape as above. |
 | `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |

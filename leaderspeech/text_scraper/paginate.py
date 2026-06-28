@@ -57,6 +57,8 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
 
     if pg.type == PaginationType.url_list:
         return list(pg.url_list or [])
+    if pg.type == PaginationType.sitemap:
+        return _harvest_sitemap(recipe, fetcher, max_links)
     if pg.type == PaginationType.click:
         return _harvest_click(recipe, fetcher, max_pages, max_links)
 
@@ -102,6 +104,38 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
             break
 
     return collected[:max_links] if max_links else collected
+
+
+def _harvest_sitemap(recipe: Recipe, fetcher, max_links) -> list[str]:
+    """Enumerate speech URLs from the site's sitemap(s).
+
+    Sitemaps are the canonical "every URL" list — far more complete than paging a
+    listing that only shows recent items. A sitemap *index* is followed into its
+    child sitemaps. URLs are kept if they match listing.link_pattern.
+    """
+    pattern = re.compile(recipe.listing.link_pattern) if recipe.listing.link_pattern else None
+    collected, seen = [], set()
+    queue = list(recipe.pagination.sitemap_urls or [])
+    fetched = 0
+    while queue and fetched < 200:  # cap how many sitemap files we'll open
+        sm_url = queue.pop(0)
+        fetched += 1
+        try:
+            soup = BeautifulSoup(fetcher.get(sm_url), "xml")
+        except Exception as e:
+            log.warning("sitemap fetch failed: %s :: %s", sm_url, e)
+            continue
+        is_index = soup.find("sitemapindex") is not None
+        for loc in soup.find_all("loc"):
+            url = loc.get_text().strip()
+            if is_index:
+                queue.append(url)  # a child sitemap to open
+            elif (pattern is None or pattern.search(url)) and url not in seen:
+                seen.add(url)
+                collected.append(url)
+                if max_links and len(collected) >= max_links:
+                    return collected
+    return collected
 
 
 def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links) -> list[str]:

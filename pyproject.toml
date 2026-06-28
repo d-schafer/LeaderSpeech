@@ -33,6 +33,7 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 leaderspeech-scrape = "leaderspeech.text_scraper.run:main"
+leaderspeech-probe = "leaderspeech.text_scraper.probe:main"
 
 [tool.setuptools.packages.find]
 include = ["leaderspeech*"]
