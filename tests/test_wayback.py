@@ -30,11 +30,13 @@ def test_filter_entries_for_recipe_drops_listing_and_query_pages():
         {"original": "https://www.casarosada.gob.ar/informacion/discursos"},
         {"original": "https://www.casarosada.gob.ar/informacion/discursos?start=40"},
         {"original": "https://www.casarosada.gob.ar/informacion/discursos/18-nuestro-pais/galeria-de-presidentes/1"},
+        {"original": "https://www.casarosada.gob.ar/informacion/discursos/16462-blank-35472369"},
         {"original": "https://www.casarosada.gob.ar/informacion/discursos/2"},
     ]
 
-    filtered = wayback.filter_entries_for_recipe(entries, r"/informacion/discursos/\d+/?$")
+    filtered = wayback.filter_entries_for_recipe(entries, r"/informacion/discursos/\d+[^/]*$")
 
     assert [entry["original"] for entry in filtered] == [
+        "https://www.casarosada.gob.ar/informacion/discursos/16462-blank-35472369",
         "https://www.casarosada.gob.ar/informacion/discursos/2",
     ]

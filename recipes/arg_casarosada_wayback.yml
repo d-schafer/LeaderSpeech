@@ -9,7 +9,7 @@ renderer: static
 
 listing:
   link_selector: "a[href*='/informacion/discursos/']"
-  link_pattern: '/informacion/discursos/\d+/?$'
+  link_pattern: '/informacion/discursos/\d+[^/]*$'
 
 pagination:
   type: wayback
