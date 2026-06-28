@@ -96,6 +96,9 @@ Open the resulting `data/scraped/<Country>/<source_id>.csv` and check that `titl
 are populated and clean. Spot-check the speaker and date against the
 `leader_tenure_final` key (does the named leader plausibly hold office on that date in that country?).
 
+If something looks wrong, the run's summary, log, and `_errors.csv` tell you what and where — see
+[`debugging.md`](debugging.md) for reading them and the fix-and-resume loop.
+
 ## Good-citizen reminders
 
 - Pacing is light by default (a breather every 50 requests). If a host starts erroring or rate-limiting,

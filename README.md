@@ -36,7 +36,8 @@ python -m leaderspeech.text_scraper.run \
 Output is written to `data/scraped/<Country>/<source_id>.csv`, one row per speech in the standardized
 schema below. A per-country state file under `data/state/` records which URLs have been seen and the last
 `doc_id` number used, so re-running the same recipe **continues where it left off** rather than starting
-over or double-counting.
+over or double-counting. Each run also drops a timestamped log and an errors file next to the CSV — see
+[`docs/debugging.md`](docs/debugging.md) for the stop → fix → `--retry-failed` workflow.
 
 ## The recipe
 

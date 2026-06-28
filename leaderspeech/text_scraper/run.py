@@ -16,7 +16,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pycountry
@@ -26,6 +28,10 @@ from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
 from .recipe import Recipe, load_recipe
+
+# fixed name (not __name__): under `python -m`, __name__ is "__main__", which would
+# sit outside the "leaderspeech" logger tree where _add_log_file attaches handlers.
+log = logging.getLogger("leaderspeech.text_scraper.run")
 
 # survive non-ASCII speaker/title names on the Windows console
 try:
@@ -42,7 +48,7 @@ SCHEMA_COLUMNS = [
     "text", "text_originlanguage",
     "date", "source", "source_language", "dataset",
 ]
-ERROR_COLUMNS = ["source", "error"]
+ERROR_COLUMNS = ["timestamp", "url", "error"]
 
 
 def alpha3_for(country: str) -> str:
@@ -59,8 +65,31 @@ def is_english(language: str) -> bool:
 
 def load_state(path: Path) -> dict:
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return {"last_doc_num": 0, "seen_urls": []}
+        state = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        state = {"last_doc_num": 0, "seen_urls": []}
+    # seen_urls = successfully scraped; failed_urls = errored/empty (retried on demand)
+    state.setdefault("failed_urls", [])
+    return state
+
+
+def _add_log_file(out_dir: Path, source_id: str):
+    """Attach a per-run timestamped log file to the package logger (plus a console
+    handler if none yet). Returns (path, handler) so the caller can detach it."""
+    pkg = logging.getLogger("leaderspeech")
+    pkg.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s", "%H:%M:%S")
+    if not any(type(h) is logging.StreamHandler for h in pkg.handlers):
+        sh = logging.StreamHandler(sys.stderr)
+        sh.setFormatter(fmt)
+        pkg.addHandler(sh)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    path = out_dir / f"{source_id}_{ts}.log"
+    fh = logging.FileHandler(path, encoding="utf-8")
+    fh.setFormatter(fmt)
+    pkg.addHandler(fh)
+    return path, fh
 
 
 def save_state(path: Path, state: dict):
@@ -110,16 +139,23 @@ def scrape_recipe(
     max_links: int | None = None,
     limit: int | None = None,
     respect_robots: bool = False,
+    retry_failed: bool = False,
     save_every: int = 25,
 ) -> dict:
     recipe = load_recipe(recipe_path)
     alpha3 = alpha3_for(recipe.country)
-    out_path = Path(out_root) / recipe.country / f"{recipe.source_id}.csv"
-    err_path = Path(out_root) / recipe.country / f"{recipe.source_id}_errors.csv"
+    out_dir = Path(out_root) / recipe.country
+    out_path = out_dir / f"{recipe.source_id}.csv"
+    err_path = out_dir / f"{recipe.source_id}_errors.csv"
     state_path = Path(state_root) / f"{recipe.country}.json"
 
+    log_path, log_handler = _add_log_file(out_dir, recipe.source_id)
+    log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s respect_robots=%s",
+             recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed, respect_robots)
+
     state = load_state(state_path)
-    seen = set(state["seen_urls"])
+    seen = set(state["seen_urls"])       # already scraped — never re-fetched
+    failed = set(state["failed_urls"])   # errored/empty — re-fetched only with retry_failed
 
     fetcher = Fetcher(
         renderer=recipe.renderer.value,
@@ -131,14 +167,22 @@ def scrape_recipe(
         respect_robots=respect_robots,
     )
 
+    def stamp() -> str:
+        return datetime.now().isoformat(timespec="seconds")
+
     n_scraped = n_generic = n_failed = 0
+    links: list[str] = []
     pending_rows: list[dict] = []
     errors: list[dict] = []
     try:
         links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
-        todo = [url for url in links if url not in seen]
+        skip = seen if retry_failed else (seen | failed)
+        todo = [url for url in links if url not in skip]
         if limit:
             todo = todo[:limit]
+        log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed%s)",
+                 len(links), len(todo), len(seen), len(failed),
+                 "; retrying failures" if retry_failed else "")
 
         for i, url in enumerate(todo, 1):
             try:
@@ -157,46 +201,62 @@ def scrape_recipe(
                         rec["speaker"] = rec["speaker"] or gen["speaker"]
                         via_generic = True
                 if not rec["text"]:
-                    errors.append({"source": url, "error": "empty_text"})
-                    seen.add(url)
+                    errors.append({"timestamp": stamp(), "url": url,
+                                   "error": "empty_text (no recipe match; generic also empty)"})
+                    failed.add(url)         # NOT seen -> retried after a recipe fix
                     n_failed += 1
+                    log.warning("empty: %s", url)
                     continue
                 state["last_doc_num"] += 1
                 doc_id = f"{alpha3}{state['last_doc_num']:04d}"
                 pending_rows.append(map_to_schema(rec, recipe, doc_id))
                 seen.add(url)
+                failed.discard(url)          # in case this was a previously-failed retry
                 n_scraped += 1
                 if via_generic:
                     n_generic += 1
-                    # log (not as an error) so generic-extracted rows are auditable
-                    errors.append({"source": url, "error": "ok_recovered_via_generic"})
+                    log.info("recovered via generic extractor: %s", url)
             except Exception as e:
-                errors.append({"source": url, "error": str(e)[:300]})
+                detail = f"{type(e).__name__}: {e}"
+                errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
+                failed.add(url)
                 n_failed += 1
+                log.warning("error: %s :: %s", url, detail[:160])
 
-            if i % save_every == 0:  # intermediate checkpoint
+            if i % save_every == 0:  # checkpoint: flush rows, errors, and state
                 _append(out_path, pending_rows, SCHEMA_COLUMNS)
                 _append(err_path, errors, ERROR_COLUMNS)
                 pending_rows, errors = [], []
-                state["seen_urls"] = sorted(seen)
+                state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
                 save_state(state_path, state)
+                log.info("progress %d/%d | scraped=%d generic=%d failed=%d",
+                         i, len(todo), n_scraped, n_generic, n_failed)
+    except Exception:
+        log.exception("FATAL during harvest/scrape — partial results flushed below")
+        raise
     finally:
         fetcher.close()
-
-    _append(out_path, pending_rows, SCHEMA_COLUMNS)
-    _append(err_path, errors, ERROR_COLUMNS)
-    state["seen_urls"] = sorted(seen)
-    save_state(state_path, state)
+        _append(out_path, pending_rows, SCHEMA_COLUMNS)
+        _append(err_path, errors, ERROR_COLUMNS)
+        state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
+        save_state(state_path, state)
+        log.info("DONE %s | scraped=%d generic=%d failed=%d | last_doc_num=%d | out=%s",
+                 recipe.source_id, n_scraped, n_generic, n_failed, state["last_doc_num"], out_path)
+        logging.getLogger("leaderspeech").removeHandler(log_handler)
+        log_handler.close()
 
     return {
         "source_id": recipe.source_id,
         "country": recipe.country,
         "links_found": len(links),
         "scraped_this_run": n_scraped,
-        "via_generic_fallback": n_generic,  # watch this: high => recipe selectors drifting
-        "empty_or_failed": n_failed,
+        "via_generic_fallback": n_generic,   # high => recipe selectors are drifting
+        "failed_this_run": n_failed,
+        "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
         "last_doc_num": state["last_doc_num"],
         "output": str(out_path),
+        "log": str(log_path),
+        "errors_file": str(err_path),
     }
 
 
@@ -210,12 +270,15 @@ def main():
     ap.add_argument("--limit", type=int, default=None, help="cap speeches scraped this run")
     ap.add_argument("--respect-robots", action="store_true",
                     help="honor robots.txt (off by default for this public-record project)")
+    ap.add_argument("--retry-failed", action="store_true",
+                    help="re-attempt URLs that previously errored/were empty (use after fixing a recipe)")
     args = ap.parse_args()
 
     result = scrape_recipe(
         args.recipe, args.out_root, args.state_root,
         args.max_pages, args.max_links, args.limit,
         respect_robots=args.respect_robots,
+        retry_failed=args.retry_failed,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

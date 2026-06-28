@@ -9,6 +9,7 @@ single page.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
@@ -16,6 +17,8 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 from bs4 import BeautifulSoup
 
 from .recipe import Listing, PaginationType, Recipe
+
+log = logging.getLogger(__name__)
 
 
 def extract_links(html: str, base_url: str, listing: Listing) -> list[str]:
@@ -72,19 +75,29 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
 
     for start_url in recipe.start_urls:
         if pg.type == PaginationType.none:
-            add(extract_links(fetcher.get(start_url), start_url, recipe.listing))
-        else:
-            for page_idx in range(hard_cap):
-                value = pg.start + page_idx * pg.step
-                if pg.type == PaginationType.query_param:
-                    page_url = _with_query_param(start_url, pg.param, value)
-                else:  # path
-                    page_url = start_url.rstrip("/") + f"/{value}"
-                gained = add(extract_links(fetcher.get(page_url), page_url, recipe.listing))
-                if gained == 0:  # ran past the last page of results
-                    break
-                if max_links and len(collected) >= max_links:
-                    break
+            try:
+                add(extract_links(fetcher.get(start_url), start_url, recipe.listing))
+            except Exception as e:
+                log.warning("listing fetch failed: %s :: %s", start_url, e)
+            continue
+
+        for page_idx in range(hard_cap):
+            value = pg.start + page_idx * pg.step
+            if pg.type == PaginationType.query_param:
+                page_url = _with_query_param(start_url, pg.param, value)
+            else:  # path
+                page_url = start_url.rstrip("/") + f"/{value}"
+            try:
+                html = fetcher.get(page_url)
+            except Exception as e:
+                # one bad listing page shouldn't kill the whole crawl
+                log.warning("listing page failed, stopping pagination here: %s :: %s", page_url, e)
+                break
+            gained = add(extract_links(html, page_url, recipe.listing))
+            if gained == 0:  # ran past the last page of results
+                break
+            if max_links and len(collected) >= max_links:
+                break
         if max_links and len(collected) >= max_links:
             break
 
