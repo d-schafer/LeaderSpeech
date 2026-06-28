@@ -224,13 +224,13 @@ def scrape_recipe(
                      len(links), len(todo), len(seen), len(failed),
                      "; retrying failures" if retry_failed else "")
 
-        for i, item in enumerate(todo, 1):
+        for i, todo_item in enumerate(todo, 1):
             try:
                 if wayback_mode:
-                    url = item["original"]
-                    html = wayback.fetch_snapshot(item)
+                    url = todo_item["original"]
+                    html = wayback.fetch_snapshot(todo_item)
                 else:
-                    url = item
+                    url = todo_item
                     html = fetcher.get(url)
                 rec = extract_record(html, url, recipe)
                 # Recipes are tuned to a site's CURRENT layout; older/archived pages

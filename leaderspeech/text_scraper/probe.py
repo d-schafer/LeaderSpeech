@@ -47,7 +47,8 @@ def _which_selector(soup, spec: FieldSpec | None):
     return None, 0
 
 
-def _sample_evenly(entries: list, n: int):
+def _sample_evenly(entries: list, n: int) -> list:
+    """Pick `n` roughly even samples; return all entries when `n` is large enough."""
     if n < len(entries):
         step = max(len(entries) // n, 1)
         return [entries[min(i * step, len(entries) - 1)] for i in range(n)]

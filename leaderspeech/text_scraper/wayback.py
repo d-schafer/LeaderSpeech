@@ -69,7 +69,13 @@ def list_snapshots_for_queries(
     collapse: str = "urlkey",
     timeout: float = 60.0,
 ) -> list[dict]:
-    """Query CDX for one or more URL prefixes and de-duplicate by original URL."""
+    """Query CDX for one or more URL prefixes and de-duplicate by original URL.
+
+    If `limit` is set, it caps the total number of returned captures across all
+    queries. When multiple URLs are provided, the underlying CDX call is capped
+    per query only when there is a single query; otherwise the total cap is
+    enforced after de-duplicating the merged results.
+    """
     queries = list(urls)
     per_query_limit = limit if len(queries) == 1 else None
     out: list[dict] = []
