@@ -46,6 +46,11 @@ def test_query_param_pagination_requires_param():
         Recipe(**bad)
 
 
+def test_wayback_pagination_loads():
+    r = Recipe(**{**MINIMAL, "pagination": {"type": "wayback"}})
+    assert r.pagination.type.value == "wayback"
+
+
 @pytest.mark.skipif(not RECIPES, reason="no recipes yet")
 @pytest.mark.parametrize("path", RECIPES, ids=[p.stem for p in RECIPES])
 def test_committed_recipe_is_valid(path):

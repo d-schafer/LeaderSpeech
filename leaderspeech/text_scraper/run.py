@@ -27,7 +27,8 @@ from .extract import extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
-from .recipe import Recipe, load_recipe
+from .recipe import PaginationType, Recipe, load_recipe
+from . import wayback
 
 # fixed name (not __name__): under `python -m`, __name__ is "__main__", which would
 # sit outside the "leaderspeech" logger tree where _add_log_file attaches handlers.
@@ -131,6 +132,17 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
         writer.writerows(rows)
 
 
+def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
+    return wayback.list_snapshots_for_queries(
+        recipe.start_urls,
+        from_date=recipe.pagination.wayback_from,
+        to_date=recipe.pagination.wayback_to,
+        limit=recipe.pagination.wayback_limit,
+        match_type=recipe.pagination.wayback_match_type,
+        collapse=recipe.pagination.wayback_collapse,
+    )
+
+
 def scrape_recipe(
     recipe_path: str,
     out_root: str = "data/scraped",
@@ -179,7 +191,14 @@ def scrape_recipe(
     pending_rows: list[dict] = []
     errors: list[dict] = []
     try:
-        links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
+        wayback_mode = recipe.pagination.type == PaginationType.wayback
+        if wayback_mode:
+            entries = _harvest_wayback_entries(recipe)
+            links = [entry["original"] for entry in entries if entry.get("original")]
+        else:
+            entries = []
+            links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
+
         # Persist the harvested list immediately (before any scraping) — a record of
         # what was found, and insurance against a crash mid-scrape.
         if links:
@@ -187,17 +206,32 @@ def scrape_recipe(
             links_path.parent.mkdir(parents=True, exist_ok=True)
             links_path.write_text("\n".join(links) + "\n", encoding="utf-8")
             log.info("saved %d harvested links to %s", len(links), links_path.name)
-        skip = seen if retry_failed else (seen | failed)
-        todo = [url for url in links if url not in skip]
-        if limit:
-            todo = todo[:limit]
-        log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed%s)",
-                 len(links), len(todo), len(seen), len(failed),
-                 "; retrying failures" if retry_failed else "")
 
-        for i, url in enumerate(todo, 1):
+        skip = seen if retry_failed else (seen | failed)
+        if wayback_mode:
+            todo_entries = [entry for entry in entries if entry.get("original") not in skip]
+            if limit:
+                todo_entries = todo_entries[:limit]
+            log.info("harvested %d archived capture(s); %d to scrape (%d done, %d known-failed%s)",
+                     len(entries), len(todo_entries), len(seen), len(failed),
+                     "; retrying failures" if retry_failed else "")
+            todo = todo_entries
+        else:
+            todo = [url for url in links if url not in skip]
+            if limit:
+                todo = todo[:limit]
+            log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed%s)",
+                     len(links), len(todo), len(seen), len(failed),
+                     "; retrying failures" if retry_failed else "")
+
+        for i, item in enumerate(todo, 1):
             try:
-                html = fetcher.get(url)
+                if wayback_mode:
+                    url = item["original"]
+                    html = wayback.fetch_snapshot(item)
+                else:
+                    url = item
+                    html = fetcher.get(url)
                 rec = extract_record(html, url, recipe)
                 # Recipes are tuned to a site's CURRENT layout; older/archived pages
                 # often used a different structure and yield nothing. Before giving up,

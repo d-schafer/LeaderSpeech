@@ -32,6 +32,7 @@ class PaginationType(str, Enum):
     click = "click"               # click a "next" button (JS sites)
     url_list = "url_list"         # an explicit, pre-known list of pages
     sitemap = "sitemap"           # enumerate all URLs from the site's sitemap(s)
+    wayback = "wayback"           # enumerate archived captures from the Wayback CDX API
     none = "none"                 # a single listing page, no pagination
 
 
@@ -59,6 +60,11 @@ class Pagination(BaseModel):
     sitemap_urls: Optional[list[str]] = None  # sitemap.xml URLs (sitemap type); a
     # sitemap index is followed into its children. URLs are kept if they match
     # listing.link_pattern.
+    wayback_limit: Optional[int] = None    # cap archived captures listed per query
+    wayback_match_type: str = "prefix"     # CDX `matchType`
+    wayback_collapse: str = "urlkey"       # CDX `collapse`
+    wayback_from: Optional[str] = None     # CDX `from` (YYYYMMDD)
+    wayback_to: Optional[str] = None       # CDX `to` (YYYYMMDD)
 
 
 class FieldSpec(BaseModel):
@@ -128,6 +134,8 @@ class Recipe(BaseModel):
             raise ValueError("url_list pagination needs 'url_list'")
         if self.pagination.type == PaginationType.sitemap and not self.pagination.sitemap_urls:
             raise ValueError("sitemap pagination needs 'sitemap_urls'")
+        if self.pagination.type == PaginationType.wayback and not self.start_urls:
+            raise ValueError("wayback pagination needs start_urls with CDX prefixes")
         # auto-fill numeric ISO code
         if self.iso3n is None and pycountry is not None:
             try:

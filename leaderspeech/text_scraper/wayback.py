@@ -15,13 +15,13 @@ Typical use:
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Iterable, Optional
 
 import httpx
 
 from .fetch import USER_AGENT
 
-CDX_ENDPOINT = "http://web.archive.org/cdx/search/cdx"
+CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
 
 
 def list_snapshots(
@@ -60,10 +60,46 @@ def list_snapshots(
     return [dict(zip(header, row)) for row in rows]
 
 
+def list_snapshots_for_queries(
+    urls: Iterable[str],
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    limit: Optional[int] = None,
+    match_type: str = "prefix",
+    collapse: str = "urlkey",
+    timeout: float = 60.0,
+) -> list[dict]:
+    """Query CDX for one or more URL prefixes and de-duplicate by original URL."""
+    queries = list(urls)
+    per_query_limit = limit if len(queries) == 1 else None
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    for url in queries:
+        snaps = list_snapshots(
+            url,
+            from_date=from_date,
+            to_date=to_date,
+            limit=per_query_limit,
+            match_type=match_type,
+            collapse=collapse,
+            timeout=timeout,
+        )
+        for entry in snaps:
+            original = entry.get("original")
+            if not original or original in seen:
+                continue
+            seen.add(original)
+            out.append(entry)
+            if limit is not None and len(out) >= limit:
+                return out
+    return out
+
+
 def snapshot_url(entry: dict) -> str:
     """Build the raw-capture URL for a CDX entry (the 'id_' suffix gets the
     original page bytes, not the Archive's reframed viewer)."""
-    return f"http://web.archive.org/web/{entry['timestamp']}id_/{entry['original']}"
+    return f"https://web.archive.org/web/{entry['timestamp']}id_/{entry['original']}"
 
 
 def fetch_snapshot(entry: dict, delay: float = 3.0, timeout: float = 60.0) -> str:

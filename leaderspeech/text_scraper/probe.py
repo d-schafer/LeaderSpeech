@@ -22,7 +22,8 @@ from .extract import clean_text, extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
-from .recipe import FieldSpec, load_recipe
+from .recipe import FieldSpec, PaginationType, load_recipe
+from . import wayback
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -55,7 +56,27 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl)
     try:
-        if spread:
+        if recipe.pagination.type == PaginationType.wayback:
+            entries = wayback.list_snapshots_for_queries(
+                recipe.start_urls,
+                from_date=recipe.pagination.wayback_from,
+                to_date=recipe.pagination.wayback_to,
+                limit=recipe.pagination.wayback_limit,
+                match_type=recipe.pagination.wayback_match_type,
+                collapse=recipe.pagination.wayback_collapse,
+            )
+            if n < len(entries):
+                step = len(entries) / n
+                sample = [entries[min(int(i * step), len(entries) - 1)] for i in range(n)]
+            else:
+                sample = entries
+            report["listing"] = {
+                "mode": "wayback snapshots",
+                "snapshots_found": len(entries),
+                "sampled": len(sample),
+                "sample": [entry["original"] for entry in sample if entry.get("original")],
+            }
+        elif spread:
             # Sample across the WHOLE history (oldest..newest) to catch structural
             # drift — a recipe can pass for recent pages but break on old ones. This
             # harvests every link first (slow for big sites; instant for sitemaps).
@@ -73,11 +94,18 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             sample = links[:n]
             report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
 
-        for url in sample:
+        for item in sample:
             try:
-                phtml = fetcher.get(url)
+                if recipe.pagination.type == PaginationType.wayback:
+                    entry = item
+                    url = entry["original"]
+                    phtml = wayback.fetch_snapshot(entry, delay=0.0)
+                else:
+                    url = item
+                    phtml = fetcher.get(url)
             except Exception as e:
-                report["pages"].append({"url": url, "error": f"{type(e).__name__}: {e}"})
+                bad_url = item.get("original") if isinstance(item, dict) else item
+                report["pages"].append({"url": bad_url, "error": f"{type(e).__name__}: {e}"})
                 continue
             soup = BeautifulSoup(phtml, "lxml")
             rec = extract_record(phtml, url, recipe)              # what the recipe yields
