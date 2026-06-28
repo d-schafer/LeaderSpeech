@@ -9,6 +9,7 @@ strip carriage returns, collapse runs of whitespace, drop empty lines.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Optional
 
 import dateparser
@@ -67,7 +68,14 @@ def parse_date(raw: Optional[str], languages: Optional[list[str]] = None) -> Opt
             found = None
         if found:
             dt = found[0][1]
-    return dt.date().isoformat() if dt else None
+    if dt is None:
+        return None
+    # Reject implausible parses (e.g. dateparser returning year 0001 from a date
+    # fragment with no real year). A blank date is honest; a wrong one corrupts any
+    # time-series. The leader-tenure key / cleanup step can fill these later.
+    if dt.year < 1900 or dt.year > datetime.now().year + 1:
+        return None
+    return dt.date().isoformat()
 
 
 def extract_record(html: str, url: str, recipe: Recipe) -> dict:

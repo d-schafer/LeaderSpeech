@@ -20,6 +20,13 @@ def test_parse_date_multilingual_and_messy():
     assert parse_date("", ["en"]) is None
 
 
+def test_parse_date_rejects_implausible_years():
+    # dateparser can return year 0001 from a date fragment with no real year;
+    # a wrong date is worse than a blank one, so we reject implausible years.
+    assert parse_date("0001-11-30", ["en"]) is None
+    assert parse_date("November 30, 1850", ["en"]) is None
+
+
 def test_first_match_uses_fallback_chain():
     from bs4 import BeautifulSoup
 
