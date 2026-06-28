@@ -130,7 +130,8 @@ The most useful contribution is a new, validated recipe. See [`CONTRIBUTING.md`]
 are scoped so they can be picked up one source at a time — including by coding agents (Claude, Codex,
 Copilot) that open a pull request for you to review. The backlog of ~100 sources and how to work it is in
 [`docs/backlog.md`](docs/backlog.md); the step-by-step for tasking agents is in
-[`docs/agents.md`](docs/agents.md).
+[`docs/agents.md`](docs/agents.md); and the cheap-agent → frontier-reviewer pipeline (with the gates the
+researcher keeps) is in [`docs/review_workflow.md`](docs/review_workflow.md).
 
 ## License & citation
 

@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from .extract import clean_text, extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
-from .paginate import extract_links
+from .paginate import extract_links, harvest_links
 from .recipe import FieldSpec, load_recipe
 
 try:
@@ -46,7 +46,7 @@ def _which_selector(soup, spec: FieldSpec | None):
     return None, 0
 
 
-def probe(recipe_path: str, n: int = 2) -> dict:
+def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     recipe = load_recipe(recipe_path)
     report: dict = {
         "recipe": recipe.source_id, "country": recipe.country,
@@ -55,12 +55,25 @@ def probe(recipe_path: str, n: int = 2) -> dict:
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl)
     try:
-        first = recipe.start_urls[0]
-        html = fetcher.get(first)
-        links = extract_links(html, first, recipe.listing)
-        report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
+        if spread:
+            # Sample across the WHOLE history (oldest..newest) to catch structural
+            # drift — a recipe can pass for recent pages but break on old ones. This
+            # harvests every link first (slow for big sites; instant for sitemaps).
+            links = harvest_links(recipe, fetcher)
+            if n < len(links):
+                step = len(links) / n
+                sample = [links[min(int(i * step), len(links) - 1)] for i in range(n)]
+            else:
+                sample = links
+            report["listing"] = {"mode": "spread (full history)",
+                                  "links_found": len(links), "sampled": len(sample)}
+        else:
+            first = recipe.start_urls[0]
+            links = extract_links(fetcher.get(first), first, recipe.listing)
+            sample = links[:n]
+            report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
 
-        for url in links[:n]:
+        for url in sample:
             try:
                 phtml = fetcher.get(url)
             except Exception as e:
@@ -97,14 +110,17 @@ def _print(report: dict):
     print(f"\nRECIPE  {report['recipe']}  ({report['country']}, renderer={report['renderer']})")
     L = report["listing"]
     flag = ok if L.get("links_found") else no
-    print(f"LISTING {flag} {L.get('links_found', 0)} link(s) from {L.get('url')}")
+    where = L["mode"] if "mode" in L else f"from {L.get('url')}"
+    extra = f" (sampled {L['sampled']} across history)" if "sampled" in L else ""
+    print(f"LISTING {flag} {L.get('links_found', 0)} link(s) {where}{extra}")
     if not L.get("links_found"):
         print("        -> 0 links: check listing.link_selector / link_pattern and pagination.")
     for s in L.get("sample", []):
         print(f"          - {s}")
 
     for page in report["pages"]:
-        print(f"\nPAGE    {page['url']}")
+        date = page.get("parsed_date")
+        print(f"\nPAGE    [{date}]  {page['url']}")
         if "error" in page:
             print(f"        {no} fetch error: {page['error']}")
             continue
@@ -129,9 +145,12 @@ def main():
     ap = argparse.ArgumentParser(description="Diagnose a recipe against the live site")
     ap.add_argument("--recipe", required=True)
     ap.add_argument("--n", type=int, default=2, help="how many speech pages to inspect")
+    ap.add_argument("--spread", action="store_true",
+                    help="sample the --n pages evenly across the FULL history (catches "
+                         "structural drift on older pages); harvests all links first")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
-    report = probe(args.recipe, n=args.n)
+    report = probe(args.recipe, n=args.n, spread=args.spread)
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
