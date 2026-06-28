@@ -141,7 +141,12 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         match_type=recipe.pagination.wayback_match_type,
         collapse=recipe.pagination.wayback_collapse,
     )
-    return wayback.filter_entries_for_recipe(entries, recipe.listing.link_pattern)
+    return wayback.filter_entries_for_recipe(
+        entries,
+        recipe.listing.link_pattern,
+        drop_listing_paths=("/informacion/discursos", "/informacion/discursos/index"),
+        drop_query_params=("start", "page"),
+    )
 
 
 def scrape_recipe(

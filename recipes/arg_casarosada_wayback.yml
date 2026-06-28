@@ -40,4 +40,5 @@ position: president
 date_languages: ["es"]
 notes: >
   Archived variant for the pre-2015 Casa Rosada history; the live recipe remains
-  recipes/arg_casarosada.yml.
+  recipes/arg_casarosada.yml. The 2015-12-10 cutoff leaves the live archive
+  recipe to cover the post-Kirchner period.

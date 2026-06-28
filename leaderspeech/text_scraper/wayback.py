@@ -106,9 +106,16 @@ def list_snapshots_for_queries(
     return out
 
 
-def filter_entries_for_recipe(entries: Iterable[dict], link_pattern: Optional[str] = None) -> list[dict]:
+def filter_entries_for_recipe(
+    entries: Iterable[dict],
+    link_pattern: Optional[str] = None,
+    drop_listing_paths: Iterable[str] = (),
+    drop_query_params: Iterable[str] = (),
+) -> list[dict]:
     """Filter CDX captures down to speech-page URLs only."""
     pattern = re.compile(link_pattern) if link_pattern else None
+    listing_paths = {path.rstrip("/") for path in drop_listing_paths}
+    query_params = set(drop_query_params)
     out: list[dict] = []
     seen: set[str] = set()
 
@@ -118,10 +125,10 @@ def filter_entries_for_recipe(entries: Iterable[dict], link_pattern: Optional[st
             continue
         parsed = urlparse(original)
         path = parsed.path.rstrip("/")
-        if path in {"/informacion/discursos", "/informacion/discursos/index"}:
+        if path in listing_paths:
             continue
         query = parse_qs(parsed.query)
-        if "start" in query or "page" in query:
+        if any(param in query for param in query_params):
             continue
         if pattern and not pattern.search(original):
             continue
