@@ -37,13 +37,6 @@ def _which_selector(soup, spec: FieldSpec | None):
     """Return (matched_selector | None, n_elements) for the first selector that hits."""
     if spec is None:
         return None, 0
-
-
-def _sample_evenly(items: list, n: int):
-        if n < len(items):
-            step = max(len(items) // n, 1)
-            return [items[min(i * step, len(items) - 1)] for i in range(n)]
-        return list(items)
     for sel in spec.selectors:
         try:
             els = soup.select(sel)
@@ -52,6 +45,13 @@ def _sample_evenly(items: list, n: int):
         if els:
             return sel, len(els)
     return None, 0
+
+
+def _sample_evenly(items: list, n: int):
+    if n < len(items):
+        step = max(len(items) // n, 1)
+        return [items[min(i * step, len(items) - 1)] for i in range(n)]
+    return list(items)
 
 
 def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
