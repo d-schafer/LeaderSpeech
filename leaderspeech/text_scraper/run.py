@@ -180,6 +180,13 @@ def scrape_recipe(
     errors: list[dict] = []
     try:
         links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
+        # Persist the harvested list immediately (before any scraping) — a record of
+        # what was found, and insurance against a crash mid-scrape.
+        if links:
+            links_path = out_dir / f"{recipe.source_id}_links.txt"
+            links_path.parent.mkdir(parents=True, exist_ok=True)
+            links_path.write_text("\n".join(links) + "\n", encoding="utf-8")
+            log.info("saved %d harvested links to %s", len(links), links_path.name)
         skip = seen if retry_failed else (seen | failed)
         todo = [url for url in links if url not in skip]
         if limit:

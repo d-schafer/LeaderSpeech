@@ -98,6 +98,9 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
             gained = add(extract_links(html, page_url, recipe.listing))
             if gained == 0:  # ran past the last page of results
                 break
+            if (page_idx + 1) % 25 == 0:  # so a long harvest isn't a silent gap
+                log.info("harvesting... %d listing pages, %d links so far",
+                         page_idx + 1, len(collected))
             if max_links and len(collected) >= max_links:
                 break
         if max_links and len(collected) >= max_links:
