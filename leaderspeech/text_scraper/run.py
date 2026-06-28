@@ -144,8 +144,8 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
     return wayback.filter_entries_for_recipe(
         entries,
         recipe.listing.link_pattern,
-        drop_listing_paths=("/informacion/discursos", "/informacion/discursos/index"),
-        drop_query_params=("start", "page"),
+        drop_listing_paths=wayback.DEFAULT_LISTING_PATHS,
+        drop_query_params=wayback.DEFAULT_DROP_QUERY_PARAMS,
     )
 
 

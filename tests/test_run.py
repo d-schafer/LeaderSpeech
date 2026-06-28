@@ -5,7 +5,7 @@ import json
 
 from leaderspeech.text_scraper import run
 
-RECIPE_YAML = """
+RECIPE_YAML = r"""
 source_id: test_src
 country: Argentina
 source_language: Spanish
@@ -16,12 +16,12 @@ text: { selectors: ["div.body"] }
 date: { selectors: [".date"] }
 """
 
-WAYBACK_RECIPE_YAML = """
+WAYBACK_RECIPE_YAML = r"""
 source_id: test_wayback
 country: Argentina
 source_language: Spanish
 start_urls: ["casarosada.gob.ar/informacion/discursos"]
-listing: { link_selector: "a", link_pattern: '/discursos/\\d+$' }
+listing: { link_selector: "a", link_pattern: '/discursos/\d+$' }
 pagination: { type: wayback, wayback_to: "20151210" }
 title: { selectors: ["h1"] }
 text: { selectors: [".body"] }

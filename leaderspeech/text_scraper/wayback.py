@@ -24,6 +24,8 @@ import httpx
 from .fetch import USER_AGENT
 
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
+DEFAULT_LISTING_PATHS = ("/informacion/discursos", "/informacion/discursos/index")
+DEFAULT_DROP_QUERY_PARAMS = ("start", "page")
 
 
 def list_snapshots(
