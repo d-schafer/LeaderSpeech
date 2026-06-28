@@ -68,35 +68,6 @@ Every agent produces a **pull request**, never a direct push to `main`. On each 
 
 Treat agent output as a **draft**. The small live run is the gate, not the agent's confidence.
 
-## Reviewing an agent's PR locally (pull & check the branch)
-
-The agent's work lives on its own **branch** (e.g. `copilot/add-chile-presidencia-recipe`). To run the probe
-against it you need that branch's files on your machine. The probe is read-only and writes nothing to git, so
-checking out a branch and probing it is completely safe.
-
-**With GitHub Desktop (no command line):**
-1. Click **Fetch origin** (top bar) to pull down the latest, including the agent's branch.
-2. Click the **Current Branch** dropdown → **Pull Requests** tab → click the agent's PR. Desktop checks out
-   that branch (your working folder now shows the agent's files).
-3. If the PR is behind `main` (e.g. it needs a new engine feature): **Branch** menu → **Update from main**.
-   This merges `main` into the branch. (A good agent does this itself — check its commit list.)
-4. **Repository** menu → **Open in Command Prompt** (or Terminal) → run the probe / a capped run on the recipe.
-5. When you're done reviewing: if it's good, merge the PR in the browser ("Merge pull request"); then in
-   Desktop switch **Current Branch → main** to get back to your normal state.
-
-**With the command line** (equivalent):
-```bash
-git fetch origin
-git checkout copilot/add-chile-presidencia-recipe   # the PR's branch name (shown on the PR page)
-git merge origin/main                               # only if the branch is behind main
-# ...run the probe / a capped run here...
-git checkout main                                   # return to main when finished
-```
-
-**In the browser** you can *read* the changed files on the PR's "Files changed" tab, but to actually *run*
-the probe you need the branch locally (Desktop or CLI above). Find the branch name near the top of the PR
-page (e.g. "user wants to merge … from `copilot/...`").
-
 ## Which agent?
 
 All three can do this. Practical guidance: Claude and Codex are stronger at the "inspect a live site, infer
