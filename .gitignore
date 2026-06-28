@@ -1,0 +1,45 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+
+# --- Virtualenvs ---
+.venv/
+venv/
+env/
+
+# --- Secrets (read from local files, never committed) ---
+openai_key.txt
+*.key
+.env
+
+# --- Scraped + working data (shared via Zenodo/Dataverse, not git) ---
+data/scraped/
+data/state/
+_data_outside_unorganized/
+
+# --- Raw source sub-lists: the curated master list IS committed, its inputs are not ---
+data/sources/*.txt
+data/sources/*.csv
+data/sources/LeadersSpeeches_Africa.xlsx
+!data/sources/master_sources.xlsx
+
+# --- Large / binary data artifacts ---
+*.RData
+*.rdata
+*.feather
+*.parquet
+
+# --- R / RStudio ---
+.Rproj.user/
+.Rhistory
+.RData
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db

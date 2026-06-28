@@ -1,0 +1,34 @@
+# France — Élysée (presidential) actualités: speeches, declarations, communiqués.
+# Despite the slick front-end, the listing and article pages are SERVER-RENDERED,
+# so this is a plain static recipe (no browser needed). The date even lives in the
+# article URL (/emmanuel-macron/YYYY/MM/DD/slug).
+source_id: fra_elysee
+country: France
+source_language: French
+start_urls:
+  - https://www.elysee.fr/toutes-les-actualites
+renderer: static
+
+listing:
+  link_pattern: '/emmanuel-macron/\d{4}/\d{2}/\d{2}/'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 100
+
+title:
+  selectors: ["h1", ".card__title"]
+text:
+  selectors: [".card__body", ".ck-styled", ".rich-text", "main"]
+date:
+  selectors: [".published-at", "time"]
+
+position: president
+speaker_default: Emmanuel Macron
+date_languages: ["fr"]
+notes: >
+  Not all actualités are formal speeches (some are communiqués/déclarations); all are
+  Macron presidential communications. Refine with a context/type filter later if needed.

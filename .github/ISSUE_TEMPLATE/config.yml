@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Project scope & roadmap
+    url: https://github.com/d-schafer/LeaderSpeech/blob/main/README.md
+    about: What this project is and where it's headed before opening an issue.

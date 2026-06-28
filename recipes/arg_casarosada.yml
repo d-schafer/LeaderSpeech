@@ -1,0 +1,31 @@
+# Argentina — Casa Rosada, official presidential speeches.
+# Static HTML, query-param pagination (?start=40, step 40), Spanish dates.
+source_id: arg_casarosada
+country: Argentina
+source_language: Spanish
+start_urls:
+  - https://www.casarosada.gob.ar/informacion/discursos
+renderer: static
+
+listing:
+  link_selector: "a[href*='/informacion/discursos/']"
+  link_pattern: '/informacion/discursos/\d'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 40
+
+title:
+  selectors: [".col-md-8.col-md-offset-2 h2", "title"]
+text:
+  selectors: [".col-md-8.col-md-offset-2 p", ".col-md-8.col-md-offset-2"]
+date:
+  selectors: ["time", ".col-md-8 time"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  speaker left blank on purpose — Casa Rosada has no speaker element; the leader
+  (Milei / Fernández / Macri / ...) is filled later from the title + leader-tenure key.

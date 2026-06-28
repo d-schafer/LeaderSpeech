@@ -1,0 +1,35 @@
+# Mexico — gob.mx presidency archive (estenographic versions of presidential events).
+# Static HTML, query-param pagination (?page=N), Spanish dates.
+# The archive leads with the current presidency and pages back through AMLO.
+source_id: mex_presidencia
+country: Mexico
+source_language: Spanish
+start_urls:
+  - https://www.gob.mx/presidencia/es/archivo/articulos?filter_origin=archive&idiom=es&order=DESC
+renderer: static
+
+listing:
+  link_selector: "article a"
+  link_pattern: "/articulos/"
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 50
+
+title:
+  selectors: [".bottom-buffer", "h1", "title"]
+text:
+  selectors: [".article-body", "main article"]
+date:
+  selectors: ["section p", "time"]
+context:
+  selectors: [".pull-left h2"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  gob.mx wraps its listing hrefs in escaped quotes — the engine sanitizes those.
+  speaker left blank; filled later from context/title + leader-tenure key.

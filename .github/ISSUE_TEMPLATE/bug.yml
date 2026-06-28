@@ -1,0 +1,22 @@
+name: "Bug report"
+description: "Something in the engine or a recipe is broken."
+title: "[bug] <short description>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got. Include the command and any traceback.
+    validations:
+      required: true
+  - type: input
+    id: recipe
+    attributes:
+      label: Recipe involved (if any)
+      placeholder: recipes/arg_casarosada.yml
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Python 3.11, Windows 11"
