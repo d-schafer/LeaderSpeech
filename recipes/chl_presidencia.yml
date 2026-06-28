@@ -21,7 +21,7 @@ title:
 text:
   selectors: ["#main_ltContenido", ".texto-bloque"]
 date:
-  selectors: ["#main_ltFecha", "#main_ltFEcha", "time"]
+  selectors: ["#main_ltFecha", "time"]
 
 position: president
 date_languages: ["es"]
