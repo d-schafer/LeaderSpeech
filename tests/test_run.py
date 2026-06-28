@@ -20,9 +20,9 @@ WAYBACK_RECIPE_YAML = """
 source_id: test_wayback
 country: Argentina
 source_language: Spanish
-start_urls: ["casarosada.gob.ar/informacion/discursos/*"]
-listing: { link_selector: "a", link_pattern: "/discursos/" }
-pagination: { type: wayback, wayback_limit: 2 }
+start_urls: ["casarosada.gob.ar/informacion/discursos"]
+listing: { link_selector: "a", link_pattern: '/discursos/\\d+$' }
+pagination: { type: wayback, wayback_to: "20151210" }
 title: { selectors: ["h1"] }
 text: { selectors: [".body"] }
 date: { selectors: ["time"] }
@@ -125,7 +125,10 @@ def test_circuit_breaker_aborts_on_consecutive_failures(tmp_path, monkeypatch):
 
 def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     entries = [
+        {"timestamp": "20080100", "original": "https://www.casarosada.gob.ar/informacion/discursos"},
+        {"timestamp": "20080100", "original": "https://www.casarosada.gob.ar/informacion/discursos?start=40"},
         {"timestamp": "20080101", "original": "https://www.casarosada.gob.ar/informacion/discursos/1"},
+        {"timestamp": "20080101", "original": "https://www.casarosada.gob.ar/informacion/discursos/18-nuestro-pais/galeria-de-presidentes/1"},
         {"timestamp": "20080102", "original": "https://www.casarosada.gob.ar/informacion/discursos/2"},
     ]
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
@@ -140,7 +143,7 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     assert res["links_found"] == 2
 
     state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
-    assert state["seen_urls"] == [e["original"] for e in entries]
+    assert state["seen_urls"] == [entries[2]["original"], entries[4]["original"]]
 
     csv = (out / "Argentina" / "test_wayback.csv").read_text(encoding="utf-8")
     assert "Discurso de prueba" in csv

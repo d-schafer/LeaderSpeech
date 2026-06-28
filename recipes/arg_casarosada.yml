@@ -1,10 +1,10 @@
 # Argentina — Casa Rosada, official presidential speeches.
-# Wayback archive of the speeches section; this reaches back through the Kirchner era.
+# Static HTML, query-param pagination (?start=40, step 40), Spanish dates.
 source_id: arg_casarosada
 country: Argentina
 source_language: Spanish
 start_urls:
-  - casarosada.gob.ar/informacion/discursos/*
+  - https://www.casarosada.gob.ar/informacion/discursos
 renderer: static
 
 listing:
@@ -12,19 +12,20 @@ listing:
   link_pattern: '/informacion/discursos/\d'
 
 pagination:
-  type: wayback
-  wayback_limit: 2000
+  type: query_param
+  param: start
+  start: 0
+  step: 40
 
 title:
-  selectors: [".col-md-8.col-md-offset-2 h2", "h1", "title"]
+  selectors: [".col-md-8.col-md-offset-2 h2", "title"]
 text:
-  selectors: [".col-md-8.col-md-offset-2 p", ".col-md-8.col-md-offset-2", "article", "main"]
+  selectors: [".col-md-8.col-md-offset-2 p", ".col-md-8.col-md-offset-2"]
 date:
-  selectors: ["time", ".col-md-8 time", ".fecha", ".date"]
+  selectors: ["time", ".col-md-8 time"]
 
 position: president
 date_languages: ["es"]
 notes: >
   speaker left blank on purpose — Casa Rosada has no speaker element; the leader
-  (Milei / Fernández / Macri / Kirchner / ...) is filled later from the title +
-  leader-tenure key.
+  (Milei / Fernández / Macri / ...) is filled later from the title + leader-tenure key.

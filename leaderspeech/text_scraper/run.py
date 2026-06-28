@@ -133,7 +133,7 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
 
 
 def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
-    return wayback.list_snapshots_for_queries(
+    entries = wayback.list_snapshots_for_queries(
         recipe.start_urls,
         from_date=recipe.pagination.wayback_from,
         to_date=recipe.pagination.wayback_to,
@@ -141,6 +141,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         match_type=recipe.pagination.wayback_match_type,
         collapse=recipe.pagination.wayback_collapse,
     )
+    return wayback.filter_entries_for_recipe(entries, recipe.listing.link_pattern)
 
 
 def scrape_recipe(

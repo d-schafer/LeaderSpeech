@@ -73,6 +73,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 match_type=recipe.pagination.wayback_match_type,
                 collapse=recipe.pagination.wayback_collapse,
             )
+            entries = wayback.filter_entries_for_recipe(entries, recipe.listing.link_pattern)
             sample = _sample_evenly(entries, n)
             report["listing"] = {
                 "mode": "wayback snapshots",

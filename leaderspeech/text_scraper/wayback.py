@@ -15,6 +15,8 @@ Typical use:
 from __future__ import annotations
 
 import time
+import re
+from urllib.parse import parse_qs, urlparse
 from typing import Iterable, Optional
 
 import httpx
@@ -38,6 +40,8 @@ def list_snapshots(
     Use a trailing '*' on the url (or match_type='prefix'/'domain') to list every
     archived page under a site, not just one URL.
     """
+    if url.endswith("*"):
+        url = url[:-1]
     params = {"url": url, "output": "json", "collapse": collapse}
     if from_date:
         params["from"] = from_date
@@ -99,6 +103,31 @@ def list_snapshots_for_queries(
             out.append(entry)
             if limit is not None and len(out) >= limit:
                 return out
+    return out
+
+
+def filter_entries_for_recipe(entries: Iterable[dict], link_pattern: Optional[str] = None) -> list[dict]:
+    """Filter CDX captures down to speech-page URLs only."""
+    pattern = re.compile(link_pattern) if link_pattern else None
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    for entry in entries:
+        original = entry.get("original")
+        if not original or original in seen:
+            continue
+        parsed = urlparse(original)
+        path = parsed.path.rstrip("/")
+        if path in {"/informacion/discursos", "/informacion/discursos/index"}:
+            continue
+        query = parse_qs(parsed.query)
+        if "start" in query or "page" in query:
+            continue
+        if pattern and not pattern.search(original):
+            continue
+        seen.add(original)
+        out.append(entry)
+
     return out
 
 
