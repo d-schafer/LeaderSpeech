@@ -1,21 +1,19 @@
 # Chile — archived presidential speeches before the live recipe.
-# Wayback fallback for pre-2018 coverage.
+# Wayback fallback for Bachelet-era (2014-2018) coverage.
 source_id: chl_presidencia_wayback
 country: Chile
 source_language: Spanish
 start_urls:
-  - prensa.presidencia.cl/discursos.aspx
-  - 2010-2014.gob.cl/discursos
+  - prensa.presidencia.cl/discurso
 renderer: static
 verify_ssl: false
 
 listing:
-  link_pattern: '(?:discurso\.aspx\?id=\d+|/discursos/\d+[^/]*$)'
+  link_pattern: 'discurso\.aspx\?id=(?:[1-9]\d{0,3}|[1-7]\d{4})$'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
-  wayback_to: "20180311"
 
 title:
   selectors: ["#main_ltTitulo", "h1", "title"]
@@ -38,7 +36,10 @@ context:
 position: president
 date_languages: ["es"]
 notes: >
-  Archived Chile presidency speeches before the live recipe's 2018 cutoff. The
-  Wayback captures can surface both the 2014-2018 prensa.presidencia.cl era and
-  the older 2010-2014.gob.cl speech pages; the link_pattern excludes listing
-  pages and only keeps numeric speech URLs.
+  Archived Chile presidency speeches for the Bachelet II era (approx. 2014-2018).
+  Uses prensa.presidencia.cl/discurso as the CDX prefix so Wayback prefix-matches
+  discurso.aspx?id=N speech URLs without colliding with the listing path. The
+  link_pattern restricts to speech ids below 80000 (ids increase with date:
+  ~13k=2015, ~50k=2017, ~80k≈2018-03), targeting only pre-Piñera-II content
+  and avoiding duplication with the live chl_presidencia recipe (2018+). The
+  2010-2014.gob.cl era uses a structurally different site and is handled separately.
