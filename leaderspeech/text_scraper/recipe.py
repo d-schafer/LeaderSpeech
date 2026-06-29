@@ -137,7 +137,7 @@ class Recipe(BaseModel):
         if self.pagination.path_format:
             try:
                 substituted = self.pagination.path_format.format(n=0)
-            except Exception:
+            except (KeyError, ValueError):
                 raise ValueError("pagination.path_format is not a valid format string; "
                                  "use a '{n}' page-index placeholder, e.g. 'P{n}' or '{n:03d}'")
             if substituted == self.pagination.path_format:

@@ -1,5 +1,5 @@
 """Pagination URL construction — especially `path_format`, which lets a `path`
-pager target non-numeric page URLs (e.g. president.ie's /P0, /P20, /P40)."""
+page target non-numeric URLs (e.g. president.ie's /P0, /P20, /P40)."""
 
 import pytest
 
