@@ -9,6 +9,8 @@ renderer: static
 verify_ssl: false
 
 listing:
+  # Matches speech ids 1–79999: [1-9]\d{0,3} covers 1-9999; [1-7]\d{4} covers 10000-79999.
+  # ~80000 ≈ 2018-03-11 (Piñera II inauguration); keeps only Bachelet II era.
   link_pattern: 'discurso\.aspx\?id=(?:[1-9]\d{0,3}|[1-7]\d{4})$'
 
 pagination:
