@@ -33,6 +33,8 @@ class PaginationType(str, Enum):
     url_list = "url_list"         # an explicit, pre-known list of pages
     sitemap = "sitemap"           # enumerate all URLs from the site's sitemap(s)
     wayback = "wayback"           # enumerate archived captures from the Wayback CDX API
+    api = "api"                   # enumerate from a JSON/search API (e.g. SharePoint _api/search)
+    feed = "feed"                 # enumerate from an RSS/Atom feed
     none = "none"                 # a single listing page, no pagination
 
 
@@ -49,9 +51,43 @@ class Listing(BaseModel):
         return self
 
 
+class ApiConfig(BaseModel):
+    """How to pull speech links + metadata from a JSON/search API (type='api').
+
+    The exemplar is a SharePoint "search web-part" page whose visible HTML is only
+    chrome: the speech list is fetched client-side from `…/_api/search/query`. Point
+    `start_urls[0]` at that JSON endpoint (with its `querytext`/`rowlimit` already in
+    the query string) and paginate it with the shared `pagination.param`/`start`/
+    `step`/`max_pages` knobs (e.g. `param: startRow`, `step: 50`). Field paths are
+    dotted (`a.b.c`); SharePoint's Key/Value `Cells` arrays are handled via cells mode.
+    """
+
+    results_path: str                       # dotted path to the array of result rows
+    url_field: str                          # row path (or cell Key) for the speech URL
+    title_field: Optional[str] = None       # row path (or cell Key) for the title
+    date_field: Optional[str] = None        # row path (or cell Key) for the date
+    text_field: Optional[str] = None        # row path (or cell Key) if the JSON carries full text
+    speaker_field: Optional[str] = None     # row path (or cell Key) for the speaker
+    # SharePoint "cells" mode: each row's fields live in a list of {Key, Value} dicts.
+    # When cells_path is set, the *_field names above are matched against cell keys.
+    cells_path: Optional[str] = None        # dotted path within a row to the cells list
+    cell_key: str = "Key"                   # attribute naming a cell's field name
+    cell_value: str = "Value"               # attribute naming a cell's field value
+    headers: dict[str, str] = Field(default_factory=dict)  # per-request header overrides
+    delay: float = 0.0                      # courtesy pause between API page requests
+
+
+class FeedConfig(BaseModel):
+    """How to read an RSS/Atom feed (type='feed'). A lighter-weight sibling of `api`
+    for sources that publish a feed. `start_urls` are the feed URL(s)."""
+
+    format: str = "auto"        # "auto" | "rss" | "atom"
+    use_content: bool = True    # populate text from the feed body (false => fetch the page)
+
+
 class Pagination(BaseModel):
     type: PaginationType = PaginationType.none
-    param: Optional[str] = None            # query param name (query_param type)
+    param: Optional[str] = None            # query param name (query_param/api/feed types)
     start: int = 0                         # first page index/offset
     step: int = 1                          # increment between pages
     path_format: Optional[str] = None      # Only used when type='path'; suffix template with a `{n}` placeholder.
@@ -67,6 +103,8 @@ class Pagination(BaseModel):
     wayback_delay: float = 5.0             # seconds to wait before each archived fetch
     wayback_from: Optional[str] = None     # CDX `from` (YYYYMMDD)
     wayback_to: Optional[str] = None       # CDX `to` (YYYYMMDD)
+    api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
+    feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 
 
 class FieldSpec(BaseModel):
@@ -104,6 +142,7 @@ class Recipe(BaseModel):
     start_urls: list[str]
     renderer: Renderer = Renderer.static
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
+    user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
     listing: Listing
     pagination: Pagination = Field(default_factory=Pagination)
 
@@ -146,6 +185,13 @@ class Recipe(BaseModel):
             raise ValueError("sitemap pagination needs 'sitemap_urls'")
         if self.pagination.type == PaginationType.wayback and not self.start_urls:
             raise ValueError("wayback pagination needs start_urls with CDX prefixes")
+        if self.pagination.type == PaginationType.api:
+            if not self.pagination.api:
+                raise ValueError("api pagination needs a 'pagination.api' block")
+            if not self.pagination.api.results_path or not self.pagination.api.url_field:
+                raise ValueError("api pagination needs 'api.results_path' and 'api.url_field'")
+        if self.pagination.type == PaginationType.feed and not self.start_urls:
+            raise ValueError("feed pagination needs start_urls with the feed URL(s)")
         # auto-fill numeric ISO code
         if self.iso3n is None and pycountry is not None:
             try:

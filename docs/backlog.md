@@ -15,10 +15,14 @@ Each is small, independent, and reviewable, which is exactly why it parallelizes
 Some sources were investigated and parked — tracked by GitHub issues labeled **`deferred`**. Don't burn
 agent cycles re-attempting these as plain recipes; they need a prerequisite first:
 
-- **Colombia — Presidencia discursos** (issue #7): a SharePoint **search web-part behind a WAF**; the HTML
-  is only chrome and the list loads via the SharePoint Search REST API. 0 links in both `static` and `js`.
-  *Needs:* a JSON/search-API source type (query `_api/search/query` / `_vti_bin`, parse JSON) + browser-like
-  request headers — or an RSS/Wayback alternative.
+- **Colombia — Presidencia discursos** (issue #7): ~~deferred~~ **UNBLOCKED** — recipe
+  [`col_presidencia.yml`](../recipes/col_presidencia.yml) authored and probe-validated; pending a FULL RUN.
+  The engine gained a JSON/search-API source type (`pagination.type: api`) and an RSS/Atom sibling
+  (`type: feed`) plus browser-like default headers. *Colombia turned out not to be a GET search API* —
+  it's a SharePoint CSWP that renders client-side via CSOM `ProcessQuery` (POST), and its WAF **blocks the
+  honest bot User-Agent entirely** (0 links). The fix that unblocked it: the new per-recipe `user_agent:`
+  override (browser UA) + `renderer: js` + the CSWP `click` pager. The `api`/`feed` types remain for the
+  many other SharePoint sites that *do* expose a GET `_api/search/query`, and for feed-based sources.
 - **Chile — Bachelet 2014–2018 Wayback** (issue #4): the Internet Archive holds no fetchable Bachelet-era
   `discurso.aspx` captures (they 404; only 2018+ Piñera is archived, already in the live recipe). *Needs:* a
   different archived source for that era (e.g. the slug-based `2010-2014.gob.cl` legacy site for Piñera I).

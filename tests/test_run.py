@@ -29,6 +29,23 @@ date: { selectors: ["time"] }
 date_languages: ["es"]
 """
 
+API_RECIPE_YAML = r"""
+source_id: test_api
+country: Argentina
+source_language: Spanish
+start_urls: ["http://x/_api/search/query"]
+listing: { link_pattern: 'http://x/' }
+pagination:
+  type: api
+  api: { results_path: results, url_field: url }
+title: { selectors: ["h1"] }
+text: { selectors: ["div.body"] }
+date: { selectors: [".date"] }
+date_languages: ["es"]
+"""
+
+NO_DATE_HTML = "<html><h1>Page Title</h1><div class='body'>Cuerpo del discurso.</div></html>"
+
 GOOD_HTML = (
     "<html><h1>Titulo</h1><span class='date'>1 de enero de 2020</span>"
     "<div class='body'>Hola mundo, esto es un discurso de prueba.</div></html>"
@@ -152,3 +169,46 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     csv = (out / "Argentina" / "test_wayback.csv").read_text(encoding="utf-8")
     assert "Discurso de prueba" in csv
     assert "2008-01-01" in csv
+
+
+def test_api_carries_json_metadata_and_skips_fetch_when_text_present(tmp_path, monkeypatch):
+    """api/feed entries carry metadata: the page-extracted record is enriched from the
+    JSON for fields it missed (here, the date), and an entry whose text is already in
+    the JSON is used directly without fetching the speech page at all."""
+    entries = [
+        # page is fetchable but has no parseable date -> the JSON date must be carried
+        {"url": "http://x/no-date", "title": "JSON Title", "date": "2019-05-01",
+         "text": "", "speaker": ""},
+        # JSON carries the full text -> the page must NOT be fetched
+        {"url": "http://x/embedded", "title": "Embedded Title", "date": "2018-03-03",
+         "text": "Texto completo desde el JSON.", "speaker": "Quien Sea"},
+    ]
+    monkeypatch.setattr(run.api, "harvest_entries", lambda *a, **k: [dict(e) for e in entries])
+
+    class ApiFetcher:
+        def __init__(self, **kwargs):
+            pass
+
+        def get(self, url):
+            if url == "http://x/embedded":
+                raise AssertionError("embedded entry should not be fetched")
+            return NO_DATE_HTML
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(run, "Fetcher", ApiFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "test_api.yml"
+    p.write_text(API_RECIPE_YAML, encoding="utf-8")
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 2
+    assert res["failed_this_run"] == 0
+
+    csv = (out / "Argentina" / "test_api.csv").read_text(encoding="utf-8")
+    assert "Cuerpo del discurso." in csv         # page body for the fetched item
+    assert "2019-05-01" in csv                    # date carried from JSON (page had none)
+    assert "Texto completo desde el JSON." in csv  # embedded text used (fetch skipped)
+    assert "2018-03-03" in csv                     # embedded entry date

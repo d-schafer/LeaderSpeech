@@ -1,0 +1,40 @@
+# Colombia — Presidencia de la República, presidential speeches (discursos).
+# The discursos listing is a SharePoint "search web-part" behind a WAF that returns
+# only empty page-chrome to the default bot User-Agent (0 links — issue #7). A browser
+# user_agent clears the WAF; the results then render client-side (SharePoint CSOM
+# ProcessQuery), so renderer: js is required too.
+source_id: col_presidencia
+country: Colombia
+source_language: Spanish
+start_urls:
+  - https://www.presidencia.gov.co/prensa/Paginas/discursos.aspx
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+listing:
+  link_selector: ".itemPrensa a"
+  link_pattern: '/prensa/Paginas/(?!default\.aspx).+\.aspx$'
+
+pagination:
+  # SharePoint CSWP "promlink" pager: a JS next-arrow that re-runs the search in place
+  # (no URL change). Click it until it goes disabled on the last page.
+  type: click
+  next_selector: "a.ms-promlink-button-enabled[title*='siguiente']"
+  max_pages: 400
+
+title:
+  selectors: ["h1.titulo-noticia", "h1", "title"]
+text:
+  selectors: ["#ZonaNoticia", ".boletinContenido", ".ms-rtestate-field", "article", "main"]
+date:
+  # No dedicated date element; the dateline ("Ciudad, DD de MES de YYYY") opens the body.
+  selectors: ["#ZonaNoticia", ".boletinContenido"]
+  regex: '\d{1,2} de \w+ de \d{4}'
+
+position: president
+date_languages: ["es"]
+notes: >
+  SharePoint search web-part behind a WAF (issue #7): the honest bot UA gets empty
+  chrome, so a browser user_agent + renderer: js are required. The listing paginates
+  via the CSWP promlink next-arrow (click pagination). The date is the dateline in the
+  first line of the speech body, pulled by regex. Speaker is the president of the day.

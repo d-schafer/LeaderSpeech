@@ -26,6 +26,12 @@ def test_minimal_recipe_loads_and_autofills_iso3n():
     assert r.iso3n == 32  # Argentina, filled from country name
     assert r.dataset == "LeaderSpeech"
     assert r.renderer.value == "static"
+    assert r.user_agent is None  # honest bot UA by default
+
+
+def test_user_agent_override_loads():
+    r = Recipe(**{**MINIMAL, "user_agent": "Mozilla/5.0 (compatible)"})
+    assert r.user_agent == "Mozilla/5.0 (compatible)"
 
 
 def test_missing_required_field_selectors_raises():
@@ -50,6 +56,33 @@ def test_wayback_pagination_loads():
     r = Recipe(**{**MINIMAL, "pagination": {"type": "wayback"}})
     assert r.pagination.type.value == "wayback"
     assert r.pagination.wayback_delay == 5.0
+
+
+def test_api_pagination_loads_with_block():
+    r = Recipe(**{**MINIMAL, "pagination": {
+        "type": "api",
+        "param": "startRow", "step": 50,
+        "api": {"results_path": "d.results", "url_field": "Path",
+                "cells_path": "Cells.results", "date_field": "Write"},
+    }})
+    assert r.pagination.type.value == "api"
+    assert r.pagination.api.url_field == "Path"
+    assert r.pagination.api.cell_key == "Key"  # default
+
+
+def test_api_pagination_requires_block_and_fields():
+    with pytest.raises(Exception):
+        Recipe(**{**MINIMAL, "pagination": {"type": "api"}})  # no api block
+    with pytest.raises(Exception):
+        Recipe(**{**MINIMAL, "pagination": {"type": "api", "api": {"url_field": "Path"}}})  # no results_path
+
+
+def test_feed_pagination_loads():
+    r = Recipe(**{**MINIMAL, "listing": {"link_pattern": "/x/"},
+                  "pagination": {"type": "feed", "feed": {"use_content": False}}})
+    assert r.pagination.type.value == "feed"
+    assert r.pagination.feed.use_content is False
+    assert r.pagination.feed.format == "auto"  # default
 
 
 @pytest.mark.skipif(not RECIPES, reason="no recipes yet")

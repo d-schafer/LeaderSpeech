@@ -47,6 +47,96 @@ generic text extractor, which the engine applies automatically), and bound the e
 **Do not modify `leaderspeech/text_scraper/*` for a new source** — per-site variation belongs in the
 recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wayback.yml) as a template.
 
+## JSON / search-API sources (`type: api`)
+
+Some sites serve **only page chrome** as HTML — the speech list is loaded client-side from a JSON
+endpoint. The tell: `probe` reports **0 links in both `static` and `js`**, and the page's network tab
+(DevTools → Network → Fetch/XHR) shows a request to something like
+`…/_api/search/query?querytext=…` (SharePoint "search web-part") or a REST/JSON list. These are common
+on government **SharePoint** sites behind a WAF (Colombia's `presidencia.gov.co` is the exemplar).
+
+To author an `api` recipe:
+
+1. **Capture the endpoint.** In DevTools → Network → Fetch/XHR, reload the listing and find the request
+   that returns the results as JSON. Copy its full URL (with `querytext`, `rowlimit`, etc.) — that goes in
+   `start_urls[0]`. Note the response shape (right-click → copy response).
+2. **Map the JSON.** `pagination.api.results_path` is the dotted path to the array of result rows.
+   `url_field`/`title_field`/`date_field` are dotted paths within a row. **SharePoint** wraps each row's
+   fields in a `Cells.results` list of `{Key, Value}` dicts — set `cells_path: Cells.results` and then the
+   `*_field` names are matched against cell **keys** (`Path`, `Title`, `Write`).
+3. **Paginate** with the shared knobs: `param` is the offset/page query param (SharePoint uses `startRow`),
+   `step` the page size (match `rowlimit`), `max_pages` a cap. Harvesting stops when a page returns no new
+   rows. Omit `param` for an endpoint that returns everything in one request.
+4. **Headers.** The engine sends browser-like `User-Agent`/`Accept`/`Accept-Language` by default (this is
+   what clears the WAF for the per-speech page fetch too). SharePoint usually also needs a precise OData
+   `Accept` on the JSON call — set it under `pagination.api.headers`.
+5. **Selectors still apply.** Each result's URL is then fetched and run through your `title`/`text`/`date`
+   selectors as usual; any field the page misses is **filled from the JSON** (SharePoint's `Write` date is
+   reliable when a page date selector isn't). If the JSON itself carries the full body, set `text_field`
+   and the page fetch is skipped.
+
+```yaml
+source_id: col_presidencia
+country: Colombia
+source_language: Spanish
+start_urls:
+  # the JSON the page's JS calls — captured from DevTools (querytext/rowlimit included)
+  - "https://www.presidencia.gov.co/_api/search/query?querytext='discurso'&rowlimit=50&clienttype='Custom'"
+renderer: static
+
+listing:
+  link_pattern: "/prensa/"          # keep results to speech pages, drop other hits
+
+pagination:
+  type: api
+  param: startRow                    # SharePoint offset param
+  start: 0
+  step: 50                           # = rowlimit
+  max_pages: 200
+  api:
+    results_path: d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results
+    cells_path: Cells.results        # SharePoint Key/Value cells
+    url_field: Path
+    title_field: Title
+    date_field: Write
+    headers:
+      Accept: "application/json;odata=nometadata"
+
+title: { selectors: ["h1", ".titulo", "title"] }
+text:  { selectors: [".article-body", ".cuerpo", "article", "main"] }
+date:  { selectors: ["time", ".fecha"] }
+position: president
+date_languages: ["es"]
+```
+
+## RSS/Atom feeds (`type: feed`)
+
+A lighter-weight option when a source publishes an RSS or Atom feed. Point `start_urls` at the feed URL(s);
+the engine reads `link`/`title`/`pubDate` (RSS) or `link[href]`/`title`/`updated` (Atom) and, by default,
+the body (`content:encoded`/`description` or `content`/`summary`). Filter to speeches with
+`listing.link_pattern`. If the feed carries the full text (`use_content: true`, the default), the
+per-speech page fetch is skipped; set `use_content: false` to force a page fetch when the feed only has a
+summary. Some feeds paginate (e.g. WordPress `?paged=N`) — use the shared `param`/`start`/`step` knobs.
+
+```yaml
+source_id: example_feed
+country: Mexico
+source_language: Spanish
+start_urls:
+  - https://example.gob.mx/discursos/feed
+listing:
+  link_pattern: "/discurso/"
+pagination:
+  type: feed
+  feed:
+    use_content: true
+title: { selectors: ["h1"] }
+text:  { selectors: ["article", ".entry-content"] }
+date:  { selectors: ["time"] }
+position: president
+date_languages: ["es"]
+```
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -59,9 +149,10 @@ recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wa
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
 | `renderer` | no | `static` (default) or `js`. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
+| `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
-| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, `wayback`, or `none` (default). |
+| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, `wayback`, `api`, `feed`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |
 | `pagination.path_format` | for path | Suffix template appended to `start_url`, with a `{n}` placeholder for the page index. Default (unset) appends `/{n}` (e.g. `/discursos/2`). Use it when the pager isn't a bare number — e.g. `path_format: "P{n}"` with `start: 0, step: 20` yields `…/speeches/P0`, `…/speeches/P20`, `…/speeches/P40` (president.ie). Supports format specs like `{n:03d}` for zero-padding. |
@@ -70,6 +161,15 @@ recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wa
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
+| `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`). |
+| `pagination.api.url_field` | for api | Dotted path to a row's speech URL — or, in cells mode, the cell **key** naming it (e.g. `Path`). |
+| `pagination.api.title_field` / `date_field` / `text_field` / `speaker_field` | no | Same as `url_field` for the other fields. `text_field` lets the JSON carry the full body, skipping the per-speech page fetch. Dates are parsed as standard (ISO/RFC) formats — `date_languages` is **not** applied here. |
+| `pagination.api.cells_path` | no | SharePoint cells mode: dotted path within a row to its `{Key, Value}` cell array (e.g. `Cells.results`). When set, the `*_field` names match cell **keys** instead of being row paths. |
+| `pagination.api.cell_key` / `cell_value` | no | Attribute names in a cell dict (defaults `Key` / `Value`). |
+| `pagination.api.headers` | no | Per-request header overrides for the JSON call — e.g. `Accept: application/json;odata=nometadata` for SharePoint. Browser-like `User-Agent`/`Accept-Language` are sent by default. |
+| `pagination.api.delay` | no | Courtesy pause (seconds) between API page requests (default `0`). |
+| `pagination.feed.format` | no | `auto` (default), `rss`, or `atom`. |
+| `pagination.feed.use_content` | no | Default `true` — populate `text` from the feed body (RSS `content:encoded`/`description`, Atom `content`/`summary`). Set `false` to force a per-speech page fetch. |
 | `title` / `text` / `date` | yes | Each is `{ selectors: [...] }`, an ordered fallback chain. First match wins. |
 | `speaker` / `context` | no | Same shape as above. |
 | `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |
@@ -127,6 +227,15 @@ are populated and clean. Spot-check the speaker and date against the
 
 If something looks wrong, the run's summary, log, and `_errors.csv` tell you what and where — see
 [`debugging.md`](debugging.md) for reading them and the fix-and-resume loop.
+
+## The scrape index (for merging)
+
+Output CSVs are named after the *site* (`arg_casarosada.csv`), which makes a folder of them hard to read
+and to merge. Every `run` rebuilds **`data/scraped/scraped_progress_log.xlsx`** — one row per source CSV
+with its country, website, file path, pagination type, date coverage, doc_id range, and a bad/missing-date
+count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. A merge step reads the index's
+`csv_file` column and concatenates every file it lists. It is a **regenerable, machine-owned** artifact —
+distinct from the researcher-curated `data/sources/master_sources.xlsx`, which agents must never touch.
 
 ## Good-citizen reminders
 

@@ -55,6 +55,7 @@ python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --retry-failed
 | `HTTPStatusError: ... 404/500` | dead or moved URL | usually fine to leave failed; for a whole dead source, use the Wayback fallback (`leaderspeech.text_scraper.wayback`) |
 | `CERTIFICATE_VERIFY_FAILED` / SSL error | the site's TLS cert chain is broken/incomplete (common on old gov sites) | set `verify_ssl: false` in the recipe |
 | `0 links harvested` | listing selector/pattern or pagination is wrong | re-check `listing` and `pagination` against the live page |
+| `0 links` in **both** `static` and `js` / the page is empty chrome | the speech list loads from a JSON/search API (often SharePoint behind a WAF); the served HTML has no links | capture the JSON endpoint in DevTools → Network → Fetch/XHR and use `pagination.type: api` (see [recipes.md](recipes.md)); the engine now sends browser-like `Accept`/`Accept-Language` headers by default to clear such WAFs |
 
 ## Guarantees
 

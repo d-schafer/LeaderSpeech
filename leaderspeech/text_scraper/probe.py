@@ -23,7 +23,7 @@ from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
 from .recipe import FieldSpec, PaginationType, load_recipe
-from . import wayback
+from . import api, feed, wayback
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -68,7 +68,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
         "renderer": recipe.renderer.value, "listing": {}, "pages": [],
     }
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
-                      verify_ssl=recipe.verify_ssl)
+                      verify_ssl=recipe.verify_ssl, user_agent=recipe.user_agent)
     wayback_client = None
     try:
         if recipe.pagination.type == PaginationType.wayback:
@@ -92,6 +92,19 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 "snapshots_found": len(entries),
                 "sampled": len(sample),
                 "sample": [entry["original"] for entry in sample if entry.get("original")],
+            }
+        elif recipe.pagination.type in (PaginationType.api, PaginationType.feed):
+            # api/feed harvest their own entries (carrying metadata); probe samples the
+            # URLs and runs the usual per-page selector diagnostics on the speech pages.
+            module = api if recipe.pagination.type == PaginationType.api else feed
+            items = module.harvest_entries(recipe)
+            links = [it["url"] for it in items]
+            sample = _sample_evenly(links, n) if spread else links[:n]
+            report["listing"] = {
+                "mode": f"{recipe.pagination.type.value} entries",
+                "links_found": len(links),
+                "sampled": len(sample),
+                "sample": links[:3],
             }
         elif spread:
             # Sample across the WHOLE history (oldest..newest) to catch structural

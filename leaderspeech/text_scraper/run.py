@@ -28,7 +28,7 @@ from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
 from .recipe import PaginationType, Recipe, load_recipe
-from . import wayback
+from . import api, feed, index, wayback
 
 # fixed name (not __name__): under `python -m`, __name__ is "__main__", which would
 # sit outside the "leaderspeech" logger tree where _add_log_file attaches handlers.
@@ -132,6 +132,22 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
         writer.writerows(rows)
 
 
+def _record_from_entry(entry: dict, url: str, recipe: Recipe) -> dict:
+    """Build a speech record straight from a harvested api/feed entry, for when the
+    JSON/feed already carries the full text (so no page fetch is needed). Same shape
+    as extract.extract_record."""
+    speaker = entry.get("speaker", "") or (recipe.speaker_default or "")
+    return {
+        "title": entry.get("title", ""),
+        "text": entry.get("text", ""),
+        "date": entry.get("date"),
+        "date_raw": "",
+        "speaker": speaker,
+        "context": "",
+        "source": url,
+    }
+
+
 def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
     entries = wayback.list_snapshots_for_queries(
         recipe.start_urls,
@@ -184,6 +200,7 @@ def scrape_recipe(
         backoff=recipe.politeness.backoff,
         respect_robots=respect_robots,
         verify_ssl=recipe.verify_ssl,
+        user_agent=recipe.user_agent,
     )
     wayback_client = None
 
@@ -194,15 +211,22 @@ def scrape_recipe(
     consecutive_fail = 0
     aborted_early = False
     links: list[str] = []
+    meta_by_url: dict[str, dict] = {}   # api/feed: per-URL metadata carried from the source
     pending_rows: list[dict] = []
     errors: list[dict] = []
     try:
-        wayback_mode = recipe.pagination.type == PaginationType.wayback
+        ptype = recipe.pagination.type
+        wayback_mode = ptype == PaginationType.wayback
         if wayback_mode:
             wayback_client = wayback.create_client()
-        if wayback_mode:
             entries = _harvest_wayback_entries(recipe)
             links = [entry["original"] for entry in entries if entry.get("original")]
+        elif ptype in (PaginationType.api, PaginationType.feed):
+            entries = []
+            module = api if ptype == PaginationType.api else feed
+            items = module.harvest_entries(recipe, max_links=max_links)
+            links = [it["url"] for it in items]
+            meta_by_url = {it["url"]: it for it in items}
         else:
             entries = []
             links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
@@ -234,6 +258,9 @@ def scrape_recipe(
 
         for i, todo_item in enumerate(todo, 1):
             try:
+                via_generic = False
+                entry: dict = {}
+                html = None
                 if wayback_mode:
                     url = todo_item["original"]
                     html = wayback.fetch_snapshot(
@@ -243,20 +270,36 @@ def scrape_recipe(
                     )
                 else:
                     url = todo_item
-                    html = fetcher.get(url)
-                rec = extract_record(html, url, recipe)
-                # Recipes are tuned to a site's CURRENT layout; older/archived pages
-                # often used a different structure and yield nothing. Before giving up,
-                # fall back to structure-agnostic generic extraction.
-                via_generic = False
-                if not rec["text"]:
-                    gen = extract_generic(html, url)
-                    if gen["text"]:
-                        rec["text"] = gen["text"]
-                        rec["title"] = rec["title"] or gen["title"]
-                        rec["date"] = rec["date"] or gen["date"]
-                        rec["speaker"] = rec["speaker"] or gen["speaker"]
-                        via_generic = True
+                    entry = meta_by_url.get(url, {})
+                    # When the JSON/feed already carries the full text, use it directly
+                    # and skip the page fetch; otherwise fetch the speech page.
+                    if not entry.get("text"):
+                        html = fetcher.get(url)
+
+                if html is not None:
+                    rec = extract_record(html, url, recipe)
+                    # Recipes are tuned to a site's CURRENT layout; older/archived pages
+                    # often used a different structure and yield nothing. Before giving up,
+                    # fall back to structure-agnostic generic extraction.
+                    if not rec["text"]:
+                        gen = extract_generic(html, url)
+                        if gen["text"]:
+                            rec["text"] = gen["text"]
+                            rec["title"] = rec["title"] or gen["title"]
+                            rec["date"] = rec["date"] or gen["date"]
+                            rec["speaker"] = rec["speaker"] or gen["speaker"]
+                            via_generic = True
+                else:
+                    rec = _record_from_entry(entry, url, recipe)
+
+                # Fill any field the page extraction left empty from the carried api/feed
+                # metadata (e.g. SharePoint's reliable Write date when a page selector missed).
+                if entry:
+                    rec["text"] = rec["text"] or entry.get("text", "")
+                    rec["title"] = rec["title"] or entry.get("title", "")
+                    rec["date"] = rec["date"] or entry.get("date")
+                    rec["speaker"] = rec["speaker"] or entry.get("speaker", "")
+
                 if not rec["text"]:
                     errors.append({"timestamp": stamp(), "url": url,
                                    "error": "empty_text (no recipe match; generic also empty)"})
@@ -318,6 +361,12 @@ def scrape_recipe(
         log.info("DONE %s | scraped=%d generic=%d failed=%d%s | last_doc_num=%d | out=%s",
                  recipe.source_id, n_scraped, n_generic, n_failed,
                  " | ABORTED EARLY" if aborted_early else "", state["last_doc_num"], out_path)
+        # Refresh the running scrape index (one row per source CSV; for merging). Never
+        # let an index hiccup (e.g. the xlsx open in Excel) break the scrape itself.
+        try:
+            index.build_index(out_root, recipes_dir=str(Path(recipe_path).parent))
+        except Exception as e:
+            log.warning("could not update scrape index: %s", e)
         logging.getLogger("leaderspeech").removeHandler(log_handler)
         log_handler.close()
 

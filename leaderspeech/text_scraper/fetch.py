@@ -23,6 +23,26 @@ USER_AGENT = (
     "contact via GitHub issues)"
 )
 
+# Browser-like default headers. A bare User-Agent is enough for most sites, but
+# some government CDNs/WAFs (e.g. the SharePoint sites behind the `TS…` anti-bot
+# cookie family) return empty page-chrome unless the request also carries Accept /
+# Accept-Language — so we send them by default. The api/feed harvesters reuse these.
+DEFAULT_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def build_headers(user_agent: Optional[str] = None, extra: Optional[dict] = None) -> dict:
+    """The default browser-like headers, with `user_agent` substituted (None => the
+    default bot UA) and any `extra` overrides merged on top. Shared by the static
+    fetcher and the api/feed JSON/XML clients so they all clear the same WAFs."""
+    headers = {**DEFAULT_HEADERS, "User-Agent": user_agent or USER_AGENT}
+    if extra:
+        headers.update(extra)
+    return headers
+
 
 class RobotsCache:
     """Per-host robots.txt lookups. Fails open: if robots can't be read, allow.
@@ -77,7 +97,7 @@ class Fetcher:
         timeout: float = 30.0,
         respect_robots: bool = False,
         verify_ssl: bool = True,
-        user_agent: str = USER_AGENT,
+        user_agent: Optional[str] = None,
     ):
         self.renderer = renderer
         self.delay_range = delay_range
@@ -87,9 +107,11 @@ class Fetcher:
         self.backoff = backoff
         self.timeout = timeout
         self.verify_ssl = verify_ssl
-        self.user_agent = user_agent
+        # None => the honest default bot UA; a recipe may override it to clear a WAF
+        # that hard-blocks the bot UA (e.g. some gov SharePoint sites).
+        self.user_agent = user_agent or USER_AGENT
         self._count = 0
-        self._robots = RobotsCache(user_agent) if respect_robots else None
+        self._robots = RobotsCache(self.user_agent) if respect_robots else None
         self._client: Optional[httpx.Client] = None
         self._pw = None
         self._browser = None
@@ -97,7 +119,7 @@ class Fetcher:
 
         if renderer == "static":
             self._client = httpx.Client(
-                headers={"User-Agent": user_agent},
+                headers=build_headers(self.user_agent),
                 follow_redirects=True,
                 timeout=timeout,
                 verify=verify_ssl,  # many gov sites have broken cert chains
@@ -111,7 +133,11 @@ class Fetcher:
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
         context = self._browser.new_context(
-            user_agent=self.user_agent, ignore_https_errors=not self.verify_ssl
+            user_agent=self.user_agent,
+            ignore_https_errors=not self.verify_ssl,
+            # chromium sets its own Accept/UA; nudge Accept-Language so WAFs that key
+            # on it (the same ones the static path's DEFAULT_HEADERS placate) behave.
+            extra_http_headers={"Accept-Language": DEFAULT_HEADERS["Accept-Language"]},
         )
         self._page = context.new_page()
 
