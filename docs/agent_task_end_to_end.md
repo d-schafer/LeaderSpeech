@@ -62,10 +62,17 @@ This runs until the site's listing is exhausted. Watch the summary and log:
   `pagination.type: sitemap` (see `recipes.md`). This is exactly how the France recipe went from ~100 recent
   items to its full ~4,700-article history.
 
-**6. Record it.** Set this source's row in `data/sources/master_sources.xlsx` to `recipe_status: validated`
-(fill `renderer`, `language`, `date_start`/`date_end`, `last_checked`).
+**6. Record it — but never touch `master_sources.xlsx`.** `data/sources/master_sources.xlsx` is the
+researcher's hand-curated, committed source list; **agents must not edit or regenerate it** (don't run any
+seed/regenerate script against it either). Instead, write your one proposed row to
+`data/sources/additional_master_sources.xlsx` — a separate "outbox" file that sits next to it: the
+`source_id`, `recipe_status` you believe applies, and `renderer`/`language`/`date_start`/`date_end`/`last_checked`.
+Create the file if it doesn't exist; append your row if it does. The researcher reviews this file and folds
+approved rows into `master_sources.xlsx` by hand, then clears it. (Don't mark `validated` unless your capped
+run actually passed — leave it `none`/`draft` otherwise.)
 
-**7. Open a PR.** Commit only the recipe and the `master_sources` change. **Never commit `data/scraped/`.**
+**7. Open a PR.** Commit only the recipe (and, if you added one, `additional_master_sources.xlsx`).
+**Never commit `data/scraped/`, and never commit a change to `master_sources.xlsx`.**
 
 ## Definition of done
 
@@ -76,7 +83,7 @@ This runs until the site's listing is exhausted. Watch the summary and log:
       (not just the last few weeks); if shallow, switch to a sitemap
 - [ ] a few rows spot-checked: the speaker/date are plausible for that country (cross-check the
       `leader_tenure_final` key)
-- [ ] `master_sources.xlsx` row set to `validated`
+- [ ] proposed row written to `additional_master_sources.xlsx` (**`master_sources.xlsx` left untouched**)
 - [ ] PR opened, CI green, no scraped data committed
 
 ## If you get stuck

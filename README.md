@@ -106,7 +106,8 @@ raise the pacing knobs for a touchy host. The Internet Archive is more fragile t
 ```
 leaderspeech/text_scraper/   the engine (recipe, fetch, paginate, extract, run, wayback, fallback_generic)
 recipes/                     one YAML per source
-data/sources/                master_sources.xlsx — the curated, citable source list (committed)
+data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
+                             additional_master_sources.xlsx — agents' proposed rows; researcher folds these in by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
 R/                           final combine of cleaned per-country corpora -> LeaderSpeech.RData
 docs/recipes.md              how to author a recipe

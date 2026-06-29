@@ -6,7 +6,8 @@ through them efficiently — by hand, with subagents, or with coding agents on G
 
 ## The unit of work
 
-One source → one recipe in `recipes/` → flip its `master_sources.xlsx` row to `validated`. That's it.
+One source → one recipe in `recipes/` → record its status in `additional_master_sources.xlsx` (the agent
+"outbox"; **never edit `master_sources.xlsx`** — see `agent_task_end_to_end.md`). That's it.
 Each is small, independent, and reviewable, which is exactly why it parallelizes well.
 
 ## Three ways to generate recipes
