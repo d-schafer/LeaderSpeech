@@ -44,6 +44,22 @@ def test_filter_entries_for_recipe_drops_listing_and_query_pages():
     ]
 
 
+def test_filter_entries_drops_index_from_start_urls_even_with_loose_pattern():
+    # The recipe's start_urls (a CDX prefix) define the index path to drop, so the
+    # bare index and its ?page=/?start= variants are removed even with a loose
+    # link_pattern — and no site-specific paths are hardcoded in the engine.
+    entries = [
+        {"original": "https://x.gov/discursos"},
+        {"original": "https://x.gov/discursos?page=2"},
+        {"original": "https://x.gov/discursos?start=40"},
+        {"original": "https://x.gov/discursos/5"},
+    ]
+    filtered = wayback.filter_entries_for_recipe(
+        entries, r"/discursos", start_urls=["x.gov/discursos"]
+    )
+    assert [e["original"] for e in filtered] == ["https://x.gov/discursos/5"]
+
+
 def test_fetch_snapshot_retries_transient_connect_error(monkeypatch):
     entry = {
         "timestamp": "20080101",

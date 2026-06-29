@@ -18,7 +18,7 @@ import logging
 import random
 import re
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 from typing import Iterable, Optional
 
 import httpx
@@ -28,8 +28,6 @@ from .fetch import USER_AGENT
 log = logging.getLogger(__name__)
 
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
-DEFAULT_LISTING_PATHS = ("/informacion/discursos", "/informacion/discursos/index")
-DEFAULT_DROP_QUERY_PARAMS = ("start", "page")
 DEFAULT_FETCH_DELAY = 5.0
 DEFAULT_FETCH_RETRIES = 6
 DEFAULT_FETCH_BACKOFF = 5.0
@@ -125,16 +123,33 @@ def list_snapshots_for_queries(
     return out
 
 
+def _url_path(url: str) -> str:
+    """Normalized path of a URL, tolerant of a missing scheme or trailing '*'
+    (recipe start_urls are CDX prefixes like 'site.gov/discursos' — no scheme)."""
+    u = url.strip().rstrip("*").rstrip("/")
+    if "://" not in u:
+        u = "http://" + u
+    return urlparse(u).path.rstrip("/")
+
+
 def filter_entries_for_recipe(
     entries: Iterable[dict],
     link_pattern: Optional[str] = None,
-    drop_listing_paths: Iterable[str] = (),
-    drop_query_params: Iterable[str] = (),
+    start_urls: Iterable[str] = (),
 ) -> list[dict]:
-    """Filter CDX captures down to speech-page URLs only."""
+    """Filter CDX captures down to speech pages — country-agnostic.
+
+    All per-site knowledge comes from the recipe, never from this engine:
+      * `link_pattern` (the recipe's `listing.link_pattern`) decides which URLs are
+        speeches — keep it tight enough to exclude index / section / bio pages
+        (e.g. require a numeric id: ``/discursos/\\d+[^/]*$``).
+      * the listing index itself — and its ``?page=`` / ``?start=`` paginated
+        variants, which share the index's path — is dropped by matching the
+        recipe's own `start_urls` paths. No site-specific paths are hardcoded here;
+        a new country needs only a new recipe, not a change to this module.
+    """
     pattern = re.compile(link_pattern) if link_pattern else None
-    listing_paths = {path.rstrip("/") for path in drop_listing_paths}
-    query_params = set(drop_query_params)
+    listing_paths = {_url_path(u) for u in start_urls}
     out: list[dict] = []
     seen: set[str] = set()
 
@@ -142,12 +157,7 @@ def filter_entries_for_recipe(
         original = entry.get("original")
         if not original or original in seen:
             continue
-        parsed = urlparse(original)
-        path = parsed.path.rstrip("/")
-        if path in listing_paths:
-            continue
-        query = parse_qs(parsed.query)
-        if any(param in query for param in query_params):
+        if _url_path(original) in listing_paths:
             continue
         if pattern and not pattern.search(original):
             continue

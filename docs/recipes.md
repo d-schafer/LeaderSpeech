@@ -37,6 +37,16 @@ with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speech
 > structured data; archive captures are lossy and inconsistent across years, so scraping the
 > modern era from the archive degrades quality and breaks `doc_id` continuity.
 
+A Wayback recipe is **recipe-only** — the engine already handles the Internet-Archive CDX listing,
+the polite retrying fetch, and dropping the listing/index captures generically, for *any* country.
+Your job is entirely in the YAML: point `start_urls` at the CDX prefix (the listing path, **no trailing
+`*`** — the engine prefix-matches), set a **tight `link_pattern`** that selects speech URLs and excludes
+index / section / bio pages (usually by requiring a numeric id, e.g. `/discursos/\d+[^/]*$`), choose
+`title`/`text`/`date` selectors that match the *archived* layout (older captures often fall back to the
+generic text extractor, which the engine applies automatically), and bound the era with `wayback_to`.
+**Do not modify `leaderspeech/text_scraper/*` for a new source** — per-site variation belongs in the
+recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wayback.yml) as a template.
+
 ## Field reference
 
 | Key | Required | Notes |

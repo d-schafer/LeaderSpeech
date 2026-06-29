@@ -10,6 +10,13 @@ body:
         see [`docs/recipes.md`](../blob/main/docs/recipes.md) for how. Blanks are fine — a partial
         recipe that scrapes title/text/date is already useful.
 
+        **This is a recipe-only task: add a file in `recipes/`, do not modify the engine**
+        (`leaderspeech/text_scraper/*`). All per-site variation belongs in the recipe. For a **Wayback**
+        source the engine already supports `pagination: wayback` — copy
+        [`recipes/arg_casarosada_wayback.yml`](../blob/main/recipes/arg_casarosada_wayback.yml), point
+        `start_urls` at the CDX prefix (no trailing `*`), set a tight `link_pattern`, bound it with
+        `wayback_to`, and **never edit a working live recipe** (Wayback is only for the pre-live era / dead sites).
+
         **Working this end to end (incl. agents):** follow
         [`docs/agent_task_end_to_end.md`](../blob/main/docs/agent_task_end_to_end.md) — write the recipe,
         prove it with `python -m leaderspeech.text_scraper.probe --recipe recipes/<id>.yml`, do a capped
@@ -50,6 +57,7 @@ body:
         - "path (/discursos/2)"
         - "click (next button, JS)"
         - "url_list (handful of fixed pages)"
+        - "wayback (Internet Archive — pre-live history or a dead site)"
         - "none (single page)"
         - "not sure"
     validations:

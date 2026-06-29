@@ -84,8 +84,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             entries = wayback.filter_entries_for_recipe(
                 entries,
                 recipe.listing.link_pattern,
-                drop_listing_paths=wayback.DEFAULT_LISTING_PATHS,
-                drop_query_params=wayback.DEFAULT_DROP_QUERY_PARAMS,
+                start_urls=recipe.start_urls,
             )
             sample = _sample_evenly(entries, n)
             report["listing"] = {
