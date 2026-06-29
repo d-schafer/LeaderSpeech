@@ -10,6 +10,19 @@ One source → one recipe in `recipes/` → record its status in `additional_mas
 "outbox"; **never edit `master_sources.xlsx`** — see `agent_task_end_to_end.md`). That's it.
 Each is small, independent, and reviewable, which is exactly why it parallelizes well.
 
+## Deferred sources (don't re-attempt without the prerequisite)
+
+Some sources were investigated and parked — tracked by GitHub issues labeled **`deferred`**. Don't burn
+agent cycles re-attempting these as plain recipes; they need a prerequisite first:
+
+- **Colombia — Presidencia discursos** (issue #7): a SharePoint **search web-part behind a WAF**; the HTML
+  is only chrome and the list loads via the SharePoint Search REST API. 0 links in both `static` and `js`.
+  *Needs:* a JSON/search-API source type (query `_api/search/query` / `_vti_bin`, parse JSON) + browser-like
+  request headers — or an RSS/Wayback alternative.
+- **Chile — Bachelet 2014–2018 Wayback** (issue #4): the Internet Archive holds no fetchable Bachelet-era
+  `discurso.aspx` captures (they 404; only 2018+ Piñera is archived, already in the live recipe). *Needs:* a
+  different archived source for that era (e.g. the slug-based `2010-2014.gob.cl` legacy site for Piñera I).
+
 ## Three ways to generate recipes
 
 1. **By hand.** Follow [`recipes.md`](recipes.md): inspect the site, write the YAML, do a capped live run.
