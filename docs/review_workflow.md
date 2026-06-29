@@ -51,11 +51,24 @@ Read-only + spot-check + one comment. Concretely:
 3. **Date coverage** — does the earliest sampled date match the leader's tenure / the site's real history?
    A clean run that only spans recent weeks usually means pagination silently stopped (see the sitemap note
    in `recipes.md`).
-4. **CI** — the schema check on the PR is green (`gh pr checks <N>`).
+4. **CI is decoupled from the review loop — don't hang on it.** Copilot-bot PR runs sit in
+   `action_required`, and on a **private** repo they can't be approved via API (fork-approve → 422,
+   per-run approve → 403) — only the human clears them in the GitHub UI. So **don't watch or block
+   iterations on CI.** Verify the tests yourself with a local run —
+   `python -m pytest -q` (in the `leaderspeech_scrape` venv) — and treat green CI as a **single
+   pre-merge confirmation the human makes at the FULL RUN / MERGE gate**, not a per-round gate.
 5. **Plausibility** — speaker/date look right for that country (a glance vs `leader_tenure_final`).
 6. Post the verdict with `gh pr comment <N>`: **PASS** (ready for the human's full run + merge) or
    **CHANGES** with the specific selector/pagination/SSL fixes. Verdicts are concrete — never a vague
    "looks good".
+
+**Reviewing engine/tool-code PRs (not just recipes).** When a PR changes the engine itself (a new
+pagination type, a fetch/extract change), the recipe can't be probed against your installed `main`
+package — `load_recipe` rejects the new fields/enums. Probe it faithfully in a throwaway **git worktree
+at the branch tip**: `git worktree add --detach <tmp> origin/<branch>`, probe from inside `<tmp>`, then
+`git worktree remove <tmp> --force`. This keeps your working tree untouched. Read the engine diff too —
+the bar for shared-engine changes is **backward-compatibility** (existing recipes must take the unchanged
+code path).
 
 ## Hard rules for the reviewer
 
