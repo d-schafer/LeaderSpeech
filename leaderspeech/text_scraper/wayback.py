@@ -14,6 +14,7 @@ Typical use:
 
 from __future__ import annotations
 
+import logging
 import random
 import re
 import time
@@ -24,12 +25,15 @@ import httpx
 
 from .fetch import USER_AGENT
 
+log = logging.getLogger(__name__)
+
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
 DEFAULT_LISTING_PATHS = ("/informacion/discursos", "/informacion/discursos/index")
 DEFAULT_DROP_QUERY_PARAMS = ("start", "page")
 DEFAULT_FETCH_DELAY = 5.0
-DEFAULT_FETCH_RETRIES = 4
+DEFAULT_FETCH_RETRIES = 6
 DEFAULT_FETCH_BACKOFF = 5.0
+MAX_FETCH_BACKOFF = 60.0
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
@@ -160,7 +164,7 @@ def snapshot_url(entry: dict) -> str:
 
 
 def _retry_sleep(attempt: int, backoff: float) -> float:
-    base = backoff * (2 ** attempt)
+    base = min(backoff * (2 ** attempt), MAX_FETCH_BACKOFF)
     jitter = random.uniform(0.0, min(1.0, base * 0.1))
     return base + jitter
 
@@ -173,26 +177,33 @@ def fetch_snapshot(
     retries: int = DEFAULT_FETCH_RETRIES,
     backoff: float = DEFAULT_FETCH_BACKOFF,
 ) -> str:
-    """Politely fetch one archived capture's HTML."""
+    """Politely fetch one archived capture's HTML, riding out transient Archive
+    throttling — connection refusals (`ConnectError`) and 429/5xx — with capped
+    exponential backoff. The Archive periodically refuses a burst then recovers
+    within a minute or so, so we retry long enough to outlast that window instead
+    of surfacing a one-off refusal as a failed speech. Non-retryable statuses
+    (e.g. 404) raise immediately."""
     time.sleep(delay)
     close_client = client is None
     client = client or create_client(timeout=timeout)
+    url = snapshot_url(entry)
     try:
         for attempt in range(retries):
             try:
-                resp = client.get(snapshot_url(entry))
+                resp = client.get(url)
                 resp.raise_for_status()
                 return resp.text
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code if exc.response is not None else None
-                retryable = status in RETRYABLE_STATUS_CODES
-                if not retryable or attempt >= retries - 1:
-                    raise
-                time.sleep(_retry_sleep(attempt, backoff))
-            except httpx.TransportError:
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                if isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code if exc.response is not None else None
+                    if status not in RETRYABLE_STATUS_CODES:
+                        raise
                 if attempt >= retries - 1:
                     raise
-                time.sleep(_retry_sleep(attempt, backoff))
+                wait = _retry_sleep(attempt, backoff)
+                log.info("wayback throttled (%s); retry %d/%d in %.0fs: %s",
+                         type(exc).__name__, attempt + 1, retries, wait, url)
+                time.sleep(wait)
     finally:
         if close_client:
             client.close()
