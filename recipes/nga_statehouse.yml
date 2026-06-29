@@ -16,6 +16,7 @@ pagination:
   path_format: "page/{n}"
   start: 1
   step: 1
+  # Safety cap for a long historical archive; pagination also stops once a page yields no new links.
   max_pages: 400
 
 title:
