@@ -63,6 +63,7 @@ class Pagination(BaseModel):
     wayback_limit: Optional[int] = None    # cap archived captures listed per query
     wayback_match_type: str = "prefix"     # CDX `matchType`
     wayback_collapse: str = "urlkey"       # CDX `collapse`
+    wayback_delay: float = 5.0             # seconds to wait before each archived fetch
     wayback_from: Optional[str] = None     # CDX `from` (YYYYMMDD)
     wayback_to: Optional[str] = None       # CDX `to` (YYYYMMDD)
 

@@ -55,6 +55,12 @@ def _sample_evenly(entries: list, n: int) -> list:
     return list(entries)
 
 
+def _listing_count(report_listing: dict) -> tuple[str, int]:
+    if "snapshots_found" in report_listing:
+        return "snapshot(s)", report_listing.get("snapshots_found", 0)
+    return "link(s)", report_listing.get("links_found", 0)
+
+
 def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     recipe = load_recipe(recipe_path)
     report: dict = {
@@ -63,8 +69,10 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     }
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl)
+    wayback_client = None
     try:
         if recipe.pagination.type == PaginationType.wayback:
+            wayback_client = wayback.create_client()
             entries = wayback.list_snapshots_for_queries(
                 recipe.start_urls,
                 from_date=recipe.pagination.wayback_from,
@@ -82,6 +90,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             sample = _sample_evenly(entries, n)
             report["listing"] = {
                 "mode": "wayback snapshots",
+                "links_found": len(entries),
                 "snapshots_found": len(entries),
                 "sampled": len(sample),
                 "sample": [entry["original"] for entry in sample if entry.get("original")],
@@ -105,7 +114,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 if recipe.pagination.type == PaginationType.wayback:
                     entry = item
                     url = entry["original"]
-                    phtml = wayback.fetch_snapshot(entry, delay=0.0)
+                    phtml = wayback.fetch_snapshot(entry, delay=0.0, client=wayback_client)
                 else:
                     url = item
                     phtml = fetcher.get(url)
@@ -134,6 +143,8 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 "fields": fields,
             })
     finally:
+        if wayback_client is not None:
+            wayback_client.close()
         fetcher.close()
     return report
 
@@ -143,12 +154,13 @@ def _print(report: dict):
     no = "✗"
     print(f"\nRECIPE  {report['recipe']}  ({report['country']}, renderer={report['renderer']})")
     L = report["listing"]
-    flag = ok if L.get("links_found") else no
+    count_label, count = _listing_count(L)
+    flag = ok if count else no
     where = L["mode"] if "mode" in L else f"from {L.get('url')}"
     extra = f" (sampled {L['sampled']} across history)" if "sampled" in L else ""
-    print(f"LISTING {flag} {L.get('links_found', 0)} link(s) {where}{extra}")
-    if not L.get("links_found"):
-        print("        -> 0 links: check listing.link_selector / link_pattern and pagination.")
+    print(f"LISTING {flag} {count} {count_label} {where}{extra}")
+    if not count:
+        print(f"        -> 0 {count_label}: check listing.link_selector / link_pattern and pagination.")
     for s in L.get("sample", []):
         print(f"          - {s}")
 

@@ -13,6 +13,7 @@ listing:
 
 pagination:
   type: wayback
+  wayback_delay: 5.0
   wayback_to: "20151210"
 
 title:

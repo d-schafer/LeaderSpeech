@@ -49,6 +49,7 @@ def test_query_param_pagination_requires_param():
 def test_wayback_pagination_loads():
     r = Recipe(**{**MINIMAL, "pagination": {"type": "wayback"}})
     assert r.pagination.type.value == "wayback"
+    assert r.pagination.wayback_delay == 5.0
 
 
 @pytest.mark.skipif(not RECIPES, reason="no recipes yet")

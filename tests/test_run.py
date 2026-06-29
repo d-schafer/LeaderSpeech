@@ -132,7 +132,11 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
         {"timestamp": "20080102", "original": "https://www.casarosada.gob.ar/informacion/discursos/2"},
     ]
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
-    monkeypatch.setattr(run.wayback, "fetch_snapshot", lambda entry, delay=3.0, timeout=60.0: WAYBACK_HTML)
+    monkeypatch.setattr(
+        run.wayback,
+        "fetch_snapshot",
+        lambda entry, delay=3.0, timeout=60.0, client=None: WAYBACK_HTML,
+    )
     monkeypatch.setattr(run, "Fetcher", FakeFetcher)
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"

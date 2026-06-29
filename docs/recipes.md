@@ -58,7 +58,7 @@ with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speech
 | `pagination.next_selector` | for click | CSS selector of the "next" button. |
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
-| `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_from` / `wayback_to` | for wayback | CDX query knobs. `wayback_limit` caps captures per query; the defaults are `prefix`/`urlkey` with no date bounds. |
+| `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
 | `title` / `text` / `date` | yes | Each is `{ selectors: [...] }`, an ordered fallback chain. First match wins. |
 | `speaker` / `context` | no | Same shape as above. |
 | `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |

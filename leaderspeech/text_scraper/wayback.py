@@ -14,8 +14,9 @@ Typical use:
 
 from __future__ import annotations
 
-import time
+import random
 import re
+import time
 from urllib.parse import parse_qs, urlparse
 from typing import Iterable, Optional
 
@@ -26,6 +27,10 @@ from .fetch import USER_AGENT
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
 DEFAULT_LISTING_PATHS = ("/informacion/discursos", "/informacion/discursos/index")
 DEFAULT_DROP_QUERY_PARAMS = ("start", "page")
+DEFAULT_FETCH_DELAY = 5.0
+DEFAULT_FETCH_RETRIES = 4
+DEFAULT_FETCH_BACKOFF = 5.0
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 def list_snapshots(
@@ -64,6 +69,14 @@ def list_snapshots(
         return []
     header, *rows = data
     return [dict(zip(header, row)) for row in rows]
+
+
+def create_client(timeout: float = 60.0) -> httpx.Client:
+    return httpx.Client(
+        headers={"User-Agent": USER_AGENT},
+        follow_redirects=True,
+        timeout=timeout,
+    )
 
 
 def list_snapshots_for_queries(
@@ -146,14 +159,40 @@ def snapshot_url(entry: dict) -> str:
     return f"https://web.archive.org/web/{entry['timestamp']}id_/{entry['original']}"
 
 
-def fetch_snapshot(entry: dict, delay: float = 3.0, timeout: float = 60.0) -> str:
+def _retry_sleep(attempt: int, backoff: float) -> float:
+    base = backoff * (3 ** attempt)
+    jitter = random.uniform(0.0, min(1.0, base * 0.1))
+    return base + jitter
+
+
+def fetch_snapshot(
+    entry: dict,
+    delay: float = DEFAULT_FETCH_DELAY,
+    timeout: float = 60.0,
+    client: Optional[httpx.Client] = None,
+    retries: int = DEFAULT_FETCH_RETRIES,
+    backoff: float = DEFAULT_FETCH_BACKOFF,
+) -> str:
     """Politely fetch one archived capture's HTML."""
     time.sleep(delay)
-    resp = httpx.get(
-        snapshot_url(entry),
-        headers={"User-Agent": USER_AGENT},
-        follow_redirects=True,
-        timeout=timeout,
-    )
-    resp.raise_for_status()
-    return resp.text
+    close_client = client is None
+    client = client or create_client(timeout=timeout)
+    try:
+        for attempt in range(retries):
+            try:
+                resp = client.get(snapshot_url(entry))
+                resp.raise_for_status()
+                return resp.text
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                retryable = status in RETRYABLE_STATUS_CODES
+                if not retryable or attempt >= retries - 1:
+                    raise
+                time.sleep(_retry_sleep(attempt, backoff))
+            except httpx.TransportError:
+                if attempt >= retries - 1:
+                    raise
+                time.sleep(_retry_sleep(attempt, backoff))
+    finally:
+        if close_client:
+            client.close()

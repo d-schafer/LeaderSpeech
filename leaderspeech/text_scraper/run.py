@@ -186,6 +186,7 @@ def scrape_recipe(
         respect_robots=respect_robots,
         verify_ssl=recipe.verify_ssl,
     )
+    wayback_client = None
 
     def stamp() -> str:
         return datetime.now().isoformat(timespec="seconds")
@@ -198,6 +199,8 @@ def scrape_recipe(
     errors: list[dict] = []
     try:
         wayback_mode = recipe.pagination.type == PaginationType.wayback
+        if wayback_mode:
+            wayback_client = wayback.create_client()
         if wayback_mode:
             entries = _harvest_wayback_entries(recipe)
             links = [entry["original"] for entry in entries if entry.get("original")]
@@ -234,7 +237,11 @@ def scrape_recipe(
             try:
                 if wayback_mode:
                     url = todo_item["original"]
-                    html = wayback.fetch_snapshot(todo_item)
+                    html = wayback.fetch_snapshot(
+                        todo_item,
+                        delay=recipe.pagination.wayback_delay,
+                        client=wayback_client,
+                    )
                 else:
                     url = todo_item
                     html = fetcher.get(url)
@@ -298,6 +305,8 @@ def scrape_recipe(
         log.exception("FATAL during harvest/scrape — partial results flushed below")
         raise
     finally:
+        if wayback_client is not None:
+            wayback_client.close()
         fetcher.close()
         _append(out_path, pending_rows, SCHEMA_COLUMNS)
         _append(err_path, errors, ERROR_COLUMNS)
