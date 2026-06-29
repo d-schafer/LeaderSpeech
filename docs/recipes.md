@@ -15,7 +15,8 @@ agent assigned a "new source" issue — can produce a working recipe by inspecti
    `?page=2`) is `query_param`. A changing path segment (`/discursos/2`) is `path`. A "load more" or
    "next" button with no URL change usually means the site is JavaScript-rendered (`renderer: js`) and
    `pagination: click`. If the live site is incomplete but the Internet Archive has the history, use
-   `pagination: wayback` and point `start_urls` at a CDX prefix like `casarosada.gob.ar/informacion/discursos/*`.
+   `pagination: wayback` and point `start_urls` at a CDX prefix like `casarosada.gob.ar/informacion/discursos`
+   (no trailing `*` — the engine prefix-matches; a literal `*` makes the CDX query return nothing).
 4. **Check whether it needs JavaScript.** View source (not the rendered DOM). If the speech list is
    absent from the raw HTML, set `renderer: js`.
 5. **Note the language** for date parsing (`date_languages: ["es"]`).
@@ -28,6 +29,13 @@ ignore `?page=`, so a paginated crawl looks clean but stops a few weeks back. If
 want the full history), check the site's **sitemap** — `/<root>/sitemap.xml` and the entries in
 `/robots.txt`. A sitemap usually lists every article URL going back years; use `pagination.type: sitemap`
 with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speeches.
+
+> ⚠️ **Wayback is a fallback, never a replacement.** Use `pagination: wayback` *only*
+> to reach speeches from **before** the live site's coverage. **Never convert or edit a
+> working live recipe to wayback** — add a *separate* `<id>_wayback.yml` and bound it with
+> `wayback_to` at the live recipe's earliest date. The live site gives clean, complete,
+> structured data; archive captures are lossy and inconsistent across years, so scraping the
+> modern era from the archive degrades quality and breaks `doc_id` continuity.
 
 ## Field reference
 
