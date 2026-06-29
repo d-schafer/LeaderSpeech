@@ -8,6 +8,7 @@ renderer: static
 
 listing:
   link_selector: "a"
+  # Skip the curated index page; only real speech URLs match this pattern.
   link_pattern: '/media-library/speeches/(?!selected-speeches)[a-z][a-z-]+'
 
 pagination:

@@ -54,11 +54,11 @@ class Pagination(BaseModel):
     param: Optional[str] = None            # query param name (query_param type)
     start: int = 0                         # first page index/offset
     step: int = 1                          # increment between pages
-    path_format: Optional[str] = None      # path type: suffix template with a `{n}`
-    # placeholder for the page index, appended to start_url. Default (unset) appends
-    # "/{n}" (e.g. /discursos/2). Use it for sites whose pager isn't a bare number,
-    # e.g. "P{n}" -> /speeches/P0, /speeches/P20 (with step: 20). Supports format
-    # specs like "{n:03d}" for zero-padded page numbers.
+    path_format: Optional[str] = None      # Only used when type='path'. Suffix template
+    # with a `{n}` placeholder for the page index, appended to start_url. Default
+    # (unset) appends "/{n}" (e.g. /discursos/2). Use it for sites whose pager
+    # isn't a bare number, e.g. "P{n}" -> /speeches/P0, /speeches/P20 (with step:
+    # 20). Supports format specs like "{n:03d}" for zero-padded page numbers.
     max_pages: Optional[int] = None        # safety cap; None => stop on empty page
     next_selector: Optional[str] = None    # "next" button selector (click type)
     url_list: Optional[list[str]] = None   # explicit listing URLs (url_list type)

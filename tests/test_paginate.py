@@ -66,5 +66,5 @@ def test_path_format_supports_padding():
 
 
 def test_path_format_requires_placeholder():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="must contain the '\\{n\\}' page-index placeholder"):
         _recipe(type="path", path_format="Pnnn", start=0, step=20)
