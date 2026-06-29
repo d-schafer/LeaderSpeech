@@ -1,0 +1,32 @@
+# Ireland — president.ie speeches.
+source_id: irl_president
+country: Ireland
+source_language: English
+start_urls:
+  - https://president.ie/en/media-library/speeches
+renderer: static
+
+listing:
+  link_selector: "a"
+  # Skip the curated index page; only real speech URLs match this pattern.
+  # Negative lookahead excludes the selected-speeches page; the slug class keeps it to the multi-character speech slugs.
+  link_pattern: '/media-library/speeches/(?!selected-speeches)[a-z][a-z-]+'
+
+pagination:
+  type: path
+  path_format: "P{n}"
+  start: 0
+  step: 20
+  max_pages: 120
+
+title:
+  selectors: ["h2.heading", "title"]
+text:
+  selectors:
+    - ".c-detail-page-content"
+    - ".detail-page-content-wrapper"
+date:
+  selectors: ["h3.page-subheading"]
+
+position: president
+date_languages: ["en"]

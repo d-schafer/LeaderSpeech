@@ -1,5 +1,5 @@
 """Pagination URL construction — especially `path_format`, which lets a `path`
-pager target non-numeric page URLs (e.g. president.ie's /P0, /P20, /P40)."""
+page target non-numeric URLs (e.g. president.ie's /P0, /P20, /P40)."""
 
 import pytest
 
@@ -66,5 +66,5 @@ def test_path_format_supports_padding():
 
 
 def test_path_format_requires_placeholder():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="must contain the '\\{n\\}' page-index placeholder"):
         _recipe(type="path", path_format="Pnnn", start=0, step=20)
