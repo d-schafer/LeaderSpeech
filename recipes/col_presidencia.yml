@@ -1,0 +1,33 @@
+# Colombia — Presidencia discursos.
+# Static HTML, query-param pagination (?page=N), Spanish dates.
+source_id: col_presidencia
+country: Colombia
+source_language: Spanish
+start_urls:
+  - https://www.presidencia.gov.co/prensa/Paginas/discursos.aspx
+renderer: static
+
+listing:
+  link_selector: "div.ItemP h3 a"
+  link_pattern: '/prensa/Paginas/.+\.aspx$'
+
+pagination:
+  type: query_param
+  # SharePoint-style pagination on the live site uses a capitalized `Page=` param.
+  param: Page
+  start: 1
+  step: 1
+
+title:
+  selectors: [".titulo-noticia", "h1", "title"]
+text:
+  selectors: [".content-noticia", "article", "main"]
+date:
+  selectors: [".fecha", "time"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  Presidencia's discursos section is a SharePoint-style listing with ItemP cards;
+  pagination uses `?Page=` (capital P) on the live site; the same site also
+  exposes older speech history from archive-style pages.

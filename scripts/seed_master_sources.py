@@ -120,6 +120,11 @@ MILESTONE = {
         leaders_covered="Macron", content_format="fulltext",
         recipe_status="validated", last_checked="2026-06-27",
         notes="recipe: recipes/fra_elysee.yml — validated live (server-rendered, static)"),
+    "col_presidencia": dict(
+        region="South America", renderer="static", language="Spanish",
+        leaders_covered="Petro, Duque, Santos, Uribe", content_format="fulltext",
+        recipe_status="none", last_checked=None,  # repo convention for pending sources
+        notes="recipe: recipes/col_presidencia.yml — pending probe"),
 }
 
 
