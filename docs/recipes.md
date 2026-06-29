@@ -64,6 +64,7 @@ recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wa
 | `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, `wayback`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |
+| `pagination.path_format` | for path | Suffix template appended to `start_url`, with a `{n}` placeholder for the page index. Default (unset) appends `/{n}` (e.g. `/discursos/2`). Use it when the pager isn't a bare number — e.g. `path_format: "P{n}"` with `start: 0, step: 20` yields `…/speeches/P0`, `…/speeches/P20`, `…/speeches/P40` (president.ie). Supports format specs like `{n:03d}` for zero-padding. |
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
 | `pagination.next_selector` | for click | CSS selector of the "next" button. |
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
