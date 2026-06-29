@@ -1,0 +1,44 @@
+# Chile — archived presidential speeches before the live recipe.
+# Wayback fallback for pre-2018 coverage.
+source_id: chl_presidencia_wayback
+country: Chile
+source_language: Spanish
+start_urls:
+  - prensa.presidencia.cl/discursos.aspx
+  - 2010-2014.gob.cl/discursos
+renderer: static
+verify_ssl: false
+
+listing:
+  link_pattern: '(?:discurso\.aspx\?id=\d+|/discursos/\d+[^/]*$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_to: "20180311"
+
+title:
+  selectors: ["#main_ltTitulo", "h1", "title"]
+text:
+  selectors:
+    - "#main_ltContenido"
+    - ".texto-bloque"
+    - "article"
+    - "main"
+date:
+  selectors:
+    - "#main_ltFEcha"
+    - ".fecha"
+    - "time"
+    - "span[itemprop='datePublished']"
+
+context:
+  selectors: ["#main_ltBajada"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  Archived Chile presidency speeches before the live recipe's 2018 cutoff. The
+  Wayback captures can surface both the 2014-2018 prensa.presidencia.cl era and
+  the older 2010-2014.gob.cl speech pages; the link_pattern excludes listing
+  pages and only keeps numeric speech URLs.
