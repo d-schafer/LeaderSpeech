@@ -1,6 +1,4 @@
 # Ireland — president.ie speeches.
-# Drupal-style site: the listing is server-rendered, but the speech page fields
-# live in broad wrappers, so we use a selector chain with Drupal fallbacks.
 source_id: irl_president
 country: Ireland
 source_language: English
@@ -9,30 +7,24 @@ start_urls:
 renderer: static
 
 listing:
-  link_selector: "article a, .views-row a, .view-content a"
-  link_pattern: '/en/media-library/speeches/'
+  link_selector: "a"
+  link_pattern: '/media-library/speeches/(?!selected-speeches)[a-z][a-z-]+'
 
 pagination:
-  type: query_param
-  param: page
+  type: path
+  path_format: "P{n}"
   start: 0
-  step: 1
-  max_pages: 100
+  step: 20
+  max_pages: 120
 
 title:
-  selectors: ["main h1", "h1", "title"]
+  selectors: ["h2.heading", "title"]
 text:
   selectors:
-    - ".field--name-body .field__item"
-    - ".field--name-body"
-    - ".node__content"
-    - "article"
+    - ".c-detail-page-content"
+    - ".detail-page-content-wrapper"
 date:
-  selectors: ["time", ".field--name-field-date", ".date", ".field--name-created"]
+  selectors: ["h3.page-subheading"]
 
 position: president
 date_languages: ["en"]
-notes: >
-  president.ie is server-rendered (no JS renderer needed). The body lives in a
-  broad Drupal wrapper, so the selector chain needs to tolerate field-wrapper
-  drift while keeping the text extraction specific to the speech content.
