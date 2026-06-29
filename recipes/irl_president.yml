@@ -9,7 +9,7 @@ renderer: static
 listing:
   link_selector: "a"
   # Skip the curated index page; only real speech URLs match this pattern.
-  # Negative lookahead excludes the selected-speeches page; the slug class keeps it to speech URLs.
+  # Negative lookahead excludes the selected-speeches page; the slug class keeps it to lowercase hyphenated speech slugs.
   link_pattern: '/media-library/speeches/(?!selected-speeches)[a-z][a-z-]+'
 
 pagination:

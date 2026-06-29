@@ -88,6 +88,7 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
             if pg.type == PaginationType.query_param:
                 page_url = _with_query_param(start_url, pg.param, value)
             else:  # path
+                # Unset path_format falls back to bare-number paths like /discursos/2.
                 suffix = pg.path_format.format(n=value) if pg.path_format else str(value)
                 page_url = start_url.rstrip("/") + "/" + suffix
             try:
