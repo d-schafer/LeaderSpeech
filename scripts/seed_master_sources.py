@@ -105,6 +105,11 @@ MILESTONE = {
         leaders_covered="Milei, Fernández, Macri, Kirchner", content_format="fulltext",
         recipe_status="validated", last_checked="2026-06-27",
         notes="recipe: recipes/arg_casarosada.yml — validated live"),
+    "arg_casarosada_wayback": dict(
+        region="South America", renderer="static", language="Spanish",
+        leaders_covered="Kirchner, Fernández", content_format="fulltext",
+        recipe_status="validated", last_checked="2026-06-27",
+        notes="recipe: recipes/arg_casarosada_wayback.yml — archived history"),
     "mex_presidencia": dict(
         region="North America", renderer="static", language="Spanish",
         leaders_covered="Sheinbaum, López Obrador (paging back)", content_format="fulltext",

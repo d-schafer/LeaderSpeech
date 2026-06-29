@@ -22,7 +22,8 @@ from .extract import clean_text, extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
-from .recipe import FieldSpec, load_recipe
+from .recipe import FieldSpec, PaginationType, load_recipe
+from . import wayback
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -46,6 +47,20 @@ def _which_selector(soup, spec: FieldSpec | None):
     return None, 0
 
 
+def _sample_evenly(entries: list, n: int) -> list:
+    """Pick `n` roughly even samples; return all entries when `n` is large enough."""
+    if n < len(entries):
+        step = max(len(entries) // n, 1)
+        return [entries[min(i * step, len(entries) - 1)] for i in range(n)]
+    return list(entries)
+
+
+def _listing_count(report_listing: dict) -> tuple[str, int]:
+    if "snapshots_found" in report_listing:
+        return "snapshot(s)", report_listing.get("snapshots_found", 0)
+    return "link(s)", report_listing.get("links_found", 0)
+
+
 def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     recipe = load_recipe(recipe_path)
     report: dict = {
@@ -54,17 +69,37 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
     }
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl)
+    wayback_client = None
     try:
-        if spread:
+        if recipe.pagination.type == PaginationType.wayback:
+            wayback_client = wayback.create_client()
+            entries = wayback.list_snapshots_for_queries(
+                recipe.start_urls,
+                from_date=recipe.pagination.wayback_from,
+                to_date=recipe.pagination.wayback_to,
+                limit=recipe.pagination.wayback_limit,
+                match_type=recipe.pagination.wayback_match_type,
+                collapse=recipe.pagination.wayback_collapse,
+            )
+            entries = wayback.filter_entries_for_recipe(
+                entries,
+                recipe.listing.link_pattern,
+                drop_listing_paths=wayback.DEFAULT_LISTING_PATHS,
+                drop_query_params=wayback.DEFAULT_DROP_QUERY_PARAMS,
+            )
+            sample = _sample_evenly(entries, n)
+            report["listing"] = {
+                "mode": "wayback snapshots",
+                "snapshots_found": len(entries),
+                "sampled": len(sample),
+                "sample": [entry["original"] for entry in sample if entry.get("original")],
+            }
+        elif spread:
             # Sample across the WHOLE history (oldest..newest) to catch structural
             # drift — a recipe can pass for recent pages but break on old ones. This
             # harvests every link first (slow for big sites; instant for sitemaps).
             links = harvest_links(recipe, fetcher)
-            if n < len(links):
-                step = len(links) / n
-                sample = [links[min(int(i * step), len(links) - 1)] for i in range(n)]
-            else:
-                sample = links
+            sample = _sample_evenly(links, n)
             report["listing"] = {"mode": "spread (full history)",
                                   "links_found": len(links), "sampled": len(sample)}
         else:
@@ -73,11 +108,18 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             sample = links[:n]
             report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
 
-        for url in sample:
+        for item in sample:
             try:
-                phtml = fetcher.get(url)
+                if recipe.pagination.type == PaginationType.wayback:
+                    entry = item
+                    url = entry["original"]
+                    phtml = wayback.fetch_snapshot(entry, delay=0.0, client=wayback_client)
+                else:
+                    url = item
+                    phtml = fetcher.get(url)
             except Exception as e:
-                report["pages"].append({"url": url, "error": f"{type(e).__name__}: {e}"})
+                bad_url = item.get("original") if isinstance(item, dict) else item
+                report["pages"].append({"url": bad_url, "error": f"{type(e).__name__}: {e}"})
                 continue
             soup = BeautifulSoup(phtml, "lxml")
             rec = extract_record(phtml, url, recipe)              # what the recipe yields
@@ -100,6 +142,8 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 "fields": fields,
             })
     finally:
+        if wayback_client is not None:
+            wayback_client.close()
         fetcher.close()
     return report
 
@@ -109,12 +153,13 @@ def _print(report: dict):
     no = "✗"
     print(f"\nRECIPE  {report['recipe']}  ({report['country']}, renderer={report['renderer']})")
     L = report["listing"]
-    flag = ok if L.get("links_found") else no
+    count_label, count = _listing_count(L)
+    flag = ok if count else no
     where = L["mode"] if "mode" in L else f"from {L.get('url')}"
     extra = f" (sampled {L['sampled']} across history)" if "sampled" in L else ""
-    print(f"LISTING {flag} {L.get('links_found', 0)} link(s) {where}{extra}")
-    if not L.get("links_found"):
-        print("        -> 0 links: check listing.link_selector / link_pattern and pagination.")
+    print(f"LISTING {flag} {count} {count_label} {where}{extra}")
+    if not count:
+        print(f"        -> 0 {count_label}: check listing.link_selector / link_pattern and pagination.")
     for s in L.get("sample", []):
         print(f"          - {s}")
 

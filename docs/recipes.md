@@ -14,7 +14,9 @@ agent assigned a "new source" issue — can produce a working recipe by inspecti
 3. **Work out pagination.** Click to page 2 and watch the URL. A changing query string (`?start=40`,
    `?page=2`) is `query_param`. A changing path segment (`/discursos/2`) is `path`. A "load more" or
    "next" button with no URL change usually means the site is JavaScript-rendered (`renderer: js`) and
-   `pagination: click`.
+   `pagination: click`. If the live site is incomplete but the Internet Archive has the history, use
+   `pagination: wayback` and point `start_urls` at a CDX prefix like `casarosada.gob.ar/informacion/discursos`
+   (no trailing `*` — the engine prefix-matches; a literal `*` makes the CDX query return nothing).
 4. **Check whether it needs JavaScript.** View source (not the rendered DOM). If the speech list is
    absent from the raw HTML, set `renderer: js`.
 5. **Note the language** for date parsing (`date_languages: ["es"]`).
@@ -28,6 +30,13 @@ want the full history), check the site's **sitemap** — `/<root>/sitemap.xml` a
 `/robots.txt`. A sitemap usually lists every article URL going back years; use `pagination.type: sitemap`
 with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speeches.
 
+> ⚠️ **Wayback is a fallback, never a replacement.** Use `pagination: wayback` *only*
+> to reach speeches from **before** the live site's coverage. **Never convert or edit a
+> working live recipe to wayback** — add a *separate* `<id>_wayback.yml` and bound it with
+> `wayback_to` at the live recipe's earliest date. The live site gives clean, complete,
+> structured data; archive captures are lossy and inconsistent across years, so scraping the
+> modern era from the archive degrades quality and breaks `doc_id` continuity.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -37,18 +46,19 @@ with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speech
 | `iso3n` | no | Auto-filled from `country` if omitted. |
 | `source_language` | no | Default `English`. Non-English text routes to the `*_originlanguage` columns. |
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
-| `start_urls` | yes | One or more listing-page URLs. |
+| `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
 | `renderer` | no | `static` (default) or `js`. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
-| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, or `none` (default). |
+| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, `wayback`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
 | `pagination.next_selector` | for click | CSS selector of the "next" button. |
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
+| `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
 | `title` / `text` / `date` | yes | Each is `{ selectors: [...] }`, an ordered fallback chain. First match wins. |
 | `speaker` / `context` | no | Same shape as above. |
 | `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |

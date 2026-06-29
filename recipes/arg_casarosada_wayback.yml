@@ -1,0 +1,45 @@
+# Argentina — Casa Rosada, archived presidential speeches.
+# Wayback archive for the pre-2015 speeches history.
+source_id: arg_casarosada_wayback
+country: Argentina
+source_language: Spanish
+start_urls:
+  - casarosada.gob.ar/informacion/discursos
+renderer: static
+
+listing:
+  link_selector: "a[href*='/informacion/discursos/']"
+  link_pattern: '/informacion/discursos/\d+[^/]*$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_to: "20151210"
+
+title:
+  selectors: [".col-md-8.col-md-offset-2 h2", "h1", "title"]
+text:
+  selectors:
+    - ".col-md-8.col-md-offset-2 p"
+    - ".col-md-8.col-md-offset-2"
+    - ".entry-content"
+    - ".post-content"
+    - "article"
+    - "main"
+date:
+  selectors:
+    - "time"
+    - ".col-md-8 time"
+    - ".fecha"
+    - ".date"
+    - ".entry-date"
+    - ".post-date"
+    - ".published"
+    - "span[itemprop='datePublished']"
+
+position: president
+date_languages: ["es"]
+notes: >
+  Archived variant for the pre-2015 Casa Rosada history; the live recipe remains
+  recipes/arg_casarosada.yml. The 2015-12-10 cutoff leaves the live archive
+  recipe to cover the post-Kirchner period.
