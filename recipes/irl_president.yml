@@ -15,9 +15,9 @@ listing:
 pagination:
   type: query_param
   param: page
-  start: 1
+  start: 0
   step: 1
-  max_pages: 400
+  max_pages: 100
 
 title:
   selectors: ["main h1", "h1", "title"]
