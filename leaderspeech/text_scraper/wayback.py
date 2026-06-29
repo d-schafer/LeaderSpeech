@@ -160,7 +160,7 @@ def snapshot_url(entry: dict) -> str:
 
 
 def _retry_sleep(attempt: int, backoff: float) -> float:
-    base = backoff * (3 ** attempt)
+    base = backoff * (2 ** attempt)
     jitter = random.uniform(0.0, min(1.0, base * 0.1))
     return base + jitter
 

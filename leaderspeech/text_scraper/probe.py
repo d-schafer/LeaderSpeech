@@ -90,7 +90,6 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             sample = _sample_evenly(entries, n)
             report["listing"] = {
                 "mode": "wayback snapshots",
-                "links_found": len(entries),
                 "snapshots_found": len(entries),
                 "sampled": len(sample),
                 "sample": [entry["original"] for entry in sample if entry.get("original")],
