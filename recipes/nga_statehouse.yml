@@ -1,0 +1,32 @@
+# Nigeria — State House, speeches and remarks.
+# WordPress category archive with /page/{n}/ pagination.
+source_id: nga_statehouse
+country: Nigeria
+source_language: English
+start_urls:
+  - https://statehouse.gov.ng/category/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href*='/speech/']"
+  link_pattern: '/speech/[a-z0-9-]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", ".post-content", "article", "main"]
+date:
+  selectors: ["time.entry-date", "time", ".entry-date", ".post-date", ".posted-on"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  State House speeches category (WordPress). Pagination is path-based at
+  /category/speeches/page/{n}/ and speech pages resolve under /speech/<slug>/.
