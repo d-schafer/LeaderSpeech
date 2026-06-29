@@ -8,8 +8,8 @@ start_urls:
 renderer: static
 
 listing:
-  link_selector: "a[href*='/speech/']"
-  link_pattern: '/speech/[a-z0-9-]+/?$'
+  link_selector: ".news-text a"
+  link_pattern: '^https?://statehouse\.gov\.ng/[a-z0-9-]+/$'
 
 pagination:
   type: path
@@ -20,14 +20,15 @@ pagination:
   max_pages: 400
 
 title:
-  selectors: ["h1.entry-title", "h1", "title"]
+  selectors: ["h1", "title"]
 text:
-  selectors: [".entry-content", ".post-content", "article", "main"]
+  selectors: [".news-detail-content", ".section-news-detail"]
 date:
-  selectors: ["time.entry-date", "time", ".entry-date", ".post-date", ".posted-on"]
+  selectors: [".page-info"]
 
 position: president
 date_languages: ["en"]
 notes: >
   State House speeches category (WordPress). Pagination is path-based at
-  /category/speeches/page/{n}/ and speech pages resolve under /speech/<slug>/.
+  /category/speeches/page/{n}/ and speech links are root-level slugs from
+  the category listing cards.
