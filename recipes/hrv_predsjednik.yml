@@ -1,0 +1,39 @@
+# Croatia — predsjednik.hr (Office of the President).
+source_id: hrv_predsjednik
+country: Croatia
+source_language: Croatian
+start_urls:
+  - https://www.predsjednik.hr/
+renderer: static
+
+listing:
+  link_pattern: '/(vijesti|priopcenja(?:-za-javnost)?)/(?:\d+/)?[^/?#]+/?$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.predsjednik.hr/sitemap.xml
+    - https://www.predsjednik.hr/sitemap_index.xml
+
+title:
+  selectors: ["h1", ".article__title", ".article-title", "title"]
+text:
+  selectors:
+    - "article"
+    - ".article__content"
+    - ".article-content"
+    - ".content"
+    - "main"
+date:
+  selectors:
+    - "time"
+    - ".article__date"
+    - ".article-date"
+    - ".date"
+    - ".datum"
+
+position: president
+date_languages: ["hr"]
+notes: >
+  Uses the site's sitemap for full-history coverage; include both news and public
+  statement sections via link_pattern.
