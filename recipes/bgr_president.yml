@@ -1,0 +1,27 @@
+source_id: bgr_president
+country: Bulgaria
+source_language: English
+start_urls:
+  - https://m.president.bg/en/news
+renderer: static
+
+listing:
+  link_selector: "a[href*='/en/news/']"
+  link_pattern: '/en/news/(?!page/)[^/]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: [".news-detail h1", "h1", ".news-title", ".article-title", "title"]
+text:
+  selectors: [".news-detail .news-text", ".news-text", ".article-content", ".content", "article", "main"]
+date:
+  selectors: [".news-detail .news-date", "time", ".news-date", ".date", ".article-date"]
+
+position: president
+date_languages: ["en"]
