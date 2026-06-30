@@ -1,0 +1,43 @@
+# Belgium — The Belgian Monarchy speeches.
+# Server-rendered listing with classic ?page=N pagination; keep the link pattern
+# broad because current speech detail pages may live under /en/agenda/ while
+# older ones may remain under /en/monarchy/speeches/.
+source_id: bel_monarchie
+country: Belgium
+source_language: English
+start_urls:
+  - https://www.monarchie.be/en/monarchy/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  link_pattern: '/en/(agenda|monarchy/speeches)/[a-z0-9-]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 200
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  selectors:
+    - ".field--name-body"
+    - ".field-name-body"
+    - ".field-body"
+    - "article"
+    - "main"
+date:
+  selectors:
+    - "time"
+    - ".date-display-single"
+    - ".field--name-field-date"
+    - ".date"
+    - "span[class*='date']"
+
+notes: >
+  The speeches listing is under /en/monarchy/speeches with numbered pagination
+  via ?page=N. Keep the detail-page regex broad enough for both the current
+  /en/agenda/ speech URLs and any same-tree /en/monarchy/speeches/ detail pages.
