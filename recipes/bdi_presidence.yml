@@ -10,7 +10,7 @@ renderer: static
 
 listing:
   link_selector: "article a, h2 a, h3 a"
-  link_pattern: '^https?://(?:www\.)?presidence\.gov\.bi/\d{4}/\d{2}/\d{2}/[^/?#]+/?$'
+  link_pattern: '^https?://presidence\.gov\.bi/\d{4}/\d{2}/\d{2}/[^/?#]+/?$'
 
 pagination:
   type: path
