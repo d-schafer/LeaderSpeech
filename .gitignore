@@ -24,6 +24,7 @@ data/state/
 data/cleaned/
 data/clean_state/
 data/_build/
+data/audio_video/
 _data_outside_unorganized/
 
 # --- Raw source sub-lists: the curated master list IS committed, its inputs are not ---
