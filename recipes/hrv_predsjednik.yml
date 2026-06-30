@@ -34,5 +34,5 @@ date:
 position: president
 date_languages: ["hr"]
 notes: >
-  Uses the site's sitemap for full-history coverage; include both news and public
+  Uses the site's sitemap for full-history coverage; includes both news and public
   statement sections via link_pattern.
