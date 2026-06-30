@@ -117,6 +117,44 @@ Cleaned data is stored as **Parquet** (`data/cleaned/<Country>/<id>.parquet`) �
 loadable from both Python and R. Re-running only cleans speeches not already done, so the model is never
 paid twice. The full workflow, schema, and safety guarantees are in [`docs/cleaning.md`](docs/cleaning.md).
 
+## Translation
+
+The cleaner reads each speech in its original language; the **`translate`** tool fills the English
+`text` / `title` / `context` columns from their `*_originlanguage` counterparts — **in place**, so there
+are no extra dataframe versions and `merge` needs no rewiring. Pick a backend to test and compare:
+**Google** (`deep-translator`, online, the default), **OpusMT** (Helsinki-NLP), or **NLLB** (offline).
+
+```bash
+pip install -e ".[translate-google]"     # Google backend; or ".[translate-hf]" for OpusMT/NLLB
+# compare backends on a sample (no writes)
+python -m leaderspeech.translate.probe --source arg_casarosada --translator google,nllb
+# fill English columns in place (resumable; only untranslated rows are touched)
+python -m leaderspeech.translate.run --source arg_casarosada --limit 20
+# ...or any table at any stage (raw scraped CSV, the merged build)
+python -m leaderspeech.translate.run --input data/scraped/Chile/chl_presidencia.csv
+```
+
+Progress is visible in the derived index (`data/cleaned/cleaned_progress_log.xlsx` → `is_translated`),
+computed from the data rather than a stored flag. Details: [`docs/translation.md`](docs/translation.md).
+
+## Curating the leader-tenure key
+
+The cleaner cross-checks each speaker against `leader_tenure_final.csv` but never edits it. The
+**`leader_tenure`** tool closes that loop: it inventories the speakers in the cleaned data, finds those
+not matched to a known leader, classifies and GPT-verifies the genuine heads of state/government, and
+**proposes** them to an outbox (`data/sources/leader_tenure_proposed_additions.xlsx`) for the researcher
+to approve by hand. The key stays 100% accurate — only a separate, gated `merge --apply` step appends
+approved rows (with a backup) and prints the `fixNames` lines to add.
+
+```bash
+python -m leaderspeech.leader_tenure.run --diagnostic         # free: just bucket matched/unmatched
+python -m leaderspeech.leader_tenure.run --limit 50           # classify + verify a batch (GPT)
+python -m leaderspeech.leader_tenure.merge --dry-run          # preview additions; --apply to write
+```
+
+Verification uses `gpt-4.1` by default (strong world knowledge), with an optional `--wikipedia` grounding
+check. Details: [`docs/leader_tenure.md`](docs/leader_tenure.md).
+
 ## Being a good citizen
 
 This is an academic, public-interest project: it collects speeches that leaders themselves published on
@@ -133,15 +171,23 @@ raise the pacing knobs for a touchy host. The Internet Archive is more fragile t
 ```
 leaderspeech/text_scraper/             the scraper engine (recipe, fetch, paginate, extract, run, wayback)
 leaderspeech/clean_structure_metadata/ the cleaner (config, extract, tenure, gate, store, pipeline, merge)
+leaderspeech/translate/                the translator (backends, store, pipeline, run, probe)
+leaderspeech/leader_tenure/            the tenure-key curation loop (inventory, classify, verify, run, merge)
 recipes/                     one YAML per source
 configs/clean_config.yml     global config for the cleaner (model, gate, tenure path)
+configs/translate_config.yml global config for the translator (backend, fields, pacing)
+configs/tenure_config.yml    global config for tenure curation (models, paths)
 data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
                              additional_master_sources.xlsx — agents' proposed rows; researcher folds these in by hand
+                             leader_tenure_proposed_additions.xlsx — the tenure tool's outbox; researcher approves by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
 data/cleaned/                per-country cleaned Parquet (gitignored)
+scripts/key_fixNames.R       authoritative speaker-name standardization key (synced from the research workspace)
 scripts/export_leaderspeech.R  final merge -> fixNames -> LeaderSpeech.parquet/.RData/.csv.gz
 docs/recipes.md              how to author a recipe
 docs/cleaning.md             how the metadata cleaner works
+docs/translation.md          how the translator works
+docs/leader_tenure.md        how the tenure-key curation loop works
 tests/                       schema + extraction tests
 ```
 
@@ -154,7 +200,8 @@ final `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`.
 
 - [x] `text_scraper` — config-driven engine + first recipes
 - [x] `clean_structure_metadata` — GPT metadata extraction (speaker, date, venue, audience) + tenure crosscheck + name standardization
-- [ ] `clean_structure_metadata` — translation stage (English `text`/`title`) and leader-tenure curation loop
+- [x] `translate` — fill English `text`/`title`/`context` in place (Google / OpusMT / NLLB backends)
+- [x] `leader_tenure` — curation loop that proposes additions to the tenure key for hand approval
 - [ ] more sources — Latin America and Africa especially
 - [ ] `video_audio_scraper` — yt-dlp + Whisper, same output schema
 
