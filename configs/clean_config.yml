@@ -1,0 +1,40 @@
+# Global configuration for the metadata cleaner (leaderspeech.clean_structure_metadata).
+# Every field is optional; omit one to use the built-in default. See docs/cleaning.md.
+
+# --- model / API ---
+model: gpt-4.1-mini       # cheap structured-extraction model; override per run with --model
+temperature: 0.0
+max_tokens: 500
+max_words: 500            # how much of each speech's text to send to the model
+
+# --- concurrency / checkpointing ---
+batch_size: 25            # max concurrent requests
+rate_limit_delay: 0.1     # seconds before each request (inside the semaphore)
+chunk_size: 100           # rows per gather() == one atomic checkpoint write
+max_consecutive_failures: 50
+
+# --- hard gate (every kept row must have a speaker and REPRESENT THE LEADER) ---
+# keep_document_types: which document kinds count as representing the leader and are kept.
+#   speech             = remarks the leader delivered aloud
+#   interview          = the leader answering questions
+#   official_statement = a communiqué/declaration issued in the leader's name that conveys
+#                        their position/values/policy (INCLUDING third-person ones)
+#   other (NOT listed) = news/biography/agenda/logistics -> rejected (rejected_not_representative)
+# Drop "official_statement" from this list to keep only things the leader said aloud.
+keep_document_types: [speech, interview, official_statement]
+# require_leader_type: true sets aside foreign visitors / ministers / other non-leaders
+#   (speaker_type foreign_visitor / other_minister / other). Set false to keep every
+#   representative document regardless of the speaker's role.
+require_leader_type: true
+
+# --- tenure crosscheck ---
+# Point this at the authoritative leader-tenure key. It lives in the parent research
+# workspace; copy/symlink it into data/sources/, or set an absolute path here.
+tenure_file: data/sources/leader_tenure_final.csv
+tenure_window: 1           # +/- years when listing plausible leaders
+
+# --- storage ---
+compression: zstd          # parquet codec ("snappy" is the conservative fallback)
+
+# --- secrets ---
+openai_key_file: openai_key.txt   # used only if OPENAI_API_KEY is unset

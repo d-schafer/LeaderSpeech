@@ -17,7 +17,9 @@ hold the gates that matter. This document is both the human setup guide and the 
 1. **START** — you create an issue and assign it to an agent. Nothing scrapes until you do.
 2. **FULL RUN** — you run the complete scrape on your machine. This is where the real data and storage
    happen, so it stays under your control.
-3. **MERGE** — you merge the PR to `main` (browser). Publishing a recipe is your call.
+3. **MERGE** — you merge the PR to `main` (browser) **and set that source's `recipe_status` to
+   `validated` in `data/sources/master_sources.xlsx`** (you, or ask Claude — never the workhorse agent;
+   see "Closing the loop" below). Publishing a recipe is your call.
 
 Everything between those gates can run seamlessly.
 
@@ -33,7 +35,21 @@ Everything between those gates can run seamlessly.
 5. If **CHANGES**: the agent iterates (you re-comment `@agent`, or it picks up the review). Back to step 3.
 6. If **PASS**: **[GATE: FULL RUN]** you run the full scrape locally and confirm it end-to-end (date
    coverage, failure rate). The data lands on your disk.
-7. **[GATE: MERGE]** you merge the PR.
+7. **[GATE: MERGE]** you merge the PR, then **bump that source's `recipe_status` to `validated` in
+   `data/sources/master_sources.xlsx`** (see "Closing the loop" below).
+
+## Closing the loop: update `recipe_status` (and who may touch `master_sources.xlsx`)
+
+The recipe backlog is keyed off the `recipe_status` column: `scripts/create_issues_from_master.py` files an
+issue for every row still at `none`. So the **final step of the agent↔reviewer back-and-forth** is to flip
+the merged source's row to `validated` — otherwise the backlog "lags reality" and the generator re-proposes a
+source that's already done.
+
+- **Who updates it:** **you (researcher) or Claude** — and at the **MERGE** step (after PASS). For now keep it
+  to the **status column only**. Claude doing this is an exception to "never edit `master_sources.xlsx`" that
+  applies *only* to Claude in its authoring role, *only* to `recipe_status`, and never as a regenerate.
+- **The workhorse agent never touches `master_sources.xlsx`.** It records its *proposed* status in the
+  `data/sources/additional_master_sources.xlsx` **outbox** (see `agent_task_end_to_end.md`); that's all.
 
 ## What the reviewer does (the bar)
 
@@ -75,6 +91,9 @@ code path).
   human's gate (data + storage).
 - **Never** assign or initiate an agent.
 - **Never** push recipe edits to `main` for a PR under review — post a review; the agent fixes on its branch.
+- The **only** edit Claude may make to `master_sources.xlsx` is flipping a merged source's `recipe_status`
+  to `validated` (status-only), and only at/after MERGE — never edit a recipe on `main`, never regenerate
+  the file, never edit it for a PR still under review.
 - Always do the `--spread` across-time check before a PASS.
 
 ## Setup: make the reviewer seamless (permissions)

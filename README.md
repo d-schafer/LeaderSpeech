@@ -90,6 +90,33 @@ Every recipe produces rows in one common schema (shared with the wider project's
   non-English source the scraped text fills `*_originlanguage`, and the English columns are left for the
   translation step (project priority 2). `dataset` is `LeaderSpeech` for everything scraped here.
 
+## Cleaning & structuring metadata
+
+Scraped speeches are often messy: the speaker column is blank, the "speech" is sometimes a press
+release, the date can be wrong. The second tool, **`clean_structure_metadata`**, reads the scraper's
+CSVs and uses one cheap GPT structured-extraction pass per speech to confirm the speaker, classify the
+`document_type` (delivered speech / interview / official statement / not-representative), and add
+`speaker_type`, `position`, `audience`, `speech_type`, `venue`, `language`, and a corrected `date` —
+cross-checked against the authoritative leader-tenure key. A hard gate enforces the project rule that
+**every kept row has a speaker and represents the leader** — a speech, interview, or an official
+statement that conveys the leader's position (even a third-person communiqué); pure news/logistics is
+set aside (audited, not deleted).
+
+```bash
+pip install -e ".[llm]"          # adds the openai client
+# preview on a random sample across every scraped country (no writes, cheap)
+python -m leaderspeech.clean_structure_metadata.probe --all-countries --n 5
+# clean one source (resumable; only NEW speeches hit the model)
+python -m leaderspeech.clean_structure_metadata.run --source chl_presidencia --limit 20
+# merge the per-source cleaned Parquets, then finalize names + deliverable formats in R
+python -m leaderspeech.clean_structure_metadata.merge
+Rscript scripts/export_leaderspeech.R
+```
+
+Cleaned data is stored as **Parquet** (`data/cleaned/<Country>/<id>.parquet`) — compact, UTF-8-exact, and
+loadable from both Python and R. Re-running only cleans speeches not already done, so the model is never
+paid twice. The full workflow, schema, and safety guarantees are in [`docs/cleaning.md`](docs/cleaning.md).
+
 ## Being a good citizen
 
 This is an academic, public-interest project: it collects speeches that leaders themselves published on
@@ -104,24 +131,30 @@ raise the pacing knobs for a touchy host. The Internet Archive is more fragile t
 ## Repository layout
 
 ```
-leaderspeech/text_scraper/   the engine (recipe, fetch, paginate, extract, run, wayback, fallback_generic)
+leaderspeech/text_scraper/             the scraper engine (recipe, fetch, paginate, extract, run, wayback)
+leaderspeech/clean_structure_metadata/ the cleaner (config, extract, tenure, gate, store, pipeline, merge)
 recipes/                     one YAML per source
+configs/clean_config.yml     global config for the cleaner (model, gate, tenure path)
 data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
                              additional_master_sources.xlsx — agents' proposed rows; researcher folds these in by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
-R/                           final combine of cleaned per-country corpora -> LeaderSpeech.RData
+data/cleaned/                per-country cleaned Parquet (gitignored)
+scripts/export_leaderspeech.R  final merge -> fixNames -> LeaderSpeech.parquet/.RData/.csv.gz
 docs/recipes.md              how to author a recipe
+docs/cleaning.md             how the metadata cleaner works
 tests/                       schema + extraction tests
 ```
 
 The pipeline is Python through scraping and cleaning, with a single handoff to R at the end:
-R combines the cleaned per-country corpora, standardizes names, validates speakers against the leader-tenure
-key, and writes the compressed `data/LeaderSpeech.RData`.
+the Python merge step concatenates the cleaned per-country Parquets into an intermediate file, then
+`scripts/export_leaderspeech.R` standardizes leader names with the `key_fixNames.R` key and writes the
+final `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`.
 
 ## Roadmap
 
 - [x] `text_scraper` — config-driven engine + first recipes
-- [ ] `clean_structure_metadata` — translation, then metadata extraction (speaker, date, venue, audience)
+- [x] `clean_structure_metadata` — GPT metadata extraction (speaker, date, venue, audience) + tenure crosscheck + name standardization
+- [ ] `clean_structure_metadata` — translation stage (English `text`/`title`) and leader-tenure curation loop
 - [ ] more sources — Latin America and Africa especially
 - [ ] `video_audio_scraper` — yt-dlp + Whisper, same output schema
 

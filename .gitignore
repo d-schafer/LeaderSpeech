@@ -21,6 +21,9 @@ openai_key.txt
 # --- Scraped + working data (shared via Zenodo/Dataverse, not git) ---
 data/scraped/
 data/state/
+data/cleaned/
+data/clean_state/
+data/_build/
 _data_outside_unorganized/
 
 # --- Raw source sub-lists: the curated master list IS committed, its inputs are not ---

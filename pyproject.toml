@@ -23,6 +23,7 @@ dependencies = [
     "pydantic>=2.5",
     "openpyxl>=3.1",
     "pycountry>=23.12",
+    "pyarrow>=14",
 ]
 
 [project.urls]
@@ -30,10 +31,14 @@ Homepage = "https://github.com/d-schafer/LeaderSpeech"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+llm = ["openai>=1.40"]   # for the clean_structure_metadata tool (GPT extraction)
 
 [project.scripts]
 leaderspeech-scrape = "leaderspeech.text_scraper.run:main"
 leaderspeech-probe = "leaderspeech.text_scraper.probe:main"
+leaderspeech-clean = "leaderspeech.clean_structure_metadata.run:main"
+leaderspeech-clean-probe = "leaderspeech.clean_structure_metadata.probe:main"
+leaderspeech-clean-merge = "leaderspeech.clean_structure_metadata.merge:main"
 
 [tool.setuptools.packages.find]
 include = ["leaderspeech*"]
