@@ -48,7 +48,7 @@ date:
     - ".details"
     - ".date"
   # Matches numeric dates with Arabic/Bengali digits plus "DD Month YYYY"-style text.
-  regex: '[0-9০-৯]{1,4}[/-][0-9০-৯]{1,2}[/-][0-9০-৯]{2,4}|[0-9০-৯]{1,2}\s+[A-Za-z\u0980-\u09FF]+\s+[0-9০-৯]{4}'
+  regex: '[0-9০-৯]{1,4}[/-][0-9০-৯]{1,2}[/-][0-9০-৯]{4}|[0-9০-৯]{1,2}\s+[A-Za-z\u0980-\u09FF]+\s+[0-9০-৯]{4}'
 
 position: president
 date_languages: ["bn"]
