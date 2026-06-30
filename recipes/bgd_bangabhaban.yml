@@ -1,0 +1,56 @@
+# Bangladesh — Bangabhaban (Office of the President), archived speeches.
+# The live host is currently unreachable from this environment, so this recipe
+# targets the Bangladesh National Web Portal / Drupal-era speech URLs via Wayback.
+source_id: bgd_bangabhaban
+country: Bangladesh
+source_language: Bengali
+start_urls:
+  - bangabhaban.gov.bd/site/speech
+  - www.bangabhaban.gov.bd/pages
+renderer: static
+verify_ssl: false
+
+listing:
+  link_pattern: '/(?:site/speech|site/speech_view)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:/|$)|/pages/(?:pm-)?speeches(?:\.php)?(?:\?.*?\b(?:id|speech_id)=\w+.*)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+
+title:
+  selectors:
+    - ".page-title"
+    - "h1.page-header"
+    - ".field-name-title .field-item"
+    - "h1"
+    - "title"
+text:
+  selectors:
+    - ".field-name-body .field-item"
+    - ".article-details"
+    - ".webpage-content"
+    - ".field-item.even"
+    - ".node .content"
+    - "article"
+    - "main"
+date:
+  selectors:
+    - ".field-name-field-date .field-item"
+    - ".date-display-single"
+    - "span[property='dc:date dc:created']"
+    - "time"
+    - ".published"
+    - ".submitted"
+    - ".page-details"
+    - ".details"
+    - ".date"
+  regex: '[0-9০-৯]{1,4}[/-][0-9০-৯]{1,2}[/-][0-9০-৯]{2,4}|[0-9০-৯]{1,2}\s+[^\s]+\s+[0-9০-৯]{4}'
+
+position: president
+date_languages: ["bn"]
+notes: >
+  Wayback-first recipe for Bangabhaban's speech archive. The current live host was
+  not resolvable from this environment during authoring, so the recipe targets the
+  archived Bangladesh National Web Portal / Drupal speech URLs (current /site/speech
+  and legacy /pages/pm-speeches paths). Validate and tighten selectors against live
+  or archived pages once network access is available.
