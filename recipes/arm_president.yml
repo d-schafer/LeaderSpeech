@@ -1,0 +1,30 @@
+# Armenia — president.am press releases.
+source_id: arm_president
+country: Armenia
+source_language: English
+start_urls:
+  - https://www.president.am/en/press-release/
+renderer: static
+
+listing:
+  link_selector: "a[href*='/en/press-release/item/']"
+  link_pattern: '/en/press-release/item/\d{4}/\d{2}/\d{2}/'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 2
+  step: 1
+  max_pages: 2000
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["article", "main", ".content", ".page-content"]
+date:
+  selectors: ["time", ".date", "[class*='date']", "[class*='time']"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  The English press-release archive is paginated under /en/press-release/page/N/.
