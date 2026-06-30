@@ -14,7 +14,7 @@ listing:
 
 pagination:
   type: path
-  path_format: "page/{n}"
+  path_format: "page/{n}/"
   start: 1
   step: 1
   max_pages: 400
