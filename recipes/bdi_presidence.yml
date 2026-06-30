@@ -1,0 +1,33 @@
+# Burundi — Présidence de la République du Burundi, official speeches.
+# WordPress category archive with /page/{n}/ pagination, French dates.
+source_id: bdi_presidence
+country: Burundi
+source_language: French
+start_urls:
+  - https://presidence.gov.bi/category/discours/
+  - https://presidence.gov.bi/category/nouvelles/presidence-info/discours/
+renderer: static
+
+listing:
+  link_selector: "article a, h2 a, h3 a"
+  link_pattern: '^https?://(?:www\.)?presidence\.gov\.bi/\d{4}/\d{2}/\d{2}/[^/?#]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: ["article .entry-content", ".entry-content", "article"]
+date:
+  selectors: ["time.entry-date", "time", ".posted-on time", ".post-date"]
+
+position: president
+date_languages: ["fr"]
+notes: >
+  The presidency site is a WordPress archive. Use the category archive(s) for
+  speeches and match dated article URLs under /YYYY/MM/DD/.
