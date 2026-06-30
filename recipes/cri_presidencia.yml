@@ -1,0 +1,36 @@
+# Costa Rica — Presidencia de la República, presidential communications.
+# WordPress-style archive under /comunicados/ with date-based permalinks.
+source_id: cri_presidencia
+country: Costa Rica
+source_language: Spanish
+start_urls:
+  - https://www.presidencia.go.cr/comunicados/
+renderer: static
+
+listing:
+  link_selector: ".entry-title a, article a"
+  link_pattern: '/comunicados/\d{4}/\d{2}/[a-z0-9][a-z0-9-]+/'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1.entry-title", ".post-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article .entry-content", ".post-content", "article", "main"]
+date:
+  selectors: ["time.entry-date", "time.published", ".entry-date", "time", ".posted-on time"]
+  attr: datetime
+context:
+  selectors: [".cat-links", ".entry-meta .cat-links", ".entry-categories", ".tags-links"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  Costa Rica's presidency site appears to be a WordPress archive rooted at
+  /comunicados/ with /comunicados/page/{n}/ pagination and date-slug detail URLs.
+  Speaker is intentionally omitted and filled downstream from leader tenure.
