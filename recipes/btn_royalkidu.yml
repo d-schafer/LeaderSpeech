@@ -1,0 +1,33 @@
+# Bhutan — Royal Office for Kidu (royalkidu.bt), speeches archive.
+# Assumes a WordPress-style /speeches listing with /page/{n} pagination.
+source_id: btn_royalkidu
+country: Bhutan
+source_language: English
+start_urls:
+  - https://www.royalkidu.bt/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  link_pattern: '^https?://(www\.)?royalkidu\.bt/speeches/[a-z0-9-]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 200
+
+title:
+  selectors: ["h1.entry-title", "h1"]
+text:
+  selectors: [".entry-content", "article .content", "main article"]
+date:
+  selectors: ["time.entry-date", "time", ".posted-on"]
+
+position: king
+date_languages: ["en"]
+notes: >
+  Royal Kidu appears to use a WordPress-style speeches archive. If probe shows 0
+  links, verify whether the listing uses /category/speeches/ or JS-loaded cards
+  and adjust start_urls/pagination accordingly.
