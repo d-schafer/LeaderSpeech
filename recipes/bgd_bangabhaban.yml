@@ -11,9 +11,9 @@ renderer: static
 verify_ssl: false
 
 listing:
-  # Indexed legacy Bangabhaban results use a /pages/pm-speeches slug despite being
-  # titled "ভাষন | রাষ্ট্রপতির কার্যালয়", so keep both the Drupal /site/speech URLs
-  # and the older /pages/pm-speeches-style URLs in scope.
+  # Intentional legacy naming: indexed Bangabhaban president-office results use a
+  # /pages/pm-speeches slug despite being titled "ভাষন | রাষ্ট্রপতির কার্যালয়",
+  # so keep both the Drupal /site/speech URLs and the older slug in scope.
   link_pattern: '/(?:site/speech|site/speech_view)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:/|$)|/pages/(?:pm-)?speeches(?:\.php)?(?:\?.*?\b(?:id|speech_id)=\w+.*)?$'
 
 pagination:
@@ -48,7 +48,7 @@ date:
     - ".details"
     - ".date"
   # Matches numeric dates with Arabic/Bengali digits plus "DD Month YYYY"-style text.
-  regex: '[0-9০-৯]{1,4}[/-][0-9০-৯]{1,2}[/-][0-9০-৯]{2,4}|[0-9০-৯]{1,2}\s+[^\s]+\s+[0-9০-৯]{4}'
+  regex: '[0-9০-৯]{1,4}[/-][0-9০-৯]{1,2}[/-][0-9০-৯]{2,4}|[0-9০-৯]{1,2}\s+[A-Za-z\u0980-\u09FF]+\s+[0-9০-৯]{4}'
 
 position: president
 date_languages: ["bn"]
