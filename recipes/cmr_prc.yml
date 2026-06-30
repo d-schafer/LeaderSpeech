@@ -1,0 +1,32 @@
+source_id: cmr_prc
+country: Cameroon
+source_language: English
+start_urls:
+  - https://www.prc.cm/en/news/speeches-of-the-president
+renderer: static
+
+listing:
+  link_selector: "a[href*='/news/speeches-of-the-president/']"
+  link_pattern: '/news/speeches-of-the-president/\d+-'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 10
+  max_pages: 500
+
+title:
+  selectors: [".itemTitle", "h1", "h2", "title"]
+text:
+  selectors: [".itemFullText", "article p", "article", "main"]
+date:
+  selectors: [".itemDate", "time", ".created", ".date", ".published"]
+
+position: president
+speaker_default: Paul Biya
+date_languages: ["en"]
+notes: >
+  English speeches archive for the Presidency of the Republic of Cameroon. The
+  site appears to be a Joomla-style archive with speech URLs under
+  /news/speeches-of-the-president/<id>-slug and offset pagination of 10 items.
