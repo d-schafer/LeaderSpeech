@@ -1,0 +1,43 @@
+# Philippines — Presidential Communications Office, presidential speeches.
+# Issue #46 author note: /presidential-speech/ paginates at /page/N/ and the
+# live host returns 403/anti-bot challenges to the default bot UA, so use a
+# browser UA override and Playwright rendering.
+source_id: phl_pco
+country: Philippines
+source_language: English/Filipino
+start_urls:
+  - https://pco.gov.ph/presidential-speech/
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+listing:
+  link_selector: "a.clamp-4"
+  link_pattern: '^https?://pco\.gov\.ph/presidential-speech/[a-z0-9-]+/$'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 2
+  step: 1
+  max_pages: 200
+
+title:
+  selectors: [".release-title", "h1.entry-title", "h1", "title"]
+text:
+  selectors: [".release-content p", ".release-content", ".entry-content", "article", "main"]
+date:
+  selectors: [".release-date", "time", ".entry-date", ".release-content"]
+  regex: '[A-Z][a-z]+ \d{1,2}, \d{4}'
+
+position: president
+date_languages: ["en"]
+politeness:
+  delay_range: [5, 10]
+  pause_every: 10
+  pause_seconds: 15
+notes: >
+  PCO's speech listing uses /presidential-speech/page/N/ pagination. External
+  Selenium scraper evidence for this source used .clamp-4 links,
+  .release-date dates, and .release-content paragraphs for the body. The issue
+  report notes that the live host blocks the default bot UA, so this recipe
+  uses a browser user_agent together with renderer: js and slower pacing.
