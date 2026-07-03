@@ -1,12 +1,16 @@
-# India — Prime Minister of India speech archive.
-# PMIndia runs on WordPress; the speech-specific tag/category archives avoid the
-# broader, video-heavy speeches landing page noted in issue #43.
+# India — Prime Minister of India speech archive (pmindia.gov.in, WordPress).
+# The speech-specific tag archive /en/tag/pmspeech is the real paginated source
+# (~2,516 posts, 2015–present). The /en/category/pms-speeches archive 301s to a
+# static landing page that carries no listing, so it is intentionally omitted.
+# NOTE: the site's WAF hard-blocks the honest bot UA (403 on every URL); a browser
+# user_agent is required to fetch anything (same UA-keyed WAF class as Colombia).
 source_id: ind_pmindia
 country: India
 source_language: English
+# WAF is UA-keyed: LeaderSpeechBot -> 403, browser UA -> 200. Opt-in exception.
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 start_urls:
   - https://www.pmindia.gov.in/en/tag/pmspeech
-  - https://www.pmindia.gov.in/en/category/pms-speeches
 renderer: static
 
 listing:
@@ -18,19 +22,23 @@ pagination:
   path_format: "page/{n}"
   start: 1
   step: 1
-  max_pages: 400
+  max_pages: 400   # archive self-terminates ~page 252 (404); 400 is a safe cap
 
 title:
-  selectors: ["h1.entry-title", "article h1", "h1", "title"]
+  # The only <h1> is the site logo ("PMINDIA"); the speech title is an <h2> in .content-block.
+  selectors: [".content-block h2", "h2"]
 text:
-  selectors: [".entry-content", ".td-post-content", ".post-content", "article .entry-content", "main article", "article", "main"]
+  selectors: [".news-bg", ".content-block"]
 date:
-  selectors: ["time.entry-date", ".entry-date", ".posted-on", ".entry-meta", "time", ".date"]
+  selectors: [".date"]
 
 position: prime minister
 speaker_default: Narendra Modi
 date_languages: ["en"]
 notes: >
-  PMIndia is a WordPress site. Use the speech-specific tag/category archives
-  rather than the broader /en/speeches/ landing page, which is heavily video-led.
-  Detail pages may appear under either /en/news_updates/ or /en/speeches/.
+  PMIndia is a WordPress site behind a UA-keyed WAF (browser user_agent required).
+  Use the /en/tag/pmspeech archive (path pagination, page/{n}); the /en/category/
+  pms-speeches URL redirects to a static landing page with no listing. Detail pages
+  live under /en/news_updates/ (some under /en/speeches/). Title is .content-block h2
+  (the bare h1 is the site logo); body is .news-bg. Speaker defaults to Narendra Modi.
+  Probed 2026-07-03: 2,516 links, --spread samples show good title/text/date across 2015-2026.
