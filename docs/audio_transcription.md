@@ -23,9 +23,21 @@ pip install -e ".[audio]"     # yt-dlp + faster-whisper (default backend)
 ```
 
 `ffmpeg` must be on `PATH` (yt-dlp uses it to extract audio). The default backend, **faster-whisper**, needs
-no `torch`; on GPU it also needs the CUDA 12 cuBLAS/cuDNN runtime libraries (or run on CPU with
-`compute_type: int8`). Because Whisper + CUDA are heavy and YouTube breaks old yt-dlp versions, run this tool
-from a **dedicated venv** (the project uses `D:\environments\whisperscribe`), separate from the scraper env.
+no `torch` and runs on **CPU out of the box** (`compute_type: int8`) with nothing extra to install — just
+slower.
+
+**GPU is optional but much faster.** It needs the CUDA 12 cuBLAS/cuDNN runtime libraries, which are *not*
+bundled in the `faster-whisper` wheel nor pulled in by `.[audio]`; add them once (a fresh env won't have
+them):
+
+```bash
+pip install nvidia-cublas-cu12 nvidia-cudnn-cu12    # ~1.5 GB; recent CTranslate2 finds the DLLs, no PATH tweak
+```
+
+Once present, `device: auto` (the config default) uses the GPU automatically; without them it stays on CPU.
+**This project's `D:\environments\whisperscribe` env already has these installed** (GPU validated) — the
+`pip install` above is only for a fresh setup elsewhere. Because Whisper + CUDA are heavy and YouTube breaks
+old yt-dlp versions, run this tool from that **dedicated venv**, separate from the scraper env.
 
 ## The workflow: harvest → confirm → transcribe
 
