@@ -1,0 +1,36 @@
+# India — Prime Minister of India speech archive.
+# PMIndia runs on WordPress; the speech-specific tag/category archives avoid the
+# broader, video-heavy speeches landing page noted in issue #43.
+source_id: ind_pmindia
+country: India
+source_language: English
+start_urls:
+  - https://www.pmindia.gov.in/en/tag/pmspeech
+  - https://www.pmindia.gov.in/en/category/pms-speeches
+renderer: static
+
+listing:
+  link_selector: "article a, h3 a, .entry-title a, .td-module-title a, .listing a"
+  link_pattern: '/en/(?:news_updates|speeches)/'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1.entry-title", "article h1", "h1", "title"]
+text:
+  selectors: [".entry-content", ".td-post-content", ".post-content", "article .entry-content", "main article", "article", "main"]
+date:
+  selectors: ["time.entry-date", ".entry-date", ".posted-on", ".entry-meta", "time", ".date"]
+
+position: prime minister
+speaker_default: Narendra Modi
+date_languages: ["en"]
+notes: >
+  PMIndia is a WordPress site. Use the speech-specific tag/category archives
+  rather than the broader /en/speeches/ landing page, which is heavily video-led.
+  Detail pages may appear under either /en/news_updates/ or /en/speeches/.
