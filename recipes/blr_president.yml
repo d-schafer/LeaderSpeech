@@ -20,8 +20,8 @@ title:
 text:
   selectors: [".detail__content", ".detail__text", "article", "main"]
 date:
-  selectors: ["time[datetime]", ".detail__date", ".news-detail__date", "time"]
-  attr: datetime
+  selectors: ["time[data-datetime]", ".detail__date", ".news-detail__date", "time"]
+  attr: data-datetime
 
 position: president
 speaker_default: Alexander Lukashenko

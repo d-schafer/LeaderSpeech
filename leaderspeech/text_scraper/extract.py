@@ -59,11 +59,19 @@ def parse_date(raw: Optional[str], languages: Optional[list[str]] = None) -> Opt
     2024' or 'Publié le 14 juillet 2023'), search for a date inside it."""
     if not raw:
         return None
+    text = raw.strip()
+    dt = None
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        dt = None
+
     langs = languages or None
-    dt = dateparser.parse(raw, languages=langs)
+    if dt is None:
+        dt = dateparser.parse(text, languages=langs)
     if dt is None:
         try:
-            found = search_dates(raw, languages=langs)
+            found = search_dates(text, languages=langs)
         except Exception:
             found = None
         if found:
