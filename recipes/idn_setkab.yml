@@ -30,6 +30,6 @@ position: president
 date_languages: ["en", "id"]
 notes: >
   Setkab English speech transcript category archive on WordPress-style pagination
-  (/category/speech-transcript/page/{n}/). SSL verification is disabled due the
+  (/category/speech-transcript/page/{n}/). SSL verification is disabled due to the
   source's incomplete certificate chain. Indonesian-language originals are in the
   non-English section under setkab.go.id/kategori/.
