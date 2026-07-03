@@ -1,0 +1,35 @@
+# Indonesia — Cabinet Secretariat (Setkab), speech transcripts.
+# WordPress category archive with /page/{n}/ pagination.
+source_id: idn_setkab
+country: Indonesia
+source_language: English
+start_urls:
+  - https://setkab.go.id/en/category/speech-transcript/
+renderer: static
+verify_ssl: false
+
+listing:
+  link_selector: "h3.entry-title a, h2.entry-title a, .entry-title a, .td-module-title a, h3.jeg_post_title a, h2.jeg_post_title a, .jeg_post_title a, article h3 a, article h2 a"
+  link_pattern: '^https?://setkab\.go\.id/(?!.*(?:/(?:category|tag|author|page)/|/wp-(?:content|json|admin)|\?.*replytocom=)).+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 260
+
+title:
+  selectors: ["h1.entry-title", "h1.jeg_post_title", ".post-title", ".tdb-title-text", "h1", "title"]
+text:
+  selectors: [".td-post-content", ".content-inner", ".entry-content", ".post-content", "article", "main"]
+date:
+  selectors: ["time.entry-date", ".td-post-date time", ".entry-date", ".meta-date", ".jeg_meta_date a", ".jeg_meta_date", ".post-date", "time"]
+
+position: president
+date_languages: ["en", "id"]
+notes: >
+  Setkab English speech transcript category archive on WordPress-style pagination
+  (/category/speech-transcript/page/{n}/). SSL verification is disabled due the
+  source's incomplete certificate chain. Indonesian-language originals are in the
+  non-English section under setkab.go.id/kategori/.
