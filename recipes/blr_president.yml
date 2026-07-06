@@ -1,19 +1,27 @@
-# Belarus — president.gov.by (official portal of the President).
-# Events/addresses URLs use /<lang>/events/<slug>-<id>; sitemap crawl avoids guessing pager behavior.
+# Belarus — president.gov.by (official portal of the President; Lukashenko).
+# Event/speech pages are /ru/events/<slug> (a minority carry a trailing numeric id).
+# The site's event sitemap is the complete index — ~14.5k /ru/events/ pages spanning
+# 2007–present — so we crawl it directly rather than paging a listing.
 source_id: blr_president
 country: Belarus
 source_language: Russian
+# start_urls is unused for sitemap pagination (kept valid for schema/consistency).
 start_urls:
-  - https://president.gov.by/ru/events/addresses
+  - https://president.gov.by/
 renderer: static
-
-listing:
-  link_pattern: '/ru/events/[a-z0-9\-]+-\d{10}(?:\?.*)?$'
 
 pagination:
   type: sitemap
+  # Flat urlset of every event page (~38k locs across ru/en/be); link_pattern keeps
+  # the Russian event detail pages. (The index sitemap.xml also pulls 8 unrelated children.)
   sitemap_urls:
-    - https://president.gov.by/sitemap.xml
+    - https://president.gov.by/sitemap.event.xml
+
+listing:
+  # Any /ru/events/<slug> detail page. Do NOT require a trailing -<digits> id: only ~8%
+  # of events carry one (Unix-timestamp ids on 2021+ posts), so requiring \d{10} silently
+  # dropped ~92% of speeches, including all pre-2021 history.
+  link_pattern: '/ru/events/[a-z0-9\-]+(?:\?.*)?$'
 
 title:
   selectors: ["h1", ".detail__title", ".news-detail__title", "title"]
@@ -21,11 +29,14 @@ text:
   selectors: [".detail__content", ".detail__text", "article", "main"]
 date:
   selectors: ["time[data-datetime]", ".detail__date", ".news-detail__date", "time"]
-  attr: data-datetime
+  attr: data-datetime   # ISO-8601 w/ tz, e.g. 2026-04-07T06:00:00+03:00
 
 position: president
 speaker_default: Alexander Lukashenko
 date_languages: ["ru"]
 notes: >
-  Primary URL pattern observed for speech/event pages is /ru/events/<slug>-<10-digit-id>.
-  Uses sitemap traversal for full-history coverage and link_pattern to keep only event detail pages.
+  president.gov.by. Event/speech pages live at /ru/events/<slug> (a minority carry a
+  trailing -<digits> id). Crawl sitemap.event.xml directly. Dates come from
+  <time data-datetime> as ISO-8601 with a +03:00 offset, parsed via the extract.py
+  fromisoformat fast-path added in this PR. Probed 2026-07-06: 14,471 links; --spread
+  samples show good title/text/date across 2007–2026.
