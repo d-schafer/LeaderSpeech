@@ -1,6 +1,6 @@
 # Bhutan — Prime Minister's Office speeches archive (pmo.gov.bt).
 # Expected WordPress category archive with /page/{n} pagination.
-source_id: btn_royalkidu
+source_id: btn_pmo
 country: Bhutan
 source_language: English
 start_urls:
@@ -8,8 +8,8 @@ start_urls:
 renderer: static
 
 listing:
-  link_selector: "a[href]"
-  link_pattern: '^https?://(www\.)?pmo\.gov\.bt/(?!category/|tag/|author/|page/)(?:[a-z0-9-]+/?|\?p=\d+)$'
+  link_selector: "h2.entry-title a, h3.entry-title a, article h2 a, article h3 a"
+  link_pattern: '^https?://(www\.)?pmo\.gov\.bt/(?:\?p=\d+|[0-9]{4}/[0-9]{2}/[0-9]{2}/[a-z0-9-]+/?|[a-z0-9-]+/?)$'
 
 pagination:
   type: path
