@@ -17,15 +17,16 @@ pagination:
   max_pages: 500
 
 title:
-  selectors: [".itemTitle", "h1", "h2", "title"]
+  selectors: ["h2 a", ".itemTitle", "h1", "title"]
 text:
   selectors: [".itemFullText", "article p", "article", "main"]
 date:
-  selectors: [".itemDate", "time", ".created", ".date", ".published"]
+  selectors: ["time[datetime]"]
+  attr: datetime
 
 position: president
 speaker_default: Paul Biya
-date_languages: ["en"]
+date_languages: ["fr"]
 notes: >
   English speeches archive for the Presidency of the Republic of Cameroon. The
   site appears to be a Joomla-style archive with speech URLs under
