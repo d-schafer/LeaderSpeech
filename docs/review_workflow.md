@@ -10,14 +10,16 @@ hold the gates that matter. This document is both the human setup guide and the 
 |-----|------|------------|
 | **You (researcher)** | Hold the three gates (below). | — |
 | **Workhorse agent** (GPT-5.x mini / Sonnet, via Copilot/Codex/@claude) | Inspect a site, write `recipes/<id>.yml`, open a PR, iterate on review feedback. | Merge; decide it's "done". |
-| **Frontier reviewer** (Claude, etc.) | On "ready for review", verify the PR and post a PASS / CHANGES verdict. | Merge, run full scrapes, assign agents, push recipe edits to main. |
+| **Frontier reviewer** (Claude, etc.) | On "ready for review", verify the PR and post a PASS / CHANGES verdict. When that verdict already contains a **probe-verified** recipe, may commit it straight to the PR branch instead of round-tripping the agent (see "When the review is the fix"). | Merge, run full scrapes, assign agents, push edits to `main`. |
 
 ## Your three gates (always manual, never automated)
 
 1. **START** — you create an issue and assign it to an agent. Nothing scrapes until you do.
 2. **FULL RUN** — you run the complete scrape on your machine. This is where the real data and storage
    happen, so it stays under your control.
-3. **MERGE** — you merge the PR to `main` (browser). Publishing a recipe is your call.
+3. **MERGE** — you merge the PR to `main` (browser) **and set that source's `recipe_status` to
+   `validated` in `data/sources/master_sources.xlsx`** (you, or ask Claude — never the workhorse agent;
+   see "Closing the loop" below). Publishing a recipe is your call.
 
 Everything between those gates can run seamlessly.
 
@@ -30,10 +32,27 @@ Everything between those gates can run seamlessly.
    everything from GitHub itself (no pasting agent output back and forth).
 4. The reviewer (see "What the reviewer does" below) posts a comment on the PR: **PASS** or **CHANGES**
    with the exact fixes.
-5. If **CHANGES**: the agent iterates (you re-comment `@agent`, or it picks up the review). Back to step 3.
+5. If **CHANGES**: normally the agent iterates (you re-comment `@agent`, or it picks up the review), back to
+   step 3. **But if the reviewer's verdict already includes a complete, `--spread`-verified recipe** — i.e. it
+   had to fully re-author the fix, not just point at it — the reviewer commits that recipe straight to the PR
+   branch (no agent round-trip) and you jump to step 6. See "When the review is the fix".
 6. If **PASS**: **[GATE: FULL RUN]** you run the full scrape locally and confirm it end-to-end (date
    coverage, failure rate). The data lands on your disk.
-7. **[GATE: MERGE]** you merge the PR.
+7. **[GATE: MERGE]** you merge the PR, then **bump that source's `recipe_status` to `validated` in
+   `data/sources/master_sources.xlsx`** (see "Closing the loop" below).
+
+## Closing the loop: update `recipe_status` (and who may touch `master_sources.xlsx`)
+
+The recipe backlog is keyed off the `recipe_status` column: `scripts/create_issues_from_master.py` files an
+issue for every row still at `none`. So the **final step of the agent↔reviewer back-and-forth** is to flip
+the merged source's row to `validated` — otherwise the backlog "lags reality" and the generator re-proposes a
+source that's already done.
+
+- **Who updates it:** **you (researcher) or Claude** — and at the **MERGE** step (after PASS). For now keep it
+  to the **status column only**. Claude doing this is an exception to "never edit `master_sources.xlsx`" that
+  applies *only* to Claude in its authoring role, *only* to `recipe_status`, and never as a regenerate.
+- **The workhorse agent never touches `master_sources.xlsx`.** It records its *proposed* status in the
+  `data/sources/additional_master_sources.csv` **outbox** (see `agent_task_end_to_end.md`); that's all.
 
 ## What the reviewer does (the bar)
 
@@ -68,13 +87,61 @@ at the branch tip**: `git worktree add --detach <tmp> origin/<branch>`, probe fr
 the bar for shared-engine changes is **backward-compatibility** (existing recipes must take the unchanged
 code path).
 
+## When the review is the fix (reviewer applies a verified recipe directly)
+
+The workhorse↔reviewer round-trip exists so the **cheap** agent does the broad first-pass authoring and the
+**expensive** reviewer only spot-checks. That math inverts when the first pass never actually validated against
+the live site and the reviewer ends up **fully diagnosing and re-writing** the recipe (e.g. a UA-blocking WAF
+plus wrong title/text selectors). At that point the corrected recipe *already exists in the review* — bouncing
+it back to the agent just to paste it in is pure latency, and a chance for the agent to mis-apply it.
+
+**Default: copilot is for cold, net-new authoring.** When the reviewer's CHANGES verdict already contains a
+**complete, probe-verified** recipe, skip the agent round-trip and let the reviewer commit that recipe
+**directly to the PR's branch**.
+
+**Mechanism: commit to the PR branch, never to `main`.** Use a throwaway worktree so the researcher's working
+tree is untouched:
+```
+git fetch origin <branch>
+git worktree add <tmp> -B <branch> origin/<branch>
+# overwrite recipes/<id>.yml with the verified recipe
+git -C <tmp> commit -am "Apply reviewer fixes: <one-line summary>"
+git -C <tmp> push origin <branch>
+git worktree remove <tmp> --force
+```
+The PR now carries the fixed recipe; the researcher still runs the FULL RUN and still clicks MERGE.
+
+**Only when ALL of these hold:**
+- The reviewer has the **actual corrected recipe**, not just a diagnosis — every selector / pagination / UA
+  change is written out.
+- A final **`--spread` pass on a random, even selection across the full history passes cleanly**:
+  `title` / `text` / `date` show ✓ on samples spanning the **whole** date range (old *and* new pages), and
+  `LISTING` link count > 0. This is the non-negotiable gate — never push a fix you haven't watched work
+  end-to-end across the site's history.
+- The agent is **not actively working the branch** right now (don't race its pushes). If you just pinged
+  `@agent`, let it take its swing first; only step in if it stalls or fumbles the paste.
+
+If you only have a partial diagnosis, hand it back to the agent as before (step 5, first path).
+
+**Still the human's, unchanged:** START (new issues / agents), FULL RUN (the complete scrape), MERGE (to `main`
++ the `recipe_status` flip). Committing a verified fix to a PR *branch* is none of those — it's finishing the
+review, not publishing. (This project's authoring-role `.claude/settings.json` already allows the
+`git worktree`/`commit`/`push` needed here, while the `gh pr merge` and full-`run` deny-rules keep those gates
+intact.)
+
 ## Hard rules for the reviewer
 
 - **Never** `gh pr merge` — merging is the human's gate.
 - **Never** run an uncapped/full scrape — only `--spread`, `--max-pages`, `--limit`. Full runs are the
   human's gate (data + storage).
 - **Never** assign or initiate an agent.
-- **Never** push recipe edits to `main` for a PR under review — post a review; the agent fixes on its branch.
+- **Never** push recipe edits to `main` for a PR under review. Posting a review and letting the agent fix on
+  its branch is the default — but when your verdict already contains a **`--spread`-verified** recipe you may
+  commit it to the **PR branch** (not `main`); see "When the review is the fix". MERGE to `main` stays the
+  human's gate.
+- The **only** edit Claude may make to `master_sources.xlsx` is flipping a merged source's `recipe_status`
+  to `validated` (status-only), and only at/after MERGE — never edit a recipe on `main`, never regenerate
+  the file, never edit it for a PR still under review.
 - Always do the `--spread` across-time check before a PASS.
 
 ## Setup: make the reviewer seamless (permissions)

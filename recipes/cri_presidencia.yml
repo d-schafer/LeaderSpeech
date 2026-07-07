@@ -1,15 +1,15 @@
-# Costa Rica — Presidencia de la República, presidential communications.
-# WordPress-style archive under /comunicados/ with date-based permalinks.
+# Costa Rica — Presidencia de la República communications.
+# Current site publishes updates under /noticias/ with slug permalinks.
 source_id: cri_presidencia
 country: Costa Rica
 source_language: Spanish
 start_urls:
-  - https://www.presidencia.go.cr/comunicados/
+  - https://www.presidencia.go.cr/noticias/
 renderer: static
 
 listing:
-  link_selector: ".entry-title a, article a"
-  link_pattern: '/comunicados/\d{4}/\d{2}/[a-z0-9][a-z0-9-]+/'
+  link_selector: "article a, .entry-title a, h2 a, h3 a, .post-title a"
+  link_pattern: '/(noticias|comunicados)/(?:\d{4}/\d{2}/)?[a-z0-9][a-z0-9-]+/?$'
 
 pagination:
   type: path
@@ -19,18 +19,19 @@ pagination:
   max_pages: 400
 
 title:
-  selectors: ["h1.entry-title", ".post-title", "h1", "title"]
+  selectors: ["h1.entry-title", "h1.post-title", ".entry-header h1", "h1", "title"]
 text:
-  selectors: [".entry-content", "article .entry-content", ".post-content", "article", "main"]
+  selectors: [".entry-content", "article .entry-content", ".post-content", "article", "main", ".content"]
 date:
-  selectors: ["time.entry-date", "time.published", ".entry-date", "time", ".posted-on time"]
+  selectors: ["time.entry-date", "time.published", "time[datetime]", ".entry-date", ".post-date", "time", ".posted-on time"]
   attr: datetime
 context:
-  selectors: [".cat-links", ".entry-meta .cat-links", ".entry-categories", ".tags-links"]
+  selectors: [".cat-links", ".entry-meta .cat-links", ".entry-categories", ".tags-links", ".breadcrumb", ".entry-meta"]
 
 position: president
 date_languages: ["es"]
 notes: >
-  Costa Rica's presidency site appears to be a WordPress archive rooted at
-  /comunicados/ with /comunicados/page/{n}/ pagination and date-slug detail URLs.
+  Costa Rica's presidency site now routes news/communications under /noticias/
+  with /noticias/page/{n}/ pagination and slug detail URLs. Link filter keeps
+  /noticias/ and legacy /comunicados/ detail pages.
   Speaker is intentionally omitted and filled downstream from leader tenure.

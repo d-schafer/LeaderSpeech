@@ -39,7 +39,9 @@ Follow the end-to-end runbook in `docs/agent_task_end_to_end.md`:
 2. Prove it: `python -m leaderspeech.text_scraper.probe --recipe recipes/{row.source_id}.yml`
    (listing > 0 links; title/text/date show as matched).
 3. Capped run, then full history; debug via `docs/debugging.md` and `--retry-failed`.
-4. Set this row's `recipe_status` to `validated` in `data/sources/master_sources.xlsx`; open a PR.
+4. Record the result by appending a row to `data/sources/additional_master_sources.csv` **outbox** (your proposed
+   `recipe_status` for this `source_id`); open a PR. **Never edit `master_sources.xlsx`** — it's
+   researcher-owned. The maintainer (or Claude) sets `recipe_status: validated` there when the PR merges.
 
 Tip: an existing recipe may be a close template — check `recipes/` for a same-structure site first
 (e.g. the Latin-American presidencies share a layout with `arg_casarosada.yml`).

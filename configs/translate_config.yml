@@ -1,0 +1,30 @@
+# Configuration for the translation tool (fills English text/title/context IN PLACE).
+# See docs/translation.md. Override any field; CLI --translator wins over `translator`.
+
+# --- backend selection ---
+translator: google         # google (default, online) | opusmt | nllb (offline, need translate-hf)
+target_language: en        # ISO 639-1 of the English-target columns
+
+# --- what to translate ---
+fields: [text, title, context]   # each <field> filled from <field>_originlanguage
+only_accepted: true        # on a cleaned Parquet, skip rejected rows (use --all-rows to override)
+
+# --- chunking / pacing (online backend has a ~5000-char limit + rate limits) ---
+max_chunk_chars: 4500      # split longer text at sentence/punctuation boundaries
+pause_every: 50            # after this many translated rows, breathe...
+pause_seconds: 1.0         # ...for this long (online backends only)
+
+# --- checkpointing / storage ---
+checkpoint_every: 50       # rows between atomic rewrites of the file
+compression: zstd          # parquet codec
+
+# --- OpusMT backend (Helsinki-NLP per-language-pair MarianMT) ---
+opusmt_model_template: "Helsinki-NLP/opus-mt-{src}-en"
+
+# --- NLLB backend (facebook/nllb-200; one multilingual model) ---
+nllb_model: facebook/nllb-200-distilled-600M   # use facebook/nllb-200-3.3B for top quality
+nllb_max_tokens: 512
+nllb_chunk_tokens: 400
+
+# --- device for the local (HF) backends ---
+device: auto               # auto | cuda | cpu
