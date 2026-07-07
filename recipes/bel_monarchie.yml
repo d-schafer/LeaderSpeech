@@ -1,0 +1,37 @@
+# Belgium — The Belgian Monarchy (King Philippe / Queen Mathilde) speeches.
+# Server-rendered listing at /en/monarchy/speeches with ?page=N pagination; speech
+# detail pages live under /en/agenda/<slug>.
+source_id: bel_monarchie
+country: Belgium
+source_language: English
+start_urls:
+  - https://www.monarchie.be/en/monarchy/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # Exclude the /en/agenda/agenda listing index (bare 'agenda' slug): it leaked in as a
+  # dateless non-speech page under the previous /[a-z0-9-]+$ pattern.
+  link_pattern: '/en/(?:agenda|monarchy/speeches)/(?!agenda$)[a-z0-9-]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 200
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  selectors: [".field--name-body", ".field-name-body", ".field-body", "article", "main"]
+date:
+  selectors: ["time", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
+
+position: monarch
+date_languages: ["en"]
+notes: >
+  Belgian monarchy speeches; listing /en/monarchy/speeches (?page=N), detail pages under
+  /en/agenda/<slug>. link_pattern excludes the /en/agenda/agenda index page. Probed
+  2026-07-06: 100 links; --spread title/text/date OK across 2016–2026. Two speakers
+  (King Philippe, Queen Mathilde) — no speaker_default; the cleaner assigns per document.
