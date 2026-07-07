@@ -1,0 +1,36 @@
+# Indonesia — Cabinet Secretariat (setkab.go.id) English "Speech Transcript" archive.
+# WordPress; speech pages are setkab.go.id/en/<slug>/. SSL chain doesn't verify -> verify_ssl:false.
+source_id: idn_setkab
+country: Indonesia
+source_language: English
+verify_ssl: false
+start_urls:
+  - https://setkab.go.id/en/category/speech-transcript/
+renderer: static
+listing:
+  link_selector: "article a"
+  link_pattern: '^https?://setkab\.go\.id/en/[a-z0-9-]+/?$'
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+  max_pages: 400
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # .detail_text is the stable body container across the site's theme eras; older posts
+  # lack .entry-content entirely (was the cause of empty text on pre-2024 pages).
+  selectors: [".detail_text", ".reading_text", ".entry-content", "article"]
+date:
+  # WordPress ISO published time; the visible .date is Indonesian ("15 Juni 2026").
+  selectors: ["meta[property='article:published_time']"]
+  attr: content
+position: president
+notes: >
+  Cabinet Secretariat English speech-transcript archive (WordPress). Listing links are
+  `article a` -> setkab.go.id/en/<slug>/; /page/N/ pagination; verify_ssl:false (cert chain).
+  Body via .detail_text (older posts drop .entry-content); date via the article:published_time
+  meta (visible date is Indonesian). Verified 2026-07-07: 10 links/page incl. deep pages,
+  title/text/date OK on 2021 (Jokowi) and 2026 (Prabowo) samples. No speaker_default — the
+  cleaner assigns via the tenure key. (--spread times out only because the site is slow.)
