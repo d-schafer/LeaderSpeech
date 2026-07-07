@@ -1,5 +1,6 @@
 # Burundi — Présidence de la République du Burundi, official speeches.
-# WordPress category archive with /page/{n}/ pagination, French dates.
+# WordPress category archive with /page/{n}/ pagination; speech detail pages are
+# /YYYY/MM/DD/<slug>/.
 source_id: bdi_presidence
 country: Burundi
 source_language: French
@@ -24,10 +25,18 @@ title:
 text:
   selectors: ["article .entry-content", ".entry-content", "article"]
 date:
+  # Read the ISO <time datetime="..."> attribute. The visible date text renders in
+  # ENGLISH ("20 September 2023") even though the site is French, so parsing the text
+  # with date_languages:[fr] failed and fell back to <year>-<today>. The datetime attr
+  # is language-independent and exact.
   selectors: ["time.entry-date", "time", ".posted-on time", ".post-date"]
+  attr: datetime
 
 position: president
-date_languages: ["fr"]
+date_languages: ["fr", "en"]
 notes: >
-  The presidency site is a WordPress archive. Use the category archive(s) for
-  speeches and match dated article URLs under /YYYY/MM/DD/.
+  Burundi presidency WordPress archive; detail pages at /YYYY/MM/DD/<slug>/. Date comes
+  from <time datetime> (ISO) — the visible text is English on a French site and mis-parsed
+  to <year>-<today>. Probed 2026-07-06: 218 links; --spread title/text/date OK across
+  2011–2026. No speaker_default (pre-2020 = Nkurunziza, 2020+ = Ndayishimiye; the cleaner
+  assigns the speaker via the tenure key).
