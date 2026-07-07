@@ -1,0 +1,26 @@
+# Global config for the video_audio_scraper (whisperscribe) tool.
+# All fields are optional; anything omitted uses the built-in default (see
+# leaderspeech/video_audio_scraper/config.py and docs/audio_transcription.md).
+
+# --- transcription backend / model ---
+backend: faster-whisper      # faster-whisper (default) | openai-whisper | openai-api
+model: large-v3              # whisper model: large-v3 | medium | small | base ...
+device: auto                 # auto | cuda | cpu
+compute_type: auto           # faster-whisper precision: auto | int8 | int8_float16 | float16 | float32
+# language: it               # global language hint; omit to auto-detect per clip
+
+# --- audio download / retention ---
+audio_format: mp3
+audio_quality: "192"
+delete_audio_after_transcribe: false   # keep audio by default; --delete-audio flips it per run
+
+# --- pacing / checkpointing ---
+rate_limit_delay: 0.0
+pause_every: 0
+pause_seconds: 0.0
+max_consecutive_failures: 25
+save_every: 5
+
+# --- OpenAI hosted-API backend (only used when backend: openai-api) ---
+openai_key_file: openai_key.txt
+openai_api_model: whisper-1
