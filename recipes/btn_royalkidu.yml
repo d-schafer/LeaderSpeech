@@ -1,15 +1,15 @@
-# Bhutan — Royal Office for Kidu (royalkidu.bt), speeches archive.
-# Assumes a WordPress-style /speeches listing with /page/{n} pagination.
+# Bhutan — Prime Minister's Office speeches archive (pmo.gov.bt).
+# Expected WordPress category archive with /page/{n} pagination.
 source_id: btn_royalkidu
 country: Bhutan
 source_language: English
 start_urls:
-  - https://www.royalkidu.bt/speeches
+  - https://www.pmo.gov.bt/category/speeches
 renderer: static
 
 listing:
   link_selector: "a[href]"
-  link_pattern: '^https?://(www\.)?royalkidu\.bt/speeches/[a-z0-9-]+/?$'
+  link_pattern: '^https?://(www\.)?pmo\.gov\.bt/(?!category/|tag/|author/|page/)(?:[a-z0-9-]+/?|\?p=\d+)$'
 
 pagination:
   type: path
@@ -19,15 +19,15 @@ pagination:
   max_pages: 200
 
 title:
-  selectors: ["h1.entry-title", "h1"]
+  selectors: ["h1.entry-title", "article h1", "h1", "title"]
 text:
-  selectors: [".entry-content", "article .content", "main article"]
+  selectors: [".entry-content", ".post-content", "article"]
 date:
-  selectors: ["time.entry-date", "time", ".posted-on"]
+  selectors: ["time.entry-date", "time.published", "time", ".posted-on", ".entry-meta"]
 
-position: king
+position: prime minister
 date_languages: ["en"]
 notes: >
-  Royal Kidu appears to use a WordPress-style speeches archive. If probe shows 0
-  links, verify whether the listing uses /category/speeches/ or JS-loaded cards
-  and adjust start_urls/pagination accordingly.
+  Repointed from royalkidu.bt to the official Prime Minister's Office domain.
+  Validate with probe in a network-enabled runner and tighten link/selectors if the
+  live listing structure differs.
