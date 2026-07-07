@@ -32,6 +32,8 @@ data/sources/*.txt
 data/sources/*.csv
 data/sources/LeadersSpeeches_Africa.xlsx
 !data/sources/master_sources.xlsx
+# agent outbox (committed; append-only, union-merged — see .gitattributes)
+!data/sources/additional_master_sources.csv
 
 # --- Large / binary data artifacts ---
 *.RData

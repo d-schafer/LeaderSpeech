@@ -210,7 +210,7 @@ configs/translate_config.yml global config for the translator (backend, fields, 
 configs/tenure_config.yml    global config for tenure curation (models, paths)
 configs/audio_config.yml     global config for transcription (backend, model, retention, pacing)
 data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
-                             additional_master_sources.xlsx — agents' proposed rows; researcher folds these in by hand
+                             additional_master_sources.csv — agents' proposed rows (append-only, union-merged); researcher folds these in by hand
                              leader_tenure_proposed_additions.xlsx — the tenure tool's outbox; researcher approves by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
 data/cleaned/                per-country cleaned Parquet (gitignored)
