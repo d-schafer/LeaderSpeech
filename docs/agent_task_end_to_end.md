@@ -65,13 +65,13 @@ This runs until the site's listing is exhausted. Watch the summary and log:
 **6. Record it — but never touch `master_sources.xlsx`.** `data/sources/master_sources.xlsx` is the
 researcher's hand-curated, committed source list; **agents must not edit or regenerate it** (don't run any
 seed/regenerate script against it either). Instead, write your one proposed row to
-`data/sources/additional_master_sources.xlsx` — a separate "outbox" file that sits next to it: the
+`data/sources/additional_master_sources.csv` — a separate "outbox" file that sits next to it: the
 `source_id`, `recipe_status` you believe applies, and `renderer`/`language`/`date_start`/`date_end`/`last_checked`.
 Create the file if it doesn't exist; append your row if it does. The researcher reviews this file and folds
 approved rows into `master_sources.xlsx` by hand, then clears it. (Don't mark `validated` unless your capped
 run actually passed — leave it `none`/`draft` otherwise.)
 
-**7. Open a PR.** Commit only the recipe (and, if you added one, `additional_master_sources.xlsx`).
+**7. Open a PR.** Commit only the recipe (and, if you added one, `additional_master_sources.csv`).
 **Never commit `data/scraped/`, and never commit a change to `master_sources.xlsx`.**
 
 ## Definition of done
@@ -83,7 +83,7 @@ run actually passed — leave it `none`/`draft` otherwise.)
       (not just the last few weeks); if shallow, switch to a sitemap
 - [ ] a few rows spot-checked: the speaker/date are plausible for that country (cross-check the
       `leader_tenure_final` key)
-- [ ] proposed row written to `additional_master_sources.xlsx` (**`master_sources.xlsx` left untouched**)
+- [ ] proposed row written to `additional_master_sources.csv` (**`master_sources.xlsx` left untouched**)
 - [ ] PR opened, CI green, no scraped data committed
 
 ## If you get stuck

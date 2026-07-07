@@ -2,12 +2,13 @@ source_id: bgr_president
 country: Bulgaria
 source_language: English
 start_urls:
+  - https://www.president.bg/en/news
   - https://m.president.bg/en/news
 renderer: static
 
 listing:
-  link_selector: "a[href*='/en/news/']"
-  link_pattern: '/en/news/(?!page/)[^/]+/?$'
+  link_selector: "main a[href*='/news/'], article a[href*='/news/'], a[href*='/news/']"
+  link_pattern: '/(?:en/)?news/(?!page/)[^/]+/?$'
 
 pagination:
   type: path

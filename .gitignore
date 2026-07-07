@@ -29,6 +29,7 @@ _data_outside_unorganized/
 # --- Raw source sub-lists: the curated master list IS committed, its inputs are not ---
 data/sources/*.txt
 data/sources/*.csv
+!data/sources/additional_master_sources.csv
 data/sources/LeadersSpeeches_Africa.xlsx
 !data/sources/master_sources.xlsx
 

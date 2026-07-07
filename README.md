@@ -136,7 +136,7 @@ leaderspeech/clean_structure_metadata/ the cleaner (config, extract, tenure, gat
 recipes/                     one YAML per source
 configs/clean_config.yml     global config for the cleaner (model, gate, tenure path)
 data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
-                             additional_master_sources.xlsx — agents' proposed rows; researcher folds these in by hand
+                             additional_master_sources.csv — agents' proposed rows; researcher folds these in by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
 data/cleaned/                per-country cleaned Parquet (gitignored)
 scripts/export_leaderspeech.R  final merge -> fixNames -> LeaderSpeech.parquet/.RData/.csv.gz

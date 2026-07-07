@@ -1,0 +1,2 @@
+source_id,recipe_status,renderer,language,date_start,date_end,last_checked,notes
+bgr_president,draft,static,English,,,2026-07-07,probe still needs live verification; outbox record for president.bg recipe

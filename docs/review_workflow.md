@@ -49,7 +49,7 @@ source that's already done.
   to the **status column only**. Claude doing this is an exception to "never edit `master_sources.xlsx`" that
   applies *only* to Claude in its authoring role, *only* to `recipe_status`, and never as a regenerate.
 - **The workhorse agent never touches `master_sources.xlsx`.** It records its *proposed* status in the
-  `data/sources/additional_master_sources.xlsx` **outbox** (see `agent_task_end_to_end.md`); that's all.
+  `data/sources/additional_master_sources.csv` **outbox** (see `agent_task_end_to_end.md`); that's all.
 
 ## What the reviewer does (the bar)
 
