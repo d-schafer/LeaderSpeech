@@ -1,7 +1,7 @@
 # Belarus — president.gov.by (official portal of the President; Lukashenko).
 # Event/speech pages are /ru/events/<slug> (a minority carry a trailing numeric id).
 # The site's event sitemap is the complete index — ~14.5k /ru/events/ pages spanning
-# 2007–present — so we crawl it directly rather than paging a listing.
+# ~1995–present — so we crawl it directly rather than paging a listing.
 source_id: blr_president
 country: Belarus
 source_language: Russian
@@ -19,8 +19,8 @@ pagination:
 
 listing:
   # Any /ru/events/<slug> detail page. Do NOT require a trailing -<digits> id: only ~8%
-  # of events carry one (Unix-timestamp ids on 2021+ posts), so requiring \d{10} silently
-  # dropped ~92% of speeches, including all pre-2021 history.
+  # of events carry one and it is not a reliable date key, so requiring \d{10} silently
+  # dropped ~92% of speeches across ALL years (1995–present) — only ~1,181 of 14,476 events.
   link_pattern: '/ru/events/[a-z0-9\-]+(?:\?.*)?$'
 
 title:
@@ -39,4 +39,4 @@ notes: >
   trailing -<digits> id). Crawl sitemap.event.xml directly. Dates come from
   <time data-datetime> as ISO-8601 with a +03:00 offset, parsed via the extract.py
   fromisoformat fast-path added in this PR. Probed 2026-07-06: 14,471 links; --spread
-  samples show good title/text/date across 2007–2026.
+  plus a 45-URL random sample confirm title/text/date, coverage ~1995–2026.
