@@ -1,0 +1,46 @@
+# Brazil — Presidência (Planalto), speeches & pronouncements — WAYBACK fallback.
+# The LIVE gov.br site (recipes/bra_planalto.yml) is hard-blocked for scraping: an
+# F5/BIG-IP "TSPD" JS bot-defense challenge, the /discursos-e-pronunciamentos folder
+# 302-redirects automated sessions to acl_users .../require_login, AND the Plone
+# search/data endpoints return HTTP 429 "Acesso Temporariamente Interrompido" — so the
+# Svelte listing never renders any article links (0 links live, even with renderer: js).
+# The Internet Archive has ~332 Lula-era speech pages (2023-2025), so this Wayback
+# companion recovers them. Portuguese; president is Lula.
+#
+# Speech pages live at /discursos-e-pronunciamentos/{YEAR}/{slug}; the link_pattern
+# requires a 4-digit year folder + a descriptive slug and excludes Plone static assets
+# (++resource++) and the bare-number list pagers (/2, /20, /2023 with no slug).
+source_id: bra_planalto_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - gov.br/planalto/pt-br/acompanhe-o-planalto/discursos-e-pronunciamentos
+renderer: static
+
+listing:
+  link_selector: "a[href*='/discursos-e-pronunciamentos/']"
+  # {year}/{slug}: require a year folder then a slug of >=12 chars; drop ++resource++ assets
+  link_pattern: '/discursos-e-pronunciamentos/20\d{2}/(?!\+\+)[a-z][a-z0-9-]{11,}/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  selectors: ["#parent-fieldname-text", "#content-core", ".documentDescription", "article", "main"]
+date:
+  # Plone byline: "Publicado em DD/MM/YYYY HHhMM" — pull the DD/MM/YYYY out of the byline.
+  selectors: ["#plone-document-byline", ".documentByLine", "span[itemprop='datePublished']"]
+  regex: '\d{2}/\d{2}/\d{4}'
+
+position: president
+speaker_default: Lula da Silva
+date_languages: ["pt"]
+notes: >
+  Wayback fallback for gov.br/planalto discursos-e-pronunciamentos (Lula era, 2023-2025)
+  because the live site is TSPD-challenged + login-redirected + 429-throttled (see the
+  live recipe's header). ~332 archived speech pages. Archived Plone layout: title
+  h1.documentFirstHeading, body #parent-fieldname-text/#content-core, date is the
+  "Publicado em DD/MM/YYYY" byline pulled by regex. speaker_default Lula da Silva.

@@ -1,0 +1,48 @@
+# South Korea — Office of the President (president.go.kr), presidential speeches.
+# The /speeches listing is a JavaScript-rendered board (a Java `.do` CMS whose
+# list is fetched client-side from /ajaxf/frBoard/bbsViewGalleryList.do). The raw
+# HTML carries an empty `.bbs_list` container, so renderer: js is required to get
+# the `<a href="/speeches/<id>">` links. The board self-reads a `?pageNo=N` URL
+# param on load, so we paginate with query_param (pageNo) rather than the awkward
+# block-pager (다음/next jumps 5 pages at a time — unsafe for click harvesting).
+# This board holds only the *sitting* president's speeches (Lee Jae-myung, from
+# 2025-06); prior administrations are moved to separate archive sites.
+source_id: kor_president
+country: Korea, Republic of
+source_language: Korean
+start_urls:
+  - https://www.president.go.kr/speeches
+renderer: js
+
+listing:
+  link_selector: "a[href*='/speeches/']"
+  link_pattern: '/speeches/[A-Za-z0-9]+$'
+
+pagination:
+  type: query_param
+  param: pageNo
+  start: 1
+  step: 1
+  max_pages: 20   # 83 speeches @ 10/page => ~9 pages; 20 is a safe cap
+
+title:
+  # The subject sits in `.txtL`; the body's leading line repeats it too.
+  selectors: [".txtL", "h3", "title"]
+text:
+  selectors: [".view_txt"]
+date:
+  # Dateline reads "등록일 2026.07.07." — pull the ISO-ish yyyy.mm.dd out of it.
+  selectors: [".date", ".txtInfo"]
+  regex: '\d{4}\.\d{2}\.\d{2}'
+
+position: president
+date_languages: ["ko"]
+notes: >
+  president.go.kr /speeches is a JS-rendered board (renderer: js). Its list is loaded
+  from /ajaxf/frBoard/bbsViewGalleryList.do (a clean GET JSON, but the rows carry only
+  a bare BBS_CD id — no URL path — so the `api` type can't build /speeches/<id>; the JS
+  page assembles the anchors). Paginate via ?pageNo=N, which the SPA honors on load.
+  Detail text is `.view_txt`; date is the "등록일 yyyy.mm.dd" dateline (regex). Speaker
+  filled later from the leader-tenure key (current sitting president = Lee Jae-myung).
+  Korean text -> source_language: Korean, routed to *_originlanguage; English section
+  (en.president.go.kr) has no comparable speech archive, only press releases.

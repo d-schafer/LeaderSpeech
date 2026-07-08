@@ -1,0 +1,40 @@
+# Brazil — Presidência (Planalto), speeches & pronouncements (discursos e pronunciamentos).
+# gov.br is a Plone CMS behind an F5/BIG-IP "TSPD" JavaScript bot-defense challenge:
+# curl (even with a browser UA) gets only the JS-challenge shell (window["bobcmn"] /
+# TSPD cookie), so renderer: js is required to execute the challenge and reach content.
+# Plone paginates with ?b_start:int=N (page size 20). Portuguese; president is Lula.
+source_id: bra_planalto
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - https://www.gov.br/planalto/pt-br/acompanhe-o-planalto/discursos-e-pronunciamentos
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+listing:
+  link_selector: "article.tileItem a.summary, .tileHeadline a, .entries a.summary, h2.tileHeadline a, .contenttype-document a"
+  link_pattern: '/discursos-e-pronunciamentos/[^/]+/?$'
+
+pagination:
+  type: query_param
+  param: "b_start:int"
+  start: 0
+  step: 20
+  max_pages: 200
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  selectors: ["#content-core", ".documentDescription + #content-core", "#parent-fieldname-text", "article", "main"]
+date:
+  selectors: [".documentByLine .documentPublished span", "span[itemprop='datePublished']", ".documentPublished", "time"]
+
+position: president
+speaker_default: Lula da Silva
+date_languages: ["pt"]
+notes: >
+  gov.br Plone site behind an F5 TSPD JS bot-defense challenge (renderer: js required;
+  curl returns only the bobcmn challenge shell). Listing under
+  /acompanhe-o-planalto/discursos-e-pronunciamentos, Plone ?b_start:int pagination
+  (step 20). Title h1.documentFirstHeading, body #content-core, Plone byline for date.
+  speaker_default Lula da Silva; probe to confirm the JS renderer clears the challenge.

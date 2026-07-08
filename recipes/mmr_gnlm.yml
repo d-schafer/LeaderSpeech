@@ -1,0 +1,53 @@
+# Myanmar — Global New Light of Myanmar (gnlm.com.mm), the state paper under the
+# junta. English-language BSS-style THIRD-PERSON reportage of leadership addresses
+# and messages (Senior General Min Aung Hlaing, styled Acting President / Chairman
+# of the State Security and Peace Commission). These are official statements that
+# convey the leader's position — the downstream cleaner classifies/keeps them.
+#
+# Target category: /category/announcement/speeches-and-remarks/  (the paper's own
+# "Speeches and Remarks" archive). WordPress (Kadence-secured) — but note the
+# limitations documented below: this category archive does NOT paginate and only
+# surfaces the most-recent handful of posts, so this recipe is an INCREMENTAL /
+# recent-window source. Re-run it periodically to pick up new leadership speeches.
+source_id: mmr_gnlm
+country: Myanmar
+source_language: English
+start_urls:
+  - https://www.gnlm.com.mm/category/announcement/speeches-and-remarks/
+renderer: static
+
+listing:
+  # Main archive column: <article class="archives-page"> ... <h4 class="post-title"><a>.
+  link_selector: "article.archives-page h4.post-title a"
+  link_pattern: '^https://www\.gnlm\.com\.mm/[a-z0-9-]+/$'
+
+pagination:
+  # The category archive does not paginate: /page/N/ and ?paged=N both 301 to the
+  # site homepage (mixed general news), and the category RSS feed does not paginate
+  # either. So harvest is the single archive page (engine stops when no new links).
+  type: none
+
+title:
+  selectors: ["h1.entry-title", "h1"]
+text:
+  selectors: ["div.entry-content", "article .entry-content"]
+date:
+  # The article's own date is <li class="post-date"><span>Month DD, YYYY</span>.
+  # Scope to the entry header first so we don't pick up sidebar/related dates.
+  selectors: [".entry-header .post-date span", "li.post-date span", ".post-date span"]
+
+date_languages: ["en"]
+notes: >
+  GNLM is WordPress behind Cloudflare + iThemes/Kadence security; the honest bot UA
+  works (200). Leadership speeches are third-person "message/remarks" reportage.
+  The dedicated /category/announcement/speeches-and-remarks/ archive is the clean
+  target BUT it is thin and non-paginating (page 2 / ?paged=2 both redirect to the
+  homepage; category feed has only ~2 items; the WP REST API is locked 401). So
+  this recipe collects the recent-window leadership speeches only — treat it as an
+  INCREMENTAL source and re-run to catch new posts. Historical depth is not
+  available from this category. A broad fallback exists — /category/national/
+  DOES paginate deeply (page 300 = Nov 2025) — but it is general national news, far
+  too noisy to be a clean per-leader speech source, so it is intentionally not used
+  here. Selectors: title h1.entry-title, body div.entry-content, date the article's
+  li.post-date span ("Month DD, YYYY"). Speaker (Min Aung Hlaing) is left to the
+  cleaner + leader-tenure key.

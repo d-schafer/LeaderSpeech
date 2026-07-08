@@ -1,0 +1,51 @@
+# Lebanon — Presidency of the Republic (presidency.gov.lb), President Joseph Aoun.
+# WAYBACK FALLBACK. The live site is behind Cloudflare's "managed challenge":
+#   - the listing page /media renders via renderer:js (Playwright clears the JS
+#     challenge and exposes ~1,100 /posts/ links over ~70 ?page=N pages), BUT
+#   - the individual /posts/ DETAIL pages hit a harder managed challenge that does
+#     NOT solve headless (still "Performing security verification" after 40s in a
+#     warmed context), and the listing carries links only (no full text, no JSON
+#     API). So the live speech BODIES are unreachable — see notes / the outbox.
+# The Internet Archive has captured the /posts/ detail pages (older, simpler
+# WordPress-style layout: .post-title/.post-content/.post-date) — but only ~43
+# unique posts, all from Sept 2025 onward. This recipe recovers that thin slice.
+source_id: lbn_presidency_wayback
+country: Lebanon
+source_language: Arabic
+start_urls:
+  - presidency.gov.lb/posts
+renderer: static
+
+listing:
+  link_selector: "a[href*='/posts/']"
+  # post slugs are long transliterated-Arabic strings; require a non-trivial slug
+  link_pattern: '/posts/[a-z0-9-]{20,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_match_type: prefix
+
+title:
+  selectors: [".post-title", "h1.post-title", "h1", "title"]
+text:
+  selectors: [".post-content", "article", ".content-wrapper", "main"]
+date:
+  # Levantine Arabic dateline, e.g. "10 آب 2025" / "٩ أيلول ٢٠٢٥".
+  selectors: [".post-date", ".post-header .post-date"]
+
+position: president
+speaker_default: Joseph Aoun
+date_languages: ["ar"]
+notes: >
+  FALLBACK for a Cloudflare-blocked live site (see recipes header). The live
+  presidency.gov.lb listing (/media, ?page=N) is reachable with renderer:js, but
+  the /posts/ detail pages are hard-blocked by a managed challenge that does not
+  clear headless and there is no JSON API, so the live bodies cannot be scraped.
+  Wayback holds only ~43 /posts/ captures, all Sept 2025+, in an older layout
+  (.post-title/.post-content/.post-date). Dates are Levantine Arabic month names
+  (آب/أيلول/حزيران) with Western OR Arabic-Indic digits — dateparser ["ar"] may
+  miss some; check the parsed_date column. Lebanon had a presidential VACANCY
+  2022–2024; Joseph Aoun took office Jan 2025, so all content is 2025+. If the
+  live detail-page block is ever solved (a stealthier browser / CF-bypass), add a
+  separate live recipe — this file is the archive fallback only.

@@ -1,0 +1,48 @@
+# Pakistan — Prime Minister's Office (pmo.gov.pk), archived news/press + PM addresses.
+# WHY WAYBACK-ONLY: pmo.gov.pk is unreachable from outside Pakistan — the host
+# accepts no TCP connection on 443/80 (curl times out, http=000; confirmed geo-/
+# firewall-blocked, not a UA/WAF issue), so there is no live path to author against.
+# The Internet Archive, however, holds ~1,300 captures of the site's HTML news detail
+# pages (news_details.php?news_id=N, 2013-2026, spanning the Nawaz Sharif, Abbasi,
+# Imran Khan and Shehbaz Sharif governments) with clean title/body/date selectors.
+# (The archive also has the PM's set-piece addresses, but those are PDF/.doc only ->
+# out of scope for the HTML engine; the news_details pages carry the press text.)
+source_id: pak_pmo_wayback
+country: Pakistan
+source_language: English
+start_urls:
+  # CDX prefix WITHOUT the ".php": prefix-matches /news_details.php?news_id=N, but its
+  # path (/news_details) differs from the article path (/news_details.php) so the engine's
+  # listing-index drop doesn't swallow every article.
+  - pmo.gov.pk/news_details
+renderer: static
+
+listing:
+  # Each PM news/press item is news_details.php?news_id=<N>.
+  link_pattern: 'news_details\.php\?news_id=\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+
+title:
+  selectors: ["#right-header-title", "#right-content-header", "h1", "title"]
+text:
+  selectors: ["#right-content-body", "#right-content-area", ".right-content-body", "article", "main"]
+date:
+  # <div id="right-header-datetime">June 03, 2014</div> (English "Month DD, YYYY").
+  selectors: ["#right-header-datetime", ".date", "time"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  Wayback-only (see header): pmo.gov.pk is geo/firewall-blocked (no TCP from outside PK),
+  so there is no live recipe to pair this with. Harvests the archived HTML news_details.php
+  pages (~1,300 captures, 2013-2026, multiple PM tenures) — title #right-header-title, body
+  #right-content-body, date #right-header-datetime. These are third-person press notes
+  ("Prime Minister ... said that ...") = official_statement, which the cleaner's gate keeps;
+  the document_type classifier separates true speeches/interviews from routine notices, and
+  the speaker/leader-tenure crosscheck assigns the sitting PM (Nawaz Sharif 2013-2017,
+  Abbasi 2017-2018, Imran Khan 2018-2022, Shehbaz Sharif 2022- ). The PM's set-piece
+  address transcripts on the site are PDF/.doc only and are out of scope (HTML engine).

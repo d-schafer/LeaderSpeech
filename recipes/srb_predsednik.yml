@@ -1,0 +1,49 @@
+# Serbia — President of the Republic of Serbia (predsednik.rs), Aleksandar Vučić.
+# Static HTML WordPress site with ?page=N pagination. The Serbian Latin-script
+# section (/lat/pres-centar/vesti, "news/vesti") is the fullest speech archive
+# (~1,970 items over ~165 pages, back to ~2017), far deeper than the English
+# section (/en/press-center/news, ~288 items from 2020). Text left in Serbian;
+# the downstream translation stage populates the English text/title columns.
+source_id: srb_predsednik
+country: Serbia
+source_language: Serbian
+start_urls:
+  - https://www.predsednik.rs/lat/pres-centar/vesti
+renderer: static
+
+listing:
+  link_selector: "a"
+  link_pattern: '/lat/pres-centar/vesti/[^"]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 170   # listing self-terminates ~page 165 (0 links); 170 is a safe cap
+
+title:
+  selectors: ["h1.single-title", "h1", "title"]
+text:
+  selectors: [".single-content", "article.single-item", "article", "main"]
+date:
+  # The article date is the first .date inside .single-content (before the title);
+  # scoping to .single-content avoids the sidebar "latest news" dates.
+  # Format: "05.06.2026. - 23:21" (day-first, Serbian).
+  selectors: [".single-content .date", ".single-content > .date"]
+context:
+  selectors: ["h2.single-subtitle"]
+
+position: president
+date_languages: ["sr"]
+notes: >
+  predsednik.rs (WordPress). Fullest archive is the Serbian Latin news section
+  /lat/pres-centar/vesti with ?page=N pagination (12 items/page, ~165 pages,
+  ~1,972 items back to 2014). An English section exists (/en/press-center/news)
+  but is shallow (~288 items, 2020+). Title is h1.single-title; body is
+  .single-content; the article date is the first .date inside .single-content
+  (DD.MM.YYYY. - HH:MM). Speaker is deliberately LEFT BLANK (no speaker_default):
+  the archive spans TWO presidents — Aleksandar Vučić (since 31 May 2017) and his
+  predecessor Tomislav Nikolić (2012–2017, seen in 2014-era samples) — so the
+  downstream tenure crosscheck must assign the speaker from country+date rather
+  than a hardcoded default. Cyrillic variant lives at /pres-centar/vesti.

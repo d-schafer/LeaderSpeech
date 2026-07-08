@@ -1,0 +1,51 @@
+# United States — The White House (whitehouse.gov), current administration.
+# WordPress site. The unified /news/ feed aggregates the president's remarks,
+# briefings-statements and releases (10 posts/page, path pagination /news/page/{n}/,
+# dated slugs like /remarks/2025/01/...). link_pattern keeps us to dated speech/
+# statement posts and excludes /presidential-actions/ (executive orders, proclamations,
+# memoranda — not speeches). English; president is the leader.
+#
+# NOTE ON master_sources: the existing master row for this source is TYPO'd as
+# `usa_hitehouse` (missing the "w"). This recipe uses the correct id `usa_whitehouse`;
+# the master typo should be reconciled by the researcher.
+#
+# NOTE ON coverage: the current administration's whitehouse.gov was rebuilt Jan 2025,
+# so the live site only covers 2025-01-20 onward. Earlier eras (Biden/Trump-45) are a
+# Wayback job (whitehouse.gov/briefing-room/speeches-remarks) — a separate *_wayback.yml.
+source_id: usa_whitehouse
+country: United States
+source_language: English
+start_urls:
+  - https://www.whitehouse.gov/news/
+renderer: static
+
+listing:
+  link_selector: "h2.wp-block-post-title a, .wp-block-post-title a"
+  # dated-slug posts under the speech/statement categories; exclude presidential-actions
+  link_pattern: '/(?:remarks|briefings-statements|releases)/\d{4}/\d{2}/[^/]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 2          # page 1 is the bare /news/ start_url; pager begins at /news/page/2/
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1.wp-block-post-title", "h1.entry-title", "h1"]
+text:
+  selectors: [".entry-content", ".wp-block-post-content", "article", "main"]
+date:
+  selectors: ["time.wp-block-post-date", ".wp-block-post-date time", "time"]
+  attr: datetime
+
+position: president
+speaker_default: Donald Trump
+date_languages: ["en"]
+notes: >
+  whitehouse.gov (WordPress). /news/ is the unified feed (remarks + briefings-statements
+  + releases); path pagination /news/page/{n}/, 10 posts/page. link_pattern keeps dated
+  speech/statement slugs and drops /presidential-actions/. Title h1.wp-block-post-title,
+  body .entry-content, date time[datetime]. speaker_default Donald Trump (current admin,
+  site rebuilt Jan 2025 so live coverage is 2025-01-20+; pre-2025 needs a Wayback recipe).
+  Master row is typo'd usa_hitehouse -> should be usa_whitehouse.

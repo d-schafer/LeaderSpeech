@@ -1,0 +1,59 @@
+# Malaysia — Prime Minister's Office (pmo.gov.my), English speech archive.
+# The current live source is a WordPress site (theme "newpmo"). Speeches live in
+# the "speeches-en" category (English verbatim texts of the PM's addresses):
+#   https://www.pmo.gov.my/en/category/speeches-en/   (~40 pages, 10 posts/page)
+# Posts are /en/speeches-en/<slug>/. Coverage is the current PM (Anwar Ibrahim,
+# in office since Nov 2022) — the site's year filter runs 2023-2026.
+# NOTE: the site drops connections intermittently (HTTP 000 / TLS resets), so
+# retries/backoff are raised. A browser user_agent avoids the WAF 403 the honest
+# bot UA sometimes gets on the WordPress front end.
+# (There is also a legacy PHP archive at /ucapan/ covering ex-PMs 1996-2020, but
+#  it is a mixed collection of PMs, deputy PMs and civil servants and stops at
+#  Muhyiddin; the live English category is the clean per-leader source.)
+source_id: mys_pmo
+country: Malaysia
+source_language: English
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+start_urls:
+  - https://www.pmo.gov.my/en/category/speeches-en/
+renderer: static
+
+listing:
+  link_selector: "article h2 a, h2 a"
+  link_pattern: "/en/speeches-en/"
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 2          # page 1 is the start_url itself
+  step: 1
+  max_pages: 60     # ~40 real pages; safe cap (stops when a page yields no new links)
+
+title:
+  # Post pages: the speech title is <h2 class="text-3xl font-bold">; on the listing
+  # each item is <h2 class="leading-6 ..."><a>. Fall back to the <title> tag.
+  selectors: ["article h2.text-3xl", "article > h2", "h2.text-3xl", "title"]
+text:
+  # The body wrapper on the post page.
+  selectors: ["div.max-w-none", "article .max-w-none", "article"]
+date:
+  # Clean English date element on the post page, e.g. "27 June 2026".
+  selectors: ["article .text-sm.text-gray-500", ".text-sm.text-gray-500"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  Live WordPress (newpmo theme). English "speeches-en" category is the current-PM
+  speech source (Anwar Ibrahim, 2023-present). path pagination page/{n}. Title is
+  h2.text-3xl on the post; date is div.text-sm.text-gray-500 ("27 June 2026");
+  body is div.max-w-none. Browser user_agent + raised retries handle the site's
+  403/intermittent-000 behaviour. A parallel Malay category exists at
+  /ms/kategori/ucapanterkini/ with /laman/{n}/ pagination; the English one is used
+  here for clean English text/dates. Legacy /ucapan/ PHP archive (ex-PMs 1996-2020)
+  is deliberately not used.
+
+politeness:
+  retries: 5
+  backoff: 8
+  pause_every: 25
+  pause_seconds: 8

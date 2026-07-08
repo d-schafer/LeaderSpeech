@@ -1,0 +1,48 @@
+# Kyrgyzstan — Office of the President (president.kg), archived speeches/addresses.
+# WHY WAYBACK-ONLY (no live companion): the modern president.kg is a Next.js/Mantine
+# SPA. Its speech list (category 31 "Выступления") is served ONLY via a POST
+# /api/v1/news/search call (the engine's `api` type is GET-only), and the listing
+# cards navigate by a JS doubleClickPath router push — they emit no <a href>, so the
+# js link-harvester finds nothing. The sitemap lists only section pages, and there is
+# no RSS feed. So the live site cannot be enumerated by the current engine without a
+# POST-api capability. The Internet Archive, however, holds ~2,000 pre-SPA articles
+# (2014-~2021, Atambayev/Jeenbekov + early Japarov) under the old clean slug scheme
+# /ru/news/<id>_<translit-slug>/ — this recipe harvests those.
+source_id: kgz_president_wayback
+country: Kyrgyzstan
+source_language: Russian
+start_urls:
+  - president.kg/ru/news
+renderer: static
+
+listing:
+  # Old-scheme article pages: /ru/news/<digits>_<slug>. Excludes section pages
+  # (/ru/news/21) and the junk Mantine-CSS-fragment URLs the SPA era polluted the
+  # archive with (those have no leading <digits>_ ).
+  link_pattern: '/ru/news/\d+_[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+
+title:
+  selectors: ["h1.title", "h1", ".title", "title"]
+text:
+  selectors: [".mgl16", "#content", ".news-detail", ".content", "article", "main"]
+date:
+  # Old layout: <span class="date">27 сентября 2012 г.</span> (Russian prose).
+  selectors: ["span.date", ".date", "time"]
+
+position: president
+date_languages: ["ru"]
+notes: >
+  Wayback-only (see header): the live SPA gates speeches behind a POST-only search API
+  + JS-router cards, unreachable by the GET `api` type and the anchor harvester; needs
+  a POST-api engine capability to scrape live. This recipe covers the pre-SPA archive
+  (old /ru/news/<id>_<slug>/ scheme, ~2,000 captures, 2014-2021) whose pages have clean
+  h1.title / .mgl16 body / span.date selectors. Speaker filled from the leader-tenure key
+  (Atambayev 2011-2017, Jeenbekov 2017-2020, Japarov 2021- ). NOTE the old slug scheme
+  mixes speeches/interviews with condolence/congratulation notices, so the cleaner's
+  document_type gate does the final speech/other separation. If the engine later gains
+  a POST `api` type, add a live kgz_president.yml (category 31) as the primary source.

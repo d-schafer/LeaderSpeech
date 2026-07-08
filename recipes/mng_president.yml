@@ -1,0 +1,48 @@
+# Mongolia — Office of the President (president.mn), the "Хэлсэн үг" (Speeches /
+# remarks delivered) archive of President Ukhnaagiin Khürelsükh (in office since
+# June 2021). WordPress ("president" theme), Mongolian (Cyrillic).
+#   Listing: https://president.mn/khelsen-ug/  (paginates /page/{n})
+#   Posts:   https://president.mn/<numeric-id>/
+# NOTE: the live site sits behind Cloudflare with an interactive challenge
+# (cf-mitigated: challenge) that 403s plain HTTP clients (both the honest bot UA
+# and a browser UA via curl). renderer: js (Playwright/Chromium) + a browser
+# user_agent is the attempt to clear the managed challenge.
+source_id: mng_president
+country: Mongolia
+source_language: Mongolian
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+start_urls:
+  - https://president.mn/khelsen-ug/
+
+listing:
+  # Each item is <h6 class="entry-title"><a href="https://president.mn/<id>/">.
+  link_selector: "h6.entry-title a, .entry-title a"
+  link_pattern: '^https://president\.mn/[0-9]+/$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 2          # page 1 is the start_url
+  step: 1
+  max_pages: 60     # archive runs to at least page 9+; safe cap, stops when empty
+
+title:
+  selectors: ["h1.entry-title", ".entry-title", "h1"]
+text:
+  selectors: ["div.entry-content", ".entry-content", "article"]
+date:
+  # entry-meta .date is "YYYY/MM/DD HH:MM:SS" — a numeric ISO-like date, parses
+  # without Mongolian date_languages (dateparser has poor "mn" support).
+  selectors: [".entry-meta .date", "span.date", ".entry-meta"]
+  regex: '\d{4}/\d{2}/\d{2}'
+
+position: president
+notes: >
+  president.mn "khelsen-ug" (Хэлсэн үг = speeches delivered) is the dedicated
+  President's-speech archive; posts are numeric-id WordPress permalinks. Speaker is
+  President Khürelsükh (left to the cleaner + leader-tenure key). Dates are numeric
+  YYYY/MM/DD (no date_languages needed). LIVE-ACCESS CAVEAT: Cloudflare returns an
+  interactive challenge (cf-mitigated: challenge) to plain HTTP — this recipe relies
+  on renderer: js (Playwright) clearing it; if the managed challenge cannot be
+  passed headless, fall back to the Wayback companion mng_president_wayback.yml.

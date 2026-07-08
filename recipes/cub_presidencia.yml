@@ -1,0 +1,126 @@
+# Cuba — Presidencia y Gobierno de la Republica de Cuba (presidencia.gob.cu).
+# Speeches under /es/presidencia/intervenciones/{slug}/. Static, server-rendered HTML.
+# There is NO article sitemap (sitemap.xml is a 35-URL nav map) and no working page
+# pager on the main listing (?page= / /page/N both ignored, return the same recent
+# items). The full Diaz-Canel-era archive (2018-04 .. present) is reachable only via the
+# year/MONTH archive pages (/intervenciones/{YEAR}/{MONTH}/), all 79 of which are listed
+# in the main listing's archive widget. Each month page lists that month's speeches, so
+# we enumerate the 79 month pages as start_urls with pagination.type: none — the engine
+# then harvests each month's speech links via listing.link_pattern.
+# Spanish; president is Miguel Diaz-Canel.
+source_id: cub_presidencia
+country: Cuba
+source_language: Spanish
+renderer: static
+start_urls:
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2018/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/2/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/3/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/11/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2019/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2020/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/8/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/11/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2021/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/2/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/11/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2022/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/1/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/8/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/11/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2023/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/1/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/2/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/3/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/8/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/11/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2024/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/1/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/2/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/3/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/8/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/10/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2025/12/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/1/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/2/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/3/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/4/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/5/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/6/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/7/
+
+listing:
+  link_selector: "a[href*='/intervenciones/']"
+  # speech slug pages: /intervenciones/<slug>/ ; exclude category/author and the
+  # year & year/month archive index pages (which are the start_url listing pages).
+  link_pattern: '/es/presidencia/intervenciones/(?!category/|author/|\d{4}/)[a-z0-9][a-z0-9-]{10,}/?$'
+
+pagination:
+  type: none
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".blog-posts", ".margin-b-20", "article", "main"]
+date:
+  selectors: ["time"]
+  attr: datetime
+
+position: president
+speaker_default: Miguel Diaz-Canel
+date_languages: ["es"]
+notes: >
+  presidencia.gob.cu intervenciones. Static HTML; no article sitemap and no working
+  page pager, so full history (2018-04 .. present, Diaz-Canel era) is enumerated via the
+  79 year/MONTH archive pages as start_urls with pagination.type: none — the engine
+  fetches each month page and harvests that month's speech links. Speech slug pages
+  under /intervenciones/<slug>/; link_pattern excludes category/author and the year &
+  year/month index pages. Title h1, body .blog-posts, date time[datetime].
+  speaker_default Miguel Diaz-Canel (note: some intervenciones are by PM Manuel Marrero
+  or others — an /author/ taxonomy exists; the cleaner's speaker confirmation corrects
+  non-Diaz-Canel authors downstream). Refresh start_urls with any new month pages when
+  re-running. gob.cu can be slow/intermittent from outside Cuba; raise politeness if so.

@@ -1,0 +1,53 @@
+# Mongolia — Office of the President (president.mn), Wayback fallback.
+# The LIVE site is unreachable to the scraper: it sits behind Cloudflare with an
+# interactive challenge (cf-mitigated: challenge) that 403s all plain-HTTP clients
+# and never clears under headless Playwright (renderer: js times out on
+# networkidle). See mng_president.yml for the (non-working) live recipe kept as a
+# record of the structure. This companion reaches the speeches via the Internet
+# Archive instead. President Ukhnaagiin Khürelsükh (in office since June 2021);
+# the archive also holds the Battulga era (2017-2021).
+#
+# NOTE ON SCOPE: president.mn posts are bare numeric-id WordPress permalinks
+# (president.mn/<id>/) with NO speech-specific path prefix, so the CDX prefix +
+# link_pattern can only isolate "a post", not "a speech". This recipe therefore
+# enumerates all archived numeric-id posts and leans on the downstream cleaner
+# (document_type classification + leader-tenure crosscheck) to keep speeches /
+# official statements and reject the rest. ~2,900 archived posts (2019-2026).
+source_id: mng_president_wayback
+country: Mongolia
+source_language: Mongolian
+renderer: static
+start_urls:
+  - president.mn
+
+listing:
+  # CDX prefix-matches president.mn; keep only numeric-id post permalinks
+  # (drops wp-content, category/, tag/, page/ index and section URLs).
+  link_pattern: '^https?://president\.mn/[0-9]+/$'
+
+pagination:
+  type: wayback
+  wayback_match_type: domain    # numeric-id posts live at the domain root, not under a path
+  wayback_delay: 5.0
+  wayback_limit: 6000
+
+title:
+  selectors: ["h1.entry-title", ".entry-title", "h1"]
+text:
+  selectors: ["div.entry-content", ".entry-content", "article", "main"]
+date:
+  # entry-meta .date is "YYYY/MM/DD HH:MM:SS"; numeric ISO-like, no date_languages.
+  selectors: [".entry-meta .date", "span.date", ".entry-meta"]
+  regex: '\d{4}/\d{2}/\d{2}'
+
+position: president
+notes: >
+  Wayback fallback for president.mn (live site is Cloudflare-challenged and
+  unreachable to the scraper). WordPress "president" theme: title h1.entry-title,
+  body div.entry-content, date entry-meta .date (YYYY/MM/DD). Posts are numeric-id
+  permalinks with no speech-only URL prefix, so this pulls all archived posts
+  (matchType=domain, link_pattern = numeric-id) and the cleaner filters to actual
+  President speeches/statements. Speaker (Khürelsükh, and Battulga pre-2021) is set
+  by the cleaner + leader-tenure key. This is a FALLBACK ONLY — if the live site
+  ever becomes reachable (Cloudflare relaxed, or a stealth renderer added), prefer
+  a live mng_president.yml and bound this with wayback_to.
