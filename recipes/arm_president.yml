@@ -1,0 +1,53 @@
+# Armenia — president.am press releases (LIVE, JavaScript + Radware WAF).
+#
+# ⚠️ CAVEAT — structurally correct but NOT reliably full-runnable with the current
+# engine. president.am is behind a Radware bot-manager (behavioral) WAF: a bot UA is
+# blocked, and even a real browser gets challenged (redirect to validate.perfdrive.com)
+# after a burst of requests. renderer: js + a browser user_agent DID render the listing
+# (verified: 49 item links) — but the engine's JS fetch waits for `networkidle`
+# (fetch.py Fetcher.get), which never settles on this WAF-beacon-heavy site, so goto()
+# intermittently times out. Net effect: single pages render, but a 1300-page full run
+# is unreliable. For reliable coverage NOW use recipes/arm_president_wayback.yml
+# (2008-2022, verified). Unblocking the live run needs an engine tweak: js fetch should
+# wait for `domcontentloaded` (or a content selector) instead of `networkidle`, plus
+# polite pacing so the behavioral WAF doesn't challenge mid-run.
+source_id: arm_president
+country: Armenia
+source_language: English
+start_urls:
+  - https://www.president.am/en/press-release/
+renderer: js
+# Radware keys on UA; the honest bot UA is hard-blocked. A browser UA + real chromium
+# is what renders the page.
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+listing:
+  link_selector: "a[href*='/en/press-release/item/']"
+  link_pattern: '/en/press-release/item/\d{4}/\d{2}/\d{2}/'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+  max_pages: 1400
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".news-text", ".static-content", ".news-content", "article", "main"]
+date:
+  # New template ".date-cub" ("18 01, 2022") and older ".news-date" ("05.01.2015"),
+  # both day-first -> date_languages: [hy].
+  selectors: [".date-cub", ".news-date", "time", ".date"]
+
+position: president
+date_languages: ["hy"]
+notes: >
+  Live president.am press releases (President Khachaturyan, 2022-). renderer: js +
+  browser user_agent clears the Radware WAF for single pages; the archive selectors
+  are verified (title h1, text .news-text/.static-content, date .date-cub|.news-date,
+  day-first hy). Behavioral WAF + the engine's networkidle js-wait make full runs
+  unreliable (see header) — arm_president_wayback.yml is the reliable path for now.
+  /en/press-release/ is president news (some third-person); the cleaner's tenure gate
+  narrows to leader speeches/statements.
