@@ -1,0 +1,53 @@
+# Bangladesh — President's speeches/statements via BSS (Bangladesh Sangbad Sangstha,
+# the state news agency), English wire.
+#
+# WHY BSS (not the official presidency site): bangabhaban.gov.bd (the President's
+# House) publishes every speech as a PDF whose text is a legacy Bijoy-encoded Bangla
+# font (declared /Helvetica, no ToUnicode CMap) — so PDF text extraction yields pure
+# gibberish, and the date lives only on the listing. That source is intractable for a
+# text pipeline without a Bijoy->Unicode or Bangla-OCR sub-project. BSS carries the
+# same head-of-state statements/addresses as clean, dated, server-rendered ENGLISH
+# HTML, so it is the pragmatic source for Bangladesh presidential speech text.
+source_id: bgd_bss_president
+country: Bangladesh
+source_language: English
+start_urls:
+  - https://www.bssnews.net/news/president
+renderer: static
+
+listing:
+  # Article permalinks are /news/<numeric-id>; the category page itself is /news/president.
+  link_pattern: 'bssnews\.net/news/\d+$'
+
+pagination:
+  # The /news/president category renders ~25 recent articles on one page and has no
+  # working pager (?page=N returns a fixed 2-item widget, not older articles). So scrape
+  # the single listing and re-run to pick up new items. A wayback companion over
+  # bssnews.net/news/president could extend history.
+  type: none
+
+title:
+  selectors: [".headline_content_block", "h1", "title"]
+text:
+  # Article prose paragraphs (skips the byline/breadcrumb chrome in #details_content).
+  selectors: ["#details_content p", "#details_content", ".details-content"]
+date:
+  # BSS timestamp element, e.g. "03 Jun 2026, 21:40"; bodies also open with a
+  # "DHAKA, June 3, 2026 (BSS)" dateline as a fallback signal.
+  selectors: [".entry_update", "time", ".date"]
+
+position: president
+speaker_default: Mohammed Shahabuddin
+date_languages: ["en"]
+notes: >
+  BSS state-news wire, President category (Mohammed Shahabuddin). Probe-verified clean
+  title (.headline_content_block) / text (#details_content p) / date (.entry_update,
+  e.g. "03 Jun 2026, 21:40") across 2026-05..2026-07 (~25 recent items, pagination:none).
+  Content is third-person agency reportage of the President's messages/statements/
+  addresses — i.e. official_statement type — so the cleaner's tenure gate + classifier
+  should keep the leader-conveying items and set the speaker (default here is the
+  President, but verify). Chosen because the official presidency site
+  (bangabhaban.gov.bd) serves speeches only as legacy-Bijoy-font Bangla PDFs that do
+  not extract to usable text (see header). /news/pm is stale (no sitting PM under the
+  interim government). FOLLOW-UPS: a bgd_bss_president_wayback.yml for older history;
+  a Chief-Adviser (interim head of government) category if BSS exposes one.
