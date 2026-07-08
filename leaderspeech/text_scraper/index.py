@@ -68,6 +68,26 @@ def _coverage(df: pd.DataFrame) -> tuple[str, str, int]:
             plausible.max().date().isoformat(), int(bad))
 
 
+def _audio_marker(csv_path: Path) -> Optional[tuple[str, str]]:
+    """If this source has an audio sidecar (`<id>_media.csv`, written by the
+    video_audio_scraper), return (renderer, pagination_type) for the index — e.g.
+    ("audio:faster-whisper", "playlist") — read from its first row. Else None.
+
+    Audio sources need no recipe (yt-dlp does the per-site work), so the marker lives
+    in the always-written sidecar rather than in a recipe YAML."""
+    media_path = csv_path.with_name(csv_path.stem + "_media.csv")
+    if not media_path.exists():
+        return None
+    try:
+        m = pd.read_csv(media_path, dtype=str, nrows=1)
+    except Exception:
+        return ("audio", "")
+    backend = _first(m.get("backend", pd.Series(dtype=str))) if not m.empty else ""
+    kind = _first(m.get("kind", pd.Series(dtype=str))) if not m.empty else ""
+    renderer = f"audio:{backend}" if backend else "audio"
+    return (renderer, kind)
+
+
 def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optional[Path]) -> dict:
     date_min, date_max, n_bad = _coverage(df)
     doc_ids = sorted(str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna() if str(x).strip())
@@ -81,6 +101,11 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
     if not main_site:  # fall back to the source URL recorded in the data
         main_site = urlparse(_first(df.get("source", pd.Series(dtype=str)))).netloc
 
+    # audio-transcription sources carry their marker in the sidecar, not a recipe
+    audio = _audio_marker(csv_path)
+    pagination_type = audio[1] if audio else (recipe.pagination.type.value if recipe else "")
+    renderer = audio[0] if audio else (recipe.renderer.value if recipe else "")
+
     return {
         "source_id": source_id,
         "country": country,
@@ -91,8 +116,8 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
         "source_language": (recipe.source_language if recipe else "") or _first(df.get("source_language", pd.Series(dtype=str))),
         "dataset": (recipe.dataset if recipe else "") or _first(df.get("dataset", pd.Series(dtype=str))),
         "position": (recipe.position if recipe else "") or _first(df.get("position", pd.Series(dtype=str))),
-        "pagination_type": recipe.pagination.type.value if recipe else "",
-        "renderer": recipe.renderer.value if recipe else "",
+        "pagination_type": pagination_type,
+        "renderer": renderer,
         "n_speeches": len(df),
         "date_min": date_min,
         "date_max": date_max,
@@ -121,7 +146,8 @@ def build_index(out_root: str = "data/scraped", recipes_dir: str = "recipes",
 
     rows = []
     for csv_path in sorted(out_root.glob("*/*.csv")):
-        if csv_path.name.endswith("_errors.csv"):
+        # skip the per-source sidecars, not sources themselves
+        if csv_path.name.endswith("_errors.csv") or csv_path.name.endswith("_media.csv"):
             continue
         source_id = csv_path.stem
         try:

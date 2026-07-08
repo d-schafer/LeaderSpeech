@@ -1,0 +1,46 @@
+# Armenia — president.am press releases via the Internet Archive.
+#
+# The RELIABLE companion to recipes/arm_president.yml: the live site is behind a
+# Radware behavioral WAF that (together with the engine's networkidle js-wait) makes
+# live full runs unreliable, so the archive is the dependable path. Probe-verified:
+# 8,152 CDX snapshots of /en/press-release/item/ permalinks, spanning 2008-2022
+# (Presidents Serzh Sargsyan, Armen Sarkissian, Vahagn Khachaturyan). This is NOT a
+# wayback conversion of a working live recipe — the live recipe stays as
+# arm_president.yml; this one exists because the live run is currently unreliable and
+# to reach the pre-2022 history.
+source_id: arm_president_wayback
+country: Armenia
+source_language: English
+start_urls:
+  - president.am/en/press-release/item     # CDX prefix (no scheme, no trailing '*')
+renderer: static
+
+listing:
+  # Dated press-release permalinks; require a >=5-char slug so section/index captures
+  # are excluded.
+  link_pattern: '/en/press-release/item/\d{4}/\d{2}/\d{2}/[^/?]{5,}/?$'
+
+pagination:
+  type: wayback
+  wayback_collapse: urlkey
+  wayback_delay: 2.0
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".news-text", ".static-content", ".news-content", "article"]
+date:
+  # New template ".date-cub" ("18 01, 2022") + older ".news-date" ("05.01.2015"),
+  # both day-first -> date_languages: [hy].
+  selectors: [".date-cub", ".news-date", "time", ".date"]
+
+position: president
+date_languages: ["hy"]
+notes: >
+  Wayback recipe over president.am press releases (8,152 snapshots, 2008-2022).
+  Probe-verified clean title/text/date across 2008-2022 (--n 7 --spread): older pages
+  via .news-date ("05.01.2015"), newer via .date-cub ("18 01, 2022"), both day-first
+  (hy). A minority of archived captures fall back to the generic text extractor or
+  miss a mid-2018 template date — normal wayback noise (lands in _errors.csv). Every
+  permalink carries /YYYY/MM/DD/, so a future engine "date-from-URL" feature would make
+  the date rock-solid for every capture (also relevant to the Cameroon recipe).
