@@ -39,9 +39,11 @@ Follow the end-to-end runbook in `docs/agent_task_end_to_end.md`:
 2. Prove it: `python -m leaderspeech.text_scraper.probe --recipe recipes/{row.source_id}.yml`
    (listing > 0 links; title/text/date show as matched).
 3. Capped run, then full history; debug via `docs/debugging.md` and `--retry-failed`.
-4. Record the result by appending a row to `data/sources/additional_master_sources.csv` **outbox** (your proposed
-   `recipe_status` for this `source_id`); open a PR. **Never edit `master_sources.xlsx`** — it's
-   researcher-owned. The maintainer (or Claude) sets `recipe_status: validated` there when the PR merges.
+4. Record the result in the **outbox** by adding your own file
+   `data/sources/additional_master_sources/{row.source_id}.csv` (header + your proposed `recipe_status`
+   row — see that folder's `README.md`). One file per source means PRs never conflict on the outbox.
+   **Do NOT edit the legacy flat `additional_master_sources.csv`, and never edit `master_sources.xlsx`**
+   — it's researcher-owned. The maintainer (or Claude) sets `recipe_status: validated` there when the PR merges.
 
 Tip: an existing recipe may be a close template — check `recipes/` for a same-structure site first
 (e.g. the Latin-American presidencies share a layout with `arg_casarosada.yml`).

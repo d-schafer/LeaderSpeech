@@ -51,8 +51,9 @@ source that's already done.
 - **Who updates it:** **you (researcher) or Claude** — and at the **MERGE** step (after PASS). For now keep it
   to the **status column only**. Claude doing this is an exception to "never edit `master_sources.xlsx`" that
   applies *only* to Claude in its authoring role, *only* to `recipe_status`, and never as a regenerate.
-- **The workhorse agent never touches `master_sources.xlsx`.** It records its *proposed* status in the
-  `data/sources/additional_master_sources.csv` **outbox** (see `agent_task_end_to_end.md`); that's all.
+- **The workhorse agent never touches `master_sources.xlsx`.** It records its *proposed* status by adding its
+  own file `data/sources/additional_master_sources/<source_id>.csv` (the per-source **outbox** — one file per
+  source so parallel PRs never conflict; see `agent_task_end_to_end.md`); that's all.
 
 ## What the reviewer does (the bar)
 

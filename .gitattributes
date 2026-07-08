@@ -1,7 +1,11 @@
-# The agent "outbox" (additional_master_sources.csv) is append-only: each recipe PR
-# adds its own source's row. Pin it to LF and union-merge so that parallel PRs which
-# each append a different row combine automatically instead of colliding — the binary
-# .xlsx it replaced forced a manual conflict resolution on every concurrent PR.
-# Agents MUST append their row (never rewrite the file) for union merges to stay clean.
-# See docs/agent_task_end_to_end.md.
+# The agent "outbox" is now ONE FILE PER SOURCE under
+# data/sources/additional_master_sources/ (<source_id>.csv). Distinct filenames can't
+# collide, so parallel recipe PRs never merge-conflict on the outbox — no union driver
+# needed. (GitHub's web merge ignores merge=union, which is why the single shared file
+# below conflicted on every concurrent PR.) Pin the fragments to LF.
+# See data/sources/additional_master_sources/README.md and
+# scripts/merge_additional_sources.py.
+data/sources/additional_master_sources/*.csv text eol=lf
+# The old shared flat file is FROZEN (legacy rows only; new sources go in the folder).
+# Keep it LF + union as a belt-and-suspenders in case anything still appends to it.
 data/sources/additional_master_sources.csv text eol=lf merge=union

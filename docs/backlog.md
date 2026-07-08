@@ -6,8 +6,9 @@ through them efficiently — by hand, with subagents, or with coding agents on G
 
 ## The unit of work
 
-One source → one recipe in `recipes/` → record its status by appending a row to `additional_master_sources.csv`
-(the agent "outbox"; **never edit `master_sources.xlsx`** — see `agent_task_end_to_end.md`). That's it.
+One source → one recipe in `recipes/` → record its status by adding a per-source file
+`additional_master_sources/<source_id>.csv` (the agent "outbox"; one file per source so PRs never conflict —
+**never edit the legacy flat file or `master_sources.xlsx`** — see `agent_task_end_to_end.md`). That's it.
 Each is small, independent, and reviewable, which is exactly why it parallelizes well.
 
 ## Deferred sources (don't re-attempt without the prerequisite)
