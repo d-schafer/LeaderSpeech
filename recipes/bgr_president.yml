@@ -1,0 +1,48 @@
+# Bulgaria — Presidency (president.bg), historical news/speeches via the sitemap.
+#
+# WHY SITEMAP (not the live listing): the live /news/ index paginates as
+# /news/page/N/ but the site sets <base href="https://www.president.bg/"> and its
+# article links are RELATIVE (./newsNNNN/<slug>.html). Our engine resolves links
+# with urljoin(page_url, href) and does not honor <base>, so on /news/page/N/ the
+# links resolve to /news/page/N/newsNNNN/... which the (lenient) server soft-404s
+# to the homepage. The sitemap's <loc> entries are ABSOLUTE, so they sidestep that
+# entirely. Coverage: the sitemap is stale (last built 2016) => ~2012-2016
+# (Plevneliev era), ~4,379 clean /newsNNNN/ permalinks. For the 2017-2026 Radev-era
+# gap, add a wayback companion (bgr_president_wayback.yml); honoring <base href> in
+# the engine would also unlock the live listing.
+source_id: bgr_president
+country: Bulgaria
+source_language: Bulgarian
+start_urls:
+  - https://www.president.bg/sitemap.xml
+renderer: static
+
+listing:
+  # Keep sitemap URLs to article permalinks (/newsNNNN/<slug>.html); drops section
+  # and category pages. Tolerates the './news' artifact some <loc>s carry.
+  link_pattern: '/news\d+/[^/]+\.html$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.president.bg/sitemap.xml   # index -> sitemap_000.xml + sitemap_001.xml
+
+title:
+  selectors: ["h2.article-title", "h1", "title"]
+text:
+  selectors: [".print-content", ".font-resize-content"]
+date:
+  selectors: [".date"]
+
+position: president
+date_languages: ["bg"]
+notes: >
+  Presidency of Bulgaria. Sitemap recipe over president.bg/sitemap.xml — probe-
+  verified clean extraction across 2012-2016 (title h2.article-title, text
+  .print-content, date .date; ~4,379 permalinks). Content is BULGARIAN (Cyrillic)
+  even on /en/ URLs, so source_language: Bulgarian and date_languages: [bg]
+  (dates read like "21 Юни 2026"). Captures presidential + vice-presidential
+  activity/statements; the cleaner's tenure gate narrows to leader speeches.
+  Speaker filled downstream from leader tenure. The live /news/page/N/ listing is
+  not scrapable here (engine does not honor <base href>; see header). FOLLOW-UP:
+  a bgr_president_wayback.yml over the IA CDX would cover the 2017-2026 gap.
