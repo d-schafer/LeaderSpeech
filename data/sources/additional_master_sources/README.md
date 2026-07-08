@@ -43,5 +43,17 @@ python scripts/merge_additional_sources.py            # print to stdout
 python scripts/merge_additional_sources.py -o all.csv # or write to a file
 ```
 
-It concatenates the legacy flat file and every fragment here. Nothing in the pipeline
-reads the outbox programmatically — regenerate the view whenever you want it.
+It concatenates the legacy flat file and every fragment here and emits **master-aligned
+columns** so you can paste approved rows straight into `master_sources.xlsx`. Two things
+it does for you:
+
+- **de-duplicates** to the *latest* row per `source_id` (append-only files may carry a
+  source's history; you only want its current status). `--all-history` keeps every row.
+- **extracts** `country` / `source_url` / `region` / `iso3n` / `source_name` /
+  `source_type` / `content_format` / `leaders_covered` from the `key=value` pairs in
+  `notes` into their own columns.
+
+So at minimum put those as `key=value` in `notes` (e.g. `... | country=Mexico;
+source_url=https://…; region=North America; iso3n=484; source_type=official_gov;
+content_format=fulltext`). Cleaner still: add them as real columns. Nothing in the
+pipeline reads the outbox programmatically — regenerate the view whenever you want it.
