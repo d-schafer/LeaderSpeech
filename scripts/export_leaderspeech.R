@@ -3,7 +3,7 @@
 #
 # Reads the intermediate merged Parquet written by the Python merge step
 # (`python -m leaderspeech.clean_structure_metadata.merge`), applies the authoritative
-# leader-name standardization key (`_examples_code/key_fixNames.R`), and writes the
+# leader-name standardization key (`scripts/key_fixNames.R`), and writes the
 # FINAL deliverable in three name-consistent formats:
 #   data/LeaderSpeech.parquet   (canonical, zstd)
 #   data/LeaderSpeech.RData     (R-native; loads an object named `leaderspeech`)
@@ -22,7 +22,11 @@ suppressWarnings(suppressMessages({
 args <- commandArgs(trailingOnly = TRUE)
 in_path   <- if (length(args) >= 1) args[[1]] else "data/_build/LeaderSpeech_merged.parquet"
 out_dir   <- if (length(args) >= 2) args[[2]] else "data"
-key_path  <- "../../_examples_code/key_fixNames.R"   # parent research workspace
+# Self-contained in the repo; synced from the research workspace's _examples_code/key_fixNames.R.
+# Fall back to the parent-workspace copy if run before the repo copy is in place.
+key_candidates <- c("scripts/key_fixNames.R", "../../_examples_code/key_fixNames.R")
+key_path  <- key_candidates[file.exists(key_candidates)][1]
+if (is.na(key_path)) key_path <- key_candidates[1]
 
 if (!file.exists(in_path)) {
   stop(sprintf("intermediate not found: %s\nRun `python -m leaderspeech.clean_structure_metadata.merge` first.", in_path))

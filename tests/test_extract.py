@@ -14,6 +14,7 @@ def test_clean_text_collapses_ws_and_drops_blanks():
 def test_parse_date_multilingual_and_messy():
     assert parse_date("January 6, 2021", ["en"]) == "2021-01-06"
     assert parse_date("25 de mayo de 2024", ["es"]) == "2024-05-25"
+    assert parse_date("1995-09-03T15:40:00+03:00", ["ru"]) == "1995-09-03"
     # date wrapped in noise -> search_dates fallback
     assert parse_date("Buenos Aires, 25 de mayo de 2024", ["es"]) == "2024-05-25"
     assert parse_date("Publié le 14 juillet 2023", ["fr"]) == "2023-07-14"
