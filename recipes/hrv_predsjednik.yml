@@ -1,0 +1,42 @@
+# Croatia — predsjednik.hr (Office of the President).
+source_id: hrv_predsjednik
+country: Croatia
+source_language: Croatian
+start_urls:
+  - https://www.predsjednik.hr/vijesti/
+renderer: static
+
+listing:
+  # Article permalinks are /vijesti/<slug>/ (absolute hrefs). Require a >=7-char
+  # slug so the bare /vijesti/ index and /vijesti/page/N/ pager pages are excluded.
+  link_pattern: '/vijesti/[a-z][^/?#]{6,}/?$'
+
+pagination:
+  # No sitemap exists (/, /sitemap.xml, /sitemap_index.xml all 404). The /vijesti/
+  # index paginates as /vijesti/page/{n}/ (6 articles/page); the engine stops when a
+  # page yields no new links. ~400 pages spans the Milanović term (from 2020).
+  type: path
+  path_format: "page/{n}"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1", ".p-post-single__title", "title"]
+text:
+  selectors: [".p-post-single__content", "article", ".content", "main"]
+date:
+  # Croatian date meta on the article page, e.g. "03. srpnja 2026. 13:45".
+  selectors: [".p-post-single__meta", "time", ".datum", ".date"]
+
+position: president
+date_languages: ["hr"]
+notes: >
+  Office of the President of Croatia. No sitemap (the copilot draft's
+  pagination: sitemap returned 0 because /sitemap.xml 404s); switched to the live
+  /vijesti/page/{n}/ pager. Probe-verified clean extraction across 2025-2026
+  (title h1, text .p-post-single__content, date .p-post-single__meta parsed with
+  date_languages: [hr]; ~420 links over 70 pages, deeper pages reach the Milanović
+  era). Content is Croatian. Speaker filled downstream from leader tenure; the
+  cleaner's tenure gate narrows president news to leader speeches/statements. The
+  /press/ (priopćenja) section could be added later for more statement coverage.
