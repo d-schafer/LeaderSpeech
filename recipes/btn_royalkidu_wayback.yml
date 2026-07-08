@@ -1,0 +1,52 @@
+# Bhutan — His Majesty The King's Addresses to the Nation, via the Internet Archive.
+#
+# WHY WAYBACK-ONLY: Bhutan's official web presence is largely dead. The assigned
+# royalkidu.bt does not resolve; the PMO pivot (pmo.gov.bt) returns 503 / fails to
+# connect and its IA archive has ~0 speeches; bhutan.gov.bt fails DNS; nab.gov.bt (the
+# National Assembly) is down and its "speeches" are audio/video files (.mp4/.mp3), not
+# HTML text. The one recoverable source of national-leader speech TEXT is royalkidu.bt's
+# archived "Royal Address" section — His Majesty the King's COVID-era addresses to the
+# nation (2020), captured by the Wayback Machine. This is a SMALL corpus (~2 distinct
+# addresses) but it is genuine full-text head-of-state speech and the only Bhutan text
+# available, so it beats zero coverage. Keep searching for a richer live Bhutan source.
+source_id: btn_royalkidu_wayback
+country: Bhutan
+source_language: English
+start_urls:
+  - royalkidu.bt                        # CDX prefix (no scheme, no trailing '*')
+renderer: static
+
+listing:
+  # His Majesty's "Address to the Nation" permalinks (incl. the English translation
+  # of the Dzongkha address). [^/?] keeps it to a single root slug so /category/,
+  # /feed/, /embed/, ?utm and developer_id junk captures are excluded.
+  link_pattern: 'royalkidu\.bt/[^/?]*address-to-the-nation[^/?]*/?$'
+
+pagination:
+  type: wayback
+  wayback_match_type: domain
+  wayback_collapse: urlkey
+  wayback_delay: 2.0
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article", ".post-content"]
+date:
+  selectors: ["time.entry-date", "time", ".entry-date"]
+  attr: datetime
+
+position: king
+speaker_default: Jigme Khesar Namgyel Wangchuck
+date_languages: ["en"]
+notes: >
+  WAYBACK recipe over the (now-dead) royalkidu.bt — His Majesty the King's Addresses
+  to the Nation (WordPress; title h1.entry-title, text .entry-content, date
+  time.entry-date[datetime]). Probe-verified clean title/text/date on the 2020
+  addresses (12 Sep 2020; 10 Apr 2020 translation). Small corpus (~2 addresses) — the
+  royalkidu Kidu portal only archived a couple of the King's COVID-era addresses.
+  speaker_default is the King (5th Druk Gyalpo); the cleaner's tenure gate validates.
+  FOLLOW-UPS (Bhutan is a hard case): no live text source is currently up (pmo/nab/
+  bhutan.gov.bt all dead); nab.gov.bt has ~200 archived AUDIO/VIDEO speech files that
+  the video_audio_scraper tool + Whisper could transcribe (separate effort); revisit
+  if an official King's-office or PMO site returns.
