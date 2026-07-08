@@ -1,0 +1,45 @@
+# Cameroon — Presidency of the Republic (prc.cm), English speeches archive (Joomla K2).
+source_id: cmr_prc
+country: Cameroon
+source_language: English
+start_urls:
+  - https://www.prc.cm/en/news/speeches-of-the-president
+renderer: static
+
+listing:
+  link_selector: "a[href*='/news/speeches-of-the-president/']"
+  link_pattern: '/news/speeches-of-the-president/\d+-'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 8            # page size is 8 — step 10 SKIPS 2 speeches/page (verified)
+  max_pages: 200     # engine auto-stops when a page yields no new links (~archive end)
+
+title:
+  selectors: ["h2", ".itemTitle", "h1", "title"]
+text:
+  selectors: [".itemFullText", "article", "main"]
+date:
+  # Machine-readable date ONLY. There is none on the detail pages, so this yields
+  # None (by design) — see the notes. Do NOT add an h2/body text selector here: the
+  # engine returns the whole title on a regex-miss, and parse_date then stamps TODAY
+  # as a garbage date for the ~50% of speeches whose title has no explicit date.
+  selectors: ["time[datetime]", ".itemDateCreated time[datetime]", ".created[datetime]"]
+  attr: datetime
+
+position: president
+speaker_default: Paul Biya
+date_languages: ["fr"]
+notes: >
+  Presidency of Cameroon, /en speeches-of-the-president (Joomla K2). Probe-verified
+  title (h2) + text (article) + speaker_default Paul Biya across the full archive
+  (~90 English speeches, ids ~8251..1155, ~2012-2026; ?start offset pager, step 8).
+  DATE is intentionally None at scrape time: the detail pages carry NO machine-readable
+  date (no <time>/meta/created attr) and the URL id is a Joomla item id (not a date).
+  ~50% of titles contain "DD Month YYYY", but a title date-regex is unsafe here — the
+  engine returns the whole title on a regex-miss and parse_date then guesses TODAY's
+  date. Dates are instead filled downstream by clean_structure_metadata's GPT date
+  pass. An engine "strict date-regex" option (return None on miss) would let ~50% be
+  dated safely at scrape time. French appears in some titles/bodies (date_languages fr).
