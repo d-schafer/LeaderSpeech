@@ -1,36 +1,56 @@
-# Philippines — Official Gazette speeches archive used as the scraper-friendly
-# alternative after pco.gov.ph returned 403 to both bot and browser UAs.
+# Philippines — presidential speeches via the Internet Archive (Official Gazette).
+#
+# WHY WAYBACK: every live source of Philippine presidential speeches is behind a
+# Cloudflare *managed challenge* ("Just a moment...") that our engine cannot pass:
+# pco.gov.ph AND www.officialgazette.gov.ph both 403 the bot UA, 403 a browser UA
+# (httpx), and time out under headless Playwright (renderer: js). There is no
+# working live recipe to protect, so the archive is the primary path here — this is
+# NOT a wayback conversion of a working live recipe.
+#
+# The Official Gazette's dated speech permalinks are richly archived (1899-2024,
+# every president Quezon..Marcos Jr.), so a wayback harvest over the whole domain,
+# filtered to speech-slug permalinks, is a far deeper corpus than a recent-only
+# live scrape would have been.
 source_id: phl_pco
 country: Philippines
 source_language: English
 start_urls:
-  - https://www.officialgazette.gov.ph/section/speeches/
-  - https://www.officialgazette.gov.ph/section/historical-papers-documents/speeches/
+  # CDX prefix (no scheme, no trailing '*') — the engine prefix/domain-matches it.
+  - officialgazette.gov.ph
 renderer: static
 
 listing:
-  link_selector: "article .entry-title a, h2.entry-title a, h1.entry-title a"
-  link_pattern: '^https?://www\.officialgazette\.gov\.ph/\d{4}/\d{2}/\d{2}/[^/]+/?$'
+  # Dated permalinks whose slug names a speech/address/message/etc. Anchored to the
+  # host so query-string junk (?url=... on wp-json/oembed) and trailing-garbage
+  # captures are excluded; [^/?] keeps the slug to a single path segment. Matches
+  # both www.officialgazette.gov.ph and the mirror. subdomain (the historical
+  # pre-2000 digitized archive lives on mirror.).
+  link_pattern: '^https?://(www\.|mirror\.)?officialgazette\.gov\.ph(:80)?/\d{4}/\d{2}/\d{2}/[^/?]*(speech|address|remarks|message|talk-to-the-people|toast)[^/?]*/?$'
 
 pagination:
-  type: path
-  path_format: "page/{n}/"
-  start: 2
-  step: 1
-  max_pages: 300
+  type: wayback
+  wayback_match_type: domain     # include the mirror. subdomain (historical corpus)
+  wayback_collapse: urlkey
+  wayback_delay: 3.0
 
 title:
-  selectors: ["h1.entry-title", "h1", "title"]
+  selectors: ["h1.entry-title", ".entry-header h1", "h1", "title"]
 text:
-  selectors: [".entry-content p", ".entry-content", "article", "main"]
+  selectors: [".entry-content", "article .entry-content", "article", ".single-content", "main"]
 date:
-  selectors: ["time.entry-date", ".entry-date", "time"]
-  regex: '[A-Z][a-z]+ \d{1,2}, \d{4}'
+  selectors: ["time.entry-date", ".entry-date", "time[datetime]", "time", ".published"]
 
 position: president
 date_languages: ["en"]
 notes: >
-  The live PCO speech archive returned hard 403/WAF responses even to a browser
-  UA, so this recipe targets the Official Gazette's WordPress speech archives
-  instead. The list pages appear to use standard /page/N/ pagination and dated
-  speech permalinks, with entry-title / entry-date / entry-content selectors.
+  Wayback recipe over the Official Gazette (officialgazette.gov.ph) because every
+  live PH presidential-speech site is Cloudflare managed-challenge blocked (see
+  header). Probe-verified across 1948-2015: title h1.entry-title, text
+  .entry-content, date time.entry-date all extract cleanly and the parsed date
+  matches the permalink date. ~1,160 unique speech permalinks harvested (1899-2024,
+  incl. SONAs and inaugurals). Known wayback noise (lands in _errors.csv, does not
+  stop the run): a minority of CDX rows carry truncated `original` slugs that 404,
+  and the IA occasionally 403s a single capture. Speaker is filled downstream from
+  leader tenure; the slug pattern also admits some non-presidential (e.g. senate
+  president) speeches, which the cleaner's tenure gate filters. If a live path ever
+  becomes reachable, add it as a sibling live recipe (do not delete this one).
