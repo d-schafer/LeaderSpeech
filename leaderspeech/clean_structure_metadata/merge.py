@@ -80,8 +80,15 @@ def build_dataset(
     return out
 
 
+def _nonempty(series: pd.Series) -> pd.Series:
+    """Boolean mask of rows whose string value is non-empty (treats NaN/'' as empty)."""
+    return series.fillna("").astype(str).str.strip() != ""
+
+
 def build_clean_index(out_root: str = "data/cleaned", out_name: str = INDEX_NAME) -> Optional[Path]:
-    """One row per cleaned source Parquet: counts, coverage, model, file path."""
+    """One row per cleaned source Parquet: counts, coverage, model, file path, plus DERIVED
+    per-source stage flags (`is_translated`) computed straight from the data — so 'what's
+    done' can never silently drift from a stale written flag."""
     rows = []
     for p in _source_parquets(out_root):
         try:
@@ -93,6 +100,12 @@ def build_clean_index(out_root: str = "data/cleaned", out_name: str = INDEX_NAME
         dates = pd.to_datetime(df.get("date", pd.Series(dtype=str)), errors="coerce")
         plausible = dates[(dates.dt.year >= 1900) & (dates.dt.year <= datetime.now().year + 1)]
         doc_ids = sorted(str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna())
+        # translation stage (derived): a row "needs translation" iff it carries origin-language
+        # text; it is "translated" once the English `text` column is filled.
+        needs_tr = _nonempty(df.get("text_originlanguage", pd.Series(dtype=str)))
+        translated = needs_tr & _nonempty(df.get("text", pd.Series(dtype=str)))
+        n_nonenglish = int(needs_tr.sum())
+        n_translated = int(translated.sum())
         rows.append({
             "source_id": p.stem,
             "country": p.parent.name,
@@ -100,6 +113,9 @@ def build_clean_index(out_root: str = "data/cleaned", out_name: str = INDEX_NAME
             "n_accepted": int((status == gate.ACCEPTED).sum()),
             "n_rejected": int(status.astype(str).str.startswith("rejected").sum()),
             "n_error": int(status.astype(str).str.startswith("error").sum()),
+            "n_nonenglish": n_nonenglish,
+            "n_translated": n_translated,
+            "is_translated": bool(n_nonenglish == 0 or n_translated >= n_nonenglish),
             "date_min": plausible.min().date().isoformat() if not plausible.empty else "",
             "date_max": plausible.max().date().isoformat() if not plausible.empty else "",
             "doc_id_first": doc_ids[0] if doc_ids else "",

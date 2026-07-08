@@ -20,11 +20,11 @@ pytest                                                # should pass before you s
    ```bash
    python -m leaderspeech.text_scraper.run --recipe recipes/<source_id>.yml --max-pages 1 --limit 5
    ```
-4. Record the source in the `data/sources/additional_master_sources.csv` **outbox** (its `source_id` and the
-   `recipe_status` you believe applies). **Do not edit `master_sources.xlsx`** — it is researcher-owned; the
+4. Record the source by appending one row to the `data/sources/additional_master_sources.csv` **outbox** (its
+   `source_id` and the `recipe_status` you believe applies). **Do not edit `master_sources.xlsx`** — it is researcher-owned; the
    maintainer (or Claude) folds your row in and sets `recipe_status: validated` when the PR merges.
 5. Open a pull request. Do **not** commit scraped output (`data/scraped/` is gitignored) — only the
-   recipe and, if you added one, the `additional_master_sources.csv` outbox row.
+   recipe and, if you added one, the appended `additional_master_sources.csv` outbox row.
 
 CI validates every `recipes/*.yml` against the schema, so a malformed recipe fails fast.
 

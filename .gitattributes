@@ -1,0 +1,7 @@
+# The agent "outbox" (additional_master_sources.csv) is append-only: each recipe PR
+# adds its own source's row. Pin it to LF and union-merge so that parallel PRs which
+# each append a different row combine automatically instead of colliding — the binary
+# .xlsx it replaced forced a manual conflict resolution on every concurrent PR.
+# Agents MUST append their row (never rewrite the file) for union merges to stay clean.
+# See docs/agent_task_end_to_end.md.
+data/sources/additional_master_sources.csv text eol=lf merge=union

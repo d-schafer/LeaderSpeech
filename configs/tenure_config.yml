@@ -1,0 +1,33 @@
+# Configuration for the leader-tenure curation tool. See docs/leader_tenure.md.
+# This tool PROPOSES additions to an outbox; it never edits the tenure key directly.
+
+# --- models (classify is a cheap pre-filter; verify needs world knowledge) ---
+classify_model: gpt-4.1-mini
+verify_model: gpt-4.1          # the model validated for this step; override with --verify-model/--model
+temperature: 0.0
+max_tokens: 250
+
+# --- concurrency ---
+batch_size: 25
+rate_limit_delay: 0.1
+chunk_size: 100
+
+# --- inputs ---
+# Preferred speech dataset, in order; falls back to cleaned/*/*.parquet (accepted rows).
+dataset_candidates:
+  - data/LeaderSpeech.parquet            # final (post-fixNames, cleanest names)
+  - data/_build/LeaderSpeech_merged.parquet
+cleaned_root: data/cleaned
+tenure_file: data/sources/leader_tenure_final.csv
+tenure_window: 1
+
+# --- outputs (never the tenure key itself) ---
+outbox: data/sources/leader_tenure_proposed_additions.xlsx
+inventory_out: data/sources/leader_tenure_inventory.xlsx
+
+# --- verification / merge ---
+use_wikipedia: false          # set true (or pass --wikipedia) to ground verification on Wikipedia
+min_confidence: [high, medium]  # GPT confidence accepted at merge when `approved` is left blank
+
+# --- secrets ---
+openai_key_file: openai_key.txt
