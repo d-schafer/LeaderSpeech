@@ -1,0 +1,39 @@
+# Costa Rica — Presidencia de la República (Drupal news site).
+source_id: cri_presidencia
+country: Costa Rica
+source_language: Spanish
+start_urls:
+  - https://www.presidencia.go.cr/noticias/
+renderer: static
+
+listing:
+  # Each article is a bare <a href="/noticias/<slug>"> (no wrapping article/h2),
+  # so match by href rather than a link_selector. Anchor to the canonical host path
+  # to drop the duplicate /index.php/noticias/<slug> aliases of the same articles.
+  link_pattern: '^https://www\.presidencia\.go\.cr/noticias/[a-z0-9][a-z0-9-]+$'
+
+pagination:
+  # The index renders ~117 recent articles on ONE page (spanning ~2024-01 .. present)
+  # and IGNORES pagination: ?page=N returns identical HTML and /noticias/page/N/ 404s
+  # (or 522s from Cloudflare). There is no live pager to follow, so scrape the single
+  # listing and re-run periodically to pick up new items.
+  type: none
+
+title:
+  selectors: ["h1.entry-title", ".entry-header h1", "article h1", "h1", "title"]
+text:
+  selectors: [".node__content", ".entry-content", "article .entry-content", "article", "main"]
+date:
+  selectors: ["time[datetime]", "time.entry-date", ".entry-date", "time"]
+  attr: datetime
+
+position: president
+date_languages: ["es"]
+notes: >
+  Presidencia de la República (Drupal). The /noticias/ index lists ~117 recent
+  articles on a single page spanning ~2024-present and ignores all pagination
+  (?page=N repeats page 1; /noticias/page/N/ 404s), so pagination: none + periodic
+  re-runs is the live strategy. Detail body lives in Drupal .node__content; title
+  in h1; date in <time datetime>. Speaker is intentionally omitted and filled
+  downstream from leader tenure. For pre-2024 coverage add a separate
+  cri_presidencia_wayback.yml over the Internet-Archive CDX.

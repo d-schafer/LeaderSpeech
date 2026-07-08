@@ -1,0 +1,2 @@
+source_id,recipe_status,renderer,language,date_start,date_end,last_checked,notes
+cri_presidencia,none,static,Spanish,,,2026-07-07,NEW master row needed | country=Costa Rica; source_url=https://www.presidencia.go.cr/noticias/; source_name=presidencia.go.cr; source_type=official_gov; region=Central America; iso3n=188; content_format=fulltext. Site now uses /noticias/ listing (legacy /comunicados/ links still matched).
