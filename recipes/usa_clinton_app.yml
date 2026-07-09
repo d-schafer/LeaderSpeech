@@ -1,0 +1,54 @@
+# United States — Bill Clinton (42nd president, 1993-2001), via the American Presidency
+# Project (presidency.ucsb.edu). THIRD-PARTY academic source (UCSB), NOT an official gov
+# site: pre-2001 presidents have no clean frozen whitehouse.gov archive (Clinton's NARA
+# snapshot is a 1990s frames site with only a curated selection; H.W. Bush/Reagan predate
+# the web). The APP is the standard academic database of US presidential documents, with
+# uniform clean HTML and a "Spoken Addresses and Remarks" category filter (category2[]=8)
+# per president (person2 id). This SAME recipe shape covers ANY president by swapping
+# person2 (H.W. Bush=200297, Reagan=200296, G.W. Bush=200299, ...). English.
+#
+# NOTE FOR THE RESEARCHER: the APP is third-party (cite it; check its terms) and is tagged
+# dataset=AmericanPresidencyProject to keep its provenance distinct from the gov-site scrapes
+# -> your call whether to include it.
+source_id: usa_clinton_app
+country: United States
+source_language: English
+dataset: AmericanPresidencyProject
+start_urls:
+  - "https://www.presidency.ucsb.edu/advanced-search?person2=200298&category2%5B%5D=8&items_per_page=25"
+renderer: static
+
+listing:
+  # results table, title column only -> the real speech docs (skips nav /documents/ links)
+  link_selector: "td.views-field-title a"
+  link_pattern: '/documents/'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 300   # ~2,000+ Clinton spoken remarks @ 25/page => ~80+ pages; stops when empty
+
+title:
+  selectors: [".field-ds-doc-title h1", ".field-ds-doc-title", "h1"]
+text:
+  selectors: [".field-docs-content"]
+date:
+  selectors: [".field-docs-start-date-time span", ".field-docs-start-date-time"]
+speaker:
+  selectors: ["h3.diet-title a", ".diet-title a"]
+
+position: president
+speaker_default: William J. Clinton
+date_languages: ["en"]
+politeness:
+  delay_range: [1.0, 2.0]   # be a good citizen on a small academic server
+notes: >
+  American Presidency Project (presidency.ucsb.edu) — Clinton's "Spoken Addresses and
+  Remarks" (person2=200298, category2[]=8), ?page=N pagination, 25/page. Clean Drupal doc
+  pages: title .field-ds-doc-title h1, body .field-docs-content, date
+  .field-docs-start-date-time (Month DD, YYYY), speaker .diet-title a. THIRD-PARTY academic
+  source (not a gov site) -> dataset=AmericanPresidencyProject; researcher decides inclusion
+  + citation. Same shape covers H.W. Bush (200297), Reagan (200296), G.W. Bush (200299), etc.
+  -> just swap person2 + speaker_default. Span 1992-2001 (incl. campaign/pre-inaugural remarks).

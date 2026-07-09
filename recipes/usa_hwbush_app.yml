@@ -1,0 +1,44 @@
+# United States — George H. W. Bush (41st president, 1989-1993), via the American Presidency
+# Project (presidency.ucsb.edu). Same shape as usa_clinton_app (see its header for the
+# rationale: pre-2001 presidents have no clean frozen whitehouse.gov archive; the APP is the
+# standard academic database). person2=200297 (APP labels him "George Bush"), category2[]=8
+# ("Spoken Addresses and Remarks"). THIRD-PARTY academic source -> researcher decides inclusion.
+source_id: usa_hwbush_app
+country: United States
+source_language: English
+dataset: AmericanPresidencyProject
+start_urls:
+  - "https://www.presidency.ucsb.edu/advanced-search?person2=200297&category2%5B%5D=8&items_per_page=25"
+renderer: static
+
+listing:
+  link_selector: "td.views-field-title a"
+  link_pattern: '/documents/'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 200
+
+title:
+  selectors: [".field-ds-doc-title h1", ".field-ds-doc-title", "h1"]
+text:
+  selectors: [".field-docs-content"]
+date:
+  selectors: [".field-docs-start-date-time span", ".field-docs-start-date-time"]
+speaker:
+  selectors: ["h3.diet-title a", ".diet-title a"]
+
+position: president
+speaker_default: George Bush
+date_languages: ["en"]
+politeness:
+  delay_range: [1.0, 2.0]
+notes: >
+  American Presidency Project — George H. W. Bush "Spoken Addresses and Remarks"
+  (person2=200297, category2[]=8). Clean Drupal doc pages (see usa_clinton_app). THIRD-PARTY
+  academic source -> dataset=AmericanPresidencyProject; researcher decides inclusion + citation.
+  Span ~1989-1993 (+ some 1988 campaign remarks). speaker_default "George Bush" (the APP label;
+  fixNames standardizes to the canonical form).
