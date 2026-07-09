@@ -39,10 +39,19 @@ class FakeClient:
     def __init__(self, pages):
         self.pages = list(pages)
         self.calls = []
+        self.posts = []  # (url, json_body) per POST, for asserting body-offset paging
+
+    def _next(self):
+        return _Resp(self.pages.pop(0) if self.pages else {})
 
     def get(self, url):
         self.calls.append(url)
-        return _Resp(self.pages.pop(0) if self.pages else {})
+        return self._next()
+
+    def post(self, url, json=None):
+        self.calls.append(url)
+        self.posts.append((url, json))
+        return self._next()
 
     def close(self):
         pass
@@ -138,3 +147,81 @@ def test_text_field_carries_body_when_present():
 
     entries = api.harvest_entries(r, client=client)
     assert entries[0]["text"] == "Texto completo desde el JSON."
+
+
+def test_dig_list_index_and_quoted_keys():
+    # list index
+    assert api._dig({"a": {"b": [{"c": 1}, {"c": 2}]}}, "a.b[0].c") == 1
+    assert api._dig({"a": {"b": [{"c": 1}, {"c": 2}]}}, "a.b[1].c") == 2
+    assert api._dig({"a": {"b": [{"c": 1}]}}, "a.b[5].c") is None  # out of range
+    assert api._dig({"a": {"b": {"c": 1}}}, "a.b[0]") is None      # not a list
+    # quoted key containing a space (the gov.il date path shape)
+    doc = {"tags": {"metaData": {"Publish Date": [{"title": "2020-01-01"}]}}}
+    assert api._dig(doc, 'tags.metaData."Publish Date"[0].title') == "2020-01-01"
+    # plain dotted path is unchanged; a bare numeric segment stays a string KEY
+    assert api._dig({"a": {"b": 1}}, "a.b") == 1
+    assert api._dig({"a": {"0": 1}}, "a.0") == 1  # ".0" is key "0", not an index
+
+
+def test_url_base_join():
+    page = {"items": [{"link": "/en/pages/speech-1"}, {"link": "/en/pages/speech-2"}]}
+    client = FakeClient([page])
+    r = _recipe(
+        {"results_path": "items", "url_field": "link",
+         "url_base": "https://www.gov.il/"},
+    )
+    # start_urls[0] is the API host (http://x/...); links must join the SITE host instead.
+    r.listing.link_pattern = None  # don't filter these non-/prensa/ links out
+    entries = api.harvest_entries(r, client=client)
+    assert entries[0]["url"] == "https://www.gov.il/en/pages/speech-1"
+    assert entries[1]["url"] == "https://www.gov.il/en/pages/speech-2"
+
+
+def test_post_body_and_body_page_field_pagination():
+    page1 = {"items": [{"link": "https://x/prensa/1"}, {"link": "https://x/prensa/2"}]}
+    page2 = {"items": [{"link": "https://x/prensa/3"}]}
+    page3 = {"items": []}  # empty -> stop
+    client = FakeClient([page1, page2, page3])
+    r = _recipe(
+        {"results_path": "items", "url_field": "link",
+         "method": "POST", "body": {"categoryId": 31, "page": 0},
+         "body_page_field": "page"},
+        start=0, step=50, max_pages=10,
+    )
+    entries = api.harvest_entries(r, client=client)
+
+    assert [e["url"] for e in entries] == [
+        "https://x/prensa/1", "https://x/prensa/2", "https://x/prensa/3"]
+    # offset written into the body per page; request URL stays the bare endpoint
+    assert [b["page"] for _, b in client.posts] == [0, 50, 100]
+    assert all(b["categoryId"] == 31 for _, b in client.posts)  # rest of body preserved
+    assert all(u == "http://x/_api/search/query" for u in client.calls)  # no query param
+    # the recipe's own body is never mutated across pages
+    assert r.pagination.api.body == {"categoryId": 31, "page": 0}
+
+
+def test_post_paginates_by_query_param_without_body_page_field():
+    page1 = {"items": [{"link": "https://x/prensa/1"}]}
+    page2 = {"items": []}
+    client = FakeClient([page1, page2])
+    r = _recipe(
+        {"results_path": "items", "url_field": "link",
+         "method": "POST", "body": {"q": "discurso"}},
+        param="startRow", start=0, step=20, max_pages=10,
+    )
+    entries = api.harvest_entries(r, client=client)
+
+    assert [e["url"] for e in entries] == ["https://x/prensa/1"]
+    assert "startRow=0" in client.calls[0]      # offset in the URL, not the body
+    assert client.posts[0][1] == {"q": "discurso"}  # body constant across pages
+
+
+def test_post_single_request_when_no_paging():
+    page = {"items": [{"link": "https://x/prensa/1"}]}
+    client = FakeClient([page, {"items": [{"link": "https://x/prensa/2"}]}])
+    r = _recipe({"results_path": "items", "url_field": "link",
+                 "method": "POST", "body": {"q": "x"}})  # no param, no body_page_field
+
+    entries = api.harvest_entries(r, client=client)
+    assert [e["url"] for e in entries] == ["https://x/prensa/1"]  # one POST only
+    assert len(client.posts) == 1

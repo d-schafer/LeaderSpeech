@@ -1,0 +1,83 @@
+# Kyrgyzstan — Office of the President (president.kg), LIVE speeches ("Выступления").
+#
+# The modern president.kg is a Next.js/Mantine SPA. Its speech list (category 31,
+# "Выступления") is served ONLY via a POST /api/v1/news/search call, and the article
+# pages are client-rendered (a static GET of /ru/news/<id> returns app-shell chrome, no
+# speech text). Before the engine gained a POST `api` type this was unscrapable live —
+# see recipes/kgz_president_wayback.yml, which covers the pre-SPA archive (2014–2021).
+# This recipe is the LIVE companion (kept alongside the wayback one — "yes-and").
+#
+# HOW IT WORKS (captured from DevTools + confirmed with curl):
+#   * POST body is a Spring "search" DTO: filter / pageRequest / sorting. The category
+#     filter is `filter.categories: [31]` (other keys like categoryId are silently
+#     ignored → the full 39k news set). categories:[31] returns exactly 56 speeches.
+#   * Paging: pageRequest.page increments (pageRequest.limit is the page size). We inject
+#     the page offset into the body via api.body_page_field.
+#   * Each result row carries the full HTML body (content.titleRu) + title (titleRu) +
+#     ISO date (publishedAt), so we harvest text/title/date straight from the JSON and
+#     SKIP the SPA page fetch entirely. The article URL is built from the row `id`
+#     (url_field: id) joined against url_base (the /ru/news/ site path — NOT the API host
+#     that start_urls[0] points at). Body is HTML from the CMS; clean_text normalizes
+#     whitespace and the downstream cleaner strips residual tags (same as the feed type).
+#   * The WAF hard-blocks the honest bot UA (403 Forbidden); a browser user_agent clears
+#     it (opt-in policy exception, as in isr_pmo / col_presidencia).
+source_id: kgz_president
+country: Kyrgyzstan
+source_language: Russian
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+renderer: static
+start_urls:
+  - "https://president.kg/api/v1/news/search"
+
+listing:
+  # Article URLs are /ru/news/<id> (built from the row id via url_base below).
+  link_pattern: '/ru/news/\d+'
+
+pagination:
+  type: api
+  start: 0
+  step: 1
+  max_pages: 20        # 56 items / limit 20 ≈ 3 pages; 20 is a safe cap
+  api:
+    method: POST
+    body:
+      filter:
+        active: true
+        categories: [31]          # 31 = "Выступления" (the speeches/addresses category)
+      pageRequest:
+        limit: 20
+        page: 0
+      sorting:
+        sortBy: PUBLISHED_AT
+        sortDirection: DESC
+    body_page_field: pageRequest.page   # the per-page offset is written here each request
+    results_path: content               # Spring page: {content: [...], totalElements, ...}
+    url_field: id                       # row id -> joined against url_base to the article URL
+    url_base: "https://president.kg/ru/news/"
+    title_field: titleRu
+    date_field: publishedAt             # ISO datetime, e.g. 2025-07-21T13:43:59.481
+    text_field: content.titleRu         # full HTML body carried in the JSON (skips page fetch)
+
+# Per-speech selectors are required by the schema but are only fallbacks here: every row
+# carries its full text from the JSON, so the SPA article page is never fetched.
+title: { selectors: ["h1", "title"] }
+text:  { selectors: ["article", "main", ".news-detail"] }
+date:  { selectors: ["time", ".date"] }
+
+position: president
+# All 56 speeches fall in Japarov's tenure (president since 2021); the tenure crosscheck
+# still assigns the speaker from country+date. Dates are ISO (date_languages not applied
+# to api dates by the engine).
+date_languages: ["ru"]
+notes: >
+  Kyrgyzstan Office of the President, LIVE speeches ("Выступления", category 31) via the
+  Next.js SPA's POST /api/v1/news/search endpoint (a POST `api` recipe: method POST, body
+  the Spring filter/pageRequest/sorting DTO, body_page_field pageRequest.page). 56 items,
+  2021-06 → 2025-07 (Japarov era). The JSON carries the full HTML body (content.titleRu),
+  title (titleRu) and ISO date (publishedAt), so title/text/date come straight from the
+  API and the client-rendered /ru/news/<id> page is never fetched; the article URL is the
+  row `id` joined against url_base (/ru/news/). WAF blocks the bot UA (403) so a browser
+  user_agent is set (opt-in). Complements kgz_president_wayback.yml (pre-SPA archive
+  2014–2021, Atambayev/Jeenbekov/early Japarov) — keep both. Body is CMS HTML; the
+  cleaner's document_type gate + tag stripping do the final tidy. FULL RUN pending
+  (researcher gate).

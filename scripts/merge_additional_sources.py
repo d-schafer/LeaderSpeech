@@ -97,6 +97,13 @@ def collect(outbox_dir: Path, legacy_csv: Path, dedup: bool) -> list[dict]:
 
 
 def main() -> int:
+    # Windows consoles default to cp1252, which can't encode non-ASCII source names
+    # (e.g. Serbian ć) — reconfigure stdout to UTF-8 so printing to the console (the
+    # no `-o` path) doesn't die mid-write. The `-o` file is already opened as UTF-8.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", default=str(OUTBOX_DIR))
     ap.add_argument("--legacy", default=str(LEGACY_CSV))

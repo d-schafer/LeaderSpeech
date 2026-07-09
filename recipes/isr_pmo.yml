@@ -1,42 +1,60 @@
 # Israel — Prime Minister's Office (the head of GOVERNMENT / national leader),
 # on the gov.il government portal, ENGLISH section. NOT the ceremonial president.
 #
-# gov.il is a React SPA behind Cloudflare. The PMO English news/speeches collector
-# page (/en/collectors/news?OfficeId=<PMO GUID>) is rendered with renderer: js
-# (Playwright clears the Cloudflare JS challenge), which populates the /en/pages/
-# links; it paginates via a ?skip=N offset query param. Each /en/pages/<slug> speech
-# page is then fetched (also js) and the body/date read off the rendered page.
+# LISTING = the gov.il collector JSON API (pagination.type: api). gov.il's React SPA
+# loads the PMO news/speeches list from a GET endpoint on the openapi-gc… gateway host,
+# filtered by OfficeId, paged by ?skip=N (limit=20). Two engine features (added 2026-07)
+# make this scrapable as an api recipe:
+#   * url_base — result rows give the speech URL as a RELATIVE /en/pages/<slug> path with
+#     no host. Without url_base the engine would urljoin it against start_urls[0] (the API
+#     host) → 404. url_base points relative row URLs at the gov.il SITE host instead.
+#   * list-index / quoted dotted paths — the date sits at
+#     tags.metaData."Publish Date"[0].title (a list index + a spaced key), now reachable.
+# The gateway also needs a static SPA key header (x-client-id) and rejects requests
+# without Origin: https://www.gov.il (RF-OriginError) — both set under api.headers.
 #
-# Why NOT pagination.type: api: gov.il exposes a clean JSON collector API
-# (openapi-gc.digital.gov.il/.../GetResults, filtered by OfficeId, paged by skip),
-# but its result rows give the speech URL only as a RELATIVE path (/en/pages/<slug>)
-# with no absolute-host field, and the engine urljoins that against start_urls[0] —
-# which for an api recipe is the API host (openapi-gc...), producing wrong URLs. The
-# API row's date also sits at tags.metaData."Publish Date"[0].title, a list-index +
-# spaced key the engine's dotted-path _dig can't reach. Both are engine limits, not
-# recipe-fixable, so we harvest links from the rendered human collector page instead
-# (correct www.gov.il host) and read title/body/date off the js-rendered speech page.
+# BODY = still renderer: js. gov.il's Cloudflare hard-blocks a plain HTTP GET of the
+# /en/pages/<slug> speech page (403), so each speech page is fetched with Playwright
+# (which clears the JS challenge) and the body/date read off the rendered page. So the
+# api rewrite makes the HARVEST fast + robust + exact-dated (no more paging ~514
+# Cloudflare-throttled js collector pages), but the per-speech body fetch cost is
+# UNCHANGED — a full ~10k-item run is still LONG (~40h) and paced heavily below.
 source_id: isr_pmo
 country: Israel
 source_language: English
-# gov.il's Cloudflare needs a real browser UA for the js challenge.
+# gov.il's Cloudflare needs a real browser UA for the js body fetch; the api gateway
+# also serves the listing to this UA.
 user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 renderer: js
 start_urls:
-  # PMO-filtered EN news collector. OfficeId e744bba9-... = "Prime Minister's Office"
-  # (from the site's GetOfficesList); ~10,267 EN items. limit=20 sets the page size.
-  - "https://www.gov.il/en/collectors/news?OfficeId=e744bba9-d17e-429f-abc3-50f7a8a55667&limit=20"
+  # PMO-filtered EN news collector JSON. OfficeId e744bba9-… = "Prime Minister's Office"
+  # (~10,267 EN items, 2004→2026). limit=20 sets the page size; ?skip=N pages through it.
+  - "https://openapi-gc.digital.gov.il/pub/cio/govil/rest/collectors/v1/api/DataCollector/GetResults?CollectorType=news&OfficeId=e744bba9-d17e-429f-abc3-50f7a8a55667&limit=20&culture=en"
 
 listing:
-  link_selector: "a[href*='/en/pages/']"
+  # Speech pages are /en/pages/<slug> (built from the row url via url_base below).
   link_pattern: "/en/pages/"
 
 pagination:
-  type: query_param
+  type: api
   param: skip          # offset (skip=0,20,40,…), added alongside the fixed limit=20
   start: 0
   step: 20
   max_pages: 600       # ~10,267 items / 20 ≈ 514 pages; 600 is a safe cap
+  api:
+    results_path: results
+    url_field: url                       # relative /en/pages/<slug>
+    url_base: "https://www.gov.il/"       # join row URLs to the SITE host, not the API host
+    title_field: title
+    # list-index + quoted (spaced) dotted path — reachable since the 2026-07 _dig upgrade.
+    # NOTE: api dates skip date_languages, so DD.MM.YYYY here parses day-first only for
+    # day>12; the AUTHORITATIVE date is the js page's he-parsed date below (this is only a
+    # fallback for the rare page whose date selector misses).
+    date_field: 'tags.metaData."Publish Date"[0].title'
+    headers:
+      x-client-id: "9KFgciHHGDyNiqz5MdQS0eK2ApeJYMc6YnElUICpN1atirZc"
+      Origin: "https://www.gov.il"
+      Referer: "https://www.gov.il/"
 
 title:
   selectors: ["h1", "title"]
@@ -50,33 +68,38 @@ date:
   regex: '\d{1,2}\.\d{1,2}\.\d{4}'
 
 position: prime minister
-# Dates are DD.MM.YYYY (Israeli order). date_languages: ["he"] forces day-first
+# Page dates are DD.MM.YYYY (Israeli order). date_languages: ["he"] forces day-first
 # parsing (["en"] mis-reads 05.07.2026 as May 7 instead of 5 July). Text is English.
 date_languages: ["he"]
 
-# gov.il's Cloudflare HARD-BLOCKS bursts: back-to-back headless fetches get
-# "Sorry, you have been blocked" after the first page. ~15s/request clears reliably
-# (validated: 3/3 pages OK at 15s spacing, 1/3 at 6s). This makes a full ~10k-item
-# run LONG (~40+ hours) — it is a deliberate FULL-RUN pacing cost, not a defect.
+# gov.il's Cloudflare HARD-BLOCKS bursts on the /en/pages/ body fetch: back-to-back
+# headless fetches get "Sorry, you have been blocked" after the first page. ~15s/request
+# clears reliably. This makes a full ~10k-item run LONG (~40+ hours) — a deliberate
+# FULL-RUN pacing cost of the js BODY fetch, not the api harvest.
 politeness:
   delay_range: [12, 18]
   retries: 4
   backoff: 20
 
 notes: >
-  Israel PMO (head of government, the national leader — NOT the ceremonial
-  president). gov.il EN section, renderer: js. Listing = the rendered PMO news
-  collector (OfficeId GUID e744bba9-d17e-429f-abc3-50f7a8a55667, ~10,267 EN items),
-  paged by ?skip=N. Speech pages: title h1, body .html-section, date the first
-  DD.MM.YYYY in [class*='headMetaData_md_val'] (Publish Date), parsed day-first via
-  date_languages ["he"]. Validated end-to-end with the engine's extract_record
-  (title/12k-char body/date 2026-07-05 all correct). Speaker deliberately LEFT BLANK:
-  the archive spans multiple PMs (Netanyahu / Bennett / Lapid) — the tenure crosscheck
-  assigns speaker from country+date. CAVEATS for the researcher (FULL RUN gate): (1)
-  gov.il's Cloudflare hard-blocks bursts, so heavy pacing (~15s/req) is required and a
-  full run takes ~40+ hours — pace-test a --limit slice first; if the WAF still throttles,
-  raise politeness further. (2) The clean JSON collector API exists but the engine can't
-  use it here (relative URLs join to the wrong host; date behind a list-index/spaced key)
-  — an engine enhancement (api url base override + list-index dotted paths) would make a
-  much faster api recipe possible and is worth a future ticket. (3) A separate Hebrew
-  section exists with likely even deeper history if English coverage proves shallow.
+  Israel PMO (head of government, the national leader — NOT the ceremonial president).
+  gov.il EN section. LISTING is now the collector JSON API (pagination.type: api) on the
+  openapi-gc… gateway, filtered by OfficeId e744bba9-d17e-429f-abc3-50f7a8a55667
+  (~10,267 EN items, 2004→2026), paged by ?skip=N. Enabled by two 2026-07 engine
+  features: url_base (result rows carry only a relative /en/pages/<slug> url, joined to the
+  www.gov.il SITE host — without it they'd 404 against the API host) and list-index/quoted
+  dotted paths (date at tags.metaData."Publish Date"[0].title). The gateway needs a static
+  SPA key header x-client-id + Origin: https://www.gov.il (else RF-OriginError) — both in
+  api.headers. BODY is still renderer: js: a plain GET of /en/pages/<slug> is Cloudflare-403'd,
+  so each speech page is fetched with Playwright; title h1, body .html-section, date the
+  first DD.MM.YYYY in [class*='headMetaData_md_val'], parsed day-first via date_languages
+  ["he"] (authoritative — the api date parses day-first only for day>12 so it's a fallback
+  only). Speaker deliberately LEFT BLANK: the archive spans multiple PMs
+  (Netanyahu/Bennett/Lapid) — the tenure crosscheck assigns speaker from country+date.
+  CAVEATS for the researcher (FULL RUN gate): (1) the api rewrite makes the HARVEST fast +
+  robust + exact-dated, but the per-speech js BODY fetch is UNCHANGED — Cloudflare hard-blocks
+  bursts so ~15s/req pacing is required and a full run still takes ~40+ hours; pace-test a
+  --limit slice first and raise politeness if throttled. (2) x-client-id is a static public
+  SPA key captured from DevTools; if the gateway rotates it or the OfficeId changes, re-capture
+  from the collector page's GetResults XHR. (3) A separate Hebrew section exists with likely
+  even deeper history if English coverage proves shallow.

@@ -68,6 +68,9 @@ class ApiConfig(BaseModel):
     date_field: Optional[str] = None        # row path (or cell Key) for the date
     text_field: Optional[str] = None        # row path (or cell Key) if the JSON carries full text
     speaker_field: Optional[str] = None     # row path (or cell Key) for the speaker
+    # Dotted field paths above also support list indices (`a.b[0].c`) and quoted keys
+    # containing spaces/dots (`tags.metaData."Publish Date"[0].title`); plain `a.b.c`
+    # behaves exactly as before.
     # SharePoint "cells" mode: each row's fields live in a list of {Key, Value} dicts.
     # When cells_path is set, the *_field names above are matched against cell keys.
     cells_path: Optional[str] = None        # dotted path within a row to the cells list
@@ -75,6 +78,19 @@ class ApiConfig(BaseModel):
     cell_value: str = "Value"               # attribute naming a cell's field value
     headers: dict[str, str] = Field(default_factory=dict)  # per-request header overrides
     delay: float = 0.0                      # courtesy pause between API page requests
+    # HTTP method. Default GET (today's behavior). Set POST for endpoints whose listing
+    # is a POST JSON call (SPA/SharePoint CSOM, e.g. president.kg /api/v1/news/search).
+    method: str = "GET"                     # "GET" (default) | "POST"
+    body: Optional[dict] = None             # JSON body sent on each POST request
+    # When set (POST only), the per-page offset (start + page_idx*step) is written into
+    # `body` at this dotted path each page; otherwise the source pages by query `param`
+    # as usual (a POST can still page by query param). Supports the same list-index /
+    # quoted-key dotted syntax as the *_field paths.
+    body_page_field: Optional[str] = None
+    # Base URL to resolve (urljoin) row URLs against. Defaults to start_urls[0]. Set it
+    # when the JSON host != the site host, so relative row links (e.g. /en/pages/<slug>)
+    # resolve to the site — not the API endpoint's host (gov.il is the exemplar).
+    url_base: Optional[str] = None
 
 
 class FeedConfig(BaseModel):
@@ -190,6 +206,8 @@ class Recipe(BaseModel):
                 raise ValueError("api pagination needs a 'pagination.api' block")
             if not self.pagination.api.results_path or not self.pagination.api.url_field:
                 raise ValueError("api pagination needs 'api.results_path' and 'api.url_field'")
+            if (self.pagination.api.method or "GET").upper() not in ("GET", "POST"):
+                raise ValueError("api.method must be 'GET' or 'POST'")
         if self.pagination.type == PaginationType.feed and not self.start_urls:
             raise ValueError("feed pagination needs start_urls with the feed URL(s)")
         # auto-fill numeric ISO code

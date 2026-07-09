@@ -15,6 +15,7 @@ site-specific, so a new SharePoint/JSON source needs only a new recipe.
 
 from __future__ import annotations
 
+import copy
 import logging
 import time
 from typing import Optional
@@ -35,18 +36,64 @@ log = logging.getLogger(__name__)
 DEFAULT_API_ACCEPT = "application/json, text/javascript, */*; q=0.01"
 
 
+# One path segment is a dict key or a list index. Tokens: a "quoted key" (may hold
+# spaces/dots), a [N] list index, or a bare key (any run without . [ ] "). Dots between
+# tokens are just separators and fall out. So `a.b.c` -> keys a,b,c (unchanged);
+# `a.b[0].c` -> key,key,index0,key; `tags.metaData."Publish Date"[0].title` handles the
+# spaced key + index. A bare numeric token like the `.0` in `a.results.0` stays a *key*
+# ("0") — an index is ONLY the bracket form `[0]` — so existing recipes are unaffected.
+_PATH_TOKEN = re.compile(r'"([^"]*)"|\[(\d+)\]|([^.\[\]"]+)')
+
+
+def _parse_path(dotted_path: str) -> list[tuple[str, object]]:
+    """Split a dotted path into typed segments: ("key", str) or ("index", int)."""
+    segs: list[tuple[str, object]] = []
+    for m in _PATH_TOKEN.finditer(dotted_path):
+        quoted, index, bare = m.group(1), m.group(2), m.group(3)
+        if index is not None:
+            segs.append(("index", int(index)))
+        else:
+            segs.append(("key", quoted if quoted is not None else bare))
+    return segs
+
+
 def _dig(obj, dotted_path: Optional[str]):
-    """Descend dict keys along a dotted path (``a.b.c``). Returns None if any
-    segment is missing or a value along the way isn't a dict."""
+    """Descend along a dotted path. Keys need a dict that contains them; indices
+    (`[i]`) need a list in range. Anything else -> None. `a.b.c` on plain dicts and
+    the missing/empty-path cases behave exactly as before."""
     if not dotted_path:
         return None
     cur = obj
-    for seg in dotted_path.split("."):
-        if isinstance(cur, dict) and seg in cur:
-            cur = cur[seg]
-        else:
-            return None
+    for kind, seg in _parse_path(dotted_path):
+        if kind == "key":
+            if isinstance(cur, dict) and seg in cur:
+                cur = cur[seg]
+            else:
+                return None
+        else:  # index
+            if isinstance(cur, list) and -len(cur) <= seg < len(cur):
+                cur = cur[seg]
+            else:
+                return None
     return cur
+
+
+def _set_dig(obj: dict, dotted_path: str, value) -> None:
+    """Write `value` into `obj` at `dotted_path`, creating intermediate dicts for
+    missing keys. Used to inject the POST paging offset into a request body."""
+    segs = _parse_path(dotted_path)
+    cur = obj
+    for kind, seg in segs[:-1]:
+        if kind == "key":
+            nxt = cur.get(seg) if isinstance(cur, dict) else None
+            if not isinstance(nxt, (dict, list)):
+                nxt = {}
+                cur[seg] = nxt
+            cur = nxt
+        else:  # index into an existing list
+            cur = cur[seg]
+    kind, seg = segs[-1]
+    cur[seg] = value
 
 
 def _as_str(v) -> Optional[str]:
@@ -106,19 +153,28 @@ def harvest_entries(
     pattern = re.compile(recipe.listing.link_pattern) if recipe.listing.link_pattern else None
     base = recipe.start_urls[0]
     max_pages = pg.max_pages or 200
+    method = (cfg.method or "GET").upper()
+    # A POST that pages by writing the offset into its body still advances even without a
+    # query `param`; otherwise "no param" means a single request.
+    paginates = bool(pg.param or (method == "POST" and cfg.body_page_field))
 
     close_client = client is None
     client = client or create_client(recipe)
     collected, seen = [], set()
     try:
         for page_idx in range(max_pages):
-            if pg.param:
-                value = pg.start + page_idx * pg.step
+            value = pg.start + page_idx * pg.step
+            url, body = base, None
+            if method == "POST":
+                body = copy.deepcopy(cfg.body) if cfg.body is not None else {}
+                if cfg.body_page_field:
+                    _set_dig(body, cfg.body_page_field, value)  # offset into the body
+                elif pg.param:
+                    url = _with_query_param(base, pg.param, value)  # POST paged by query
+            elif pg.param:  # GET (today's path)
                 url = _with_query_param(base, pg.param, value)
-            else:
-                url = base
             try:
-                resp = client.get(url)
+                resp = client.post(url, json=body) if method == "POST" else client.get(url)
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as e:
@@ -134,7 +190,7 @@ def harvest_entries(
                 link = _as_str(item.get("url"))
                 if not link:
                     continue
-                link = urljoin(base, link.strip())
+                link = urljoin(cfg.url_base or base, link.strip())
                 if pattern and not pattern.search(link):
                     continue
                 if link in seen:
@@ -155,8 +211,8 @@ def harvest_entries(
                     return collected
             if (page_idx + 1) % 25 == 0:  # so a long harvest isn't a silent gap
                 log.info("api harvesting... %d pages, %d items so far", page_idx + 1, len(collected))
-            if not pg.param:
-                break  # no paging param -> single request
+            if not paginates:
+                break  # no paging param / body offset -> single request
             if gained == 0:
                 break  # rows present but none new/qualifying — stop
             if cfg.delay:

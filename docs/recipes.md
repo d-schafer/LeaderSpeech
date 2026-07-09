@@ -109,6 +109,73 @@ position: president
 date_languages: ["es"]
 ```
 
+### POST endpoints, cross-host URLs, and list-index/quoted field paths
+
+Three optional knobs (all default to the GET behavior above) extend `api` to SPA/gov
+sites whose listing is a POST call, whose rows carry relative URLs to a *different* host,
+or whose date sits at a list index or a spaced key:
+
+* **`api.method: POST`** + **`api.body`** — send a POST with a fixed JSON body instead of
+  a GET. Paginate by either (a) setting **`api.body_page_field`** (a dotted path into
+  `body`) so the per-page offset — `start + page_idx*step` — is written *into the body*
+  each request (for APIs paged inside the body, e.g. a Spring `pageRequest.page`), or (b)
+  leaving `body_page_field` unset and giving `pagination.param`, which pages a POST by
+  query string exactly like GET. Omit both for a single POST. The recipe's `body` is
+  never mutated across pages.
+* **`api.url_base`** — the base each row URL is `urljoin`ed against. Defaults to
+  `start_urls[0]` (the API endpoint). Set it when the JSON host ≠ the site host so a
+  relative row URL (e.g. `/en/pages/<slug>`) resolves to the **site**, not the API host.
+  The *request* URL still uses `start_urls[0]`; only the row links use `url_base`.
+* **List-index + quoted keys in every `*_field` path** — besides plain `a.b.c`, a segment
+  may be a list index `a.b[0].c` or a quoted key holding spaces/dots
+  `tags.metaData."Publish Date"[0].title`. Plain dotted paths (and a bare numeric segment
+  like `a.results.0`, which stays the string **key** `"0"`) behave exactly as before —
+  an index is only the bracket form `[0]`.
+
+```yaml
+# Kyrgyzstan president.kg — speeches ("Выступления") from a POST search API. The JSON
+# also carries the full body, so the client-rendered article page is never fetched.
+source_id: kgz_president
+country: Kyrgyzstan
+source_language: Russian
+user_agent: "Mozilla/5.0 (…) Chrome/126.0.0.0 Safari/537.36"   # WAF blocks the bot UA
+start_urls:
+  - "https://president.kg/api/v1/news/search"
+listing:
+  link_pattern: '/ru/news/\d+'
+pagination:
+  type: api
+  start: 0
+  step: 1
+  max_pages: 20
+  api:
+    method: POST
+    body:                          # the exact JSON the SPA POSTs (captured from DevTools)
+      filter: { active: true, categories: [31] }   # 31 = the speeches category
+      pageRequest: { limit: 20, page: 0 }
+      sorting: { sortBy: PUBLISHED_AT, sortDirection: DESC }
+    body_page_field: pageRequest.page       # the offset is written here each page
+    results_path: content
+    url_field: id                            # row id -> joined against url_base
+    url_base: "https://president.kg/ru/news/"
+    title_field: titleRu
+    date_field: publishedAt
+    text_field: content.titleRu              # JSON carries the body -> skip the page fetch
+title: { selectors: ["h1", "title"] }        # required by the schema; only fallbacks here
+text:  { selectors: ["article", "main"] }
+date:  { selectors: ["time", ".date"] }
+position: president
+date_languages: ["ru"]
+```
+
+> **Tip — capturing a POST body:** in DevTools → Network → Fetch/XHR, find the listing
+> request, right-click → *Copy → Copy as cURL* (or read the "Request Payload"), and
+> transcribe the JSON into `api.body`. Watch for required headers (an SPA API key like
+> `x-client-id`, or an `Origin`/`Referer` the gateway enforces) — put those under
+> `api.headers`. Note that api dates are parsed as standard ISO/RFC (no `date_languages`):
+> if the API's date is localized `DD.MM.YYYY`, prefer taking the date off the fetched
+> page (with `date_languages`) and treat the api `date_field` as a fallback.
+
 ## RSS/Atom feeds (`type: feed`)
 
 A lighter-weight option when a source publishes an RSS or Atom feed. Point `start_urls` at the feed URL(s);
@@ -161,12 +228,16 @@ date_languages: ["es"]
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
-| `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`). |
+| `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`). Paths may use list indices (`a.b[0].c`) and quoted keys with spaces/dots (`tags.metaData."Publish Date"[0].title`); plain `a.b.c` is unchanged. |
 | `pagination.api.url_field` | for api | Dotted path to a row's speech URL — or, in cells mode, the cell **key** naming it (e.g. `Path`). |
 | `pagination.api.title_field` / `date_field` / `text_field` / `speaker_field` | no | Same as `url_field` for the other fields. `text_field` lets the JSON carry the full body, skipping the per-speech page fetch. Dates are parsed as standard (ISO/RFC) formats — `date_languages` is **not** applied here. |
+| `pagination.api.method` | no | `GET` (default) or `POST`. Use `POST` for endpoints whose listing is a POST JSON call (SPA/SharePoint CSOM). |
+| `pagination.api.body` | for POST | The JSON body sent on each POST request (capture it from DevTools). Never mutated across pages. |
+| `pagination.api.body_page_field` | no | Dotted path into `body` where the per-page offset (`start + page_idx*step`) is written each POST request (e.g. `pageRequest.page`). Omit to page a POST by query `param` instead (or for a single request). |
+| `pagination.api.url_base` | no | Base URL that row URLs are `urljoin`ed against (defaults to `start_urls[0]`). Set it when the JSON host ≠ the site host, so relative row URLs (e.g. `/en/pages/<slug>`) resolve to the site, not the API host. |
 | `pagination.api.cells_path` | no | SharePoint cells mode: dotted path within a row to its `{Key, Value}` cell array (e.g. `Cells.results`). When set, the `*_field` names match cell **keys** instead of being row paths. |
 | `pagination.api.cell_key` / `cell_value` | no | Attribute names in a cell dict (defaults `Key` / `Value`). |
-| `pagination.api.headers` | no | Per-request header overrides for the JSON call — e.g. `Accept: application/json;odata=nometadata` for SharePoint. Browser-like `User-Agent`/`Accept-Language` are sent by default. |
+| `pagination.api.headers` | no | Per-request header overrides for the JSON call — e.g. `Accept: application/json;odata=nometadata` for SharePoint, or an SPA API key / `Origin` a gateway requires (`x-client-id`, `Origin`). Browser-like `User-Agent`/`Accept-Language` are sent by default. |
 | `pagination.api.delay` | no | Courtesy pause (seconds) between API page requests (default `0`). |
 | `pagination.feed.format` | no | `auto` (default), `rss`, or `atom`. |
 | `pagination.feed.use_content` | no | Default `true` — populate `text` from the feed body (RSS `content:encoded`/`description`, Atom `content`/`summary`). Set `false` to force a per-speech page fetch. |

@@ -77,6 +77,38 @@ def test_api_pagination_requires_block_and_fields():
         Recipe(**{**MINIMAL, "pagination": {"type": "api", "api": {"url_field": "Path"}}})  # no results_path
 
 
+def test_api_defaults_to_get():
+    r = Recipe(**{**MINIMAL, "pagination": {
+        "type": "api", "api": {"results_path": "items", "url_field": "link"}}})
+    assert r.pagination.api.method == "GET"      # default, unchanged behavior
+    assert r.pagination.api.body is None
+    assert r.pagination.api.body_page_field is None
+    assert r.pagination.api.url_base is None
+
+
+def test_api_post_recipe_loads():
+    r = Recipe(**{**MINIMAL, "pagination": {
+        "type": "api", "start": 0, "step": 50,
+        "api": {
+            "results_path": "data.items", "url_field": "url",
+            "date_field": 'tags.metaData."Publish Date"[0].title',
+            "method": "POST", "body": {"categoryId": 31, "page": 0},
+            "body_page_field": "page", "url_base": "https://www.gov.il/",
+        },
+    }})
+    assert r.pagination.api.method == "POST"
+    assert r.pagination.api.body == {"categoryId": 31, "page": 0}
+    assert r.pagination.api.body_page_field == "page"
+    assert r.pagination.api.url_base == "https://www.gov.il/"
+
+
+def test_api_rejects_unknown_method():
+    with pytest.raises(Exception):
+        Recipe(**{**MINIMAL, "pagination": {
+            "type": "api",
+            "api": {"results_path": "items", "url_field": "link", "method": "PUT"}}})
+
+
 def test_feed_pagination_loads():
     r = Recipe(**{**MINIMAL, "listing": {"link_pattern": "/x/"},
                   "pagination": {"type": "feed", "feed": {"use_content": False}}})
