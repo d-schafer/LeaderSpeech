@@ -47,6 +47,64 @@ generic text extractor, which the engine applies automatically), and bound the e
 **Do not modify `leaderspeech/text_scraper/*` for a new source** — per-site variation belongs in the
 recipe. Copy [`recipes/arg_casarosada_wayback.yml`](../recipes/arg_casarosada_wayback.yml) as a template.
 
+### Auto-continuing a live recipe into the archive (`wayback_extend`)
+
+Instead of hand-writing a separate `<id>_wayback.yml`, a **live** recipe can opt in to continue into
+the Internet Archive automatically once its live coverage runs out. After the normal crawl finishes,
+the engine computes the **earliest date it just scraped for the source**, then harvests archived
+captures *older* than that (bounded by `wayback_to = that date`, so live and archive don't overlap and
+`doc_id` continuity holds), reusing this recipe's own selectors (plus the generic fallback for drifted
+old layouts). Everything lands in the **same** output CSV / per-country `doc_id` counter / state file,
+and any capture whose URL was already scraped live is deduped away.
+
+Minimal form — reuse everything:
+
+```yaml
+# ...a normal live recipe...
+wayback_extend: true
+```
+
+Or a block of overrides (all optional; each defaults to the live recipe):
+
+```yaml
+wayback_extend:
+  prefix: casarosada.gob.ar/informacion/discursos   # CDX prefix; default = derived from start_urls[0]
+  link_pattern: '/discursos/\d+[^/]*$'               # default = listing.link_pattern
+  text: { selectors: ["#content-core", "article"] }  # selector overrides for the archived layout
+  wayback_from: "20070101"                            # optional lower bound
+  wayback_to: "20151210"                              # explicit cap; overrides the auto earliest-date floor
+  wayback_delay: 5.0
+```
+
+You can also trigger it per-run without editing the recipe: `run --extend-wayback`.
+
+> ⚠️ **Two honest limits.**
+> 1. **Same host only.** `wayback_extend` reuses the live site's host+prefix. A source that moved its
+>    older content to a **different domain** (US NARA `*whitehouse.archives.gov`, Korea
+>    `webarchives.pa.go.kr`, Brazil `biblioteca.presidencia.gov.br`) is *not* reached by it — author a
+>    dedicated archive-site recipe instead (see below).
+> 2. **Prefix = the listing path by default.** The default CDX prefix is derived from `start_urls[0]`.
+>    If a site's speeches don't live *under* its listing path (e.g. the listing is `/news/` but speeches
+>    are `/remarks/2020/...`), set `wayback_extend.prefix` to the path the speeches actually sit under.
+
+### Reaching earlier administrations: archive subdomains
+
+Many governments **relocate a departing administration's content to a new domain** rather than keeping
+it live. When that domain is a clean, static, frozen archive, a **dedicated live recipe there beats
+Wayback** — the pages are complete and consistently structured, unlike lossy archive captures. Known
+examples:
+
+- **United States** — the White House moves each administration to a NARA subdomain:
+  `obamawhitehouse.archives.gov`, `trumpwhitehouse.archives.gov`, `bidenwhitehouse.archives.gov`.
+- **South Korea** — the Presidential Archives freeze each past Cheongwadae site under
+  `webarchives.pa.go.kr/<Nth>/...` (e.g. `19th` = Moon Jae-in), with an English speeches board.
+- **Brazil** — the Biblioteca da Presidência (`biblioteca.presidencia.gov.br/presidencia/ex-presidentes/…`)
+  archives ex-presidents' speeches (FHC, Lula, Dilma, Temer, Bolsonaro).
+
+Author these as ordinary live recipes (usually `renderer: static`, `query_param`/`path` pagination),
+one per administration where the URL scheme differs — not as `wayback_extend`, which stays on the
+*live* host.
+
 ## JSON / search-API sources (`type: api`)
 
 Some sites serve **only page chrome** as HTML — the speech list is loaded client-side from a JSON
@@ -228,6 +286,11 @@ date_languages: ["es"]
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
+| `wayback_extend` | no | Opt-in continuation of a **live** recipe into the Internet Archive after its crawl finishes (see "Auto-continuing a live recipe into the archive"). `true` reuses everything; a mapping supplies overrides. `false`/absent = off. Same-host only. |
+| `wayback_extend.prefix` | no | CDX prefix to enumerate. Default = derived from `start_urls[0]` (host+path). Set it when speeches don't live under the listing path. |
+| `wayback_extend.link_pattern` | no | Regex selecting archived speech URLs. Default = `listing.link_pattern`. |
+| `wayback_extend.title` / `text` / `date` / `speaker` / `context` | no | Per-field selector-chain overrides for the (often differently structured) archived pages. Default = reuse the live recipe's selectors. |
+| `wayback_extend.wayback_from` / `wayback_to` / `wayback_delay` / `wayback_limit` / `wayback_match_type` / `wayback_collapse` | no | Archive pacing/bounds, mirroring the `wayback` knobs. `wayback_to` (YYYYMMDD) overrides the automatic "earliest live date" floor; otherwise it's computed for you. |
 | `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`). Paths may use list indices (`a.b[0].c`) and quoted keys with spaces/dots (`tags.metaData."Publish Date"[0].title`); plain `a.b.c` is unchanged. |
 | `pagination.api.url_field` | for api | Dotted path to a row's speech URL — or, in cells mode, the cell **key** naming it (e.g. `Path`). |
 | `pagination.api.title_field` / `date_field` / `text_field` / `speaker_field` | no | Same as `url_field` for the other fields. `text_field` lets the JSON carry the full body, skipping the per-speech page fetch. Dates are parsed as standard (ISO/RFC) formats — `date_languages` is **not** applied here. |

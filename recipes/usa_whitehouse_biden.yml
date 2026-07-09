@@ -1,0 +1,41 @@
+# United States — Biden White House, NARA archive subdomain (bidenwhitehouse.archives.gov).
+# Frozen WordPress snapshot (server-rendered, no JS); uniform layout across its history, so a
+# dedicated live recipe beats Wayback. Speeches & remarks live under
+# /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>; WordPress /page/N/ pagination. English;
+# president is Biden. Complements the current-admin usa_whitehouse and usa_whitehouse_obama/_trump.
+source_id: usa_whitehouse_biden
+country: United States
+source_language: English
+start_urls:
+  - https://bidenwhitehouse.archives.gov/briefing-room/speeches-remarks/
+renderer: static
+
+listing:
+  link_selector: "a[href*='/speeches-remarks/']"
+  # dated speech slugs: /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>
+  link_pattern: '/speeches-remarks/\d{4}/\d{2}/\d{2}/[^/]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 2          # page 1 is the bare listing start_url; the pager begins at /page/2/
+  step: 1
+  max_pages: 300    # ~275 pages of 10; stops early on an empty page
+
+title:
+  selectors: ["h1.page-title", "h1", "h2", "title"]
+text:
+  selectors: ["section.body-content", ".body-content", ".entry-content", "article", "main"]
+date:
+  selectors: ["time", ".published", ".posted-on", ".meta__date"]
+
+position: president
+speaker_default: Joseph R. Biden
+date_languages: ["en"]
+notes: >
+  bidenwhitehouse.archives.gov (NARA frozen WordPress archive). Listing
+  /briefing-room/speeches-remarks/, WordPress /page/N/ pagination (~275 pages). Speech URLs
+  /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>. Static/server-rendered; uniform layout
+  across the archive (captured once), so no drift. Title h1.page-title, body
+  section.body-content, date time. speaker_default Joseph R. Biden (2021-01-20..2025-01-20).
+  Dedicated archive subdomain -> preferred over Wayback.

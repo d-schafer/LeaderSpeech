@@ -1,0 +1,58 @@
+# United States — Obama White House, NARA archive subdomain (obamawhitehouse.archives.gov).
+# The White House relocates each administration to a frozen NARA archive when it leaves;
+# the Obama-era site is a static Drupal snapshot (server-rendered — no JS). Because the
+# whole site was captured at one time, the layout is UNIFORM across its history, so a
+# dedicated live recipe here is cleaner + more complete than scraping Wayback. Speeches &
+# remarks live under /the-press-office/YYYY/MM/DD/<slug>; Drupal pages with ?page=N.
+# English; the president is the leader (Obama). Complements the current-admin usa_whitehouse.
+source_id: usa_whitehouse_obama
+country: United States
+source_language: English
+start_urls:
+  - https://obamawhitehouse.archives.gov/briefing-room/speeches-and-remarks
+renderer: static
+
+listing:
+  link_selector: "a[href*='/the-press-office/']"
+  # press-office posts: later pages use dated slugs (/the-press-office/YYYY/MM/DD/<slug>),
+  # early 2009-2010 pages use UNDATED slugs (/the-press-office/<slug>) — accept both, but
+  # require a real slug so the bare /the-press-office index never matches.
+  link_pattern: '/the-press-office/(?:\d{4}/\d{2}/\d{2}/)?[a-z][a-z0-9-]+/?$'
+
+pagination:
+  # NARA froze the Drupal pager as STATIC files: the "Next" link is
+  # /speeches-and-remarks/index__q_term_node_tid_depth=31&page=N.html (the live ?page=N
+  # query is dead on the archive). Page 0 is the bare start_url; the static pager runs
+  # page=1.html .. ~472.html.
+  type: path
+  path_format: "index__q_term_node_tid_depth=31&page={n}.html"
+  start: 1
+  step: 1
+  max_pages: 480    # ~472 static pager pages of 10 => full Obama term; stops on an empty page
+
+title:
+  selectors: [".pane-node-title", "h1#page-title", "#page-title", "h1", "title"]
+text:
+  selectors:
+    - ".field-name-field-forall-body"
+    - ".pane-node-field-forall-body .forall-body"
+    - ".panel-col-section-content .forall-body"
+    - "article"
+    - "main"
+date:
+  selectors: ["#press_article_date_created", ".press-article-date", ".date-display-single", "time"]
+
+position: president
+speaker_default: Barack Obama
+date_languages: ["en"]
+notes: >
+  obamawhitehouse.archives.gov (NARA frozen Drupal archive). Listing
+  /briefing-room/speeches-and-remarks; the live ?page=N query is DEAD on the archive — the
+  pager was frozen as static files index__q_term_node_tid_depth=31&page=N.html (~472 pages
+  of 10), so pagination.type is `path` over those. Speech URLs are dated
+  /the-press-office/YYYY/MM/DD/<slug> on later pages and UNDATED /the-press-office/<slug>-<nodeid>
+  on the earliest 2009-2010 pages — link_pattern accepts both. Body .field-name-field-forall-body,
+  date #press_article_date_created. Probe-validated recent (2017-01) AND deep (2009-05) ends —
+  title/text/date all green; span ~2009-05..2017-01. NOTE: /speeches-and-remarks includes VP
+  Biden + others' remarks, not only Obama — speaker_default Barack Obama is a fallback; the
+  clean_structure_metadata pass confirms the real speaker per doc. Dedicated subdomain -> beats Wayback.

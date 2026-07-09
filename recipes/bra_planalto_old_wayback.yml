@@ -1,0 +1,57 @@
+# Brazil — Presidência (Planalto), OLDER host planalto.gov.br — WAYBACK fallback.
+# Historical-depth companion for Brazil. The live gov.br/planalto site is hard-blocked
+# (F5 TSPD + login-redirect + 429 — see recipes/bra_planalto.yml), and the existing
+# recipes/bra_planalto_wayback.yml recovers only the Lula-era gov.br host (2023-2024).
+# BEFORE the 2023 migration to gov.br, discursos lived on the OLD host
+# www2.planalto.gov.br/acompanhe-o-planalto/discursos (a Plone CMS) — the Internet Archive
+# holds ~1,050 captures there, reaching the Dilma / Temer / Bolsonaro eras (2014-2022).
+# This recipe recovers that older span via Wayback; bounded to pre-2023 so it does not
+# overlap bra_planalto_wayback (gov.br host). Portuguese; speaker varies by date (Dilma /
+# Temer / Bolsonaro) -> left to the cleaner + leader-tenure crosscheck.
+source_id: bra_planalto_old_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - www2.planalto.gov.br/acompanhe-o-planalto/discursos
+renderer: static
+
+listing:
+  link_selector: "a[href*='/acompanhe-o-planalto/discursos']"
+  # a SINGULAR `discurso-<slug>` page (>=14 chars, ending alphanumeric) somewhere under the
+  # discursos tree — the real path nests a subfolder: /discursos/discursos-da-presidenta/discurso-...
+  # (with capture-variant spellings like discursos-da-residenta), so allow any subfolder(s)
+  # between. Requiring `discurso-` (not `discursos`) drops the section/listing captures, and
+  # the trailing [a-z0-9]$ drops CDX-truncated `...-` fragments, .pdf files, and ?query tails.
+  link_pattern: '/acompanhe-o-planalto/discursos.*/discurso-[a-z0-9-]{12,}[a-z0-9]$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_to: "20230101"   # pre-migration only; 2023+ is bra_planalto_wayback's (gov.br host)
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  # Plone content divs only — no article/main fallback, so redirect/landing SHELL captures
+  # (which lack these) yield empty text and are recorded as failures rather than junk rows;
+  # genuinely drifted old layouts still get rescued by the engine's generic extractor.
+  selectors: ["#parent-fieldname-text", "#content-core", ".documentDescription"]
+date:
+  # Plone byline "Publicado em DD/MM/YYYY HHhMM" -> pull the DD/MM/YYYY out.
+  selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
+  regex: '\d{2}/\d{2}/\d{4}'
+
+position: president
+date_languages: ["pt"]
+notes: >
+  Wayback over the OLD Planalto host www2.planalto.gov.br/acompanhe-o-planalto/discursos
+  (Plone), recovering the Dilma/Temer/Bolsonaro discursos (2014-2022) that predate the 2023
+  gov.br migration. Companion to bra_planalto_wayback (gov.br host, 2023-2024) and the
+  live-but-blocked bra_planalto; bounded wayback_to=20230101 so the two wayback recipes do
+  not overlap. No speaker_default (multiple presidents across the span) -> the
+  clean_structure_metadata pass assigns the speaker by date via the leader-tenure key.
+  Archived Plone layout: title h1.documentFirstHeading, body #parent-fieldname-text, date
+  the "Publicado em DD/MM/YYYY" byline (regex); older captures fall back to the generic
+  text extractor automatically. NOTE: the pre-2014 Lula I-II era (2003-2010) is NOT here —
+  those discursos are PDFs on biblioteca.presidencia.gov.br (see bra_biblioteca outbox note;
+  needs a PDF stage the engine doesn't yet have).

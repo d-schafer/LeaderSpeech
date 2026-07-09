@@ -44,6 +44,19 @@ date: { selectors: [".date"] }
 date_languages: ["es"]
 """
 
+EXTEND_RECIPE_YAML = r"""
+source_id: test_extend
+country: Argentina
+source_language: Spanish
+start_urls: ["http://x/list"]
+listing: { link_selector: "a", link_pattern: '/(?:live|old)-' }
+title: { selectors: ["h1"] }
+text: { selectors: ["div.body"] }
+date: { selectors: [".date"] }
+date_languages: ["es"]
+wayback_extend: true
+"""
+
 NO_DATE_HTML = "<html><h1>Page Title</h1><div class='body'>Cuerpo del discurso.</div></html>"
 
 GOOD_HTML = (
@@ -212,3 +225,102 @@ def test_api_carries_json_metadata_and_skips_fetch_when_text_present(tmp_path, m
     assert "2019-05-01" in csv                    # date carried from JSON (page had none)
     assert "Texto completo desde el JSON." in csv  # embedded text used (fetch skipped)
     assert "2018-03-03" in csv                     # embedded entry date
+
+
+def _extend_recipe(tmp_path):
+    p = tmp_path / "test_extend.yml"
+    p.write_text(EXTEND_RECIPE_YAML, encoding="utf-8")
+    return str(p)
+
+
+def test_wayback_extend_continues_after_live_and_dedupes(tmp_path, monkeypatch):
+    """A live recipe with `wayback_extend: true` continues into the archive: the CDX
+    harvest is bounded by the earliest LIVE date, doc_ids keep counting, and any archived
+    capture whose URL was already scraped live is deduped away."""
+    live_urls = ["http://x/live-a", "http://x/live-b"]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(live_urls))
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+
+    # archived captures: one dup of a live URL (must be skipped) + two genuinely older ones
+    archive_entries = [
+        {"timestamp": "20140101", "original": "http://x/live-a"},   # already scraped live
+        {"timestamp": "20140102", "original": "http://x/old-1"},
+        {"timestamp": "20140103", "original": "http://x/old-2"},
+    ]
+    captured = {}
+
+    def fake_lsfq(urls, from_date=None, to_date=None, limit=None,
+                  match_type="prefix", collapse="urlkey"):
+        captured["urls"] = list(urls)
+        captured["to_date"] = to_date
+        return [dict(e) for e in archive_entries]
+
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", fake_lsfq)
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=5.0, timeout=60.0, client=None: WAYBACK_HTML,
+    )
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_extend_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    # the archive harvest was bounded by the earliest live date (GOOD_HTML => 2020-01-01)
+    assert captured["to_date"] == "20200101"
+    # 2 live + 2 new archive (the live-a dup was deduped, so not 3)
+    assert res["scraped_this_run"] == 4
+    assert res["extended_links_found"] == 3     # all 3 passed the CDX filter
+    assert res["extended_scraped"] == 2         # but only the 2 new ones were scraped
+    assert res["failed_this_run"] == 0
+    assert res["aborted_early"] is False
+
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["last_doc_num"] == 4           # doc_ids continued across the two phases
+    assert set(state["seen_urls"]) == {"http://x/live-a", "http://x/live-b",
+                                       "http://x/old-1", "http://x/old-2"}
+
+    csv = (out / "Argentina" / "test_extend.csv").read_text(encoding="utf-8")
+    assert "ARG0003" in csv and "ARG0004" in csv  # archive rows got the next doc_ids
+    assert "Texto archivado." in csv
+
+
+def test_extend_wayback_flag_triggers_without_recipe_field(tmp_path, monkeypatch):
+    """The `--extend-wayback` run flag turns on the continuation even for a recipe that
+    has no `wayback_extend` field."""
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a-good"])
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    monkeypatch.setattr(
+        run.wayback, "list_snapshots_for_queries",
+        lambda *a, **k: [{"timestamp": "20140102", "original": "http://x/old-1"}],
+    )
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=5.0, timeout=60.0, client=None: WAYBACK_HTML,
+    )
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_recipe(tmp_path), out_root=str(out), state_root=str(state_dir),
+                            extend_wayback=True)
+
+    assert res["extended_scraped"] == 1         # the archive capture was scraped via the flag
+    assert res["scraped_this_run"] == 2         # 1 live + 1 archive
+
+
+def test_no_wayback_extend_by_default(tmp_path, monkeypatch):
+    """Backward-compat: a plain recipe with no field and no flag never touches the CDX."""
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a-good"])
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+
+    def boom(*a, **k):
+        raise AssertionError("wayback CDX must not be queried without the field/flag")
+
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", boom)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    assert res["extended_links_found"] == 0
+    assert res["extended_scraped"] == 0

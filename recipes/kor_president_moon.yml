@@ -1,0 +1,49 @@
+# South Korea — Moon Jae-in administration (19th president), via the Presidential Archives
+# web-archive (webarchives.pa.go.kr). The live president.go.kr board (recipes/kor_president.yml)
+# holds ONLY the sitting president; each past administration's Cheongwadae site is frozen by
+# the National Archives' Presidential Archives under webarchives.pa.go.kr/<Nth>/... A dedicated
+# recipe there is cleaner + more complete than Wayback because the domain itself changes when a
+# president leaves. The 19th (Moon, 2017-05..2022-05) has an ENGLISH speeches board with a
+# "Speeches" category (the president's remarks) — so text is English (no translation needed).
+source_id: kor_president_moon
+country: Korea, Republic of
+source_language: English
+start_urls:
+  - http://webarchives.pa.go.kr/19th/english.president.go.kr/BriefingSpeeches/Speeches
+renderer: static
+
+listing:
+  link_selector: "a[href*='/BriefingSpeeches/Speeches/']"
+  link_pattern: '/BriefingSpeeches/Speeches/\d+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 200   # board self-reads ?page=N; stops early when a page yields no new links
+
+title:
+  # the speech title is the board-view heading (a bare `h2` also hits the page's nav header,
+  # so scope it to .board_view).
+  selectors: [".board_view h2", ".boardView_tile h2", ".view_title", "h2"]
+text:
+  selectors: [".boardView_text", ".board_view", "#contents"]
+date:
+  # dateline "April 19, 2022" inside .view_date_sns (its <p> is the clean date; the parent
+  # also carries a "Share" label — the regex isolates the date either way).
+  selectors: [".view_date_sns p", ".view_date_sns", ".view_date"]
+  regex: '[A-Z][a-z]+ \d{1,2}, \d{4}'
+
+position: president
+speaker_default: Moon Jae-in
+date_languages: ["en"]
+notes: >
+  webarchives.pa.go.kr/19th (Presidential Archives frozen snapshot of Moon Jae-in's
+  english.president.go.kr). Listing /BriefingSpeeches/Speeches, ?page=N query pagination;
+  item URLs /BriefingSpeeches/Speeches/<id>. Static/server-rendered; cert is valid (no
+  verify_ssl override). Title .board_view h2, body .boardView_text, date the "Month DD, YYYY"
+  dateline in .view_date_sns (regex). ENGLISH source -> text lands in the English `text`
+  column directly. speaker_default Moon Jae-in (19th president, 2017-05..2022-05). Complements
+  the sitting-president kor_president. Earlier administrations (18th Park, 17th Lee) live under
+  the same webarchives.pa.go.kr/<Nth>/ scheme -> analogous recipes are a follow-up.

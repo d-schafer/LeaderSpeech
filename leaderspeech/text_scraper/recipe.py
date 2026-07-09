@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 try:  # used to auto-fill the numeric ISO code; optional at import time
     import pycountry
@@ -135,6 +135,45 @@ class FieldSpec(BaseModel):
     regex: Optional[str] = None   # optional regex to pull a substring out
 
 
+class WaybackExtend(BaseModel):
+    """Opt-in: after a LIVE recipe's crawl finishes, automatically continue into the
+    Internet Archive to reach speeches older than the live site covers — without
+    hand-writing a separate `<id>_wayback.yml`.
+
+    Every field defaults to reusing the live recipe, so `wayback_extend: true` alone is
+    enough. The engine computes the earliest date already scraped for the source and
+    bounds the archive harvest with `wayback_to = that date` (so live+archive don't
+    overlap and `doc_id` continuity holds); dedupe by URL drops any capture already
+    scraped live.
+
+    IMPORTANT: this reuses the live site's SAME host+prefix. Sources that relocated old
+    content to a *different* domain (e.g. US NARA `*whitehouse.archives.gov`, Korea
+    `webarchives.pa.go.kr`) are NOT reached by this — author a dedicated archive recipe.
+    """
+
+    enabled: bool = True
+    # CDX prefix to enumerate; default = derived from start_urls[0] (host+path, no scheme).
+    # Set this when speeches don't live under the listing path (e.g. listing is /news/ but
+    # speeches are /remarks/...), so the archive harvest points at the right prefix.
+    prefix: Optional[str] = None
+    link_pattern: Optional[str] = None    # default = listing.link_pattern
+    # selector overrides for the (often differently-structured) archived pages; each
+    # defaults to reusing the live recipe's selector chain. The generic text fallback
+    # still applies automatically for drifted old layouts.
+    title: Optional[FieldSpec] = None
+    text: Optional[FieldSpec] = None
+    date: Optional[FieldSpec] = None
+    speaker: Optional[FieldSpec] = None
+    context: Optional[FieldSpec] = None
+    # archive pacing / bounds (mirror the `wayback` pagination knobs)
+    wayback_from: Optional[str] = None    # CDX `from` (YYYYMMDD)
+    wayback_to: Optional[str] = None      # explicit CDX `to`; overrides the auto earliest-date floor
+    wayback_delay: float = 5.0            # seconds before each archived fetch
+    wayback_limit: Optional[int] = None   # cap captures listed per query
+    wayback_match_type: str = "prefix"    # CDX `matchType`
+    wayback_collapse: str = "urlkey"      # CDX `collapse`
+
+
 class Politeness(BaseModel):
     # Light by default: these are small requests for public speeches on public sites.
     # No per-request wait; just a short breather every `pause_every` requests. Bump
@@ -161,6 +200,9 @@ class Recipe(BaseModel):
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
     listing: Listing
     pagination: Pagination = Field(default_factory=Pagination)
+    # Opt-in continuation into the Wayback CDX after the live crawl (see WaybackExtend).
+    # Accepts `true` (reuse everything) or a mapping of overrides; `false`/absent = off.
+    wayback_extend: Optional[WaybackExtend] = None
 
     # per-speech field extraction (title/text/date required; rest optional)
     title: FieldSpec
@@ -176,6 +218,19 @@ class Recipe(BaseModel):
     date_languages: list[str] = Field(default_factory=list)  # hints for dateparser
     politeness: Politeness = Field(default_factory=Politeness)
     notes: Optional[str] = None
+
+    @field_validator("wayback_extend", mode="before")
+    @classmethod
+    def _coerce_wayback_extend(cls, v):
+        # Accept the ergonomic `wayback_extend: true` (reuse everything) and a mapping of
+        # overrides alike; `false`/absent stays off. A dict is enabled unless it says otherwise.
+        if v is None or v is False:
+            return None
+        if v is True:
+            return {"enabled": True}
+        if isinstance(v, dict):
+            return {"enabled": True, **v}
+        return v
 
     @model_validator(mode="after")
     def _checks(self):

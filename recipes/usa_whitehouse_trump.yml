@@ -1,0 +1,43 @@
+# United States — Trump (45) White House, NARA archive subdomain (trumpwhitehouse.archives.gov).
+# Frozen WordPress snapshot (server-rendered, no JS); uniform layout across its history, so a
+# dedicated live recipe beats Wayback. Remarks/statements live directly under
+# /briefings-statements/<slug>; WordPress /page/N/ pagination. English; president is Trump.
+# Complements the current-admin usa_whitehouse (Trump 47) and usa_whitehouse_obama/_biden.
+source_id: usa_whitehouse_trump
+country: United States
+source_language: English
+start_urls:
+  - https://trumpwhitehouse.archives.gov/briefings-statements/
+renderer: static
+
+listing:
+  link_selector: "a[href*='/briefings-statements/']"
+  # a real post slug directly under /briefings-statements/ (>=9 chars); excludes the
+  # /briefings-statements/page/N/ pagers and ?issue= filter links.
+  link_pattern: '/briefings-statements/[a-z0-9][a-z0-9-]{8,}/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}"
+  start: 2          # page 1 is the bare listing start_url; the pager begins at /page/2/
+  step: 1
+  max_pages: 700    # ~670 pages of 10; stops early on an empty page
+
+title:
+  selectors: ["h1.topper__title", "h1.page-title", "h1", "title"]
+text:
+  selectors: [".page-content__content", ".page-content", ".body-content", ".editor", "article", "main"]
+date:
+  selectors: [".meta__date", "time", ".posted-on", ".published"]
+
+position: president
+speaker_default: Donald Trump
+date_languages: ["en"]
+notes: >
+  trumpwhitehouse.archives.gov (NARA frozen WordPress archive). Listing /briefings-statements/,
+  WordPress /page/N/ pagination (~670 pages). Post URLs /briefings-statements/<slug>.
+  Static/server-rendered; uniform layout across the archive (captured once), so no drift.
+  link_pattern requires a real slug and drops the page/N pagers + ?issue= filters. Title
+  h1.topper__title, body .page-content, date .meta__date. speaker_default Donald Trump
+  (45th term 2017-01-20..2021-01-20). NOTE: this covers Trump 45; the current-admin
+  usa_whitehouse (Trump 47, 2025+) is a separate live recipe. Dedicated subdomain -> beats Wayback.

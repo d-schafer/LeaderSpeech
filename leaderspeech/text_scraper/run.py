@@ -27,7 +27,7 @@ from .extract import extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
-from .recipe import PaginationType, Recipe, load_recipe
+from .recipe import PaginationType, Recipe, WaybackExtend, load_recipe
 from . import api, feed, index, wayback
 
 # fixed name (not __name__): under `python -m`, __name__ is "__main__", which would
@@ -164,6 +164,30 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
     )
 
 
+def _cdx_prefix(url: str) -> str:
+    """A CDX prefix (host+path, no scheme, no trailing slash) from a live start_url —
+    the default `wayback_extend` prefix. e.g. https://www.casarosada.gob.ar/discursos/
+    -> www.casarosada.gob.ar/discursos."""
+    u = url.strip()
+    if "://" in u:
+        u = u.split("://", 1)[1]
+    return u.rstrip("/")
+
+
+def _harvest_wayback_extend(prefix: str, link_pattern, ext: WaybackExtend, to_date) -> list[dict]:
+    """Archive captures for the wayback_extend continuation: reuse the shared CDX client
+    over a single derived/overridden prefix, bounded by `to_date` (the live floor)."""
+    entries = wayback.list_snapshots_for_queries(
+        [prefix],
+        from_date=ext.wayback_from,
+        to_date=to_date,
+        limit=ext.wayback_limit,
+        match_type=ext.wayback_match_type,
+        collapse=ext.wayback_collapse,
+    )
+    return wayback.filter_entries_for_recipe(entries, link_pattern, start_urls=[prefix])
+
+
 def scrape_recipe(
     recipe_path: str,
     out_root: str = "data/scraped",
@@ -173,6 +197,7 @@ def scrape_recipe(
     limit: int | None = None,
     respect_robots: bool = False,
     retry_failed: bool = False,
+    extend_wayback: bool = False,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
@@ -207,13 +232,116 @@ def scrape_recipe(
     def stamp() -> str:
         return datetime.now().isoformat(timespec="seconds")
 
-    n_scraped = n_generic = n_failed = 0
-    consecutive_fail = 0
+    # counters live in a dict, and pending_rows/errors are cleared in place (never
+    # rebound), so the nested _scrape_phase below can mutate all shared run-state through
+    # closures without a pile of `nonlocal` declarations.
+    stats = {"scraped": 0, "generic": 0, "failed": 0}
     aborted_early = False
+    extended_links_found = 0
+    extended_scraped = 0
     links: list[str] = []
     meta_by_url: dict[str, dict] = {}   # api/feed: per-URL metadata carried from the source
     pending_rows: list[dict] = []
     errors: list[dict] = []
+
+    def _flush():
+        """Write out any buffered rows/errors and persist state — a checkpoint."""
+        _append(out_path, pending_rows, SCHEMA_COLUMNS)
+        _append(err_path, errors, ERROR_COLUMNS)
+        pending_rows.clear()
+        errors.clear()
+        state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
+        save_state(state_path, state)
+
+    def _scrape_phase(todo, *, is_wayback, meta_by_url, wayback_delay, phase_recipe, label) -> bool:
+        """Fetch+extract every item in `todo`, appending rows and updating shared state.
+        Items are either speech URLs or (is_wayback) CDX capture dicts. `phase_recipe`
+        supplies the selectors (the live recipe, or a copy with wayback_extend overrides).
+        Returns True if the circuit breaker tripped."""
+        consecutive_fail = 0
+        n = len(todo)
+        for i, todo_item in enumerate(todo, 1):
+            try:
+                via_generic = False
+                entry: dict = {}
+                html = None
+                if is_wayback:
+                    url = todo_item["original"]
+                    html = wayback.fetch_snapshot(
+                        todo_item, delay=wayback_delay, client=wayback_client,
+                    )
+                else:
+                    url = todo_item
+                    entry = meta_by_url.get(url, {})
+                    # When the JSON/feed already carries the full text, use it directly
+                    # and skip the page fetch; otherwise fetch the speech page.
+                    if not entry.get("text"):
+                        html = fetcher.get(url)
+
+                if html is not None:
+                    rec = extract_record(html, url, phase_recipe)
+                    # Recipes are tuned to a site's CURRENT layout; older/archived pages
+                    # often used a different structure and yield nothing. Before giving up,
+                    # fall back to structure-agnostic generic extraction.
+                    if not rec["text"]:
+                        gen = extract_generic(html, url)
+                        if gen["text"]:
+                            rec["text"] = gen["text"]
+                            rec["title"] = rec["title"] or gen["title"]
+                            rec["date"] = rec["date"] or gen["date"]
+                            rec["speaker"] = rec["speaker"] or gen["speaker"]
+                            via_generic = True
+                else:
+                    rec = _record_from_entry(entry, url, phase_recipe)
+
+                # Fill any field the page extraction left empty from the carried api/feed
+                # metadata (e.g. SharePoint's reliable Write date when a page selector missed).
+                if entry:
+                    rec["text"] = rec["text"] or entry.get("text", "")
+                    rec["title"] = rec["title"] or entry.get("title", "")
+                    rec["date"] = rec["date"] or entry.get("date")
+                    rec["speaker"] = rec["speaker"] or entry.get("speaker", "")
+
+                if not rec["text"]:
+                    errors.append({"timestamp": stamp(), "url": url,
+                                   "error": "empty_text (no recipe match; generic also empty)"})
+                    failed.add(url)         # NOT seen -> retried after a recipe fix
+                    stats["failed"] += 1
+                    consecutive_fail += 1
+                    log.warning("empty: %s", url)
+                else:
+                    state["last_doc_num"] += 1
+                    doc_id = f"{alpha3}{state['last_doc_num']:04d}"
+                    pending_rows.append(map_to_schema(rec, phase_recipe, doc_id))
+                    seen.add(url)
+                    failed.discard(url)      # in case this was a previously-failed retry
+                    stats["scraped"] += 1
+                    consecutive_fail = 0
+                    if via_generic:
+                        stats["generic"] += 1
+                        log.info("recovered via generic extractor: %s", url)
+            except Exception as e:
+                detail = f"{type(e).__name__}: {e}"
+                errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
+                failed.add(url)
+                stats["failed"] += 1
+                consecutive_fail += 1
+                log.warning("error: %s :: %s", url, detail[:160])
+
+            # circuit breaker: a long unbroken run of failures means we're blocked or the
+            # recipe/site broke — stop with a clear signal instead of hammering on.
+            if consecutive_fail >= max_consecutive_failures:
+                log.error("ABORTING after %d consecutive failures — likely blocked, or the "
+                          "recipe/site changed. See the errors file. Fix, then --retry-failed.",
+                          consecutive_fail)
+                return True
+
+            if i % save_every == 0:  # checkpoint: flush rows, errors, and state
+                _flush()
+                log.info("[%s] progress %d/%d | scraped=%d generic=%d failed=%d",
+                         label, i, n, stats["scraped"], stats["generic"], stats["failed"])
+        return False
+
     try:
         ptype = recipe.pagination.type
         wayback_mode = ptype == PaginationType.wayback
@@ -256,93 +384,60 @@ def scrape_recipe(
                      len(links), len(todo), len(seen), len(failed),
                      "; retrying failures" if retry_failed else "")
 
-        for i, todo_item in enumerate(todo, 1):
-            try:
-                via_generic = False
-                entry: dict = {}
-                html = None
-                if wayback_mode:
-                    url = todo_item["original"]
-                    html = wayback.fetch_snapshot(
-                        todo_item,
-                        delay=recipe.pagination.wayback_delay,
-                        client=wayback_client,
+        aborted_early = _scrape_phase(
+            todo, is_wayback=wayback_mode, meta_by_url=meta_by_url,
+            wayback_delay=recipe.pagination.wayback_delay, phase_recipe=recipe, label="live",
+        )
+
+        # --- wayback_extend: continue a LIVE recipe into the Internet Archive -----------
+        # After the live crawl, optionally harvest archived captures OLDER than the live
+        # floor (reusing this recipe's selectors + the generic fallback), so a
+        # current-admin-only site gains historical depth without a hand-written companion
+        # recipe. Same output CSV / per-country doc_id / state file; dedupe by URL against
+        # everything already scraped. Skipped for wayback recipes and after an abort.
+        ext = recipe.wayback_extend
+        extend_on = (ext is not None and ext.enabled) or extend_wayback
+        if extend_on and not aborted_early and not wayback_mode:
+            ext = ext or WaybackExtend()          # flag-only run: reuse everything by default
+            _flush()                              # so date_floor reads the live rows just scraped
+            if ext.wayback_to:
+                to_date = ext.wayback_to          # explicit override (YYYYMMDD, CDX form)
+            else:
+                floor = index.date_floor(out_path)   # earliest live date (YYYY-MM-DD)
+                to_date = floor.replace("-", "") if floor else None
+            if not to_date:
+                log.info("[wayback-extend] no earliest live date to bound the archive "
+                         "(and no wayback_to override) — skipping the continuation.")
+            else:
+                prefix = ext.prefix or _cdx_prefix(recipe.start_urls[0])
+                link_pattern = ext.link_pattern or recipe.listing.link_pattern
+                ext_entries = _harvest_wayback_extend(prefix, link_pattern, ext, to_date)
+                extended_links_found = len(ext_entries)
+                if ext_entries:
+                    ext_links_path = out_dir / f"{recipe.source_id}_wayback_extend_links.txt"
+                    ext_links_path.write_text(
+                        "\n".join(e["original"] for e in ext_entries if e.get("original")) + "\n",
+                        encoding="utf-8",
                     )
-                else:
-                    url = todo_item
-                    entry = meta_by_url.get(url, {})
-                    # When the JSON/feed already carries the full text, use it directly
-                    # and skip the page fetch; otherwise fetch the speech page.
-                    if not entry.get("text"):
-                        html = fetcher.get(url)
-
-                if html is not None:
-                    rec = extract_record(html, url, recipe)
-                    # Recipes are tuned to a site's CURRENT layout; older/archived pages
-                    # often used a different structure and yield nothing. Before giving up,
-                    # fall back to structure-agnostic generic extraction.
-                    if not rec["text"]:
-                        gen = extract_generic(html, url)
-                        if gen["text"]:
-                            rec["text"] = gen["text"]
-                            rec["title"] = rec["title"] or gen["title"]
-                            rec["date"] = rec["date"] or gen["date"]
-                            rec["speaker"] = rec["speaker"] or gen["speaker"]
-                            via_generic = True
-                else:
-                    rec = _record_from_entry(entry, url, recipe)
-
-                # Fill any field the page extraction left empty from the carried api/feed
-                # metadata (e.g. SharePoint's reliable Write date when a page selector missed).
-                if entry:
-                    rec["text"] = rec["text"] or entry.get("text", "")
-                    rec["title"] = rec["title"] or entry.get("title", "")
-                    rec["date"] = rec["date"] or entry.get("date")
-                    rec["speaker"] = rec["speaker"] or entry.get("speaker", "")
-
-                if not rec["text"]:
-                    errors.append({"timestamp": stamp(), "url": url,
-                                   "error": "empty_text (no recipe match; generic also empty)"})
-                    failed.add(url)         # NOT seen -> retried after a recipe fix
-                    n_failed += 1
-                    consecutive_fail += 1
-                    log.warning("empty: %s", url)
-                else:
-                    state["last_doc_num"] += 1
-                    doc_id = f"{alpha3}{state['last_doc_num']:04d}"
-                    pending_rows.append(map_to_schema(rec, recipe, doc_id))
-                    seen.add(url)
-                    failed.discard(url)      # in case this was a previously-failed retry
-                    n_scraped += 1
-                    consecutive_fail = 0
-                    if via_generic:
-                        n_generic += 1
-                        log.info("recovered via generic extractor: %s", url)
-            except Exception as e:
-                detail = f"{type(e).__name__}: {e}"
-                errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
-                failed.add(url)
-                n_failed += 1
-                consecutive_fail += 1
-                log.warning("error: %s :: %s", url, detail[:160])
-
-            # circuit breaker: a long unbroken run of failures means we're blocked or the
-            # recipe/site broke — stop with a clear signal instead of hammering on.
-            if consecutive_fail >= max_consecutive_failures:
-                aborted_early = True
-                log.error("ABORTING after %d consecutive failures — likely blocked, or the "
-                          "recipe/site changed. See the errors file. Fix, then --retry-failed.",
-                          consecutive_fail)
-                break
-
-            if i % save_every == 0:  # checkpoint: flush rows, errors, and state
-                _append(out_path, pending_rows, SCHEMA_COLUMNS)
-                _append(err_path, errors, ERROR_COLUMNS)
-                pending_rows, errors = [], []
-                state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
-                save_state(state_path, state)
-                log.info("progress %d/%d | scraped=%d generic=%d failed=%d",
-                         i, len(todo), n_scraped, n_generic, n_failed)
+                skip = seen if retry_failed else (seen | failed)
+                todo2 = [e for e in ext_entries if e.get("original") not in skip]
+                if limit:
+                    todo2 = todo2[:limit]
+                log.info("[wayback-extend] prefix=%s to=%s | %d archived capture(s); %d to scrape",
+                         prefix, to_date, len(ext_entries), len(todo2))
+                if todo2:
+                    if wayback_client is None:
+                        wayback_client = wayback.create_client()
+                    overrides = {f: getattr(ext, f) for f in
+                                 ("title", "text", "date", "speaker", "context")
+                                 if getattr(ext, f) is not None}
+                    phase_recipe = recipe.model_copy(update=overrides) if overrides else recipe
+                    scraped_before = stats["scraped"]
+                    aborted_early = _scrape_phase(
+                        todo2, is_wayback=True, meta_by_url={}, wayback_delay=ext.wayback_delay,
+                        phase_recipe=phase_recipe, label="wayback-extend",
+                    ) or aborted_early
+                    extended_scraped = stats["scraped"] - scraped_before
     except Exception:
         log.exception("FATAL during harvest/scrape — partial results flushed below")
         raise
@@ -354,12 +449,13 @@ def scrape_recipe(
         _append(err_path, errors, ERROR_COLUMNS)
         state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
         save_state(state_path, state)
-        attempted = n_scraped + n_failed
-        if attempted and n_failed / attempted > 0.5:
+        attempted = stats["scraped"] + stats["failed"]
+        if attempted and stats["failed"] / attempted > 0.5:
             log.warning("HIGH FAILURE RATE: %d/%d failed — check the recipe selectors / pagination "
-                        "(or the site may be blocking).", n_failed, attempted)
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s | last_doc_num=%d | out=%s",
-                 recipe.source_id, n_scraped, n_generic, n_failed,
+                        "(or the site may be blocking).", stats["failed"], attempted)
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s | last_doc_num=%d | out=%s",
+                 recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
+                 f" | +{extended_scraped} via wayback-extend" if extended_scraped else "",
                  " | ABORTED EARLY" if aborted_early else "", state["last_doc_num"], out_path)
         # Refresh the running scrape index (one row per source CSV; for merging). Never
         # let an index hiccup (e.g. the xlsx open in Excel) break the scrape itself.
@@ -374,9 +470,11 @@ def scrape_recipe(
         "source_id": recipe.source_id,
         "country": recipe.country,
         "links_found": len(links),
-        "scraped_this_run": n_scraped,
-        "via_generic_fallback": n_generic,   # high => recipe selectors are drifting
-        "failed_this_run": n_failed,
+        "scraped_this_run": stats["scraped"],
+        "via_generic_fallback": stats["generic"],   # high => recipe selectors are drifting
+        "failed_this_run": stats["failed"],
+        "extended_links_found": extended_links_found,  # archived captures found by wayback_extend
+        "extended_scraped": extended_scraped,          # of those, newly scraped this run
         "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
         "aborted_early": aborted_early,       # circuit breaker tripped (likely blocked/broken)
         "last_doc_num": state["last_doc_num"],
@@ -398,6 +496,9 @@ def main():
                     help="honor robots.txt (off by default for this public-record project)")
     ap.add_argument("--retry-failed", action="store_true",
                     help="re-attempt URLs that previously errored/were empty (use after fixing a recipe)")
+    ap.add_argument("--extend-wayback", action="store_true",
+                    help="after the live crawl, continue into the Internet Archive for older "
+                         "speeches (same as recipe `wayback_extend: true`; reuses the live selectors)")
     args = ap.parse_args()
 
     result = scrape_recipe(
@@ -405,6 +506,7 @@ def main():
         args.max_pages, args.max_links, args.limit,
         respect_robots=args.respect_robots,
         retry_failed=args.retry_failed,
+        extend_wayback=args.extend_wayback,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

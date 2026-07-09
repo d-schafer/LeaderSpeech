@@ -68,6 +68,19 @@ def _coverage(df: pd.DataFrame) -> tuple[str, str, int]:
             plausible.max().date().isoformat(), int(bad))
 
 
+def date_floor(csv_path: Path) -> Optional[str]:
+    """Earliest *plausible* date (YYYY-MM-DD) in a source CSV, or None if the file is
+    unreadable/empty or has no parseable date. Reuses `_coverage`'s plausible-year
+    filter, so a bogus min like `0001-11-30` can't drag the floor down. Used by the
+    `wayback_extend` continuation to bound the archive harvest at the live floor."""
+    try:
+        df = pd.read_csv(csv_path, dtype=str)
+    except Exception:
+        return None
+    date_min, _, _ = _coverage(df)
+    return date_min or None
+
+
 def _audio_marker(csv_path: Path) -> Optional[tuple[str, str]]:
     """If this source has an audio sidecar (`<id>_media.csv`, written by the
     video_audio_scraper), return (renderer, pagination_type) for the index — e.g.
