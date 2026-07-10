@@ -36,6 +36,7 @@ translate-google = ["deep-translator>=1.11"]            # Google backend (defaul
 translate-hf = ["transformers>=4.40", "torch>=2.0", "sentencepiece>=0.2"]  # OpusMT/NLLB (offline)
 audio = ["yt-dlp>=2024.1", "faster-whisper>=1.0"]       # video_audio_scraper (default backend; needs ffmpeg on PATH)
 audio-openai-whisper = ["openai-whisper>=20231117"]      # alt local backend (pulls torch)
+pdf = ["pdfminer.six>=20221105"]                         # PDF speech pages (content_type: pdf); pypdf is an optional fallback
 
 [project.scripts]
 leaderspeech-scrape = "leaderspeech.text_scraper.run:main"

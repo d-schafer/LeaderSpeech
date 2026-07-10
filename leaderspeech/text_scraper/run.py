@@ -23,11 +23,12 @@ from pathlib import Path
 
 import pycountry
 
-from .extract import extract_record
+from .extract import extract_pdf_record, extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
-from .recipe import PaginationType, Recipe, WaybackExtend, load_recipe
+from .pdf import is_pdf_url, looks_like_pdf
+from .recipe import ContentType, PaginationType, Recipe, WaybackExtend, load_recipe
 from . import api, feed, index, wayback
 
 # fixed name (not __name__): under `python -m`, __name__ is "__main__", which would
@@ -132,6 +133,46 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
         writer.writerows(rows)
 
 
+def wants_pdf(recipe: Recipe, url: str) -> bool:
+    """Should `url` be fetched+parsed as a PDF? Forced by `content_type: pdf`; in `auto`
+    mode, inferred from the URL (.pdf / @@download). `content_type: html` pins HTML."""
+    ct = recipe.content_type
+    return ct == ContentType.pdf or (ct == ContentType.auto and is_pdf_url(url))
+
+
+def _fetch_payload(fetcher, recipe: Recipe, url: str) -> tuple[str, object]:
+    """Fetch one speech URL for extraction. Returns ('pdf', bytes) when the recipe/URL
+    indicate a PDF, else ('html', str). PDFs always go over HTTP (bytes), even under js."""
+    if wants_pdf(recipe, url):
+        return "pdf", fetcher.get_bytes(url)[1]
+    return "html", fetcher.get(url)
+
+
+def _extract_payload(kind: str, payload, url: str, recipe: Recipe) -> tuple[dict, bool]:
+    """Build a speech record from a fetched payload. `payload` is PDF bytes (kind='pdf')
+    or HTML text (kind='html'). Returns (rec, via_generic). A 'pdf' payload that isn't
+    actually a PDF — a mixed listing, an HTML error page — is parsed as HTML instead.
+    HTML that the recipe selectors miss falls back to the generic article extractor."""
+    if kind == "pdf" and looks_like_pdf(payload):
+        return extract_pdf_record(payload, url, recipe), False
+
+    html = payload if isinstance(payload, str) else bytes(payload).decode("utf-8", "replace")
+    rec = extract_record(html, url, recipe)
+    via_generic = False
+    # Recipes are tuned to a site's CURRENT layout; older/archived pages often used a
+    # different structure and yield nothing. Before giving up, fall back to
+    # structure-agnostic generic extraction.
+    if not rec["text"]:
+        gen = extract_generic(html, url)
+        if gen["text"]:
+            rec["text"] = gen["text"]
+            rec["title"] = rec["title"] or gen["title"]
+            rec["date"] = rec["date"] or gen["date"]
+            rec["speaker"] = rec["speaker"] or gen["speaker"]
+            via_generic = True
+    return rec, via_generic
+
+
 def _record_from_entry(entry: dict, url: str, recipe: Recipe) -> dict:
     """Build a speech record straight from a harvested api/feed entry, for when the
     JSON/feed already carries the full text (so no page fetch is needed). Same shape
@@ -156,6 +197,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         limit=recipe.pagination.wayback_limit,
         match_type=recipe.pagination.wayback_match_type,
         collapse=recipe.pagination.wayback_collapse,
+        filters=recipe.pagination.wayback_filter,
     )
     return wayback.filter_entries_for_recipe(
         entries,
@@ -184,6 +226,7 @@ def _harvest_wayback_extend(prefix: str, link_pattern, ext: WaybackExtend, to_da
         limit=ext.wayback_limit,
         match_type=ext.wayback_match_type,
         collapse=ext.wayback_collapse,
+        filters=ext.wayback_filter,
     )
     return wayback.filter_entries_for_recipe(entries, link_pattern, start_urls=[prefix])
 
@@ -264,35 +307,29 @@ def scrape_recipe(
             try:
                 via_generic = False
                 entry: dict = {}
-                html = None
                 if is_wayback:
                     url = todo_item["original"]
-                    html = wayback.fetch_snapshot(
-                        todo_item, delay=wayback_delay, client=wayback_client,
-                    )
+                    # Archived captures may be HTML pages or (content_type: pdf) PDF bytes.
+                    if wants_pdf(phase_recipe, url):
+                        _, data = wayback.fetch_snapshot_bytes(
+                            todo_item, delay=wayback_delay, client=wayback_client,
+                        )
+                        rec, via_generic = _extract_payload("pdf", data, url, phase_recipe)
+                    else:
+                        html = wayback.fetch_snapshot(
+                            todo_item, delay=wayback_delay, client=wayback_client,
+                        )
+                        rec, via_generic = _extract_payload("html", html, url, phase_recipe)
                 else:
                     url = todo_item
                     entry = meta_by_url.get(url, {})
                     # When the JSON/feed already carries the full text, use it directly
-                    # and skip the page fetch; otherwise fetch the speech page.
-                    if not entry.get("text"):
-                        html = fetcher.get(url)
-
-                if html is not None:
-                    rec = extract_record(html, url, phase_recipe)
-                    # Recipes are tuned to a site's CURRENT layout; older/archived pages
-                    # often used a different structure and yield nothing. Before giving up,
-                    # fall back to structure-agnostic generic extraction.
-                    if not rec["text"]:
-                        gen = extract_generic(html, url)
-                        if gen["text"]:
-                            rec["text"] = gen["text"]
-                            rec["title"] = rec["title"] or gen["title"]
-                            rec["date"] = rec["date"] or gen["date"]
-                            rec["speaker"] = rec["speaker"] or gen["speaker"]
-                            via_generic = True
-                else:
-                    rec = _record_from_entry(entry, url, phase_recipe)
+                    # and skip the page fetch; otherwise fetch the speech page (HTML or PDF).
+                    if entry.get("text"):
+                        rec = _record_from_entry(entry, url, phase_recipe)
+                    else:
+                        kind, payload = _fetch_payload(fetcher, phase_recipe, url)
+                        rec, via_generic = _extract_payload(kind, payload, url, phase_recipe)
 
                 # Fill any field the page extraction left empty from the carried api/feed
                 # metadata (e.g. SharePoint's reliable Write date when a page selector missed).

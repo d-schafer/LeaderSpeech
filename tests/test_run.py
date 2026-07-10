@@ -3,7 +3,7 @@ faking the link harvester and the fetcher."""
 
 import json
 
-from leaderspeech.text_scraper import run
+from leaderspeech.text_scraper import pdf, run
 
 RECIPE_YAML = r"""
 source_id: test_src
@@ -251,7 +251,7 @@ def test_wayback_extend_continues_after_live_and_dedupes(tmp_path, monkeypatch):
     captured = {}
 
     def fake_lsfq(urls, from_date=None, to_date=None, limit=None,
-                  match_type="prefix", collapse="urlkey"):
+                  match_type="prefix", collapse="urlkey", filters=None):
         captured["urls"] = list(urls)
         captured["to_date"] = to_date
         return [dict(e) for e in archive_entries]
@@ -305,6 +305,138 @@ def test_extend_wayback_flag_triggers_without_recipe_field(tmp_path, monkeypatch
 
     assert res["extended_scraped"] == 1         # the archive capture was scraped via the flag
     assert res["scraped_this_run"] == 2         # 1 live + 1 archive
+
+
+PDF_STATIC_RECIPE_YAML = r"""
+source_id: test_pdf
+country: Brazil
+source_language: Portuguese
+start_urls: ["http://x/discursos"]
+content_type: pdf
+listing: { link_pattern: '\.pdf' }
+title: {}
+text: {}
+date: { url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})-(?P<month>\d{2})-' }
+speaker_default: Lula da Silva
+position: president
+date_languages: ["pt"]
+"""
+
+PDF_WAYBACK_RECIPE_YAML = r"""
+source_id: test_pdf_wb
+country: Brazil
+source_language: Portuguese
+start_urls: ["biblioteca.presidencia.gov.br/discursos"]
+content_type: pdf
+listing: { link_pattern: '/\d{4}/\d{2}-\d{2}' }
+pagination:
+  type: wayback
+  wayback_filter: ["mimetype:application/pdf", "statuscode:200"]
+title: {}
+text: {}
+date: { url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})-(?P<month>\d{2})-' }
+speaker_default: Lula da Silva
+position: president
+date_languages: ["pt"]
+"""
+
+
+class PdfFetcher:
+    """A fetcher whose get_bytes serves PDF magic bytes (so looks_like_pdf passes); the
+    actual text comes from a monkeypatched pdf.pdf_bytes_to_text."""
+    payload = b"%PDF-1.4 fake pdf bytes"
+
+    def __init__(self, **kwargs):
+        pass
+
+    def get_bytes(self, url):
+        return "application/pdf", PdfFetcher.payload
+
+    def get(self, url):
+        raise AssertionError("a content_type: pdf recipe must fetch bytes, not text")
+
+    def close(self):
+        pass
+
+
+def test_pdf_static_recipe_extracts_body_and_url_date(tmp_path, monkeypatch):
+    """A live static content_type: pdf recipe: each harvested URL is fetched as bytes,
+    the body comes from the PDF, and the date is read unambiguously off the URL."""
+    urls = ["http://x/discursos/1o-mandato/2003/18-06-2003-discurso-a.pdf",
+            "http://x/discursos/2o-mandato/2009/01-05-2009-discurso-b.pdf"]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
+    monkeypatch.setattr(run, "Fetcher", PdfFetcher)
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "Corpo do discurso do presidente.")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "test_pdf.yml"
+    p.write_text(PDF_STATIC_RECIPE_YAML, encoding="utf-8")
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 2
+    assert res["failed_this_run"] == 0
+    csv = (out / "Brazil" / "test_pdf.csv").read_text(encoding="utf-8")
+    assert "Corpo do discurso do presidente." in csv   # PDF body -> text_originlanguage (pt)
+    assert "2003-06-18" in csv and "2009-05-01" in csv  # DD-MM-YYYY from the URL
+    assert "Lula da Silva" in csv                       # speaker_default
+
+
+def test_pdf_wayback_recipe_extracts_archived_pdf(tmp_path, monkeypatch):
+    """content_type: pdf over pagination: wayback — archived captures are fetched as bytes
+    (fetch_snapshot_bytes) and run through the PDF extractor, and the CDX `filters` are
+    passed through."""
+    entries = [
+        {"timestamp": "20081010", "original": "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"},
+        {"timestamp": "20091111", "original": "http://x/discursos/2o-mandato/2009/01-05-2009-b.pdf"},
+    ]
+    captured = {}
+
+    def fake_lsfq(urls, filters=None, **k):
+        captured["filters"] = filters
+        return [dict(e) for e in entries]
+
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", fake_lsfq)
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot_bytes",
+        lambda entry, delay=5.0, timeout=60.0, client=None: ("application/pdf", b"%PDF-1.4 x"),
+    )
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "Texto do PDF arquivado.")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "test_pdf_wb.yml"
+    p.write_text(PDF_WAYBACK_RECIPE_YAML, encoding="utf-8")
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 2
+    assert res["failed_this_run"] == 0
+    assert captured["filters"] == ["mimetype:application/pdf", "statuscode:200"]
+    csv = (out / "Brazil" / "test_pdf_wb.csv").read_text(encoding="utf-8")
+    assert "Texto do PDF arquivado." in csv
+    assert "2003-06-18" in csv and "2009-05-01" in csv
+
+
+def test_pdf_mode_falls_back_to_html_when_payload_is_not_a_pdf(tmp_path, monkeypatch):
+    """A content_type: pdf URL that actually returns HTML (a mixed listing / error page) is
+    parsed as HTML instead of fed to the PDF extractor."""
+    html = ("<html><h1>Titulo</h1><span class='date'>1 de enero de 2020</span>"
+            "<div class='body'>Cuerpo HTML.</div></html>").encode("utf-8")
+
+    class HtmlBytesFetcher(PdfFetcher):
+        def get_bytes(self, url):
+            return "text/html", html
+
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/d/2020/01-01-x.pdf"])
+    monkeypatch.setattr(run, "Fetcher", HtmlBytesFetcher)
+
+    recipe_yaml = PDF_STATIC_RECIPE_YAML.replace("text: {}", "text: { selectors: ['div.body'] }")
+    p = tmp_path / "test_pdf_html.yml"
+    p.write_text(recipe_yaml, encoding="utf-8")
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    csv = (out / "Brazil" / "test_pdf.csv").read_text(encoding="utf-8")
+    assert "Cuerpo HTML." in csv   # recovered via the HTML selector, not the PDF path
 
 
 def test_no_wayback_extend_by_default(tmp_path, monkeypatch):

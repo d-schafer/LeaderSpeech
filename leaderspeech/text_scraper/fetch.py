@@ -113,6 +113,10 @@ class Fetcher:
         self._count = 0
         self._robots = RobotsCache(self.user_agent) if respect_robots else None
         self._client: Optional[httpx.Client] = None
+        # A plain httpx client for raw-byte fetches (PDFs), built lazily. In 'js' mode the
+        # main client is Playwright, which can't cleanly download a binary — so PDF bytes
+        # always go over httpx, even under a js recipe.
+        self._bytes_client: Optional[httpx.Client] = None
         self._pw = None
         self._browser = None
         self._page = None
@@ -178,9 +182,47 @@ class Fetcher:
                     time.sleep(self.backoff * (2 ** (attempt - 1)))  # exponential backoff
         raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}")
 
+    def _byte_client(self) -> httpx.Client:
+        """The httpx client used for raw-byte fetches: the static client if we have one,
+        else a lazily-built plain client (js mode / no static client)."""
+        if self._client is not None:
+            return self._client
+        if self._bytes_client is None:
+            self._bytes_client = httpx.Client(
+                headers=build_headers(self.user_agent),
+                follow_redirects=True,
+                timeout=self.timeout,
+                verify=self.verify_ssl,
+            )
+        return self._bytes_client
+
+    def get_bytes(self, url: str) -> tuple[str, bytes]:
+        """Fetch one URL as raw bytes, returning (content_type, content). Used for PDFs
+        and any non-HTML payload. Mirrors get()'s robots check, pacing, and retry/backoff,
+        but always goes over HTTP (httpx) so it works even in 'js' mode."""
+        if self._robots is not None and not self._robots.allowed(url):
+            raise PermissionError(f"Blocked by robots.txt: {url}")
+
+        self._pace()
+        client = self._byte_client()
+        last_err: Optional[Exception] = None
+        for attempt in range(1, self.retries + 1):
+            try:
+                resp = client.get(url)
+                resp.raise_for_status()
+                ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+                return ctype, resp.content
+            except Exception as e:
+                last_err = e
+                if attempt < self.retries:
+                    time.sleep(self.backoff * (2 ** (attempt - 1)))
+        raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}")
+
     def close(self):
         if self._client:
             self._client.close()
+        if self._bytes_client:
+            self._bytes_client.close()
         if self._browser:
             self._browser.close()
         if self._pw:

@@ -26,6 +26,21 @@ class Renderer(str, Enum):
     js = "js"           # JavaScript-rendered (Playwright)
 
 
+class ContentType(str, Enum):
+    """Whether a speech page is HTML or a PDF.
+
+    Default ``auto`` keeps the classic behavior: pages are HTML, and a harvested URL is
+    only treated as a PDF if it *looks* like one (``.pdf`` / ``@@download``, or a real
+    ``application/pdf`` response). ``pdf`` forces every harvested URL through the PDF
+    text-extractor (for sources whose PDF URLs carry no ``.pdf`` hint); ``html`` pins the
+    HTML path even for ``.pdf`` URLs (rare — a viewer page). See docs/recipes.md.
+    """
+
+    auto = "auto"
+    html = "html"
+    pdf = "pdf"
+
+
 class PaginationType(str, Enum):
     query_param = "query_param"   # ?start=40 / ?page=2 style
     path = "path"                 # /discursos/2 style
@@ -119,6 +134,10 @@ class Pagination(BaseModel):
     wayback_delay: float = 5.0             # seconds to wait before each archived fetch
     wayback_from: Optional[str] = None     # CDX `from` (YYYYMMDD)
     wayback_to: Optional[str] = None       # CDX `to` (YYYYMMDD)
+    # Extra CDX `filter=` expressions (field:regex), ANDed. e.g.
+    # ["mimetype:application/pdf", "statuscode:200"] to keep only real PDF captures and
+    # drop the text/html listing/redirect noise a prefix query returns. None => no filter.
+    wayback_filter: Optional[list[str]] = None
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 
@@ -133,6 +152,11 @@ class FieldSpec(BaseModel):
     selectors: list[str] = Field(default_factory=list)
     attr: Optional[str] = None    # read this attribute instead of the text
     regex: Optional[str] = None   # optional regex to pull a substring out
+    # Extract this field from the page URL when no selector matches (or when there is no
+    # DOM at all — PDFs). Applied to the speech URL; the whole match is used, or group(1)
+    # if the regex captures. For dates, named groups (?P<year>)/(?P<month>)/(?P<day>) are
+    # assembled into an ISO date (handy for /YYYY/DD-MM-... archive paths). See docs.
+    url_regex: Optional[str] = None
 
 
 class WaybackExtend(BaseModel):
@@ -172,6 +196,7 @@ class WaybackExtend(BaseModel):
     wayback_limit: Optional[int] = None   # cap captures listed per query
     wayback_match_type: str = "prefix"    # CDX `matchType`
     wayback_collapse: str = "urlkey"      # CDX `collapse`
+    wayback_filter: Optional[list[str]] = None  # extra CDX `filter=` expressions (see Pagination)
 
 
 class Politeness(BaseModel):
@@ -196,6 +221,9 @@ class Recipe(BaseModel):
     # where + how to crawl
     start_urls: list[str]
     renderer: Renderer = Renderer.static
+    # HTML (default) or PDF speech pages. `auto` treats a page as HTML unless the URL/
+    # response says PDF; `pdf` forces the PDF text-extractor for every harvested URL.
+    content_type: ContentType = ContentType.auto
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
     listing: Listing
@@ -234,10 +262,17 @@ class Recipe(BaseModel):
 
     @model_validator(mode="after")
     def _checks(self):
+        # A field is satisfied by a selector chain OR a url_regex. PDF recipes have no DOM,
+        # so the body `text` always comes from the PDF itself (no selector required); a PDF
+        # source may still pull title/date off the URL via url_regex, but need not.
+        is_pdf = self.content_type == ContentType.pdf
         for name in ("title", "text", "date"):
             fs: FieldSpec = getattr(self, name)
-            if not fs.selectors:
-                raise ValueError(f"field '{name}' needs at least one selector")
+            if fs.selectors or fs.url_regex:
+                continue
+            if is_pdf:
+                continue  # PDF: text from the body; title/date optional (url_regex or none)
+            raise ValueError(f"field '{name}' needs at least one selector or a url_regex")
         if self.pagination.type == PaginationType.query_param and not self.pagination.param:
             raise ValueError("query_param pagination needs 'param'")
         if self.pagination.type == PaginationType.click and not self.pagination.next_selector:

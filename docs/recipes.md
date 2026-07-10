@@ -262,6 +262,63 @@ position: president
 date_languages: ["es"]
 ```
 
+## PDF speech pages (`content_type: pdf`)
+
+Some high-value archives serve speeches as **PDF files**, not HTML — e.g. Brazil's
+Biblioteca da Presidência, the only source for Lula I–II (2003–2010). Set
+`content_type: pdf` and the engine downloads each harvested URL's bytes and extracts the
+text with a PDF library (pdfminer.six; install with `pip install '.[pdf]'`) instead of
+BeautifulSoup, then maps the result into the same schema / `doc_id` / state as everything
+else. This works over any pagination type, **including `wayback`** (the archived PDF bytes
+are fetched and extracted).
+
+Because a PDF has no DOM, there are no selectors to match. Two things change:
+
+1. **`content_type`** — `auto` (default) treats a page as HTML unless the URL looks like a
+   PDF (`.pdf` / `@@download`) or the response is `application/pdf`; **`pdf`** forces every
+   harvested URL through the PDF extractor. Use `pdf` when the PDF URLs carry *no* `.pdf`
+   hint (some Plone object ids drop the extension). A `pdf`-mode URL that unexpectedly
+   returns HTML (a mixed listing, an error page) falls back to HTML parsing automatically.
+2. **`url_regex`** — since there are no selectors, pull `title` / `date` / `speaker` off the
+   **URL** with a per-field `url_regex` (the body always comes from the PDF; the title
+   falls back to the PDF's first line). `url_regex` runs on the page URL and uses `group(1)`
+   if it captures, else the whole match. For **dates**, named `(?P<year>)(?P<month>)(?P<day>)`
+   groups are assembled directly into an ISO date — which sidesteps DD/MM ambiguity for
+   numeric archive paths like `/2003/18-06-…`. (`url_regex` also works on HTML recipes, as a
+   fallback when a selector misses — e.g. a date that only appears in the URL.)
+
+`title`/`text`/`date` are still required *keys* in the YAML, but for a `pdf` recipe they may
+be empty (`{}`) — the schema check is relaxed so a PDF source needs no HTML selectors.
+
+```yaml
+# Brazil — Biblioteca da Presidência (ex-presidents), Lula 2003–2010, via the archive.
+source_id: bra_biblioteca_wayback
+country: Brazil
+source_language: Portuguese
+content_type: pdf                    # download PDF bytes + extract text
+start_urls:
+  - biblioteca.presidencia.gov.br/presidencia/ex-presidentes/luiz-inacio-lula-da-silva/discursos
+listing:
+  link_pattern: '/\d{4}/[^/]+$'      # keep the bare PDF object; drop its /@@download twin
+pagination:
+  type: wayback
+  wayback_filter:                    # keep only real PDF captures (drop text/html noise)
+    - "mimetype:application/pdf"
+    - "statuscode:200"
+title: {}                            # no DOM: title falls back to the PDF's first line
+text:  {}                            # body comes from the PDF
+date:
+  url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})-(?P<month>\d{2})-'   # DD-MM-YYYY off the URL
+speaker_default: Lula da Silva
+position: president
+date_languages: ["pt"]
+```
+
+> **`wayback_filter`** is a general CDX knob (not PDF-specific): a list of raw CDX
+> `filter=` expressions ANDed together. `mimetype:application/pdf` is what makes a PDF
+> wayback recipe clean — a bare prefix query otherwise returns thousands of `text/html`
+> listing / redirect / `.pdf/view` captures alongside the actual PDF binaries.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -273,6 +330,7 @@ date_languages: ["es"]
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
 | `renderer` | no | `static` (default) or `js`. |
+| `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
@@ -286,6 +344,7 @@ date_languages: ["es"]
 | `pagination.url_list` | for url_list | Explicit list of listing URLs. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
+| `pagination.wayback_filter` | no | A list of raw CDX `filter=` expressions (`field:regex`) ANDed together — e.g. `["mimetype:application/pdf", "statuscode:200"]` to keep only real PDF captures and drop a prefix query's text/html noise. |
 | `wayback_extend` | no | Opt-in continuation of a **live** recipe into the Internet Archive after its crawl finishes (see "Auto-continuing a live recipe into the archive"). `true` reuses everything; a mapping supplies overrides. `false`/absent = off. Same-host only. |
 | `wayback_extend.prefix` | no | CDX prefix to enumerate. Default = derived from `start_urls[0]` (host+path). Set it when speeches don't live under the listing path. |
 | `wayback_extend.link_pattern` | no | Regex selecting archived speech URLs. Default = `listing.link_pattern`. |
@@ -308,6 +367,7 @@ date_languages: ["es"]
 | `speaker` / `context` | no | Same shape as above. |
 | `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |
 | `<field>.regex` | no | Pull a substring out of the matched value (e.g. isolate a date from a label). |
+| `<field>.url_regex` | no | Extract the field from the page **URL** when no selector matches (or when there's no DOM — PDFs). Uses `group(1)` if it captures, else the whole match. For `date`, named `(?P<year>)(?P<month>)(?P<day>)` groups assemble an unambiguous ISO date. |
 | `position` | no | Fixed office when the source is single-office (`president`, `prime minister`). |
 | `speaker_default` | no | Fixed speaker when the source is single-leader. |
 | `date_languages` | no | Language hints for `dateparser` (e.g. `["es"]`, `["fr"]`). |

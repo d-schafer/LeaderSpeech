@@ -42,12 +42,15 @@ def list_snapshots(
     limit: Optional[int] = None,
     match_type: Optional[str] = None,  # "exact" | "prefix" | "host" | "domain"
     collapse: str = "digest",          # drop adjacent identical captures
+    filters: Optional[Iterable[str]] = None,  # extra CDX `filter=` exprs (field:regex)
     timeout: float = 60.0,
 ) -> list[dict]:
     """Query the CDX index. Returns one dict per capture (timestamp, original, ...).
 
     Use a trailing '*' on the url (or match_type='prefix'/'domain') to list every
-    archived page under a site, not just one URL.
+    archived page under a site, not just one URL. `filters` are raw CDX filter
+    expressions (e.g. "mimetype:application/pdf") ANDed together — handy to keep a
+    prefix query to just the PDF (or 200-status) captures.
     """
     if url.endswith("*"):
         url = url[:-1]
@@ -60,9 +63,14 @@ def list_snapshots(
         params["limit"] = str(limit)
     if match_type:
         params["matchType"] = match_type
+    query = params
+    if filters:
+        # CDX allows repeated `filter=` params, so once there are filters the query has
+        # to be a list of pairs rather than a dict (which can't hold duplicate keys).
+        query = list(params.items()) + [("filter", f) for f in filters]
 
     resp = httpx.get(
-        CDX_ENDPOINT, params=params,
+        CDX_ENDPOINT, params=query,
         headers={"User-Agent": USER_AGENT}, timeout=timeout,
     )
     resp.raise_for_status()
@@ -88,6 +96,7 @@ def list_snapshots_for_queries(
     limit: Optional[int] = None,
     match_type: str = "prefix",
     collapse: str = "urlkey",
+    filters: Optional[Iterable[str]] = None,
     timeout: float = 60.0,
 ) -> list[dict]:
     """Query CDX for one or more URL prefixes and de-duplicate by original URL.
@@ -97,6 +106,7 @@ def list_snapshots_for_queries(
     per query only when there is a single query; otherwise the total cap is
     enforced after de-duplicating the merged results.
     """
+    filters = list(filters) if filters else None
     queries = list(urls)
     per_query_limit = limit if len(queries) == 1 else None
     out: list[dict] = []
@@ -110,6 +120,7 @@ def list_snapshots_for_queries(
             limit=per_query_limit,
             match_type=match_type,
             collapse=collapse,
+            filters=filters,
             timeout=timeout,
         )
         for entry in snaps:
@@ -179,20 +190,20 @@ def _retry_sleep(attempt: int, backoff: float) -> float:
     return base + jitter
 
 
-def fetch_snapshot(
+def _fetch_snapshot_resp(
     entry: dict,
-    delay: float = DEFAULT_FETCH_DELAY,
-    timeout: float = 60.0,
-    client: Optional[httpx.Client] = None,
-    retries: int = DEFAULT_FETCH_RETRIES,
-    backoff: float = DEFAULT_FETCH_BACKOFF,
-) -> str:
-    """Politely fetch one archived capture's HTML, riding out transient Archive
-    throttling — connection refusals (`ConnectError`) and 429/5xx — with capped
-    exponential backoff. The Archive periodically refuses a burst then recovers
-    within a minute or so, so we retry long enough to outlast that window instead
-    of surfacing a one-off refusal as a failed speech. Non-retryable statuses
-    (e.g. 404) raise immediately."""
+    delay: float,
+    timeout: float,
+    client: Optional[httpx.Client],
+    retries: int,
+    backoff: float,
+) -> httpx.Response:
+    """Politely fetch one archived capture, riding out transient Archive throttling —
+    connection refusals (`ConnectError`) and 429/5xx — with capped exponential backoff.
+    The Archive periodically refuses a burst then recovers within a minute or so, so we
+    retry long enough to outlast that window instead of surfacing a one-off refusal as a
+    failed speech. Non-retryable statuses (e.g. 404) raise immediately. Returns the raw
+    Response so callers can take `.text` (HTML) or `.content` (PDF)."""
     time.sleep(delay)
     close_client = client is None
     client = client or create_client(timeout=timeout)
@@ -202,7 +213,8 @@ def fetch_snapshot(
             try:
                 resp = client.get(url)
                 resp.raise_for_status()
-                return resp.text
+                resp.read()  # materialize the body before the client may be closed
+                return resp
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 if isinstance(exc, httpx.HTTPStatusError):
                     status = exc.response.status_code if exc.response is not None else None
@@ -217,3 +229,30 @@ def fetch_snapshot(
     finally:
         if close_client:
             client.close()
+
+
+def fetch_snapshot(
+    entry: dict,
+    delay: float = DEFAULT_FETCH_DELAY,
+    timeout: float = 60.0,
+    client: Optional[httpx.Client] = None,
+    retries: int = DEFAULT_FETCH_RETRIES,
+    backoff: float = DEFAULT_FETCH_BACKOFF,
+) -> str:
+    """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`)."""
+    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff).text
+
+
+def fetch_snapshot_bytes(
+    entry: dict,
+    delay: float = DEFAULT_FETCH_DELAY,
+    timeout: float = 60.0,
+    client: Optional[httpx.Client] = None,
+    retries: int = DEFAULT_FETCH_RETRIES,
+    backoff: float = DEFAULT_FETCH_BACKOFF,
+) -> tuple[str, bytes]:
+    """Fetch one archived capture as raw bytes, returning (content_type, content) — for
+    PDF captures, where the archive stored the original binary."""
+    resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff)
+    ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+    return ctype, resp.content

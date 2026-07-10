@@ -18,11 +18,12 @@ import sys
 
 from bs4 import BeautifulSoup
 
-from .extract import clean_text, extract_record
+from .extract import clean_text, extract_pdf_record, extract_record
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
-from .recipe import FieldSpec, PaginationType, load_recipe
+from .pdf import is_pdf_url, looks_like_pdf
+from .recipe import ContentType, FieldSpec, PaginationType, load_recipe
 from . import api, feed, wayback
 
 try:
@@ -55,6 +56,37 @@ def _sample_evenly(entries: list, n: int) -> list:
     return list(entries)
 
 
+def _pdf_page_report(recipe, url: str, rec: dict) -> dict:
+    """Per-page diagnostics for a PDF sample. PDFs have no DOM, so 'matched' means the
+    field's url_regex hit (or, for text, the PDF body extracted); the shape mirrors the
+    HTML page report so `_print` renders it the same way."""
+    fields = {}
+    for name in FIELDS:
+        spec = getattr(recipe, name)
+        if name == "text":
+            matched = "(pdf body)" if rec["text"] else None
+            tried = ["(PDF body extraction)"]
+        else:
+            url_regex = getattr(spec, "url_regex", None) if spec else None
+            matched = f"url_regex: {url_regex}" if (url_regex and rec.get(name)) else None
+            tried = [f"url_regex: {url_regex}"] if url_regex else (["speaker_default"]
+                     if name == "speaker" and recipe.speaker_default else [])
+        fields[name] = {
+            "matched_selector": matched,
+            "n_elements": 0,
+            "tried": tried,
+            "value_preview": clean_text(rec[name])[:100] if name != "text" else "",
+            "text_len": len(rec["text"]) if name == "text" else None,
+        }
+    return {
+        "url": url,
+        "parsed_date": rec["date"],
+        "recipe_text_len": len(rec["text"]),
+        "generic_text_len": 0,
+        "fields": fields,
+    }
+
+
 def _listing_count(report_listing: dict) -> tuple[str, int]:
     if "snapshots_found" in report_listing:
         return "snapshot(s)", report_listing.get("snapshots_found", 0)
@@ -80,6 +112,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
                 limit=recipe.pagination.wayback_limit,
                 match_type=recipe.pagination.wayback_match_type,
                 collapse=recipe.pagination.wayback_collapse,
+                filters=recipe.pagination.wayback_filter,
             )
             entries = wayback.filter_entries_for_recipe(
                 entries,
@@ -121,17 +154,30 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False) -> dict:
             report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
 
         for item in sample:
+            pdf_data = None
             try:
-                if recipe.pagination.type == PaginationType.wayback:
-                    entry = item
-                    url = entry["original"]
-                    phtml = wayback.fetch_snapshot(entry, delay=0.0, client=wayback_client)
+                is_wayback = recipe.pagination.type == PaginationType.wayback
+                url = item["original"] if is_wayback else item
+                want_pdf = recipe.content_type == ContentType.pdf or (
+                    recipe.content_type == ContentType.auto and is_pdf_url(url))
+                if is_wayback and want_pdf:
+                    _, data = wayback.fetch_snapshot_bytes(item, delay=0.0, client=wayback_client)
+                    pdf_data = data if looks_like_pdf(data) else None
+                    phtml = None if pdf_data else data.decode("utf-8", "replace")
+                elif is_wayback:
+                    phtml = wayback.fetch_snapshot(item, delay=0.0, client=wayback_client)
+                elif want_pdf:
+                    _, data = fetcher.get_bytes(url)
+                    pdf_data = data if looks_like_pdf(data) else None
+                    phtml = None if pdf_data else data.decode("utf-8", "replace")
                 else:
-                    url = item
                     phtml = fetcher.get(url)
             except Exception as e:
                 bad_url = item.get("original") if isinstance(item, dict) else item
                 report["pages"].append({"url": bad_url, "error": f"{type(e).__name__}: {e}"})
+                continue
+            if pdf_data is not None:
+                report["pages"].append(_pdf_page_report(recipe, url, extract_pdf_record(pdf_data, url, recipe)))
                 continue
             soup = BeautifulSoup(phtml, "lxml")
             rec = extract_record(phtml, url, recipe)              # what the recipe yields
