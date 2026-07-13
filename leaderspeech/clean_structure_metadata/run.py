@@ -7,6 +7,10 @@
     python -m leaderspeech.clean_structure_metadata.run --country Chile
     python -m leaderspeech.clean_structure_metadata.run --all
 
+    # an ARBITRARY combined corpus (any CSV/Parquet, many countries/datasets in one table)
+    python -m leaderspeech.clean_structure_metadata.run --input data/LeaderSpeech.parquet
+    #   -> writes data/LeaderSpeech.cleaned.parquet (raw input untouched); --output overrides
+
 Resumable: re-running only sends speeches not already cleaned to the model. Use
 --retry-failed to re-attempt rows that errored, and --dry-run to preview counts with
 no API calls.
@@ -20,7 +24,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
-from .pipeline import clean_source, iter_sources, regate_source
+from .pipeline import clean_file, clean_source, iter_sources, regate_source
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -34,6 +38,10 @@ def main():
     sel.add_argument("--source", help="a single source_id (e.g. chl_presidencia)")
     sel.add_argument("--country", help="clean every source under this country folder")
     sel.add_argument("--all", action="store_true", help="clean every scraped source")
+    sel.add_argument("--input", help="clean an ARBITRARY CSV/Parquet corpus (many countries/datasets "
+                                     "in one table); ignores the per-country folder convention")
+    ap.add_argument("--output", default=None,
+                    help="with --input: write here instead of <input_stem>.cleaned.parquet")
     ap.add_argument("--in-root", default="data/scraped")
     ap.add_argument("--out-root", default="data/cleaned")
     ap.add_argument("--state-root", default="data/clean_state")
@@ -48,6 +56,20 @@ def main():
     args = ap.parse_args()
 
     config = load_config(args.config)
+
+    # --input: clean one arbitrary table into a single output Parquet (non-destructive by default).
+    if args.input:
+        if args.regate:
+            ap.error("--regate operates on the cleaned store (per-source Parquet), not an --input table")
+        in_path = Path(args.input)
+        out_path = Path(args.output) if args.output else in_path.with_name(in_path.stem + ".cleaned.parquet")
+        summary = clean_file(
+            in_path, out_path, config=config, model=args.model,
+            label=in_path.stem, limit=args.limit, retry_failed=args.retry_failed,
+            dry_run=args.dry_run, refresh_index=False,
+        )
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return
 
     if args.source:
         targets = [(args.source, args.country)]

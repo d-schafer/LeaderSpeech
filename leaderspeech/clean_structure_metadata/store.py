@@ -57,6 +57,23 @@ def read_source(path: str | Path) -> pd.DataFrame:
     return df
 
 
+def read_input(path: str | Path) -> pd.DataFrame:
+    """Read an ARBITRARY input table (the column-agnostic input side, unlike `read_source`).
+
+    Dispatches by extension: `.parquet` via pyarrow, anything else via `read_csv` (pandas
+    auto-decompresses `.csv.gz`). Cells are normalized to strings with blanks for missing
+    values, matching the per-source CSV path (`dtype=str, keep_default_na=False`) so the rest
+    of the pipeline — which assumes string values (`.strip()`, `date[:4]`) — is unchanged.
+    The fixed cleaned schema is NOT imposed here; extra columns are preserved."""
+    p = Path(path)
+    if p.suffix.lower() == ".parquet":
+        df = pd.read_parquet(p)
+        # match the CSV branch: NA -> "" and every cell a str (parquet may carry
+        # Timestamp / numeric ISO3N; downstream treats these fields as opaque strings)
+        return df.astype(object).where(df.notna(), "").astype(str)
+    return pd.read_csv(p, dtype=str, keep_default_na=False)
+
+
 def write_source_atomic(df: pd.DataFrame, path: str | Path, compression: str = "zstd") -> None:
     """Write `df` to `path` atomically: serialize to `<path>.tmp`, keep the previous file
     as `<path>.bak`, then `os.replace` the temp over the target (an atomic swap, so the

@@ -150,8 +150,12 @@ def regate_source(
 
 
 def _base_row(row: dict) -> dict:
-    """Carry the 15 scraped columns through + record audit copies."""
-    out = {c: row.get(c, "") for c in store.SCRAPED_COLUMNS}
+    """Carry ALL input columns through (so a combined corpus keeps ISI_id / custom fields),
+    guarantee the 15 scraped columns exist, record audit copies, and None-init the cleaner's
+    columns. For a standard scraper CSV (exactly the 15 columns) this is unchanged behavior."""
+    out = dict(row)
+    for c in store.SCRAPED_COLUMNS:
+        out.setdefault(c, "")
     out["speaker_scraped"] = row.get("speaker", "")
     out["date_scraped"] = row.get("date", "")
     for c in store.CLEAN_COLUMNS:
@@ -241,15 +245,53 @@ def clean_source(
     dry_run: bool = False,
     save_every_chunks: int = 1,
 ) -> dict:
+    """Clean ONE scraped source: resolve its country folder + per-source output/state paths from
+    the scraper's `data/scraped/<Country>/<id>.csv` convention, then delegate to `clean_file`.
+    run.py loops this over a country / all sources."""
+    csv_path, country = _locate_csv(in_root, source_id, country)
+    out_path = Path(out_root) / country / f"{source_id}.parquet"
+    state_path = Path(state_root) / country / f"{source_id}.json"
+    return clean_file(
+        csv_path, out_path, state_path=state_path,
+        config=config, model=model, label=source_id, country_label=country,
+        limit=limit, retry_failed=retry_failed, dry_run=dry_run,
+        refresh_index=True, index_root=out_root, save_every_chunks=save_every_chunks,
+    )
+
+
+def clean_file(
+    in_path: str | Path,
+    out_path: str | Path,
+    *,
+    state_path: str | Path | None = None,
+    config: CleanConfig | None = None,
+    model: str | None = None,
+    label: str | None = None,
+    country_label: str | None = None,
+    limit: int | None = None,
+    retry_failed: bool = False,
+    dry_run: bool = False,
+    refresh_index: bool = False,
+    index_root: str | Path | None = None,
+    save_every_chunks: int = 1,
+) -> dict:
+    """Clean ONE input table into ONE output Parquet (which doubles as the resume ledger), with
+    EXPLICIT paths. Country-agnostic: every row's country/tenure/prompt is read from its own
+    `country` column, so the input may mix countries, datasets, and speakers (a combined corpus).
+    `clean_source` wraps this with the per-source folder convention; the CLI's `--input` mode calls
+    it directly. `label` names the source in logs/summary/state; `refresh_index` rebuilds the
+    cleaned-store index rooted at `index_root` (only meaningful when writing into the
+    `data/cleaned/<Country>/` tree)."""
     config = config or CleanConfig()
     if model:
         config = config.model_copy(update={"model": model})
 
-    csv_path, country = _locate_csv(in_root, source_id, country)
-    out_path = Path(out_root) / country / f"{source_id}.parquet"
-    state_path = Path(state_root) / country / f"{source_id}.json"
+    in_path = Path(in_path)
+    out_path = Path(out_path)
+    label = label or in_path.stem
+    state_path = Path(state_path) if state_path else out_path.parent / f"{out_path.stem}.state.json"
 
-    scraped = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
+    scraped = store.read_input(in_path)
     scraped["doc_id"] = scraped["doc_id"].astype(str)
 
     # tenure key (optional but expected)
@@ -269,7 +311,7 @@ def clean_source(
     keep = existing[~existing["doc_id"].isin(todo_ids)] if not existing.empty else store.empty_frame()
 
     summary = {
-        "source_id": source_id, "country": country, "model": config.model,
+        "source_id": label, "country": country_label, "model": config.model,
         "scraped_total": len(scraped), "to_clean": len(todo),
         "cleaned_this_run": 0, "accepted": 0, "rejected": 0, "errors": 0,
         "output": str(out_path), "log": "", "dry_run": dry_run,
@@ -288,10 +330,10 @@ def clean_source(
         return summary
 
     # real run from here: attach a per-source timestamped file log
-    log_path, log_handler = _add_log_file(out_path.parent, source_id)
+    log_path, log_handler = _add_log_file(out_path.parent, label)
     summary["log"] = str(log_path)
     log.info("START %s (%s) | model=%s limit=%s retry_failed=%s",
-             source_id, country, config.model, limit, retry_failed)
+             label, country_label, config.model, limit, retry_failed)
     if tenure_missing:
         log.warning("tenure file not found at %s -- tenure crosscheck disabled", config.tenure_file)
     log.info("scraped=%d | already_done=%d known_failed=%d | to_clean=%d",
@@ -322,7 +364,7 @@ def clean_source(
     def _save_state():
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state = {
-            "source_id": source_id, "country": country, "model": config.model,
+            "source_id": label, "country": country_label, "model": config.model,
             "scraped_total": len(scraped),
             "cleaned_total": len(keep) + len(new_rows),
             "this_run": dict(counters), "last_run": datetime.now().isoformat(timespec="seconds"),
@@ -330,8 +372,10 @@ def clean_source(
         state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _flush():
+        # no columns= restriction: keep any extra input columns (e.g. ISI_id) on new rows;
+        # write_source_atomic orders CLEANED_COLUMNS first and appends the extras.
         df_out = pd.concat(
-            [keep, pd.DataFrame(new_rows, columns=store.CLEANED_COLUMNS)], ignore_index=True
+            [keep, pd.DataFrame(new_rows)], ignore_index=True
         ) if new_rows else keep
         store.write_source_atomic(df_out, out_path, config.compression)
         _save_state()
@@ -388,13 +432,14 @@ def clean_source(
             aborted_early=aborted["flag"],
         )
         log.info("DONE %s | cleaned=%d accepted=%d rejected=%d errors=%d%s | out=%s",
-                 source_id, len(new_rows), counters["accepted"], counters["rejected"],
+                 label, len(new_rows), counters["accepted"], counters["rejected"],
                  counters["errors"], " | ABORTED" if aborted["flag"] else "", out_path)
-        try:
-            from .merge import build_clean_index
-            build_clean_index(out_root)
-        except Exception as e:
-            log.warning("could not refresh clean index: %s", e)
+        if refresh_index and index_root is not None:
+            try:
+                from .merge import build_clean_index
+                build_clean_index(str(index_root))
+            except Exception as e:
+                log.warning("could not refresh clean index: %s", e)
         logging.getLogger("leaderspeech.clean_structure_metadata").removeHandler(log_handler)
         log_handler.close()
 

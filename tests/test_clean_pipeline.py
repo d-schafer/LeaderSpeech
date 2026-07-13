@@ -2,6 +2,8 @@
 checks the gate outcomes + tenure crosscheck, verifies resume skips already-cleaned
 rows (no extra model calls), and that the merge is idempotent."""
 
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -139,6 +141,62 @@ def test_regate_reclassifies_without_api_calls(env):
     assert stmt["clean_status"] == "rejected_not_representative"
     # the delivered speech is still accepted
     assert (out[out["document_type"] == "speech"]["clean_status"] == "accepted").any()
+
+
+def test_input_mode_mixed_corpus(tmp_path, monkeypatch):
+    """--input mode: clean ONE arbitrary table that mixes countries and datasets and carries an
+    extra ISI_id column. Proves (1) per-row country drives the tenure crosscheck across a mixed
+    table, (2) unknown columns survive cleaning, (3) resume works off the sibling output parquet."""
+    calls = []
+
+    async def fake_extract_one(client, config, message, sem):
+        calls.append(message)
+        return _meta_for(message)
+
+    monkeypatch.setattr(extract, "extract_one", fake_extract_one)
+    monkeypatch.setattr(llm, "load_api_key", lambda config: "test-key")
+    monkeypatch.setattr(llm, "create_async_client", lambda key: object())
+
+    # combined corpus: two countries, two datasets, a NON-schema column (ISI_id), only a subset
+    # of the standardized columns present (read_input + _base_row fill the rest).
+    common = dict(ISO3N="", position="", source="http://x", source_language="English")
+    rows = [
+        dict(doc_id="COR0001", country="Testland", speaker="Pat Leader", date="2020-03-01",
+             text="ACCEPT fellow citizens, today we move forward", dataset="DatasetA", ISI_id="ISI-1", **common),
+        dict(doc_id="COR0002", country="Otherland", speaker="Sam Chief", date="2021-05-01",
+             text="ACCEPT my compatriots, together we rise", dataset="DatasetB", ISI_id="ISI-2", **common),
+    ]
+    in_path = tmp_path / "corpus.parquet"
+    pd.DataFrame(rows).to_parquet(in_path, index=False)
+
+    # tenure key covering BOTH countries
+    tenure_csv = tmp_path / "tenure.csv"
+    pd.DataFrame([
+        dict(speaker="Pat Leader", country="Testland", year=2020, is_ceremonial=False),
+        dict(speaker="Sam Chief", country="Otherland", year=2021, is_ceremonial=False),
+    ]).to_csv(tenure_csv, index=False)
+    config = CleanConfig(tenure_file=str(tenure_csv), chunk_size=2, batch_size=2)
+
+    out_path = tmp_path / "corpus.cleaned.parquet"
+    summary = pipeline.clean_file(in_path, out_path, config=config, label="corpus")
+
+    assert summary["accepted"] == 2
+    assert Path(summary["output"]) == out_path and out_path.exists()          # sibling, not in place
+
+    out = store.read_source(out_path).set_index("doc_id")
+    assert (out["clean_status"] == "accepted").all()
+    # per-row country (not a folder name) drove the tenure crosscheck for each row
+    assert out.loc["COR0001", "country"] == "Testland" and out.loc["COR0001", "tenure_match"] == "exact"
+    assert out.loc["COR0002", "country"] == "Otherland" and out.loc["COR0002", "tenure_match"] == "exact"
+    assert out.loc["COR0002", "speaker"] == "Sam Chief"                        # scraped speaker kept per row
+    # the non-schema column survived cleaning
+    assert set(out["ISI_id"]) == {"ISI-1", "ISI-2"}
+
+    # resume: a second pass reads the sibling parquet and sends nothing new to the model
+    calls_after = len(calls)
+    summary2 = pipeline.clean_file(in_path, out_path, config=config, label="corpus")
+    assert summary2["to_clean"] == 0
+    assert len(calls) == calls_after
 
 
 def test_merge_is_idempotent(env):

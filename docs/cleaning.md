@@ -44,6 +44,10 @@ python -m leaderspeech.clean_structure_metadata.run --source chl_presidencia    
 python -m leaderspeech.clean_structure_metadata.run --country Chile
 python -m leaderspeech.clean_structure_metadata.run --all
 
+# 2b) RUN on an ARBITRARY corpus — any CSV/Parquet, many countries/datasets in one table.
+python -m leaderspeech.clean_structure_metadata.run --input data/LeaderSpeech.parquet       # -> data/LeaderSpeech.cleaned.parquet
+python -m leaderspeech.clean_structure_metadata.run --input corpus.csv --output out.parquet  # explicit destination
+
 # 3) MERGE — concatenate accepted rows from every source into the intermediate dataset.
 python -m leaderspeech.clean_structure_metadata.merge
 
@@ -54,6 +58,27 @@ Rscript scripts/export_leaderspeech.R
 Useful flags on `run`: `--model gpt-4.1` (override the model), `--limit N` (cap per source this
 run), `--retry-failed` (re-attempt rows that errored), `--dry-run` (report counts, no API calls),
 `--config path/to.yml`.
+
+### Two input modes: per-source vs. `--input`
+
+`--source/--country/--all` walk the scraper's `data/scraped/<Country>/<id>.csv` layout — one source =
+one CSV = one country folder — and write the per-source ledger `data/cleaned/<Country>/<id>.parquet`.
+
+`--input <table>` cleans **any single CSV or Parquet** instead (the merged deliverable, a raw export,
+any corpus mixing countries / datasets / speakers). This works because the cleaning is **row-driven**:
+each row's country, tenure crosscheck, and prompt come from its own `country` column, never a folder
+name — so a combined corpus is handled correctly row by row. Specifics:
+
+- **Output is non-destructive.** Default is a sibling `<input_stem>.cleaned.parquet` (the raw input is
+  never overwritten); `--output PATH` redirects. Output format follows the path's extension.
+- **Extra columns are preserved.** Any column beyond the standard 15 scraped fields (e.g. `ISI_id`,
+  dataset-specific fields) is carried through cleaning unchanged and appended after the cleaned columns.
+- **Resume keys on `doc_id`.** The output file *is* the ledger, exactly as in per-source mode: a re-run
+  reads it back and skips rows already cleaned. This assumes `doc_id` is **unique within the corpus**
+  (this project's `<ISO3>+N` ids are). A corpus that reuses `doc_id` across datasets could wrongly skip.
+- `--input` ignores `--in-root/--out-root/--state-root`, does not refresh the cleaned-store index, and is
+  incompatible with `--regate` (regate operates on the `data/cleaned/` tree). Parquet cells are coerced
+  to strings (NA → `""`) to match the CSV path, so a numeric `ISO3N` may stringify (e.g. `"999.0"`).
 
 ## What the model returns (`SpeechMeta`)
 
