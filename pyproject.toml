@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Tools for scraping, transcribing, cleaning, and structuring speeches by national leaders."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Dean Schafer" }]
 keywords = ["web-scraping", "political-speech", "nlp", "comparative-politics"]
 dependencies = [

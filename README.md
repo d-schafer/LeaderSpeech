@@ -20,7 +20,7 @@ structuring leader speeches.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .                                      # editable install; adds the leaderspeech-* commands
 python -m playwright install chromium                 # only needed for JavaScript ("js") sites
 ```
 
@@ -56,7 +56,7 @@ listing:                         # how to find speech links on a listing page
   link_selector: "a.panel"
   link_pattern: "/discursos/\\d+"
 
-pagination:                      # query_param | path | click | url_list | none
+pagination:                      # query_param | path | click | url_list | sitemap | wayback | api | feed | none
   type: query_param
   param: start
   start: 0
@@ -231,7 +231,10 @@ final `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`.
 
 ## Roadmap
 
-- [x] `text_scraper` — config-driven engine + first recipes
+- [x] `text_scraper` — config-driven engine + first recipes; source types beyond plain HTML listings
+  (static / JS): XML **sitemaps**, the **Wayback Machine** (with a `wayback_extend` continuation past a
+  live recipe's earliest date), **JSON / search APIs** (incl. SharePoint, GET & POST), **RSS/Atom feeds**,
+  and **PDF** speech pages (`content_type: pdf`, over live or Wayback)
 - [x] `clean_structure_metadata` — GPT metadata extraction (speaker, date, venue, audience) + tenure crosscheck + name standardization
 - [x] `translate` — fill English `text`/`title`/`context` in place (Google / OpusMT / NLLB backends)
 - [x] `leader_tenure` — curation loop that proposes additions to the tenure key for hand approval
@@ -249,6 +252,9 @@ researcher keeps) is in [`docs/review_workflow.md`](docs/review_workflow.md).
 
 ## License & citation
 
-MIT (see [`LICENSE`](LICENSE)). The dataset itself will be released separately (Zenodo or Harvard
-Dataverse) with its own citation; external corpora merged into it are credited there. A `CITATION.cff`
-will accompany the first public release.
+The code in this repository is licensed under **GPL-3.0-or-later** (see [`LICENSE`](LICENSE)).
+
+To cite the software, use the [`CITATION.cff`](CITATION.cff) in the repository root — GitHub renders a
+**"Cite this repository"** button from it, and it exports to BibTeX/APA. The dataset itself will be
+released separately (Zenodo or Harvard Dataverse) with its own DOI and citation; external corpora merged
+into it are credited there.

@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "LeaderSpeech: Tools for scraping, transcribing, cleaning, and structuring speeches by national leaders"
+abstract: >-
+  A config-driven toolkit for building a comprehensive, wide-coverage dataset of national
+  leaders' speeches: a recipe-based web scraper, a video/audio scraper with Whisper
+  transcription, an LLM metadata-cleaning and structuring step, a translation step, and a
+  leader-tenure curation loop.
+type: software
+authors:
+  - family-names: Schafer
+    given-names: Dean
+    orcid: "https://orcid.org/0000-0001-6774-3755"
+version: 0.1.0
+date-released: 2026-07-13   # TODO: set to the date of the release/tag you are citing
+license: GPL-3.0-or-later
+url: "https://github.com/d-schafer/LeaderSpeech"
+repository-code: "https://github.com/d-schafer/LeaderSpeech"
+keywords:
+  - web-scraping
+  - political-speech
+  - nlp
+  - comparative-politics
+
+# TODO: once you archive a snapshot (Zenodo / Harvard Dataverse), add its DOI so the
+# citation resolves to a permanent, publicly accessible record:
+# identifiers:
+#   - type: doi
+#     value: "10.5281/zenodo.XXXXXXX"
+#     description: "Archived snapshot of this release"
+
+# TODO (optional): if a journal article should be the *preferred* citation for the project,
+# add it here. GitHub then surfaces the article as the primary "Cite this repository" entry
+# and keeps the software citation as a secondary reference:
+# preferred-citation:
+#   type: article
+#   title: "..."
+#   authors:
+#     - family-names: Schafer
+#       given-names: Dean
+#   year: 2026
+#   journal: "..."
+#   doi: "..."
