@@ -27,11 +27,12 @@ data/_build/
 data/audio_video/
 _data_outside_unorganized/
 
-# --- Raw source sub-lists: the curated master list IS committed, its inputs are not ---
+# --- Raw source sub-lists: the curated master list IS ALSO not committed (for now - maybe later), its inputs are not ---
+data/sources/
 data/sources/*.txt
 data/sources/*.csv
 data/sources/LeadersSpeeches_Africa.xlsx
-!data/sources/master_sources.xlsx
+data/sources/master_sources.xlsx
 # agent outbox: committed. One file per source under additional_master_sources/
 # (see that folder's README + .gitattributes); the legacy flat file is kept frozen.
 # The non-recursive data/sources/*.csv rule above does not match the subfolder, but
