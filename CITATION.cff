@@ -12,7 +12,7 @@ authors:
     given-names: Dean
     orcid: "https://orcid.org/0000-0001-6774-3755"
 version: 0.1.0
-date-released: 2026-07-13   # TODO: set to the date of the release/tag you are citing
+date-released: 2026-07-14   # date of the v0.1.0 release/tag (adjust if the tag date differs)
 license: GPL-3.0-or-later
 url: "https://github.com/d-schafer/LeaderSpeech"
 repository-code: "https://github.com/d-schafer/LeaderSpeech"
@@ -22,12 +22,13 @@ keywords:
   - nlp
   - comparative-politics
 
-# TODO: once you archive a snapshot (Zenodo / Harvard Dataverse), add its DOI so the
-# citation resolves to a permanent, publicly accessible record:
-# identifiers:
-#   - type: doi
-#     value: "10.5281/zenodo.XXXXXXX"
-#     description: "Archived snapshot of this release"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.21364293"
+    description: "Concept DOI — always resolves to the latest version"
+  - type: doi
+    value: "10.5281/zenodo.21364294"
+    description: "Version DOI — v0.1.0"
 
 # TODO (optional): if a journal article should be the *preferred* citation for the project,
 # add it here. GitHub then surfaces the article as the primary "Cite this repository" entry
