@@ -14,7 +14,10 @@ agent assigned a "new source" issue — can produce a working recipe by inspecti
 3. **Work out pagination.** Click to page 2 and watch the URL. A changing query string (`?start=40`,
    `?page=2`) is `query_param`. A changing path segment (`/discursos/2`) is `path`. A "load more" or
    "next" button with no URL change usually means the site is JavaScript-rendered (`renderer: js`) and
-   `pagination: click`. If the live site is incomplete but the Internet Archive has the history, use
+   `pagination: click`. If the URL *does* change but carries a **signed or opaque token** you cannot
+   compute (a TYPO3 `cHash`, a cursor, a session id) — the tell is that editing the page number by hand
+   404s or silently re-serves page 1 — then the pager can only be *followed*, not synthesised: use
+   `pagination: next_link` (see "Pagers you can't synthesise" below). If the live site is incomplete but the Internet Archive has the history, use
    `pagination: wayback` and point `start_urls` at a CDX prefix like `casarosada.gob.ar/informacion/discursos`
    (no trailing `*` — the engine prefix-matches; a literal `*` makes the CDX query return nothing).
 4. **Check whether it needs JavaScript.** View source (not the rendered DOM). If the speech list is
@@ -104,6 +107,58 @@ examples:
 Author these as ordinary live recipes (usually `renderer: static`, `query_param`/`path` pagination),
 one per administration where the URL scheme differs — not as `wayback_extend`, which stays on the
 *live* host.
+
+## Pagers you can't synthesise (`type: next_link`)
+
+Most pagers are *constructible*: you know page 2's URL because it is page 1's with a number
+changed (`query_param`, `path`). Some are not — the URL carries a **signed or opaque token**:
+
+- **TYPO3 `cHash`** (`?tx_news_pi1[currentPage]=2&cHash=8f3e…`) — an HMAC over the query params
+  using the site's secret `encryptionKey`. You cannot compute it; requesting the param without a
+  valid cHash returns **404**. This is common on European government sites.
+- Cursor/continuation tokens, or a session id baked into the pager.
+
+The tell: hand-editing the page number 404s or silently re-serves page 1. When that happens, the
+only route is to **follow the site's own "next" link**, which is exactly what `next_link` does — it
+fetches the listing, extracts links, reads `next_selector`'s `href`, and repeats over plain HTTP.
+
+```yaml
+pagination:
+  type: next_link
+  next_selector: "li.next a[data-nextlink]"   # the <a>, or a wrapper containing it
+  max_pages: 300                               # safety cap; the chain self-terminates
+```
+
+It stops on: no next link, a next link pointing somewhere already visited (loop guard), `max_pages`,
+or the probe's link cap. Unlike `query_param`/`path` it does **not** stop when a page yields no *new*
+links — an interior page of duplicates shouldn't truncate the crawl; the absence of a next link is
+the real terminator.
+
+> **`next_link` vs `click`.** `click` is for JS sites where the next control changes the page *in
+> place* with no URL change — it needs `renderer: js` and drives a real browser. `next_link` is for
+> **static** sites where "next" is a server-rendered `<a href>`. Reach for `next_link` first: it is far
+> faster (no browser) and it survives a site that *hides* its pager once its JS runs — Austria's
+> `bundespraesident.at` does exactly that (the timeline script sets the paginator to `display:none`,
+> and Playwright refuses to click a non-visible element, so `click` silently stops after page 1).
+> See [`recipes/aut_bundespraesident.yml`](../recipes/aut_bundespraesident.yml).
+
+## Several listing pages (`start_urls` + `type: none`), and how that differs from `url_list`
+
+These two look similar and are easy to confuse:
+
+| You have | Use |
+|---|---|
+| A known list of **speech** URLs | `pagination.type: url_list` + `pagination.url_list` — returned **verbatim** as the scrape targets. Not fetched as listings; `listing.link_pattern` is **not** applied. |
+| A known list of **listing** pages | Put them all in `start_urls` with `pagination.type: none` — the engine fetches **each** one and extracts links from it. |
+
+```yaml
+# several listing pages -> start_urls + none
+start_urls:
+  - https://example.gov/speeches/2024
+  - https://example.gov/speeches/2023
+pagination:
+  type: none
+```
 
 ## JSON / search-API sources (`type: api`)
 
@@ -335,13 +390,13 @@ date_languages: ["pt"]
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
-| `pagination.type` | no | `query_param`, `path`, `click`, `url_list`, `sitemap`, `wayback`, `api`, `feed`, or `none` (default). |
+| `pagination.type` | no | `query_param`, `path`, `click`, `next_link`, `url_list`, `sitemap`, `wayback`, `api`, `feed`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |
 | `pagination.path_format` | for path | Suffix template appended to `start_url`, with a `{n}` placeholder for the page index. Default (unset) appends `/{n}` (e.g. `/discursos/2`). Use it when the pager isn't a bare number — e.g. `path_format: "P{n}"` with `start: 0, step: 20` yields `…/speeches/P0`, `…/speeches/P20`, `…/speeches/P40` (president.ie). Supports format specs like `{n:03d}` for zero-padding. |
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
-| `pagination.next_selector` | for click | CSS selector of the "next" button. |
-| `pagination.url_list` | for url_list | Explicit list of listing URLs. |
+| `pagination.next_selector` | for click / next_link | CSS selector of the "next" control. May point at the `<a>` itself or a wrapper (e.g. `li.next`), in which case its first descendant `<a href>` is used. |
+| `pagination.url_list` | for url_list | Explicit list of **speech-page URLs**. They are used **as-is**: the engine does *not* fetch them as listings, does *not* extract links from them, and does *not* apply `listing.link_pattern` to them. To enumerate several **listing** pages instead, put them all in `start_urls` and leave `pagination.type` as `none` — see "Several listing pages" below. |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
 | `pagination.wayback_filter` | no | A list of raw CDX `filter=` expressions (`field:regex`) ANDed together — e.g. `["mimetype:application/pdf", "statuscode:200"]` to keep only real PDF captures and drop a prefix query's text/html noise. |

@@ -1,10 +1,16 @@
 """Pagination + link harvesting.
 
 `harvest_links` walks a source's listing pages (however that source paginates)
-and returns the de-duplicated list of speech-page URLs to scrape. The five
-pagination strategies seen across the old scrapers are unified behind it:
-query-param offsets, path segments, JS "next" clicks, an explicit URL list, or a
-single page.
+and returns the de-duplicated list of speech-page URLs to scrape. The strategies
+seen across the old scrapers are unified behind it: query-param offsets, path
+segments, JS "next" clicks, following a static "next" link, an explicit URL list,
+or a single page.
+
+Note the difference between the two "explicit" cases:
+  * `url_list` is a list of **speech** URLs -- returned verbatim as the scrape
+    targets, never fetched as listings.
+  * several **listing** pages go in `start_urls` with `type = none`, which fetches
+    each one and extracts links from it.
 """
 
 from __future__ import annotations
@@ -56,11 +62,14 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None) -> li
     pg = recipe.pagination
 
     if pg.type == PaginationType.url_list:
+        # These are speech URLs, not listings: hand them back as the scrape targets.
         return list(pg.url_list or [])
     if pg.type == PaginationType.sitemap:
         return _harvest_sitemap(recipe, fetcher, max_links)
     if pg.type == PaginationType.click:
         return _harvest_click(recipe, fetcher, max_pages, max_links)
+    if pg.type == PaginationType.next_link:
+        return _harvest_next_link(recipe, fetcher, max_pages, max_links)
 
     collected, seen = [], set()
 
@@ -141,6 +150,74 @@ def _harvest_sitemap(recipe: Recipe, fetcher, max_links) -> list[str]:
                 if max_links and len(collected) >= max_links:
                     return collected
     return collected
+
+
+def _next_href(html: str, base_url: str, selector: str) -> str | None:
+    """Resolve the 'next' link's href from a listing page.
+
+    `selector` may point at the <a> itself or at a wrapper (e.g. `li.next`); in the
+    latter case the first descendant <a href> wins.
+    """
+    el = BeautifulSoup(html, "lxml").select_one(selector)
+    if el is None:
+        return None
+    href = el.get("href")
+    if not href:
+        inner = el.find("a", href=True)
+        href = inner.get("href") if inner else None
+    if not href:
+        return None
+    href = href.strip().strip("\\\"'").strip()
+    return urljoin(base_url, href) if href else None
+
+
+def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links) -> list[str]:
+    """Static pagination: follow the listing's own "next" link, page to page.
+
+    For sites whose page URL cannot be *synthesised* — the pager carries a signed or
+    opaque token (TYPO3's `cHash`, a session id, a cursor) so incrementing a query
+    param just 404s — but whose "next" control is a real <a href> present in the
+    server-rendered HTML. `click` can't help there: it needs `renderer: js`, and a site
+    may hide the pager once its JS runs (making the element unclickable). This walks the
+    chain over plain HTTP instead.
+
+    Stops on: no next link, a next link already visited (loop guard), max_pages, or
+    max_links. Unlike query_param/path it does NOT stop when a page yields no *new*
+    links — an interior page of dupes shouldn't truncate the crawl; the absence of a
+    next link is the real terminator.
+    """
+    pg = recipe.pagination
+    hard_cap = max_pages if max_pages is not None else (pg.max_pages or 200)
+    collected, seen = [], set()
+
+    for start_url in recipe.start_urls:
+        url, visited = start_url, set()
+        for page_idx in range(hard_cap):
+            if url in visited:  # cyclic pager
+                break
+            visited.add(url)
+            try:
+                html = fetcher.get(url)
+            except Exception as e:
+                log.warning("listing page failed, stopping pagination here: %s :: %s", url, e)
+                break
+            for link in extract_links(html, url, recipe.listing):
+                if link not in seen:
+                    seen.add(link)
+                    collected.append(link)
+            if max_links and len(collected) >= max_links:
+                break
+            if (page_idx + 1) % 25 == 0:  # so a long harvest isn't a silent gap
+                log.info("harvesting... %d listing pages, %d links so far",
+                         page_idx + 1, len(collected))
+            nxt = _next_href(html, url, pg.next_selector)
+            if not nxt or nxt in visited:
+                break
+            url = nxt
+        if max_links and len(collected) >= max_links:
+            break
+
+    return collected[:max_links] if max_links else collected
 
 
 def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links) -> list[str]:

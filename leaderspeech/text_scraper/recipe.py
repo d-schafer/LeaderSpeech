@@ -45,7 +45,11 @@ class PaginationType(str, Enum):
     query_param = "query_param"   # ?start=40 / ?page=2 style
     path = "path"                 # /discursos/2 style
     click = "click"               # click a "next" button (JS sites)
-    url_list = "url_list"         # an explicit, pre-known list of pages
+    next_link = "next_link"       # follow the listing's own "next" <a href> (static sites
+                                  # whose page URL can't be synthesised: signed/opaque
+                                  # tokens like TYPO3's cHash)
+    url_list = "url_list"         # an explicit, pre-known list of SPEECH-page URLs, used
+                                  # as-is (NOT listing pages -- see harvest_links)
     sitemap = "sitemap"           # enumerate all URLs from the site's sitemap(s)
     wayback = "wayback"           # enumerate archived captures from the Wayback CDX API
     api = "api"                   # enumerate from a JSON/search API (e.g. SharePoint _api/search)
@@ -123,8 +127,11 @@ class Pagination(BaseModel):
     step: int = 1                          # increment between pages
     path_format: Optional[str] = None      # Only used when type='path'; suffix template with a `{n}` placeholder.
     max_pages: Optional[int] = None        # safety cap; None => stop on empty page
-    next_selector: Optional[str] = None    # "next" button selector (click type)
-    url_list: Optional[list[str]] = None   # explicit listing URLs (url_list type)
+    next_selector: Optional[str] = None    # "next" control selector (click + next_link types)
+    url_list: Optional[list[str]] = None   # explicit SPEECH-page URLs (url_list type);
+    # returned verbatim as the scrape targets -- they are NOT fetched as listings and
+    # listing.link_pattern is not applied to them. To enumerate several *listing* pages,
+    # put them all in start_urls with pagination.type = none.
     sitemap_urls: Optional[list[str]] = None  # sitemap.xml URLs (sitemap type); a
     # sitemap index is followed into its children. URLs are kept if they match
     # listing.link_pattern.
@@ -277,6 +284,8 @@ class Recipe(BaseModel):
             raise ValueError("query_param pagination needs 'param'")
         if self.pagination.type == PaginationType.click and not self.pagination.next_selector:
             raise ValueError("click pagination needs 'next_selector'")
+        if self.pagination.type == PaginationType.next_link and not self.pagination.next_selector:
+            raise ValueError("next_link pagination needs 'next_selector'")
         if self.pagination.type == PaginationType.url_list and not self.pagination.url_list:
             raise ValueError("url_list pagination needs 'url_list'")
         if self.pagination.path_format:

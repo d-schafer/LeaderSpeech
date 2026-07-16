@@ -1,178 +1,39 @@
 # Austria — Bundespräsident (bundespraesident.at), Alexander Van der Bellen.
 # TYPO3 + tx_news. /aktuelles is the presidency's full news/speech archive:
-# 131 pages x 10 items = ~1,298 items, back to 2017-01-26 (Van der Bellen's
+# ~131 pages x 10 items = ~1,298 items, back to 2017-01-26 (Van der Bellen's
 # inauguration) — i.e. his complete term.
 #
-# WHY the pager pages are enumerated in start_urls (pagination: none) rather than
-# paginated — all the normal strategies were tested and each is impossible here:
-#   * query_param: the pager is
-#     /aktuelles/page?tx_news_pi1[currentPage]=N&cHash=<hash>. TYPO3 validates the
-#     cHash — an HMAC over the params using the site's secret encryptionKey — so the
-#     page URL cannot be synthesised by incrementing N. Every cHash-free form was
-#     tried (/aktuelles?…currentPage=2, /aktuelles/page/2, /aktuelles/seite-2, and the
-#     [@widget_0] form): each either returns a 404 page or silently re-serves page 1.
-#   * click: the "next" control IS a real <a href> carrying a valid cHash, but under
-#     renderer: js the site's timeline script sets the paginator to display:none (it
-#     swaps in infinite scroll). Playwright refuses to click a non-visible element
-#     ("element is not visible"), so the engine's click branch breaks after page 1.
-#     The infinite scroll re-requests those same cHash'd URLs, so it is no way around.
-#   * sitemap: there is none — /sitemap.xml and the TYPO3 ?type=1533906435 route both
-#     fail, and /robots.txt is itself a 404 page.
-#   * url_list: harvest_links returns a url_list verbatim as the *speech* URLs; it does
-#     not fetch them and extract links, so it cannot express "these are listing pages".
-#   So the pager URLs (each carrying its stable cHash) are listed as start_urls, and
-#   pagination: none makes the engine fetch EACH of them and extract the speech links.
-#   This is plain static fetching — fast, no JS.
-#
-# REGENERATING the list (do this if a full run's coverage stops short of 2017-01-26):
-#   walk /aktuelles over plain HTTP following `li.next a[data-nextlink]`, collecting
-#   each page URL. New items land on page 1 and push older ones down, so the page count
-#   grows slowly; a stale list loses only the OLDEST items, never the newest.
+# WHY pagination: next_link — this page URL cannot be *synthesised*, only followed:
+#   * query_param is impossible: the pager is
+#     /aktuelles/page?tx_news_pi1[currentPage]=N&cHash=<hash>, and TYPO3 validates the
+#     cHash (an HMAC over the params using the site's secret encryptionKey). Requesting
+#     the param without a valid cHash returns a 404. Every cHash-free form was tried
+#     (/aktuelles?…currentPage=2, /aktuelles/page/2, /aktuelles/seite-2, the [@widget_0]
+#     form): each either 404s or silently re-serves page 1.
+#   * click is impossible: the "next" control IS a real <a href> carrying a valid cHash,
+#     but under renderer: js the site's timeline script sets the paginator to
+#     display:none (it swaps in infinite scroll), and Playwright refuses to click a
+#     non-visible element — the engine's click branch then breaks after page 1.
+#   * sitemap: there is none (/sitemap.xml and the TYPO3 ?type=1533906435 route both
+#     fail; /robots.txt is itself a 404 page).
+#   Over plain HTTP the pager works perfectly — every "next" is a server-rendered
+#   <a href> carrying a valid cHash — which is exactly what next_link follows.
 source_id: aut_bundespraesident
 country: Austria
 source_language: German
-renderer: static
-
-# Page 1 + the 130 cHash-pinned pager pages behind it (regenerate as described above).
 start_urls:
-  - "https://www.bundespraesident.at/aktuelles"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=2&cHash=3773f9ce7587feb6efb3edfc5cace620"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=3&cHash=af4ee53f73d172a13a7a19d0f948025b"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=4&cHash=129394dcbd1a6c374d16d71a4e19ccf2"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=5&cHash=e603cdae674d43770fe9e5531c379eea"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=6&cHash=0ba3af127c832a25ef6ba9cedea3201b"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=7&cHash=a576bba90da120543bb02af4bb50614a"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=8&cHash=a9b01a7fabc59b19881cb05b3bf2ffe2"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=9&cHash=96f64062701e59c65830dfa3a7bb0943"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=10&cHash=cc1a792284a32f68ccf687cc79749d98"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=11&cHash=8abcb5e6681f83ada823884ff97e82da"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=12&cHash=d1c7fd57d87584ec03d2e8df41968cfa"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=13&cHash=707cd9a241ca7f02890d3273761aecfc"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=14&cHash=5d5b6ef64a531caf8b6db5065f207504"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=15&cHash=632a67e17188ed59a7b88dd7c4c6e65a"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=16&cHash=7071e4c3ccd391561a13763c7c1f575f"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=17&cHash=d219e345a6b5c0bd68b27c7b8e0edd76"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=18&cHash=7e6dfdd8ca4e16f859e12ef2776c418d"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=19&cHash=1bf29d10cc590976ae0748f7c2823217"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=20&cHash=78bde173e7ed3b1e6b8d611765212aeb"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=21&cHash=417a1a51a89781852bbfbdc86c8ae213"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=22&cHash=af697cdb7da0e514a87897bbe479dd81"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=23&cHash=fd2c9c38dc4e94ec9679454136cdd528"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=24&cHash=1e075e7600a5b4ee380c1e57e4d1a098"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=25&cHash=543a0bd93da3c7592c2423cc7897ed8e"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=26&cHash=c6db4e7993f39f1dd2cc39fc997d30d6"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=27&cHash=b7f0dfb48ddd9928f3ed17e6963f89bb"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=28&cHash=febb670e4ff9be9db74ce27b817fa451"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=29&cHash=f3b6cfaeb62d03eb74f4ca50e525da12"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=30&cHash=a5100dd9c7f49dec546c83dc783628df"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=31&cHash=ac141e9e4b5e7819acd0713b2fa01096"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=32&cHash=b5be238f7a920b2395fe64a44c45cdd4"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=33&cHash=af30758760bbb003845c6582f85609e9"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=34&cHash=ddb360384f0581b53d8e45920deb726a"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=35&cHash=9e90a10c26d777b81e8b9df5f04897b1"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=36&cHash=b1fdf38d3e30c13dbd009da45f368bba"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=37&cHash=d285a8e463b628c8a2dbc1d1c7948979"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=38&cHash=16882d5ddf109f6e58a4fbed3b799dd2"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=39&cHash=734afc84feb8e0abbd775047c6c8f041"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=40&cHash=d41dd16293ae91b4594c0d4bd8b6a937"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=41&cHash=e47bc5f3f8951448f07f50a97ba57250"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=42&cHash=12429c0d6c7aad4f4d28057f85f71a63"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=43&cHash=98da88b8285543eda462b7a129f0d7e9"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=44&cHash=dadb041f1f58d75d438fb142d7b6f69e"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=45&cHash=c972796eae56bb6002bbdb3a40722d16"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=46&cHash=ccfe66692464cb442188f2705ddb495b"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=47&cHash=107c999e37363a6df8438afbad716c6a"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=48&cHash=0604257bdfb9d18eea0225c71bb91419"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=49&cHash=b50b3d81f076bdb63588ac3be164e63d"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=50&cHash=0e8135687f9fdb38d3089d134c5b21b3"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=51&cHash=0a7b63e8229fa197acc72bac66ced82e"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=52&cHash=6d57db0c7f42f94258e2721b83e98215"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=53&cHash=8c43cf6888e5c7fe0314e89794859b0c"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=54&cHash=c2ecdf2238352a6e2c8962c301fb0975"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=55&cHash=5e0c24bdd3ff624d9dfc3c58e529b04b"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=56&cHash=7f61857b91570b716afea50508acd0cb"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=57&cHash=86d88aec619b3dc5243c3c69ccba5c34"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=58&cHash=e7fa5d0b52c45c7cb42644519f847d64"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=59&cHash=47eee1714fc826ae43eb56ba9e702a88"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=60&cHash=a2a56f621a459d1e1c3e9ea823d07b0f"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=61&cHash=8bf057fa9d541396aff425fab382f727"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=62&cHash=d5d2ddc31eccede8e6e05247b7a52612"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=63&cHash=ed5b428a363a8eb16c1d0d27bddfea0a"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=64&cHash=2688c043276a97df1b024fe990562cda"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=65&cHash=170ef8d5a816a19f983747b2c8a99a90"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=66&cHash=5244c9b2219fdd5c3a0563347db5af71"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=67&cHash=cec686929e7f4c31ece9d75c1dbcdf91"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=68&cHash=09b7d5026e6211b8358793a4fa60cf31"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=69&cHash=69a3468be05353ac3f192d919b1d6dd9"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=70&cHash=f5010fed128401dc59d37d59237b2499"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=71&cHash=f91e146e98e1e927801b70dcb374b8a4"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=72&cHash=eaa8167763bc66a66a274b4c2b6899af"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=73&cHash=b9da859d890402dbafd0242896c5ccb9"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=74&cHash=916bee60923dffe5367190f78ef9b305"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=75&cHash=9c17588faadbf76e6d1a6db022924cd8"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=76&cHash=a517d5c6bc0f23b70070eea87a7c1927"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=77&cHash=ee29c6845f9778206c6a93c58a0b5f5f"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=78&cHash=6aa680402a4a7d0f71de5d76bfee887c"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=79&cHash=df38f1b0fa4fc67cca2321aeffd4c7d0"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=80&cHash=0be4c82cdfd45066791274f1d0e18a89"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=81&cHash=46facffea04f17ca924dba38dc4fb97e"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=82&cHash=935d2ff4864ca70f8fda57521a4ebde7"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=83&cHash=46bcae8106f4b01e31f2111df0727c62"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=84&cHash=9121d90861a6a6105f3c88ab23f1bf05"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=85&cHash=1374dc90f1597a3e10071200d65a2ac6"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=86&cHash=f1a322f51e824c95cd01b9997946d2fd"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=87&cHash=bd35315ee490c0fd26594daae606650d"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=88&cHash=3c64ad3effbe0a0164c42109465f9d0d"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=89&cHash=a2ed4c4734cfcbf75efe2d5012ae5acf"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=90&cHash=e29de453d701c11a244c51a810328a66"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=91&cHash=4e706274a45c794206b468e847afe9a1"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=92&cHash=7c5db87aa29f5265ec5d20121b548c21"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=93&cHash=c52863d5218574b1d5b67163edc8dccf"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=94&cHash=6cc9c64aa63ee94585b502c63c716cd4"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=95&cHash=6ac1585b78749577ff132df33c044d70"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=96&cHash=3fdb4c8ba29636c734e40e9d6b07d083"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=97&cHash=59a312f0f3594fe60471a0a089ce17d9"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=98&cHash=abc21fb78d66336bf14f221fef47393e"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=99&cHash=b65da17ce68cb03c9a18e7cebd1f0f63"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=100&cHash=52e62c26b3661e423c8350180b1c4845"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=101&cHash=7ee70cff9bedcfb436e744ab4cf5238a"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=102&cHash=b4c371f485d5cc35b1e7337ecca6d613"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=103&cHash=b9741972b1b3b7559f94beea5340f55d"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=104&cHash=6e82348737e3ee075a99bf28c12b0169"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=105&cHash=b4e731a10482f7f24c53249f40e1dfae"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=106&cHash=0c5cd77a7fa228e80693d9214b3a19dd"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=107&cHash=91f5a8803206de3cf5d946810e73a247"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=108&cHash=72994903412d0cedb8b169eb3ac487be"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=109&cHash=accd71a62f5807ac17789b934a940128"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=110&cHash=0e8a999319a2f82034338cbf06e3fe60"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=111&cHash=a0bde62bbacb1c30ad05db0e591b9915"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=112&cHash=0fe12abcc676fe8378cf9e625122a844"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=113&cHash=d46c63de996bb791e5afead9c83cce45"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=114&cHash=bcd5cd4532b6b69479cb78a0c10315e7"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=115&cHash=b49853978d9db5938d9d138f451e5726"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=116&cHash=baa9fd052449c299d4ccb072fcf453d0"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=117&cHash=5f39b5f54bcb4815e0661bfb19dfbb02"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=118&cHash=8662e9f72db651261273fcc80293c70c"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=119&cHash=7f24968d16e4d6f17839172db19a70bd"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=120&cHash=bff637a572b6b2225cce5746204124f9"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=121&cHash=ebdaf1c623954a163d54b2c9bafaf2e8"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=122&cHash=0821304159b4e524117031c38c83a8d9"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=123&cHash=8222ed9552fcd581c4b1cbf6858b0c1d"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=124&cHash=dc381ab77bf06bb0fc08934c497862d5"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=125&cHash=bfd160b8ce6bfc9a92995be8a94ac315"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=126&cHash=bcd76311b5782b073993c1d7101c09ca"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=127&cHash=9dbffa57eae208d351271331c08525ef"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=128&cHash=88947f9e80d44a9244582bfa7a4950ef"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=129&cHash=749b7cea635fec0cb789ee1a7ec6a488"
-  - "https://www.bundespraesident.at/aktuelles/page?tx_news_pi1%5BcurrentPage%5D=130&cHash=98e77964de8adecd41b8b5fca329b2d9"
-  - "https://www.bundespraesident.at/aktuelles?tx_news_pi1%5B%40widget_0%5D%5BcurrentPage%5D=0&tx_news_pi1%5Baction%5D=searchResult&tx_news_pi1%5Bcontroller%5D=News&tx_news_pi1%5BcurrentPage%5D=131&cHash=7470e423f6dacddbae3ef09f79c03a3c"
+  - https://www.bundespraesident.at/aktuelles
+renderer: static
 
 listing:
   link_selector: "a[href*='/aktuelles/detail/']"
   link_pattern: '/aktuelles/detail/[^/]+$'
 
 pagination:
-  type: none   # every listing page is enumerated in start_urls (see header)
+  # <ul class="f3-widget-paginator"> … <li class="next"><a data-nextlink href="…&cHash=…">
+  type: next_link
+  next_selector: "li.next a[data-nextlink]"
+  max_pages: 300   # archive is ~131 pages; the chain self-terminates well before this
 
 title:
   # The page opens with an <h1>Suche</h1> (the search box), so anchor the title inside
