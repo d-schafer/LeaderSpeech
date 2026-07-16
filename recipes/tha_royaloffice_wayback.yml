@@ -1,0 +1,71 @@
+# Thailand — Bureau of the Royal Household / Royal Office (royaloffice.th), the monarch.
+# PURE-WAYBACK: the live site is hard-blocked by a Cloudflare interactive challenge
+# (issue #42) — HTTP 403 "Just a moment..." for the bot UA, a browser UA, AND a real
+# headless Chromium given 9s to run the JS challenge. So there is no live recipe, and
+# no wayback_to bound.
+#
+# START_URLS = one CDX prefix PER YEAR. The site is WordPress with dated permalinks
+# (/YYYY/MM/DD/<thai-slug>), so a per-year prefix enumerates the archive cleanly and
+# keeps each CDX query small. A bare royaloffice.th prefix would instead return ~6,000
+# captures dominated by /court-circular/page/N listing pages and /document/ assets.
+# (Pure-wayback passes every start_url to the CDX as its own prefix query.)
+source_id: tha_royaloffice_wayback
+country: Thailand
+source_language: Thai
+start_urls:
+  - royaloffice.th/2017
+  - royaloffice.th/2018
+  - royaloffice.th/2019
+  - royaloffice.th/2020
+  - royaloffice.th/2021
+  - royaloffice.th/2022
+  - royaloffice.th/2023
+  - royaloffice.th/2024
+  - royaloffice.th/2025
+  - royaloffice.th/2026
+renderer: static
+
+listing:
+  # /YYYY/MM/DD/<slug> — the Thai (original-language) side. The /en/ mirror is NOT
+  # harvested: it is only partially translated (its pages still carry Thai titles and
+  # Thai bodies), so including it would duplicate rows without adding English.
+  link_pattern: '/\d{4}/\d{2}/\d{2}/[^/]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # DO NOT use h1 here. On these pages <h1 class="title"> is the SECTION header and
+  # always reads "News and Activities" — it is not the article's title. The real
+  # headline is only in <title>.
+  selectors: ["title"]
+text:
+  selectors: [".entry-content", ".elementor-widget-container", ".single-content", ".col-12", "article", "main"]
+date:
+  # url_regex ONLY, deliberately — no date selector.
+  # The page prints a .single-date, but on the Thai side that renders in the THAI
+  # BUDDHIST ERA (พ.ศ.): "2561" means 2018 (BE = CE + 543). dateparser would read 2561
+  # as a literal Gregorian year and every row would land ~543 years in the future.
+  # The permalink /YYYY/MM/DD/ is plain Gregorian, so it is the safe source. Verified:
+  # /en/2018/02/08/... renders .single-date "Thursday 8 February 2018" — the URL agrees.
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+position: monarch
+date_languages: ["th"]
+notes: >
+  Issue #42. Recipe-only; engine untouched. The researcher confirmed the Thai monarch
+  is in scope. CONTENT CAVEAT — read before a full run: this is the Bureau of the Royal
+  Household's announcement feed ("Statements / Announcements of the Bureau of the Royal
+  Household"), i.e. court-circular-style items written in the THIRD PERSON about royal
+  activities ("His Majesty graciously permitted the organisation of ..."), not
+  transcripts of the King's own words. The cleaner's gate does keep official_statement
+  incl. third-person communiqués that convey the leader's position, so these should land
+  as official_statement rather than speech, and the classifier will reject the rest —
+  that division of labour is intended, but expect FEW true speeches. (Thai royal
+  speeches are scarce online generally.) speaker_default omitted so the tenure
+  crosscheck assigns from country+date; the archive spans Rama X (Vajiralongkorn,
+  acceded 2016). Coverage by URL date: 2017:1, 2018:8, 2019:27, 2020:163, 2021:374,
+  2022:495, 2023:402, 2024:135 (~1,605 Thai dated permalinks).
