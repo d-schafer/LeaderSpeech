@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 from dateparser.search import search_dates
 
 from . import pdf
-from .recipe import FieldSpec, Recipe
+from .recipe import FieldSpec, KeepIf, Recipe
 
 _INLINE_WS = re.compile(r"[ \t\f\v]+")
 
@@ -30,15 +30,20 @@ def clean_text(s: Optional[str]) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def _select(soup: BeautifulSoup, selector: str) -> list:
+    """soup.select, tolerating a malformed selector (treated as matching nothing)."""
+    try:
+        return soup.select(selector)
+    except Exception:
+        return []
+
+
 def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]:
     """Return the value from the first selector in the chain that matches."""
     if spec is None:
         return None
     for selector in spec.selectors:
-        try:
-            elements = soup.select(selector)
-        except Exception:
-            continue  # tolerate a malformed selector, try the next
+        elements = _select(soup, selector)
         if not elements:
             continue
         if spec.attr:
@@ -52,6 +57,35 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
                 value = m.group(0) if m else value
             return value
     return None
+
+
+def should_keep(spec: Optional[KeepIf], soup: Optional[BeautifulSoup] = None,
+                text: str = "") -> bool:
+    """Does this fetched page belong to the source? True whenever there's no `keep_if`.
+
+    Evaluated per page, after fetch and before a row is written, so it behaves identically
+    for `wayback`, `api`/`feed` and ordinary listings — `wayback` in particular never
+    crawls a listing (it enumerates CDX captures and treats each as a speech page), so an
+    on-page category is the ONLY category signal an archive harvest has. See
+    `recipe.KeepIf` for the modes.
+    """
+    if spec is None:
+        return True
+    if spec.selectors:
+        if soup is None:
+            # No DOM to evaluate — a PDF, or api/feed text carried without a page fetch.
+            # Keeping the page is the safe answer: a selector predicate cannot be judged
+            # here, and silently rejecting an entire source is far worse than passing a
+            # few rows to the cleaner's gate. Use a selector-less keep_if to filter these.
+            return True
+        hay = "\n".join(el.get_text(" ") for sel in spec.selectors for el in _select(soup, sel))
+    else:
+        # No selectors: test the whole document — the page's full text, or a PDF's
+        # extracted text. Deliberately independent of the field selectors, so the verdict
+        # can't change with the generic-extractor fallback.
+        hay = soup.get_text(" ") if soup is not None else (text or "")
+    hit = bool(re.search(spec.pattern, hay)) if spec.pattern else bool(hay.strip())
+    return not hit if spec.negate else hit
 
 
 def match_url(spec: Optional[FieldSpec], url: Optional[str]) -> Optional[str]:
@@ -157,6 +191,9 @@ def extract_record(html: str, url: str, recipe: Recipe) -> dict:
         "speaker": speaker,
         "context": clean_text(field(recipe.context)) if recipe.context else "",
         "source": url,
+        # Not a schema column (like date_raw) — run.py reads it to decide whether this
+        # page becomes a row at all.
+        "keep": should_keep(recipe.keep_if, soup),
     }
 
 
@@ -190,4 +227,7 @@ def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
         "speaker": speaker,
         "context": context,
         "source": url,
+        # No DOM here: a selector-based keep_if is a no-op, a pattern-only one tests the
+        # PDF's extracted text.
+        "keep": should_keep(recipe.keep_if, None, text),
     }

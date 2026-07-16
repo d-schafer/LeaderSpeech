@@ -70,6 +70,42 @@ class Listing(BaseModel):
         return self
 
 
+class KeepIf(BaseModel):
+    """Keep a fetched page only if the page itself says it belongs to this source.
+
+    `listing.link_pattern` filters by URL and is free (no fetch), so it stays the first
+    choice. But plenty of sites categorise content **on the page** and not in the URL —
+    Thailand's `thaigov.go.th/news/contents/details/<id>`, Bangladesh's
+    `bssnews.net/news/<id>`, Azerbaijan's `president.az/az/articles/view/<id>` all have a
+    bare numeric permalink shared by every ministry press release on the site. For those,
+    a URL regex cannot express "PM speeches only" at all, and the archive is only
+    reachable with a predicate over the fetched page.
+
+    Two modes:
+      * `selectors` + `pattern` — join the text of every matching element (a breadcrumb,
+        a category chip, a nav crumb) and test `pattern` against it. This is the usual
+        shape; list several selectors as alternatives.
+      * `pattern` alone — test the WHOLE document's text (a PDF's extracted text when
+        there is no DOM). Blunter; use when a category element doesn't exist.
+      * `selectors` alone — keep pages where any of them is present at all.
+
+    `negate: true` inverts the verdict (drop on match). Cost: one wasted fetch per
+    rejected page — bandwidth, not money, and far cheaper than letting the cleaner spend
+    a per-speech GPT call to reject the same row. A mis-specified `keep_if` can silently
+    empty a source, so `run`/`probe` report a filtered-out count.
+    """
+
+    selectors: list[str] = Field(default_factory=list)  # CSS elements whose text is tested
+    pattern: Optional[str] = None    # regex; prefix with (?i) for case-insensitive
+    negate: bool = False             # invert: DROP the page when it matches
+
+    @model_validator(mode="after")
+    def _need_one(self):
+        if not self.selectors and not self.pattern:
+            raise ValueError("keep_if needs 'selectors' and/or 'pattern'")
+        return self
+
+
 class ApiConfig(BaseModel):
     """How to pull speech links + metadata from a JSON/search API (type='api').
 
@@ -234,6 +270,9 @@ class Recipe(BaseModel):
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
     listing: Listing
+    # Optional predicate over the FETCHED page, for sites whose category lives on the page
+    # rather than in the URL (see KeepIf). Default off; applies to every source type.
+    keep_if: Optional[KeepIf] = None
     pagination: Pagination = Field(default_factory=Pagination)
     # Opt-in continuation into the Wayback CDX after the live crawl (see WaybackExtend).
     # Accepts `true` (reuse everything) or a mapping of overrides; `false`/absent = off.

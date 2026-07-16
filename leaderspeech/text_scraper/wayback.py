@@ -19,11 +19,14 @@ import random
 import re
 import time
 from urllib.parse import urlparse
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional
 
 import httpx
 
 from .fetch import USER_AGENT
+
+if TYPE_CHECKING:  # annotations only — keeps this module importable on its own
+    from .recipe import Recipe, WaybackExtend
 
 log = logging.getLogger(__name__)
 
@@ -176,6 +179,60 @@ def filter_entries_for_recipe(
         out.append(entry)
 
     return out
+
+
+# --- wayback_extend: continuing a LIVE recipe into the archive -----------------------
+# Shared by `run` (which does the real continuation after a live crawl) and `probe`
+# (which samples it, so a recipe's archived-layout selectors can be checked BEFORE
+# paying for a full run — issue #54). Both must derive the prefix, link_pattern and
+# selector overrides identically, or the probe would validate something the run doesn't do.
+
+EXTEND_OVERRIDE_FIELDS = ("title", "text", "date", "speaker", "context")
+
+
+def cdx_prefix(url: str) -> str:
+    """A CDX prefix (host+path, no scheme, no trailing slash) from a live start_url —
+    the default `wayback_extend` prefix. e.g. https://www.casarosada.gob.ar/discursos/
+    -> www.casarosada.gob.ar/discursos."""
+    u = url.strip()
+    if "://" in u:
+        u = u.split("://", 1)[1]
+    return u.rstrip("/")
+
+
+def extend_prefix(recipe: "Recipe", ext: "WaybackExtend") -> str:
+    return ext.prefix or cdx_prefix(recipe.start_urls[0])
+
+
+def extend_link_pattern(recipe: "Recipe", ext: "WaybackExtend") -> Optional[str]:
+    return ext.link_pattern or recipe.listing.link_pattern
+
+
+def extend_recipe(recipe: "Recipe", ext: "WaybackExtend") -> "Recipe":
+    """The recipe used to extract archived pages: the live recipe, plus any per-field
+    selector overrides the `wayback_extend` block sets for the older layout."""
+    overrides = {f: getattr(ext, f) for f in EXTEND_OVERRIDE_FIELDS
+                 if getattr(ext, f) is not None}
+    return recipe.model_copy(update=overrides) if overrides else recipe
+
+
+def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
+                           to_date: Optional[str]) -> list[dict]:
+    """Archive captures for the wayback_extend continuation: the shared CDX client over a
+    single derived/overridden prefix, bounded by `to_date` (normally the live floor, so
+    live and archive don't overlap)."""
+    prefix = extend_prefix(recipe, ext)
+    entries = list_snapshots_for_queries(
+        [prefix],
+        from_date=ext.wayback_from,
+        to_date=to_date,
+        limit=ext.wayback_limit,
+        match_type=ext.wayback_match_type,
+        collapse=ext.wayback_collapse,
+        filters=ext.wayback_filter,
+    )
+    return filter_entries_for_recipe(entries, extend_link_pattern(recipe, ext),
+                                     start_urls=[prefix])
 
 
 def snapshot_url(entry: dict) -> str:

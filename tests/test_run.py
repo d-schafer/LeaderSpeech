@@ -2,6 +2,7 @@
 faking the link harvester and the fetcher."""
 
 import json
+from pathlib import Path
 
 from leaderspeech.text_scraper import pdf, run
 
@@ -456,3 +457,124 @@ def test_no_wayback_extend_by_default(tmp_path, monkeypatch):
     assert res["scraped_this_run"] == 1
     assert res["extended_links_found"] == 0
     assert res["extended_scraped"] == 0
+
+
+# --- keep_if: the harvest is filtered by the PAGE, not just the URL (issue #52) --------
+
+KEEP_IF_RECIPE_YAML = r"""
+source_id: test_keep
+country: Argentina
+source_language: Spanish
+start_urls: ["http://x/list"]
+listing: { link_selector: "a" }
+keep_if:
+  selectors: [".breadcrumb"]
+  pattern: "Discursos"
+title: { selectors: ["h1"] }
+text: { selectors: ["div.body"] }
+date: { selectors: [".date"] }
+date_languages: ["es"]
+"""
+
+# Both permalinks are bare ids — indistinguishable by link_pattern. Only the breadcrumb
+# separates the president's speech from the ministry's press release.
+SPEECH_HTML = (
+    "<html><nav class='breadcrumb'>Inicio &gt; Discursos</nav><h1>Titulo</h1>"
+    "<span class='date'>1 de enero de 2020</span>"
+    "<div class='body'>Palabras del Presidente.</div></html>"
+)
+PRESS_RELEASE_HTML = (
+    "<html><nav class='breadcrumb'>Inicio &gt; Salud</nav><h1>Comunicado</h1>"
+    "<span class='date'>2 de enero de 2020</span>"
+    "<div class='body'>Comunicado del ministerio.</div></html>"
+)
+
+
+class CategoryFetcher:
+    """Serves a speech for /keep-* URLs and a ministry press release for /drop-* ones."""
+
+    def __init__(self, **kwargs):
+        pass
+
+    def get(self, url):
+        return SPEECH_HTML if "keep" in url else PRESS_RELEASE_HTML
+
+    def close(self):
+        pass
+
+
+def _keep_recipe(tmp_path):
+    p = tmp_path / "test_keep.yml"
+    p.write_text(KEEP_IF_RECIPE_YAML, encoding="utf-8")
+    return str(p)
+
+
+def test_keep_if_filters_by_page_category_and_counts_it(tmp_path, monkeypatch):
+    urls = ["http://x/12345-keep", "http://x/23456-drop", "http://x/34567-drop"]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
+    monkeypatch.setattr(run, "Fetcher", CategoryFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_keep_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    assert res["filtered_out_this_run"] == 2
+    # A rejection is a decision, not a failure: no error rows, nothing to retry.
+    assert res["failed_this_run"] == 0
+    assert res["failed_pending_retry"] == 0
+    assert not (out / "Argentina" / "test_keep_errors.csv").exists()
+
+    rows = (out / "Argentina" / "test_keep.csv").read_text(encoding="utf-8")
+    assert "Palabras del Presidente." in rows
+    assert "Comunicado del ministerio." not in rows
+    # doc_ids are only spent on kept rows
+    assert json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))[
+        "last_doc_num"] == 1
+
+
+def test_filtered_urls_are_remembered_and_never_refetched(tmp_path, monkeypatch):
+    """The whole point on a 5,903-capture archive: don't re-fetch the rejects every run."""
+    urls = ["http://x/12345-keep", "http://x/23456-drop"]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
+    monkeypatch.setattr(run, "Fetcher", CategoryFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    recipe = _keep_recipe(tmp_path)
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["filtered_urls"] == ["http://x/23456-drop"]
+    assert state["seen_urls"] == ["http://x/12345-keep"]   # kept apart from scraped
+    assert state["failed_urls"] == []
+
+    fetched = []
+
+    class Recording(CategoryFetcher):
+        def get(self, url):
+            fetched.append(url)
+            return super().get(url)
+
+    monkeypatch.setattr(run, "Fetcher", Recording)
+    res = run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+
+    assert res["filtered_out_this_run"] == 0     # nothing re-judged...
+    assert res["filtered_total"] == 1            # ...but the decision is still recorded
+    assert fetched == []
+
+    # --retry-failed retries FAILURES, not rejections: a keep_if decision stands.
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir), retry_failed=True)
+    assert fetched == []
+
+
+def test_a_keep_if_that_matches_nothing_is_shouted_about(tmp_path, monkeypatch):
+    """The dangerous mis-specification: every page dropped, no errors, empty source."""
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/1-drop", "http://x/2-drop"])
+    monkeypatch.setattr(run, "Fetcher", CategoryFetcher)
+
+    res = run.scrape_recipe(_keep_recipe(tmp_path), out_root=str(tmp_path / "s"),
+                            state_root=str(tmp_path / "st"))
+
+    assert res["scraped_this_run"] == 0
+    assert res["filtered_out_this_run"] == 2
+    log_text = Path(res["log"]).read_text(encoding="utf-8")
+    assert "FILTERED OUT ALL" in log_text

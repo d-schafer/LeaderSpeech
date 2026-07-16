@@ -81,6 +81,24 @@ wayback_extend:
 
 You can also trigger it per-run without editing the recipe: `run --extend-wayback`.
 
+**Check it before you run it.** Archived pages very often use an *older layout* than the live site —
+which is exactly when the selector overrides above are needed, and exactly what you cannot see from a
+live probe. `probe` samples the continuation with the same prefix, `link_pattern` and overrides the run
+derives, and reports it under a `WAYBACK-EXTEND` heading with `ARCHIVED` per-page diagnostics:
+
+```bash
+# automatic when the recipe declares wayback_extend; --extend-wayback forces it for one that doesn't
+python -m leaderspeech.text_scraper.probe --recipe recipes/arg_casarosada.yml --n 5
+
+# a real run bounds the archive at the earliest date the LIVE crawl scraped — a value that only
+# exists after that crawl. Before anything is scraped there is no floor, so the probe samples the
+# WHOLE archive (it says so) and recent captures with the live layout dilute the sample. Aim it at
+# the historical slice yourself:
+python -m leaderspeech.text_scraper.probe --recipe recipes/arg_casarosada.yml --wayback-to 20151210
+```
+
+Once the source has been scraped, the probe picks the floor up from the existing CSV automatically.
+
 > ⚠️ **Two honest limits.**
 > 1. **Same host only.** `wayback_extend` reuses the live site's host+prefix. A source that moved its
 >    older content to a **different domain** (US NARA `*whitehouse.archives.gov`, Korea
@@ -107,6 +125,58 @@ examples:
 Author these as ordinary live recipes (usually `renderer: static`, `query_param`/`path` pagination),
 one per administration where the URL scheme differs — not as `wayback_extend`, which stays on the
 *live* host.
+
+## Filtering by the PAGE, not the URL (`keep_if`)
+
+`listing.link_pattern` is a regex over the **URL**, and it should stay your first choice: it
+costs nothing (the page is never fetched). But some sites categorise content **on the page
+only** — every article is a bare numeric permalink like `/news/contents/details/12345`, shared
+by the leader's speeches and by every ministry press release on the site. No URL regex can
+separate those. `keep_if` is a predicate over the **fetched page**, applied after extraction
+and before the row is written, so it works the same for `wayback`, `api`/`feed` and ordinary
+listings:
+
+```yaml
+keep_if:
+  # The article's own category element. Several selectors = alternatives (all are tried).
+  selectors: ["div.panel-heading span.headtitle-2"]
+  pattern: "ข่าวนายกรัฐมนตรี|คำกล่าวของนายกรัฐมนตรี"   # regex over their combined text
+  # negate: true      # optional: DROP when it matches instead
+```
+
+This matters most for **`pagination: wayback`**, which never crawls a listing at all — it
+enumerates CDX captures and treats each as a speech page — so an on-page category is the only
+category signal an archive harvest has.
+
+**Modes**
+
+| Written as | Keeps a page when |
+|---|---|
+| `selectors` + `pattern` | the combined text of every matching element matches `pattern`. The usual shape. |
+| `pattern` alone | the **whole document's** text matches (a PDF's extracted text when there's no DOM). Blunt — a passing mention of the leader counts. |
+| `selectors` alone | any of them is present at all. |
+
+**The trap: use the article's own category, not the site's nav.** A site-wide menu or footer
+usually *lists every category on every page*, so `nav`/`.breadcrumb` often matches "PM
+speeches" on a Ministry of Health press release and keeps the whole wire. Verify with a probe
+that a page you want **dropped** is actually dropped — a `keep_if` that keeps everything is as
+wrong as one that keeps nothing.
+
+**Costs and failure modes**
+- The page must be fetched before it can be judged, so a rejected page is a wasted fetch —
+  bandwidth, not money, and far cheaper than letting the cleaner spend a per-speech GPT call
+  to reject the same row.
+- A selector that matches nothing means "no evidence" and **drops** the page. A mis-specified
+  `keep_if` therefore empties a source *silently*, so `run` reports `filtered_out_this_run`
+  (and shouts if it filtered out everything), and `probe` prints a `KEEP_IF` line with the
+  kept/filtered counts. Probe before you run.
+- Rejections are recorded in the state file's `filtered_urls` and never re-fetched (that's the
+  point on a 4,000-capture archive). `--retry-failed` retries *failures*, not rejections — to
+  re-open them after loosening a `keep_if`, delete that list from `data/state/<Country>.json`.
+- **No DOM, no selectors:** for a PDF (`content_type: pdf`), or an `api`/`feed` source whose
+  JSON carries the text so no page is fetched, a `selectors` predicate cannot be evaluated and
+  is a **no-op** (the page is kept — silently rejecting a whole source is worse). Use the
+  `pattern`-alone form to filter those.
 
 ## Pagers you can't synthesise (`type: next_link`)
 
@@ -390,6 +460,9 @@ date_languages: ["pt"]
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
+| `keep_if.selectors` | one of these | CSS elements whose combined text `pattern` is tested against — use the **article's own** category element, not the site nav (which lists every category on every page). Omit to test the whole document's text. See "Filtering by the PAGE, not the URL". |
+| `keep_if.pattern` | one of these | Regex deciding whether a fetched page becomes a row. Prefix `(?i)` for case-insensitive. Omit (with `selectors` set) to keep pages where any selector is merely present. |
+| `keep_if.negate` | no | Default `false`. `true` inverts the verdict: DROP the page when it matches. |
 | `pagination.type` | no | `query_param`, `path`, `click`, `next_link`, `url_list`, `sitemap`, `wayback`, `api`, `feed`, or `none` (default). |
 | `pagination.param` | for query_param | Query parameter name (`start`, `page`). |
 | `pagination.start` / `step` | no | First index/offset and the increment between pages (defaults `0` / `1`). |

@@ -191,6 +191,167 @@ def test_url_list_ignores_link_pattern():
     ]
 
 
+# --- issue #53: pagination must not end SILENTLY. A pager that breaks has to be
+# distinguishable from an archive that genuinely ran out of pages.
+
+
+class FakePage:
+    """Minimal stand-in for a Playwright page driving `click` pagination.
+
+    `click_raises` models the Austria case (#19/#53): the next control IS in the DOM, so
+    `query_selector` finds it, but the site's JS hid it, so Playwright's actionability
+    check times out and `.click()` raises.
+    """
+
+    def __init__(self, pages=3, click_raises=False, button=True):
+        self.pages, self.click_raises, self.button = pages, click_raises, button
+        self.n, self.url = 1, "https://example.org/speeches"
+
+    def goto(self, url, **kw):
+        self.url = url
+
+    def content(self):
+        return f'<a href="/s/{self.n}">item{self.n}</a>'
+
+    def query_selector(self, selector):
+        if not self.button or self.n >= self.pages:
+            return None
+        return self._Button(self)
+
+    def wait_for_load_state(self, *a, **kw):
+        pass
+
+    class _Button:
+        def __init__(self, page):
+            self.page = page
+
+        def click(self):
+            if self.page.click_raises:
+                raise TimeoutError("ElementHandle.click: Timeout 5000ms exceeded.\n"
+                                   "  - element is not visible")
+            self.page.n += 1
+
+
+class FakeJsFetcher:
+    def __init__(self, page):
+        self.page = page
+
+
+def test_click_pagination_broken_pager_warns_and_flags_stopped_early(caplog):
+    """The Austria failure: the click raises, the crawl returns page 1, and every other
+    signal says success. It must be loud, and the caller must be able to see it."""
+    r = _recipe(type="click", next_selector="a.next", max_pages=10)
+    page = FakePage(pages=99, click_raises=True)
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, FakeJsFetcher(page), stats=stats)
+
+    assert links == ["https://example.org/s/1"]      # truncated to page 1...
+    assert stats["stopped_early"] is True            # ...and the caller can tell
+    assert stats["stop_reason"] == "next_click_failed"
+    assert "stopped EARLY" in caplog.text
+    assert "next_link" in caplog.text                # the warning names the actual fix
+
+
+def test_click_pagination_last_page_is_not_flagged_as_early(caplog):
+    """The other half of the contract: a pager that genuinely runs out is NORMAL and must
+    not cry wolf, or the warning above becomes noise people learn to ignore."""
+    r = _recipe(type="click", next_selector="a.next", max_pages=10)
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, FakeJsFetcher(FakePage(pages=3)), stats=stats)
+
+    assert links == ["https://example.org/s/1", "https://example.org/s/2",
+                     "https://example.org/s/3"]
+    assert stats["stopped_early"] is False
+    assert stats["stop_reason"] == "no_next_button"
+    assert caplog.text == ""
+
+
+def test_query_param_pager_ignored_by_site_is_flagged(caplog):
+    """A listing that serves page 1 forever looks identical to a 1-page archive: same
+    links, zero errors. Detect it by 'served links, but none new'."""
+
+    class IgnoresPageParam:
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url):
+            self.urls.append(url)
+            return '<a href="/s/1">always the same item</a>'
+
+    r = _recipe(type="query_param", param="page", start=1, step=1, max_pages=10)
+    f = IgnoresPageParam()
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, f, stats=stats)
+
+    assert links == ["https://example.org/s/1"]
+    assert len(f.urls) == 2                # stopped once page 2 repeated page 1
+    assert stats["stopped_early"] is True
+    assert stats["stop_reason"] == "no_new_links"
+    assert "ignoring the 'page' pager" in caplog.text
+
+
+def test_query_param_empty_page_ends_normally(caplog):
+    """Running off the end of the results (a page with no links at all) is the normal
+    terminator and stays quiet."""
+
+    class TwoPages:
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url):
+            self.urls.append(url)
+            n = len(self.urls)
+            return f'<a href="/s/{n}">item</a>' if n <= 2 else "<p>no results</p>"
+
+    r = _recipe(type="query_param", param="page", start=1, step=1, max_pages=10)
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, TwoPages(), stats=stats)
+
+    assert links == ["https://example.org/s/1", "https://example.org/s/2"]
+    assert stats["stopped_early"] is False
+    assert stats["stop_reason"] == "empty_page"
+    assert caplog.text == ""
+
+
+def test_listing_fetch_failure_flags_stopped_early():
+    """A listing page that won't load truncates the crawl — that is not a clean finish."""
+
+    class Breaks:
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url):
+            self.urls.append(url)
+            if len(self.urls) > 1:
+                raise RuntimeError("503")
+            return '<a href="/s/1">item</a>'
+
+    r = _recipe(type="query_param", param="page", start=1, step=1, max_pages=10)
+    stats = {}
+    paginate.harvest_links(r, Breaks(), stats=stats)
+    assert stats["stopped_early"] is True
+    assert stats["stop_reason"] == "listing_fetch_failed"
+
+
+def test_next_link_exhausted_chain_ends_normally():
+    r = _recipe(type="next_link", next_selector="a[data-nextlink]", max_pages=10)
+    stats = {}
+    paginate.harvest_links(r, NextLinkFetcher(pages=3), stats=stats)
+    assert stats["stopped_early"] is False
+    assert stats["stop_reason"] == "no_next_link"
+
+
+def test_harvest_stats_are_optional():
+    """Callers that don't pass `stats` (and every existing test above) are unaffected."""
+    assert paginate.harvest_links(_recipe(type="none"), RecordingFetcher()) == [
+        "https://example.org/s/1"
+    ]
+
+
 def test_none_type_fetches_every_start_url_as_a_listing():
     """The counterpart to url_list: several *listing* pages go in start_urls."""
     r = Recipe(

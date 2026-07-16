@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pycountry
 
-from .extract import extract_pdf_record, extract_record
+from .extract import extract_pdf_record, extract_record, should_keep
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
@@ -70,8 +70,14 @@ def load_state(path: Path) -> dict:
         state = json.loads(path.read_text(encoding="utf-8"))
     else:
         state = {"last_doc_num": 0, "seen_urls": []}
-    # seen_urls = successfully scraped; failed_urls = errored/empty (retried on demand)
+    # seen_urls = successfully scraped; failed_urls = errored/empty (retried on demand);
+    # filtered_urls = fetched, but `keep_if` said they aren't this source's content — a
+    # decided rejection, so they are never re-fetched (that's the point: it saves
+    # re-crawling thousands of ministry press releases on every incremental run). Kept
+    # apart from seen_urls so the two stay honest, and so loosening a keep_if is a
+    # deliberate act: drop this list from the state file to re-open them.
     state.setdefault("failed_urls", [])
+    state.setdefault("filtered_urls", [])
     return state
 
 
@@ -178,14 +184,18 @@ def _record_from_entry(entry: dict, url: str, recipe: Recipe) -> dict:
     JSON/feed already carries the full text (so no page fetch is needed). Same shape
     as extract.extract_record."""
     speaker = entry.get("speaker", "") or (recipe.speaker_default or "")
+    text = entry.get("text", "")
     return {
         "title": entry.get("title", ""),
-        "text": entry.get("text", ""),
+        "text": text,
         "date": entry.get("date"),
         "date_raw": "",
         "speaker": speaker,
         "context": "",
         "source": url,
+        # No page was fetched, so there is no DOM: a selector keep_if can't apply here,
+        # a pattern-only one tests the carried text.
+        "keep": should_keep(recipe.keep_if, None, text),
     }
 
 
@@ -204,31 +214,6 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         recipe.listing.link_pattern,
         start_urls=recipe.start_urls,
     )
-
-
-def _cdx_prefix(url: str) -> str:
-    """A CDX prefix (host+path, no scheme, no trailing slash) from a live start_url —
-    the default `wayback_extend` prefix. e.g. https://www.casarosada.gob.ar/discursos/
-    -> www.casarosada.gob.ar/discursos."""
-    u = url.strip()
-    if "://" in u:
-        u = u.split("://", 1)[1]
-    return u.rstrip("/")
-
-
-def _harvest_wayback_extend(prefix: str, link_pattern, ext: WaybackExtend, to_date) -> list[dict]:
-    """Archive captures for the wayback_extend continuation: reuse the shared CDX client
-    over a single derived/overridden prefix, bounded by `to_date` (the live floor)."""
-    entries = wayback.list_snapshots_for_queries(
-        [prefix],
-        from_date=ext.wayback_from,
-        to_date=to_date,
-        limit=ext.wayback_limit,
-        match_type=ext.wayback_match_type,
-        collapse=ext.wayback_collapse,
-        filters=ext.wayback_filter,
-    )
-    return wayback.filter_entries_for_recipe(entries, link_pattern, start_urls=[prefix])
 
 
 def scrape_recipe(
@@ -258,6 +243,7 @@ def scrape_recipe(
     state = load_state(state_path)
     seen = set(state["seen_urls"])       # already scraped — never re-fetched
     failed = set(state["failed_urls"])   # errored/empty — re-fetched only with retry_failed
+    filtered = set(state["filtered_urls"])  # rejected by keep_if — never re-fetched
 
     fetcher = Fetcher(
         renderer=recipe.renderer.value,
@@ -278,11 +264,14 @@ def scrape_recipe(
     # counters live in a dict, and pending_rows/errors are cleared in place (never
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
-    stats = {"scraped": 0, "generic": 0, "failed": 0}
+    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
     links: list[str] = []
+    # Filled by paginate.harvest_links: how pagination ended, and whether it was cut short
+    # by a broken pager rather than by reaching the end (see paginate.NORMAL_STOPS).
+    harvest_stats: dict = {}
     meta_by_url: dict[str, dict] = {}   # api/feed: per-URL metadata carried from the source
     pending_rows: list[dict] = []
     errors: list[dict] = []
@@ -294,6 +283,7 @@ def scrape_recipe(
         pending_rows.clear()
         errors.clear()
         state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
+        state["filtered_urls"] = sorted(filtered)
         save_state(state_path, state)
 
     def _scrape_phase(todo, *, is_wayback, meta_by_url, wayback_delay, phase_recipe, label) -> bool:
@@ -339,7 +329,15 @@ def scrape_recipe(
                     rec["date"] = rec["date"] or entry.get("date")
                     rec["speaker"] = rec["speaker"] or entry.get("speaker", "")
 
-                if not rec["text"]:
+                # keep_if runs BEFORE the empty-text check: a page we deliberately reject
+                # is not a failure, and must not land in the errors file or trip the
+                # circuit breaker. It's also not `seen` — it was never scraped.
+                if not rec.get("keep", True):
+                    filtered.add(url)
+                    failed.discard(url)   # a rejection settles a URL that had been failing
+                    stats["filtered"] += 1
+                    log.info("filtered out by keep_if: %s", url)
+                elif not rec["text"]:
                     errors.append({"timestamp": stamp(), "url": url,
                                    "error": "empty_text (no recipe match; generic also empty)"})
                     failed.add(url)         # NOT seen -> retried after a recipe fix
@@ -375,8 +373,9 @@ def scrape_recipe(
 
             if i % save_every == 0:  # checkpoint: flush rows, errors, and state
                 _flush()
-                log.info("[%s] progress %d/%d | scraped=%d generic=%d failed=%d",
-                         label, i, n, stats["scraped"], stats["generic"], stats["failed"])
+                log.info("[%s] progress %d/%d | scraped=%d generic=%d failed=%d filtered=%d",
+                         label, i, n, stats["scraped"], stats["generic"], stats["failed"],
+                         stats["filtered"])
         return False
 
     try:
@@ -394,7 +393,8 @@ def scrape_recipe(
             meta_by_url = {it["url"]: it for it in items}
         else:
             entries = []
-            links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links)
+            links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links,
+                                  stats=harvest_stats)
 
         # Persist the harvested list immediately (before any scraping) — a record of
         # what was found, and insurance against a crash mid-scrape.
@@ -404,21 +404,23 @@ def scrape_recipe(
             links_path.write_text("\n".join(links) + "\n", encoding="utf-8")
             log.info("saved %d harvested links to %s", len(links), links_path.name)
 
-        skip = seen if retry_failed else (seen | failed)
+        skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
             todo_entries = [entry for entry in entries if entry.get("original") not in skip]
             if limit:
                 todo_entries = todo_entries[:limit]
-            log.info("harvested %d archived capture(s); %d to scrape (%d done, %d known-failed%s)",
-                     len(entries), len(todo_entries), len(seen), len(failed),
+            log.info("harvested %d archived capture(s); %d to scrape (%d done, %d known-failed, "
+                     "%d filtered out earlier%s)",
+                     len(entries), len(todo_entries), len(seen), len(failed), len(filtered),
                      "; retrying failures" if retry_failed else "")
             todo = todo_entries
         else:
             todo = [url for url in links if url not in skip]
             if limit:
                 todo = todo[:limit]
-            log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed%s)",
-                     len(links), len(todo), len(seen), len(failed),
+            log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed, "
+                     "%d filtered out earlier%s)",
+                     len(links), len(todo), len(seen), len(failed), len(filtered),
                      "; retrying failures" if retry_failed else "")
 
         aborted_early = _scrape_phase(
@@ -446,9 +448,8 @@ def scrape_recipe(
                 log.info("[wayback-extend] no earliest live date to bound the archive "
                          "(and no wayback_to override) — skipping the continuation.")
             else:
-                prefix = ext.prefix or _cdx_prefix(recipe.start_urls[0])
-                link_pattern = ext.link_pattern or recipe.listing.link_pattern
-                ext_entries = _harvest_wayback_extend(prefix, link_pattern, ext, to_date)
+                prefix = wayback.extend_prefix(recipe, ext)
+                ext_entries = wayback.harvest_extend_entries(recipe, ext, to_date)
                 extended_links_found = len(ext_entries)
                 if ext_entries:
                     ext_links_path = out_dir / f"{recipe.source_id}_wayback_extend_links.txt"
@@ -456,7 +457,7 @@ def scrape_recipe(
                         "\n".join(e["original"] for e in ext_entries if e.get("original")) + "\n",
                         encoding="utf-8",
                     )
-                skip = seen if retry_failed else (seen | failed)
+                skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
                 todo2 = [e for e in ext_entries if e.get("original") not in skip]
                 if limit:
                     todo2 = todo2[:limit]
@@ -465,10 +466,7 @@ def scrape_recipe(
                 if todo2:
                     if wayback_client is None:
                         wayback_client = wayback.create_client()
-                    overrides = {f: getattr(ext, f) for f in
-                                 ("title", "text", "date", "speaker", "context")
-                                 if getattr(ext, f) is not None}
-                    phase_recipe = recipe.model_copy(update=overrides) if overrides else recipe
+                    phase_recipe = wayback.extend_recipe(recipe, ext)
                     scraped_before = stats["scraped"]
                     aborted_early = _scrape_phase(
                         todo2, is_wayback=True, meta_by_url={}, wayback_delay=ext.wayback_delay,
@@ -485,15 +483,34 @@ def scrape_recipe(
         _append(out_path, pending_rows, SCHEMA_COLUMNS)
         _append(err_path, errors, ERROR_COLUMNS)
         state["seen_urls"], state["failed_urls"] = sorted(seen), sorted(failed)
+        state["filtered_urls"] = sorted(filtered)
         save_state(state_path, state)
         attempted = stats["scraped"] + stats["failed"]
         if attempted and stats["failed"] / attempted > 0.5:
             log.warning("HIGH FAILURE RATE: %d/%d failed — check the recipe selectors / pagination "
                         "(or the site may be blocking).", stats["failed"], attempted)
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s | last_doc_num=%d | out=%s",
+        # A keep_if that rejects nearly everything is usually CORRECT (isolating a leader's
+        # items from a whole ministry wire is the point), so a high rate isn't news. One
+        # that rejects EVERYTHING is a different animal: the source silently yields nothing.
+        if stats["filtered"] and not stats["scraped"]:
+            log.warning("keep_if FILTERED OUT ALL %d fetched page(s) and the source produced no "
+                        "rows — that is almost certainly a mis-specified keep_if (a selector "
+                        "that doesn't exist on these pages matches nothing, and no match means "
+                        "drop). Probe it before re-running.", stats["filtered"])
+        if harvest_stats.get("stopped_early"):
+            # A clean run on a truncated harvest is the dangerous case: every other counter
+            # says success. Say it again at the end, where the summary is read.
+            log.warning("PAGINATION STOPPED EARLY (%s): only %d link(s) were harvested and the "
+                        "crawl was cut short by a pager problem, not by reaching the end — treat "
+                        "this coverage as INCOMPLETE. See the warning above for the fix.",
+                        harvest_stats.get("stop_reason"), len(links))
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
+                 f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
                  f" | +{extended_scraped} via wayback-extend" if extended_scraped else "",
-                 " | ABORTED EARLY" if aborted_early else "", state["last_doc_num"], out_path)
+                 " | ABORTED EARLY" if aborted_early else "",
+                 " | PAGINATION STOPPED EARLY" if harvest_stats.get("stopped_early") else "",
+                 state["last_doc_num"], out_path)
         # Refresh the running scrape index (one row per source CSV; for merging). Never
         # let an index hiccup (e.g. the xlsx open in Excel) break the scrape itself.
         try:
@@ -510,10 +527,18 @@ def scrape_recipe(
         "scraped_this_run": stats["scraped"],
         "via_generic_fallback": stats["generic"],   # high => recipe selectors are drifting
         "failed_this_run": stats["failed"],
+        # keep_if rejections: fetched, judged not this source's content, not written.
+        # filtered_out == links_found with 0 scraped => the keep_if is wrong, not the site.
+        "filtered_out_this_run": stats["filtered"],
+        "filtered_total": len(filtered),
         "extended_links_found": extended_links_found,  # archived captures found by wayback_extend
         "extended_scraped": extended_scraped,          # of those, newly scraped this run
         "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
         "aborted_early": aborted_early,       # circuit breaker tripped (likely blocked/broken)
+        # True => the harvest was truncated by a pager problem, so coverage is incomplete
+        # even though the run "succeeded". Always false for wayback/api/feed (no pager).
+        "pagination_stopped_early": bool(harvest_stats.get("stopped_early")),
+        "pagination_stop_reason": harvest_stats.get("stop_reason"),
         "last_doc_num": state["last_doc_num"],
         "output": str(out_path),
         "log": str(log_path),
