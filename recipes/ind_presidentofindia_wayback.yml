@@ -1,0 +1,83 @@
+# India — President of India, ARCHIVED speeches (Internet Archive).
+# Companion to the live recipes/ind_presidentofindia.yml, which is RECENT-ONLY: the
+# site's Drupal view exposes just 2 pages (~20 speeches ≈ the last 6 weeks) and its
+# date filter cannot reach older items. So essentially the entire history of the
+# President's speeches is only reachable through the archive — this recipe is where
+# the Indian data actually comes from, and the live one is just the incremental tail.
+#
+# ONE recipe covers TWO site generations, because the CDX prefix
+# "presidentofindia.nic.in/speeches" prefix-matches both URL shapes:
+#
+#   1. LEGACY  /speeches-detail.htm?<id>       ~562 captures, 2014..2023
+#      The old ASP.NET site. Spans Pranab Mukherjee (2012-2017), Ram Nath Kovind
+#      (2017-2022) and early Droupadi Murmu. Full speech bodies (8k-9.6k chars) in
+#      div.speeches; title in h3.padB15; date in .date as "<Place> : DD.MM.YYYY".
+#   2. MODERN  /speeches/<slug>                ~240 captures, 2023..2026
+#      The current Drupal site (same layout the live recipe scrapes).
+#
+# The selector chains below are ordered legacy-first, then modern; the first match
+# wins per field, so each capture is read with the right generation's selectors.
+source_id: ind_presidentofindia_wayback
+country: India
+source_language: English
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'.
+  - presidentofindia.nic.in/speeches
+renderer: static
+
+listing:
+  # Match BOTH generations, and nothing else under the prefix:
+  #   /speeches/<slug>            (modern; excludes the bare /speeches listing itself)
+  #   /speeches-detail.htm?<id>   (legacy; the query IS a bare number, e.g. ?314)
+  # Deliberately excludes /speeches-detail-hi.htm (the Hindi mirror of the same
+  # speech — it would double every legacy row) and /speechesN.html index captures.
+  link_pattern: '/speeches(/[^/?]+$|-detail\.htm\?\d+$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+  # Bound at the live recipe's earliest date so live and archive don't overlap and
+  # doc_id continuity holds. The live view is a ROLLING ~6-week window, so this floor
+  # drifts forward over time — if a re-run shows a gap between the archive's newest
+  # row and the live recipe's oldest, raise this date.
+  wayback_to: "20260602"
+
+title:
+  selectors: ["h3.padB15", ".news-single h1", "h1.title.page-title", "h1", "title"]
+text:
+  # div.speeches = legacy body (8k-9.6k chars); .views-field-nothing = modern Drupal.
+  selectors: ["div.speeches", ".views-field-nothing", ".view-speeches-detail .field-content", ".field-content"]
+date:
+  # Legacy: .date = "Raipur, Chhattisgarh : 26.07.2014".
+  # Modern: the dateline opens the body, e.g. "नई दिल्ली : 15.07.2026".
+  # Match DOTS ONLY: the legacy pages also carry ".lastUpdated" = "Page last updated
+  # on: 19/5/2014" (slashes) and the modern pages a slashed "16/07/2026" stamp —
+  # neither must win.
+  selectors: [".date", "div.speeches", ".views-field-nothing", ".field-content"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+
+position: president
+# REQUIRED FOR CORRECTNESS, not because the text is Hindi — both generations date
+# speeches as numeric DD.MM.YYYY, and dateparser resolves ambiguous numerics by locale:
+#   languages=["en"] -> "01.07.2026" parses as 2026-01-07  (WRONG: month-first)
+#   languages=["hi"] -> "01.07.2026" parses as 2026-07-01  (RIGHT: day-first)
+# Verified directly against dateparser. ["hi","en"] is also wrong ("en" wins). Every
+# date whose day <= 12 would silently be corrupted. Same note as the live recipe.
+date_languages: ["hi"]
+notes: >
+  Issue #41 follow-up. THIS is the substantive Indian source: ~800 archived captures
+  (562 legacy 2014-2023 + ~240 modern 2023-2026) versus the live recipe's 20. Spans
+  three presidents — Mukherjee, Kovind, Murmu — so speaker_default is omitted and the
+  tenure crosscheck assigns the speaker from country+date (the legacy titles also name
+  the president explicitly, e.g. "SPEECH BY THE PRESIDENT OF INDIA, SHRI PRANAB
+  MUKHERJEE"). HOST CHOICE: presidentofindia.nic.in has the deeper LEGACY archive (562
+  captures vs 361 on presidentofindia.gov.in) and matches the live recipe's host; the
+  sibling presidentofindia.gov.in has more MODERN captures (523 vs 240) but serves the
+  SAME content, so harvesting both hosts would duplicate every speech. If more modern
+  depth is wanted later, prefer raising this recipe's coverage over adding the second
+  host. MIXED LANGUAGE: like the live site, Hindi renderings exist as separate nodes;
+  the legacy Hindi mirror (/speeches-detail-hi.htm) is excluded by link_pattern, but
+  the modern transliterated-Hindi slugs are not distinguishable by URL — expect
+  near-duplicate EN/HI pairs in the modern slice, a downstream de-dup concern.

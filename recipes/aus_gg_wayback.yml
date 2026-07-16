@@ -1,0 +1,73 @@
+# Australia — Governor-General (gg.gov.au), ARCHIVED speeches (Internet Archive).
+# PURE-WAYBACK: the live site is unreachable (issue #18) — DNS resolves to an Akamai
+# edge and TCP connects, but the server never responds (ReadTimeout even at 90s) for
+# both the honest bot UA and a browser UA. A silent edge-level drop (geo-fence/bot
+# management), so there is no live recipe to bound against and no wayback_to.
+#
+# WHICH archived path — the site has two, and only one is speeches:
+#   * /speeches/html/speeches/<yyyy>/<yymmdd>.html  <- THIS ONE. ~454 captures of the
+#     GG's actual speech texts, content dated 2000..2006 (William Deane 1996-2001,
+#     Peter Hollingworth 2001-2003, Michael Jeffery 2003-2008). Plain old HTML.
+#   * /about-governor-general/governor-generals-program/<slug>  <- NOT used. Despite
+#     being the biggest capture set (~6,000, 2019-2026) it is the GG's PROGRAM: a diary
+#     of engagements whose slugs are place names ("canberra-act",
+#     "cloncurry-queensland-julia-creek-queensland") and whose bodies are ~760-970
+#     char notes, not speeches. Harvesting it would flood the corpus with diary rows.
+#     A few genuine speeches do sit there (address-reply, first-voice-power-speech), so
+#     a tightly slug-filtered second recipe could be worth it later — not attempted here.
+source_id: aus_gg_wayback
+country: Australia
+source_language: English
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'.
+  - gg.gov.au/speeches/html/speeches
+renderer: static
+
+listing:
+  # <yyyy>/<yymmdd>.html, optionally with a trailing letter for same-day extras
+  # (000827.html, 010804b.html). Excludes the /speeches/html/speeches.html index
+  # capture, the /media/mr*.html media releases, and the pdfs/rtf/textonly mirrors of
+  # the same speeches (which would duplicate every row).
+  link_pattern: '/speeches/html/speeches/\d{4}/\d{6}[a-z]?\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # These 2000s pages have NO heading markup at all; <title> is a stamp like
+  # "SPEECH 27-08-2000". It is a weak title, but it is the only one present — the
+  # cleaner's GPT pass derives a better title/context from the body.
+  selectors: ["h1", "h2", "title"]
+text:
+  # No semantic containers on this vintage of HTML; the engine's generic extractor is
+  # the real workhorse here (it recovers the ~3.7k-char speech body).
+  selectors: ["#content", ".content", "td", "p", "body"]
+date:
+  # url_regex ONLY, deliberately — no date selector.
+  # These pages have no date element, and the URL is the authoritative source:
+  # /speeches/2000/000827.html — the DIRECTORY holds the 4-digit year and the FILENAME
+  # is yymmdd, so named groups assemble an unambiguous ISO date (taking the year from
+  # the directory, not the filename's 2-digit yy).
+  # A `selectors: ["body"]` + `regex` fallback was tried and DID parse all samples
+  # correctly, but it is dropped on purpose: a body regex takes the FIRST date-looking
+  # string on the page, so any speech that opens by quoting another date ("on 3 March
+  # 1999 we...") would be mis-stamped. url_regex cannot drift that way. Verified against
+  # the samples: 960822->1996-08-22, 000813->2000-08-13, 011011->2001-10-11,
+  # 030307->2003-03-07, 040218b->2004-02-18.
+  url_regex: '/speeches/(?P<year>\d{4})/\d{2}(?P<month>\d{2})(?P<day>\d{2})[a-z]?\.html'
+
+position: governor-general
+date_languages: ["en"]
+notes: >
+  Issue #18. Recipe-only; engine untouched. ~454 archived speech pages, content dated
+  2000-2006, covering Governors-General William Deane, Peter Hollingworth and Michael
+  Jeffery — speaker_default omitted so the tenure crosscheck assigns the speaker from
+  country+date across the three. No wayback_to (no live recipe exists to bound
+  against). SCOPE NOTE for the researcher: the Governor-General is Australia's
+  ceremonial head of STATE; the Prime Minister (pm.gov.au) is the head of GOVERNMENT
+  and is likely the higher-value Australian source — worth deciding whether the GG is
+  in scope before a full run. Note also that gg.gov.au/speeches holds pdfs/, rtf/ and
+  textonly/ mirrors of these same speeches; link_pattern keeps only the html/ copy.
