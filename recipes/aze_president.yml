@@ -1,0 +1,47 @@
+# Azerbaijan — President of the Republic of Azerbaijan (president.az), Ilham Aliyev.
+# Static HTML. The site files news by category; /news/category/speeches ("Çıxışlar")
+# is the speeches archive proper — 12 items/page over 68 pages (~816 speeches),
+# back to April 2010. Pagination is a plain path segment: /…/speeches/2, /…/speeches/3.
+# The site serves the honest bot UA fine (no WAF, no JS needed).
+#
+# Language choice: the Azerbaijani (/az/) section is the original and the fullest;
+# /en/ and /ru/ mirrors exist but are translations. Per project convention the
+# original language is scraped and the downstream translation stage populates the
+# English text/title columns.
+source_id: aze_president
+country: Azerbaijan
+source_language: Azerbaijani
+start_urls:
+  - https://president.az/az/news/category/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href*='/articles/view/']"
+  link_pattern: '/az/articles/view/\d+$'
+
+pagination:
+  type: path
+  start: 1
+  step: 1
+  max_pages: 80   # last page with articles is 68 (69 returns 0); 80 is a safe cap
+
+title:
+  selectors: ["h1.news_heading", "h1", "title"]
+text:
+  # .news-text-block / .news_paragraph-block wrap the speech body; .news-body also
+  # pulls in the surrounding container, so it only trails as a fallback.
+  selectors: [".news-text-block", ".news_paragraph-block", ".news-body", "article"]
+date:
+  # "18 iyun 2026, 09:00" — Azerbaijani month names, parsed via date_languages.
+  selectors: [".news_date", ".text_body-date", ".category_date"]
+
+position: president
+date_languages: ["az"]
+notes: >
+  Issue #20. Coverage ~2010-04 .. present (68 pages x 12 = ~816 items). Ilham Aliyev
+  has been president across the whole archive (in office since 2003), but
+  speaker_default is deliberately omitted so the tenure crosscheck / GPT speaker pass
+  assigns the speaker from country+date — the site also publishes a separate
+  first-vice-president (Mehriban Aliyeva) news feed, so hard-coding a speaker here
+  would be wrong if the category ever mixes. Sibling categories worth a future source
+  each: /news/category/interviews and /documents/category/addresses (Müraciətlər).

@@ -1,0 +1,75 @@
+# India — President of India (presidentofindia.nic.in), Smt. Droupadi Murmu.
+# Drupal site. /speeches is the President's speeches view.
+#
+# TWO THINGS TO KNOW BEFORE EDITING THIS RECIPE:
+#
+# 1. IT IS RECENT-ONLY (~20 items, roughly the last 6 weeks) — this is a LIVE /
+#    INCREMENTAL source, NOT a history. The view holds exactly two pages: ?page=0 and
+#    ?page=1 return 10 links each and ?page=2 returns 0. This was checked hard, not
+#    assumed: the exposed filter form on /speeches has a `field_speeches_date_value`
+#    input, but it is an <input type="date"> EXACT-date filter, and every older date
+#    tried (2026-05-09, 2026-03-10, 2025-08-15, 2024-01-26, 2023-06-15, 2022-07-25)
+#    returns 0 results — only dates inside the recent ~20 match. The sibling host
+#    www.presidentofindia.gov.in serves the same Drupal view with the same 2-page
+#    limit. There is no sitemap (/sitemap.xml 404s). So the archive is simply not
+#    exposed; recovering the history needs a *_wayback companion (see notes).
+#
+# 2. date_languages MUST stay ["hi"] — see the date field below. This is a
+#    correctness issue, not a preference.
+source_id: ind_presidentofindia
+country: India
+source_language: English
+# The honest bot UA is hard-blocked (HTTP 403, 377-byte body); a browser UA returns the
+# real page (HTTP 200). UA-keyed WAF, same pattern as ind_pmindia / col_presidencia.
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+start_urls:
+  - https://presidentofindia.nic.in/speeches
+renderer: static
+
+listing:
+  link_selector: "a[href*='/speeches/']"
+  link_pattern: '/speeches/[^/]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 5   # the view really is 2 pages; the engine stops when a page adds 0 links
+
+title:
+  selectors: ["h1.title.page-title", "h1.page-title", "h1"]
+text:
+  # Drupal view field. The body opens with a "<Place> : <DD.MM.YYYY>" dateline and a
+  # "Download : Speeches (NN KB)" PDF link before the speech proper.
+  selectors: [".view-speeches-detail .field-content", ".views-field-nothing", ".field-content"]
+date:
+  # The page has NO <time> element and no date meta tag; the only article date is the
+  # dateline at the top of the body, e.g. "नई दिल्ली : 15.07.2026". Match dots only —
+  # a slashed "16/07/2026" (the site's "last updated" stamp) also appears on the page
+  # and must not win.
+  selectors: [".view-speeches-detail .field-content", ".views-field-nothing", ".field-content"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+
+position: president
+# ["hi"] is REQUIRED FOR CORRECTNESS, not because the text is Hindi. The dateline is
+# numeric DD.MM.YYYY, and dateparser resolves ambiguous numeric dates by locale:
+#   languages=["en"] -> "01.07.2026" parses as 2026-01-07  (WRONG: month-first)
+#   languages=["hi"] -> "01.07.2026" parses as 2026-07-01  (RIGHT: day-first)
+# Verified directly against dateparser. ["hi","en"] is also wrong — "en" wins and
+# flips it back to month-first. Every date where day <= 12 would silently be corrupted.
+date_languages: ["hi"]
+notes: >
+  Issue #41. recipe_status=partial. Coverage is only the trailing ~6 weeks (~20
+  speeches) because the Drupal view exposes just 2 pages and its date filter cannot
+  reach older items — good as a live/incremental source, NOT enough history for
+  analysis, exactly like bgd_bss_president. FOLLOW-UP: an ind_presidentofindia_wayback
+  companion is the way to recover the history (the Internet Archive holds the site);
+  it should reuse these selectors. MIXED LANGUAGE: the view interleaves the English
+  and the Hindi rendering of the same address as separate nodes (slugs
+  "address-honble-president-india-..." vs the transliterated
+  "bhaarata-kai-raasatarapatai-..."), so a full run yields near-duplicate pairs in two
+  languages; source_language is declared English but the cleaner's per-row language
+  detection should be trusted, and de-duplication of the pairs is a downstream concern.
+  speaker_default omitted so the tenure crosscheck assigns the speaker from
+  country+date. Each speech also links a PDF ("Download : Speeches"), unused here.

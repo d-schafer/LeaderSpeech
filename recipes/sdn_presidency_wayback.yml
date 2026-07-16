@@ -1,0 +1,63 @@
+# Sudan — Presidency of the Republic (presidency.gov.sd), Omar al-Bashir era.
+# PURE-WAYBACK source: the live site is dead (no DNS/HTTP service), but the Internet
+# Archive holds it well. Sudan is data-sparse, so this is high value (issue #5).
+#
+# What the CDX shows for presidency.gov.sd/*: ~4,250 statuscode:200 captures spanning
+# 2006..2026, overwhelmingly under /ara/news (3,412). Filtering to the article shape
+# /ara/news/<id>-<slug> gives ~659 distinct articles (site content itself dates from
+# ~2015 onward; the bulk of captures are the 2019 crawl that froze the site).
+#
+# No wayback_to bound: there is no live recipe for this source, so we collect the full
+# archived history.
+source_id: sdn_presidency_wayback
+country: Sudan
+source_language: Arabic
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'.
+  - presidency.gov.sd/ara/news
+renderer: static
+
+listing:
+  # Article shape is /ara/news/<numeric id>-<slug>. Requiring the leading digits+dash
+  # excludes the listing/index captures (/ara/news/archives/page:N), the analytics
+  # noise (/ara/news/archives/piwik.js/..., piwik.php), and the bare /ara/news/00
+  # section stubs.
+  link_pattern: '/ara/news/\d+-[^/]+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1.page_title", "h1", "title"]
+text:
+  selectors: [".node-body", ".node-type-news", "#content_page", "article"]
+date:
+  # CAREFUL: the page has TWO .date elements. The first is the site header's
+  # (ul.sudan_info < div#header_page) and renders the *crawl* date — on an archived
+  # capture that is the Wayback snapshot date (e.g. "التاريخ: Saturday 13 Apr 2019"),
+  # which would stamp every article with 2019. The article's own date lives in
+  # div.post_statics (e.g. "15 Feb 2015"), so the selector is scoped to it.
+  selectors: [".post_statics .date", "#content_page .date"]
+  # Safety net: ~600 of the 659 article URLs embed the date as <id>-YYYY-MM-DD-HH-MM-SS.
+  # Named groups assemble an unambiguous ISO date if the selector ever misses.
+  url_regex: '/ara/news/\d+-(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})'
+
+position: president
+date_languages: ["en"]
+notes: >
+  Issue #5. Recipe-only (engine untouched). Coverage ~2015..2019 of site content, from
+  captures spanning 2006-2026; ~659 archived articles. Dates render as "15 Feb 2015"
+  (English month abbreviations) hence date_languages: ["en"] despite the /ara/ path.
+  LANGUAGE IS MIXED: the /ara/ section carries Arabic headlines with many
+  English-language bodies (the site was bilingual and inconsistent); source_language is
+  declared Arabic, but the cleaner's language detection should be trusted per row over
+  this field. CONTENT CAVEAT: these are mostly short news briefs ABOUT the presidency
+  (~250-350 chars) rather than full speech transcripts — the cleaner's document_type
+  gate will keep the official_statement-style items and reject the rest, which is the
+  intended division of labour. speaker_default omitted: the feed covers the President
+  (al-Bashir), the Vice President and presidential assistants, so the tenure crosscheck
+  / GPT speaker pass should assign the speaker from country+date rather than the recipe
+  hard-coding one.
