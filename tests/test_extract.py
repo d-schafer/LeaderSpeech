@@ -141,3 +141,75 @@ def test_keep_if_needs_selectors_or_a_pattern():
 
     with pytest.raises(ValueError, match="keep_if needs 'selectors' and/or 'pattern'"):
         KeepIf()
+
+
+# --- issue #55: shared carried-metadata helpers -----------------------------------------
+from bs4 import BeautifulSoup  # noqa: E402
+
+from leaderspeech.text_scraper.extract import (apply_entry_meta, entry_source,  # noqa: E402
+                                              listing_meta)
+
+
+def test_apply_entry_meta_only_fills_blanks():
+    """The one rule the whole feature rests on: a value the page produced always wins."""
+    rec = {"title": "Real title", "text": "", "date": None, "speaker": ""}
+    entry = {"title": "Listing title", "date": "2023-10-06", "speaker": "Abiy Ahmed"}
+
+    filled = apply_entry_meta(rec, entry)
+
+    assert rec["title"] == "Real title"          # page wins, untouched
+    assert rec["date"] == "2023-10-06"           # blank -> filled
+    assert rec["speaker"] == "Abiy Ahmed"
+    assert set(filled) == {"date", "speaker"}
+
+
+def test_apply_entry_meta_ignores_an_empty_entry():
+    rec = {"title": "", "date": None}
+    assert apply_entry_meta(rec, {}) == []
+    assert apply_entry_meta(rec, None) == []
+    assert rec == {"title": "", "date": None}
+
+
+def test_apply_entry_meta_does_not_invent_missing_keys():
+    # an entry that carries only a date must not add empty text/speaker to the record
+    rec = {"title": "", "text": "body", "date": None, "speaker": ""}
+    filled = apply_entry_meta(rec, {"date": "2018-05-14"})
+    assert filled == ["date"]
+    assert rec["title"] == ""
+
+
+ITEM_HTML = ('<div class="row"><div class="meta-data"><p>Oct. 6, 2023</p></div>'
+             '<h1 class="heading">Erecha</h1></div>')
+
+
+def _item():
+    return BeautifulSoup(ITEM_HTML, "lxml").select_one("div.row")
+
+
+def test_listing_meta_parses_the_date_in_the_sites_language():
+    from leaderspeech.text_scraper.recipe import Listing
+    listing = Listing(link_pattern=r"\.pdf", item_selector="div.row",
+                      item_date={"selectors": ["div.meta-data p"]},
+                      item_title={"selectors": ["h1.heading"]})
+    meta = listing_meta(_item(), listing, ["am", "en"])
+    assert meta["date"] == "2023-10-06"
+    assert meta["title"] == "Erecha"
+    assert "text" not in meta                     # never text
+    assert meta["_from"]["date"] == "listing: div.meta-data p"
+
+
+def test_listing_meta_is_scoped_to_the_block():
+    """first_match runs on the item Tag, so a selector that would match elsewhere on the
+    page but not inside this block resolves to nothing."""
+    from leaderspeech.text_scraper.recipe import Listing
+    listing = Listing(link_pattern=r"\.pdf", item_selector="div.row",
+                      item_date={"selectors": [".not-here"]})
+    assert listing_meta(_item(), listing, ["en"]) == {}
+
+
+def test_entry_source_prefers_the_recorded_selector():
+    entry = {"date": "2023-10-06", "_from": {"date": "listing: div.meta-data p"}}
+    assert entry_source(entry, "date") == "listing: div.meta-data p"
+    # api/feed entries carry no _from -> a generic label
+    assert entry_source({"date": "2023-10-06"}, "date") == "carried entry metadata"
+    assert entry_source(None, "date") == "carried entry metadata"

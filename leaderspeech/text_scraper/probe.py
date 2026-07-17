@@ -19,8 +19,8 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from .extract import (clean_text, date_from_url, extract_pdf_record, extract_record,
-                      first_match, match_url, parse_date)
+from .extract import (apply_entry_meta, clean_text, date_from_url, entry_source,
+                      extract_pdf_record, extract_record, first_match, match_url, parse_date)
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
@@ -112,11 +112,25 @@ def _html_field_report(recipe, name: str, soup, url: str, rec: dict) -> dict:
 
 
 def _sample_evenly(entries: list, n: int) -> list:
-    """Pick `n` roughly even samples; return all entries when `n` is large enough."""
-    if n < len(entries):
-        step = max(len(entries) // n, 1)
-        return [entries[min(i * step, len(entries) - 1)] for i in range(n)]
-    return list(entries)
+    """Pick `n` samples spanning the whole list, INCLUSIVE of both ends.
+
+    Both endpoints are the point. Listings are newest-first, so `entries[-1]` is the OLDEST
+    item — the one `--spread` exists to look at, since that's where archived/legacy layouts
+    break selectors and where "is this recipe actually deep?" is settled. The old stepping
+    (`i * (len // n)`) could never reach it: the last index taken is `(n-1)*(len//n)`, which
+    is `<= len - step`, always short of `len - 1` (see issue #57). On est_president that hid
+    the oldest 11% and under-reported the source's floor by six months.
+    """
+    if n <= 0 or not entries:
+        return []
+    if n >= len(entries):
+        return list(entries)
+    if n == 1:
+        return [entries[0]]
+    last = len(entries) - 1
+    # Spacing is > 1 here (n < len), so the rounded indices are already strictly
+    # increasing; the set is belt-and-braces against a duplicate sneaking in.
+    return [entries[i] for i in sorted({round(i * last / (n - 1)) for i in range(n)})]
 
 
 def _pdf_page_report(recipe, url: str, rec: dict) -> dict:
@@ -171,19 +185,61 @@ def _pdf_page_report(recipe, url: str, rec: dict) -> dict:
     }
 
 
+def _listing_meta_summary(links: list, meta_by_url: dict) -> dict:
+    """How much of the WHOLE harvest the listing supplied metadata for.
+
+    The per-page reports below only cover the `--n` sampled pages, and `--n 2` on a 30-item
+    listing cannot tell "every row is dated" from "the two newest are" — which is exactly
+    the claim an item_selector is making. This counts every harvested link and costs zero
+    extra fetches: the listing HTML was already parsed to find the links.
+    """
+    metas = [meta_by_url.get(u) or {} for u in links]
+    dated = sorted(m["date"] for m in metas if m.get("date"))
+    return {
+        "links": len(links),
+        "dated": len(dated),
+        "titled": sum(1 for m in metas if m.get("title")),
+        "date_min": dated[0] if dated else None,
+        "date_max": dated[-1] if dated else None,
+    }
+
+
 def _listing_count(report_listing: dict) -> tuple[str, int]:
     if "snapshots_found" in report_listing:
         return "snapshot(s)", report_listing.get("snapshots_found", 0)
     return "link(s)", report_listing.get("links_found", 0)
 
 
+def _note_meta(fields: dict, entry: dict, filled: list[str]) -> None:
+    """Re-label the fields that carried metadata supplied, so the report names the source.
+
+    Without this the probe prints `✗ date <- NO MATCH` directly above `parsed_date:
+    2023-10-06` — reporting a field as broken when it resolved perfectly (the same
+    misdiagnosis as issue #54, arriving through a different door). It would also make
+    issue #55's own proof unreadable.
+    """
+    for name in filled:
+        f = fields.get(name)
+        if f is None:
+            continue
+        label = entry_source(entry, name)      # e.g. "listing: div.meta-data p"
+        f["matched_selector"] = label
+        f["note"] = None                       # a stale "did not parse" note would misinform
+        if label not in f["tried"]:
+            f["tried"].append(label)
+
+
 def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
-                    is_wayback: bool = False) -> list[dict]:
+                    is_wayback: bool = False, meta_by_url: dict | None = None) -> list[dict]:
     """Fetch each sampled item and report where every field's value came from.
 
     `sample` holds CDX capture dicts when `is_wayback`, else speech-page URLs. `recipe`
     supplies the selectors — for a `wayback_extend` probe that is the recipe *with the
     extend overrides applied*, so what gets validated is exactly what the run will use.
+
+    `meta_by_url` carries what the listing/api/feed knew about each link, and is applied
+    exactly as `run.py` applies it — otherwise the probe reports a field as missing that
+    the real run fills without trouble.
     """
     pages = []
     for item in sample:
@@ -208,20 +264,29 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
             bad_url = item.get("original") if isinstance(item, dict) else item
             pages.append({"url": bad_url, "error": f"{type(e).__name__}: {e}"})
             continue
+        entry = (meta_by_url or {}).get(url, {})
         if pdf_data is not None:
-            pages.append(_pdf_page_report(recipe, url, extract_pdf_record(pdf_data, url, recipe)))
+            rec = extract_pdf_record(pdf_data, url, recipe)
+            # Applied BEFORE the report is built, so parsed_date/value_preview show the
+            # values a real run would write.
+            filled = apply_entry_meta(rec, entry)
+            page = _pdf_page_report(recipe, url, rec)
+            _note_meta(page["fields"], entry, filled)
+            pages.append(page)
             continue
         soup = BeautifulSoup(phtml, "lxml")
         rec = extract_record(phtml, url, recipe)              # what the recipe yields
+        filled = apply_entry_meta(rec, entry)
         gen = extract_generic(phtml, url)                     # what generic would yield
+        fields = {name: _html_field_report(recipe, name, soup, url, rec) for name in FIELDS}
+        _note_meta(fields, entry, filled)
         pages.append({
             "url": url,
             "parsed_date": rec["date"],
             "recipe_text_len": len(rec["text"]),
             "generic_text_len": len(gen["text"]),
             "keep": rec.get("keep", True),      # False => keep_if would drop this page
-            "fields": {name: _html_field_report(recipe, name, soup, url, rec)
-                       for name in FIELDS},
+            "fields": fields,
         })
     return pages
 
@@ -272,6 +337,8 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl, user_agent=recipe.user_agent)
     wayback_client = None
+    links: list = []
+    meta_by_url: dict[str, dict] = {}
     try:
         if recipe.pagination.type == PaginationType.wayback:
             wayback_client = wayback.create_client()
@@ -289,6 +356,10 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 recipe.listing.link_pattern,
                 start_urls=recipe.start_urls,
             )
+            # NB the spread here is across the CDX listing, which comes back in urlkey
+            # (alphabetical) order, not chronological — so unlike the live-listing branches
+            # below, the ends of this list are not the oldest/newest captures. Spanning the
+            # whole list is still what we want; "across history" just isn't why.
             sample = _sample_evenly(entries, n)
             report["listing"] = {
                 "mode": "wayback snapshots",
@@ -302,34 +373,48 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
             module = api if recipe.pagination.type == PaginationType.api else feed
             items = module.harvest_entries(recipe)
             links = [it["url"] for it in items]
+            # The probe used to DISCARD this, so an api source whose date comes from the
+            # JSON reported ✗ date while a real run dated every row (run.py has always
+            # filled from it). Same channel the listing metadata now uses.
+            meta_by_url = {it["url"]: it for it in items}
             sample = _sample_evenly(links, n) if spread else links[:n]
             report["listing"] = {
                 "mode": f"{recipe.pagination.type.value} entries",
                 "links_found": len(links),
                 "sampled": len(sample),
-                "sample": links[:3],
+                # from the SAMPLE, not links[:3] — under --spread those differ, and
+                # printing the newest three under a "sampled across history" header
+                # misrepresents what was actually probed.
+                "sample": sample[:3],
             }
         elif spread:
             # Sample across the WHOLE history (oldest..newest) to catch structural
             # drift — a recipe can pass for recent pages but break on old ones. This
             # harvests every link first (slow for big sites; instant for sitemaps).
             harvest_stats: dict = {}
-            links = harvest_links(recipe, fetcher, stats=harvest_stats)
+            links = harvest_links(recipe, fetcher, stats=harvest_stats, meta=meta_by_url)
             sample = _sample_evenly(links, n)
             report["listing"] = {"mode": "spread (full history)",
                                   "links_found": len(links), "sampled": len(sample),
+                                  "sample": sample[:3],
                                   # a truncated harvest otherwise looks like a short archive
                                   "stopped_early": bool(harvest_stats.get("stopped_early")),
                                   "stop_reason": harvest_stats.get("stop_reason")}
         else:
             first = recipe.start_urls[0]
-            links = extract_links(fetcher.get(first), first, recipe.listing)
+            links = extract_links(fetcher.get(first), first, recipe.listing,
+                                  meta_by_url, recipe.date_languages)
             sample = links[:n]
             report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
+
+        # What the listing itself knew, across the WHOLE harvest — not just the sample.
+        if recipe.listing.item_selector and recipe.pagination.type != PaginationType.wayback:
+            report["listing_meta"] = _listing_meta_summary(links, meta_by_url)
 
         report["pages"] = _diagnose_pages(
             sample, recipe, fetcher=fetcher, wayback_client=wayback_client,
             is_wayback=recipe.pagination.type == PaginationType.wayback,
+            meta_by_url=meta_by_url,
         )
         if recipe.keep_if is not None:
             report["keep_if"] = _keep_if_summary(recipe, report["pages"])
@@ -388,6 +473,20 @@ def _print(report: dict):
               f"logged above; fix pagination before trusting any coverage number.")
     for s in L.get("sample", []):
         print(f"          - {s}")
+
+    lm = report.get("listing_meta")
+    if lm:
+        span = f" ({lm['date_min']} .. {lm['date_max']})" if lm["dated"] else ""
+        flag = ok if (lm["dated"] or lm["titled"]) else no
+        print(f"LISTING-META {flag} the listing dated {lm['dated']} of {lm['links']} link(s)"
+              f"{span}, titled {lm['titled']}")
+        if not (lm["dated"] or lm["titled"]):
+            print("        -> item_selector/item_date matched NOTHING: rows will land exactly "
+                  "as bare as without it. Check that the blocks really CONTAIN the links, and "
+                  "that item_date's selector exists INSIDE one block.")
+        elif lm["dated"] and lm["dated"] < lm["links"]:
+            print(f"        -> {lm['links'] - lm['dated']} link(s) got no date: either those "
+                  f"items genuinely have none, or item_date only matches the newer layout.")
 
     k = report.get("keep_if")
     if k:

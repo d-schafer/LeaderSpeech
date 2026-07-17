@@ -578,3 +578,101 @@ def test_a_keep_if_that_matches_nothing_is_shouted_about(tmp_path, monkeypatch):
     assert res["filtered_out_this_run"] == 2
     log_text = Path(res["log"]).read_text(encoding="utf-8")
     assert "FILTERED OUT ALL" in log_text
+
+
+# --- issue #55: a listing's date lands on a dateless PDF row -----------------------------
+
+ETH_PDF_RECIPE_YAML = r"""
+source_id: eth_pmo_test
+country: Ethiopia
+source_language: Amharic
+start_urls: ["https://pmo.gov.et/speeches/"]
+renderer: static
+content_type: pdf
+listing:
+  link_pattern: '/media/documents/.*\.pdf'
+  item_selector: "div.row.content-display"
+  item_date: { selectors: ["div.meta-data p"] }
+title: {}
+text: {}
+date: {}
+position: prime minister
+speaker_default: Abiy Ahmed
+date_languages: ["am", "en"]
+"""
+
+
+def test_listing_date_lands_on_a_pdf_row(tmp_path, monkeypatch):
+    """The eth_pmo case: the body is a dateless PDF whose only date sits on the HTML
+    listing. The date must come from the listing — and must NOT be recovered from the
+    filename, whose `_2015` is an ETHIOPIAN-calendar year for a speech listed Jan 27 2023."""
+    url = "https://pmo.gov.et/media/documents/festival_2015.pdf"
+
+    def fake_harvest(recipe, fetcher, *a, meta=None, **k):
+        # what extract_links would have written into the out-param from the listing block
+        if meta is not None:
+            meta[url] = {"date": "2023-01-27", "_from": {"date": "listing: div.meta-data p"}}
+        return [url]
+
+    monkeypatch.setattr(run, "harvest_links", fake_harvest)
+    monkeypatch.setattr(run, "Fetcher", PdfFetcher)
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "የንግግር ጽሑፍ።")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "eth.yml"
+    p.write_text(ETH_PDF_RECIPE_YAML, encoding="utf-8")
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    csv = (out / "Ethiopia" / "eth_pmo_test.csv").read_text(encoding="utf-8")
+    assert "2023-01-27" in csv          # from the listing
+    assert "2015-" not in csv           # the Ethiopian-calendar mis-stamp never happens
+
+
+def test_the_page_always_wins_over_listing_metadata(tmp_path, monkeypatch):
+    """Carried metadata only ever fills a blank. Here the PDF's own first line IS a title,
+    so a (hypothetical) listing title must not overwrite it."""
+    url = "https://pmo.gov.et/media/documents/x.pdf"
+
+    def fake_harvest(recipe, fetcher, *a, meta=None, **k):
+        if meta is not None:
+            meta[url] = {"title": "Listing title", "date": "2023-01-27"}
+        return [url]
+
+    monkeypatch.setattr(run, "harvest_links", fake_harvest)
+    monkeypatch.setattr(run, "Fetcher", PdfFetcher)
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "PDF first line is the title\nbody")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "eth.yml"
+    p.write_text(ETH_PDF_RECIPE_YAML, encoding="utf-8")
+    run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    csv = (out / "Ethiopia" / "eth_pmo_test.csv").read_text(encoding="utf-8")
+    assert "PDF first line is the title" in csv   # page wins
+    assert "Listing title" not in csv
+
+
+def test_listing_metadata_never_skips_the_pdf_fetch(tmp_path, monkeypatch):
+    """A carried `text` would make run.py skip the page fetch; listing metadata must never
+    carry one, so the PDF body is always actually read. PdfFetcher.get() raises if the
+    fetch is routed wrong, so a passing run proves the bytes path was taken."""
+    url = "https://pmo.gov.et/media/documents/x.pdf"
+
+    def fake_harvest(recipe, fetcher, *a, meta=None, **k):
+        if meta is not None:                     # date + title, but crucially no text
+            meta[url] = {"date": "2023-01-27", "title": "Listing title"}
+        return [url]
+
+    monkeypatch.setattr(run, "harvest_links", fake_harvest)
+    monkeypatch.setattr(run, "Fetcher", PdfFetcher)
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "Real PDF body text.")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    p = tmp_path / "eth.yml"
+    p.write_text(ETH_PDF_RECIPE_YAML, encoding="utf-8")
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    csv = (out / "Ethiopia" / "eth_pmo_test.csv").read_text(encoding="utf-8")
+    assert "Real PDF body text." in csv          # the PDF really was fetched + extracted

@@ -4,10 +4,8 @@
 # source's outbox row).
 #
 # The speeches are PDFs: /speeches/ lists each item as "<date> | <title> | Download here"
-# pointing at /media/documents/<name>.pdf. There is no speech HTML.
-#
-# ⚠️ KNOWN, ACCEPTED LIMITATION: THESE ROWS LAND WITH A BLANK DATE. See `date` below.
-# This is the single reason the source is `partial` rather than `draft`.
+# pointing at /media/documents/<name>.pdf. There is no speech HTML — but the DATE is on the
+# listing, and the engine now carries it onto the row via listing.item_date (issue #55).
 source_id: eth_pmo
 country: Ethiopia
 source_language: Amharic
@@ -18,6 +16,14 @@ content_type: pdf
 
 listing:
   link_pattern: '/media/documents/.*\.pdf'
+  # The date lives on the LISTING, not in the URL. Each speech is one
+  # `div.row.content-display`; the link's nearest such ancestor is its item. VERIFIED
+  # 2026-07: 30 blocks / 30 PDF links, and the date sits in a SIBLING column (col-md-4) of
+  # the link's (col-md-8), so ONLY naming the row reaches it — no walk up from the <a> does.
+  item_selector: 'div.row.content-display'
+  item_date: { selectors: ['div.meta-data p'] }   # "Oct. 6, 2023"; parsed with date_languages
+  # item_title deliberately UNSET: the PDF's own first line is already the title verbatim
+  # (see `title`), and since the page always wins it would be config that never fires.
 
 pagination:
   # `none` IS CORRECT. Verified: /speeches/?page=2, ?paged=2 and #1 all return the
@@ -36,38 +42,34 @@ title: {}
 # "ADSW_Keynote_Speech_", "IGF_2022_Remarks_3") and would be strictly worse.
 text: {}   # the PDF body; extracts cleanly in both Amharic and English (1.9k-10.8k chars)
 date: {}
-# ^ intentionally EMPTY, and this is the source's real weakness — read before "fixing" it.
+# ^ intentionally EMPTY: the date is not on the page (a PDF) or in the URL, so there is no
+# selector or url_regex to give here. It comes from listing.item_date above. The two traps
+# that empty `date` used to guard against are still traps — do not "fix" it by adding either:
 #
-# The date EXISTS but only on the LISTING ("Oct. 6, 2023 | <title> | Download here"), and
-# the engine cannot carry listing metadata onto a PDF row (api/feed sources can carry
-# per-item metadata; an HTML listing cannot). So every row here gets a blank date.
-#
-# ⚠️ DO NOT try to recover it from the FILENAME. Some filenames end in what looks like a
+# ⚠️ DO NOT recover the date from the FILENAME. Some filenames end in what looks like a
 # year and IS NOT a Gregorian one — it is the ETHIOPIAN calendar (~7-8 years behind):
 #   "እንኳን_ለኢየሱስ_ክርስቶስ_የልደት_በአል_አደረሳችሁ_2015.pdf"  is listed as  Jan. 27, 2023
 # A `url_regex: (?P<year>\d{4})` would confidently stamp that speech 2015 — eight years
 # wrong, and wrong in a way that looks perfectly plausible in the output.
 # ⚠️ DO NOT use a PDF-body date regex either: these open with the title and salutations,
 # and the first date-looking string in the body is whatever the speech happens to mention.
-# A blank date is honest; the cleaning stage's corrected-date pass can fill it.
+# The listing date is the one trustworthy source, and it is GREGORIAN.
 
 position: prime minister
 # Safe here: the whole published range (2018-2023) is Abiy Ahmed, PM since April 2018.
 speaker_default: Abiy Ahmed
-# Listing dates are GREGORIAN ("May 14, 2018" … "Oct. 6, 2023") — noted for whoever wires
-# the listing date in later; it is only the filenames that use the Ethiopian calendar.
+# Listing dates are GREGORIAN ("May 14, 2018" … "Oct. 6, 2023"); only the filenames use the
+# Ethiopian calendar, and those are never read for the date (see `date`).
 date_languages: ["am", "en"]
 notes: >
-  PARTIAL — full text, NO DATES. Probe-validated: 30 speech PDFs on a single page (no pager;
+  DRAFT — full text AND dates. Probe-validated: 30 speech PDFs on a single page (no pager;
   ?page=/?paged= are ignored and re-serve page 1). Bodies extract cleanly in Amharic and
-  English. Titles come from the PDF's own first line and match the listing exactly. The date
-  is the problem: it lives ONLY on the listing, which the engine cannot carry onto a PDF row,
-  so all 30 rows land undated (see the `date` comment for why filename/body dates are traps —
-  the filenames use the ETHIOPIAN calendar, 2015 = 2023). Coverage 2018-05 .. 2023-10 by the
-  listing's dates, i.e. it spans Abiy's term but with only 30 items and nothing published
-  since Oct 2023 — a sample, not an archive. Mixed Amharic/English; source_language: Amharic
-  is the dominant case and the cleaner's language detection should settle each row.
-  FOLLOW-UP (engine): "listing carries date+title, body is a PDF" now blocks two sources in
-  this batch (eth_pmo fully, gmb_op for 17 of 58 undated files). Carrying HTML-listing
-  metadata onto the row the way `api`/`feed` entries already do would fix both — worth an
-  issue. Sibling trees worth a source each: /statements/, /press_release/, /articles/.
+  English. Titles come from the PDF's own first line and match the listing exactly. Dates
+  come from the HTML listing via listing.item_date (issue #55): all 30 rows date, spanning
+  2018-05-14 .. 2023-10-06. The filenames are NOT used for the date — some carry an
+  ETHIOPIAN-calendar year (2015 = 2023), which is why the `date` field stays empty and only
+  the listing date is trusted. Coverage spans Abiy's term but with only 30 items and nothing
+  published since Oct 2023 — a sample, not an archive. Mixed Amharic/English;
+  source_language: Amharic is the dominant case and the cleaner's language detection should
+  settle each row. Sibling trees worth a source each: /statements/, /press_release/,
+  /articles/.

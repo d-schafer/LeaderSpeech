@@ -366,3 +366,190 @@ def test_none_type_fetches_every_start_url_as_a_listing():
     links = paginate.harvest_links(r, f)
     assert f.urls == ["https://example.org/p1", "https://example.org/p2"]
     assert links == ["https://example.org/s/1", "https://example.org/s/2"]
+
+
+# --- issue #56: <base href> resolution --------------------------------------------------
+# Government Site Builder (bundespraesident.de + a family of German government sites) ships
+# <base href> on every page while serving hrefs with no leading slash, so resolving against
+# the page URL sent every link to a soft-404 that returns HTTP 200 with a full layout.
+
+from leaderspeech.text_scraper.recipe import Listing  # noqa: E402
+
+
+def test_extract_links_honours_base_href():
+    html = (
+        '<html><head><base href="https://x.de/"/></head><body>'
+        '<a href="SharedDocs/Reden/DE/a.html">a</a>'      # relative, no leading slash
+        '</body></html>'
+    )
+    links = paginate.extract_links(html, "https://x.de/listing/reden_node.html",
+                                   Listing(link_selector="a"))
+    # resolved against <base>, NOT against the /listing/ page URL
+    assert links == ["https://x.de/SharedDocs/Reden/DE/a.html"]
+
+
+def test_extract_links_without_base_is_unchanged():
+    html = '<a href="a/b.html">a</a>'
+    links = paginate.extract_links(html, "https://x.de/listing/", Listing(link_selector="a"))
+    assert links == ["https://x.de/listing/a/b.html"]
+
+
+def test_extract_links_resolves_a_relative_base():
+    # <base href> may itself be relative; it resolves against the page URL first.
+    html = '<head><base href="../"/></head><a href="a.html">a</a>'
+    links = paginate.extract_links(html, "https://x.de/one/two/list.html",
+                                   Listing(link_selector="a"))
+    assert links == ["https://x.de/one/a.html"]
+
+
+def test_next_href_honours_base_href():
+    """The pager has the same bug: without honouring <base> it walks the crawl off the
+    site after page 1, even if extract_links resolves the speech links correctly."""
+    html = ('<head><base href="https://x.de/"/></head>'
+            '<a class="next" href="reden_node.html?gtp=2">next</a>')
+    assert paginate._next_href(html, "https://x.de/listing/reden_node.html", "a.next") == \
+        "https://x.de/reden_node.html?gtp=2"
+
+
+# --- issue #55: carry the listing's date/title onto the row -----------------------------
+# Trimmed from the real pmo.gov.et markup, and it must reproduce the two things that make
+# the design non-trivial: the date sits in a SIBLING column of the link (no ancestor walk
+# from the <a> reaches it), and <h1 class="heading"> appears both page-wide (the "More on
+# News" banner) and once per item.
+
+ETH_LISTING = """
+<html><body>
+  <h1 class="heading">More on News</h1>
+  <div class="row content-display">
+    <div class="col-md-4">
+      <div class="col-md-12 meta-data"><p>Oct. 6, 2023 <i class="icon"></i></p><p></p></div>
+    </div>
+    <div class="col-md-8 content-body">
+      <h1 class="heading">Erecha</h1>
+      <div class="text"><a href="/media/documents/Erecha.pdf">Download here</a></div>
+    </div>
+  </div>
+  <div class="row content-display">
+    <div class="col-md-4">
+      <div class="col-md-12 meta-data"><p>May 14, 2018 <i class="icon"></i></p><p></p></div>
+    </div>
+    <div class="col-md-8 content-body">
+      <h1 class="heading">Inaugural</h1>
+      <div class="text"><a href="/media/documents/Inaugural.pdf">Download here</a></div>
+    </div>
+  </div>
+</body></html>
+"""
+
+ETH_LISTING_CONF = Listing(
+    link_pattern=r"/media/documents/.*\.pdf",
+    item_selector="div.row.content-display",
+    item_date={"selectors": ["div.meta-data p"]},
+)
+
+# Same shape, but a permissive pattern for the small synthetic-URL cases below.
+ITEM_ANY_PDF = Listing(
+    link_pattern=r"\.pdf",
+    item_selector="div.row.content-display",
+    item_date={"selectors": ["div.meta-data p"]},
+)
+
+
+def test_listing_item_metadata_is_collected_beside_the_links():
+    meta = {}
+    links = paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/",
+                                   ETH_LISTING_CONF, meta, ["am", "en"])
+    assert links == [
+        "https://pmo.gov.et/media/documents/Erecha.pdf",
+        "https://pmo.gov.et/media/documents/Inaugural.pdf",
+    ]
+    assert meta["https://pmo.gov.et/media/documents/Erecha.pdf"]["date"] == "2023-10-06"
+    assert meta["https://pmo.gov.et/media/documents/Inaugural.pdf"]["date"] == "2018-05-14"
+
+
+def test_item_scoping_beats_a_page_wide_selector():
+    """The date is in a sibling column, and h1.heading is page-wide — only naming the item
+    block reads the right one. An ancestor walk from the <a> would miss the date entirely."""
+    conf = Listing(
+        link_pattern=r"\.pdf",
+        item_selector="div.row.content-display",
+        item_title={"selectors": ["h1.heading"]},
+        item_date={"selectors": ["div.meta-data p"]},
+    )
+    meta = {}
+    paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/", conf, meta, ["en"])
+    titles = [m["title"] for m in meta.values()]
+    assert titles == ["Erecha", "Inaugural"]     # not "More on News"
+
+
+def test_listing_meta_never_carries_text():
+    meta = {}
+    paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/",
+                           ETH_LISTING_CONF, meta, ["en"])
+    assert meta                                   # something WAS collected
+    assert all("text" not in m for m in meta.values())
+
+
+def test_harvest_is_unchanged_without_a_meta_dict():
+    """No meta arg, or item_selector set but meta not requested: identical link list, and
+    no crash — the feature is strictly additive."""
+    links_a = paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/",
+                                     Listing(link_pattern=r"\.pdf"))
+    links_b = paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/",
+                                     ETH_LISTING_CONF)   # item_selector set, no meta dict
+    assert links_a == links_b
+
+
+def test_a_link_outside_every_item_block_still_harvests_undated():
+    html = ('<div class="row content-display">'
+            '<div class="meta-data"><p>May 14, 2018</p></div>'
+            '<a href="/a.pdf">in</a></div>'
+            '<a href="/loose.pdf">out</a>')       # not inside any item block
+    meta = {}
+    links = paginate.extract_links(html, "https://x/", ITEM_ANY_PDF, meta, ["en"])
+    assert links == ["https://x/a.pdf", "https://x/loose.pdf"]   # BOTH harvested
+    assert "https://x/a.pdf" in meta
+    assert "https://x/loose.pdf" not in meta                     # just no date
+
+
+def test_item_selector_that_matches_nothing_loses_dates_not_links():
+    conf = Listing(link_pattern=r"\.pdf", item_selector="div.no-such-class",
+                   item_date={"selectors": ["p"]})
+    meta = {}
+    links = paginate.extract_links(ETH_LISTING, "https://pmo.gov.et/speeches/",
+                                   conf, meta, ["en"])
+    assert len(links) == 2
+    assert meta == {}
+
+
+def test_first_occurrence_wins_when_a_url_repeats():
+    html = ('<div class="row content-display"><div class="meta-data"><p>May 14, 2018</p></div>'
+            '<a href="/a.pdf">first</a></div>'
+            '<div class="row content-display"><div class="meta-data"><p>Oct. 6, 2023</p></div>'
+            '<a href="/a.pdf">dup</a></div>')
+    meta = {}
+    links = paginate.extract_links(html, "https://x/", ITEM_ANY_PDF, meta, ["en"])
+    assert links == ["https://x/a.pdf"]
+    assert meta["https://x/a.pdf"]["date"] == "2018-05-14"   # the first block's date
+
+
+def test_next_link_pagination_threads_meta():
+    """One of the two indirect branches (click is the other): meta must reach through it."""
+
+    class OnePage:
+        def get(self, url):
+            return ('<div class="row content-display">'
+                    '<div class="meta-data"><p>Oct. 6, 2023</p></div>'
+                    '<a href="/media/documents/x.pdf">dl</a></div>')
+
+    r = Recipe(
+        source_id="eth", country="Ethiopia", date_languages=["am", "en"],
+        start_urls=["https://pmo.gov.et/speeches/"],
+        listing=ETH_LISTING_CONF,
+        title={}, text={}, date={}, content_type="pdf",
+        pagination={"type": "next_link", "next_selector": "a.nope", "max_pages": 1},
+    )
+    meta = {}
+    links = paginate.harvest_links(r, OnePage(), meta=meta)
+    assert links == ["https://pmo.gov.et/media/documents/x.pdf"]
+    assert meta[links[0]]["date"] == "2023-10-06"

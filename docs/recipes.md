@@ -478,6 +478,60 @@ date_languages: ["pt"]
 > wayback recipe clean — a bare prefix query otherwise returns thousands of `text/html`
 > listing / redirect / `.pdf/view` captures alongside the actual PDF binaries.
 
+### When the date (or title) is on the LISTING (`item_selector`)
+
+A listing routinely knows something the speech "page" cannot. Ethiopia's PMO lists each
+speech as **`Oct. 6, 2023 | <title> | Download here`** pointing at an opaque PDF slug — the
+date is right there in the HTML, but the body is a dateless PDF. `api`/`feed` sources have
+always carried per-item metadata onto the row (the JSON's reliable date fills in when a
+page selector misses); this does the same for an **HTML listing**.
+
+Name the block that contains one speech link with **`listing.item_selector`**, and read
+`date`/`title` out of it with **`item_date`**/**`item_title`** (each an ordinary field
+spec — `selectors`, and `attr`/`regex` if useful):
+
+```yaml
+listing:
+  link_pattern: '/media/documents/.*\.pdf'
+  item_selector: 'div.row.content-display'          # the block that CONTAINS one link
+  item_date: { selectors: ['div.meta-data p'] }     # "Oct. 6, 2023" — parsed with date_languages
+```
+
+Three rules, and the design leans on all three:
+
+- **The page always wins.** Carried metadata only ever fills a field the speech page left
+  *empty*. A title the recipe actually selected — or a PDF's own first line — is never
+  overwritten (which is why `item_title` rarely fires on a PDF recipe: the first line is
+  already a title).
+- **Additive, never subtractive.** Links are harvested exactly as before; the metadata is
+  looked up per already-found link. A mistyped `item_selector` costs dates, never links.
+- **No `item_text`.** A carried `text` tells the engine "the body is already here, skip the
+  fetch" — which for a PDF source would mean never reading the PDF. So there is no such
+  field.
+
+An **explicit** `item_selector` is required (not "the anchor's Nth ancestor") because on
+real listings the date often sits in a *sibling* column of the link, which no walk up from
+the `<a>` reaches — and because scoping is what makes an otherwise page-wide selector exact
+(`h1.heading` may occur once per item *and* as a page banner). The date is parsed with the
+recipe's **`date_languages`** — a listing date is in the site's own language
+("Oct. 6, 2023"), unlike the machine-formatted dates `api`/`feed` carry.
+
+> ⚠️ **Do not** reach for a filename `url_regex` when the date is on the listing. Ethiopia's
+> PDF filenames sometimes end in an **Ethiopian-calendar** year (`…_2015.pdf` is listed
+> Jan 27 **2023**) — a `(?P<year>\d{4})` there would stamp rows eight years wrong,
+> plausibly and silently. The listing date is the trustworthy one.
+
+**Probe it:** with `item_selector` set, `probe` prints a `LISTING-META` line counting how
+much of the *whole* harvest the listing dated (a small `--n` only samples a few pages, so
+this is what proves "all rows, not just the newest"):
+
+```
+LISTING-META ✓ the listing dated 30 of 30 link(s) (2018-05-14 .. 2023-10-06), titled 0
+```
+
+A `✗` there means `item_selector`/`item_date` matched nothing and the rows will land as
+bare as without it — check that the blocks really *contain* the links.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -494,6 +548,8 @@ date_languages: ["pt"]
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
+| `listing.item_selector` | no | CSS selector for the block that **contains one speech link** — enables carrying per-item `item_date`/`item_title` off the listing onto the row (see "When the date is on the LISTING"). Each harvested link takes the metadata of its nearest matching ancestor. |
+| `listing.item_date` / `item_title` | no | Field specs (`selectors`, `attr`, `regex`) read from the `item_selector` block. Only fill a field the speech page left empty (the page wins); `item_date` is parsed with `date_languages`. Require `item_selector`; `url_regex` is rejected here (item fields read a block, not a URL). |
 | `keep_if.selectors` | one of these | CSS elements whose combined text `pattern` is tested against — use the **article's own** category element, not the site nav (which lists every category on every page). Omit to test the whole document's text. See "Filtering by the PAGE, not the URL". |
 | `keep_if.pattern` | one of these | Regex deciding whether a fetched page becomes a row. Prefix `(?i)` for case-insensitive. Omit (with `selectors` set) to keep pages where any selector is merely present. |
 | `keep_if.negate` | no | Default `false`. `true` inverts the verdict: DROP the page when it matches. |

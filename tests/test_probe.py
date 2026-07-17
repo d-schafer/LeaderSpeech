@@ -387,3 +387,178 @@ def test_pdf_report_still_flags_a_date_that_resolved_to_nothing():
 
     assert rec["date"] is None
     assert report["fields"]["date"]["matched_selector"] is None
+
+
+# --- issue #57: --spread must reach the OLDEST items -------------------------------------
+# Listings are newest-first, so entries[-1] is the oldest item — the one --spread exists to
+# check, and the one the old `i * (len // n)` stepping could never reach.
+
+
+def test_sample_evenly_includes_both_ends():
+    """The boundary from issue #57: 334 links (est_president), n=10. The old stepping took
+    its last sample at index 297 and never saw the oldest 36 — including the inauguration
+    speech that pins the source's coverage to one president's term."""
+    entries = list(range(334))
+
+    sample = probe._sample_evenly(entries, 10)
+
+    assert len(sample) == 10
+    assert sample[0] == 0        # newest
+    assert sample[-1] == 333     # OLDEST — the whole point
+
+
+def test_sample_evenly_spans_the_ends_at_every_size():
+    for length in (58, 100, 334, 568, 3922):
+        for n in (2, 3, 10, 15, 30):
+            if n >= length:
+                continue
+            sample = probe._sample_evenly(list(range(length)), n)
+            assert sample[0] == 0, (length, n)
+            assert sample[-1] == length - 1, (length, n)
+            assert len(sample) == n, (length, n)
+            assert sample == sorted(set(sample)), (length, n)   # ordered, no dupes
+
+
+def test_sample_evenly_is_evenly_spaced():
+    """Evenness is the other half of the contract: the samples must span the history, not
+    cluster at the ends."""
+    sample = probe._sample_evenly(list(range(101)), 11)
+
+    assert sample == [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+
+def test_sample_evenly_degenerate_sizes():
+    assert probe._sample_evenly([], 5) == []
+    assert probe._sample_evenly(["a", "b"], 5) == ["a", "b"]      # n >= len -> everything
+    assert probe._sample_evenly(["a", "b", "c"], 1) == ["a"]
+    # n=0 used to raise ZeroDivisionError (len // 0) rather than sampling nothing.
+    assert probe._sample_evenly(["a", "b", "c"], 0) == []
+
+
+# --- issue #55: the probe must SEE the listing metadata, or the DoD is unprovable --------
+
+ETH_PROBE_LISTING = """
+<html><body>
+  <h1 class="heading">More on News</h1>
+  <div class="row content-display">
+    <div class="col-md-4"><div class="meta-data"><p>Oct. 6, 2023</p></div></div>
+    <div class="col-md-8"><div class="text"><a href="/media/documents/a.pdf">dl</a></div></div>
+  </div>
+  <div class="row content-display">
+    <div class="col-md-4"><div class="meta-data"><p>May 14, 2018</p></div></div>
+    <div class="col-md-8"><div class="text"><a href="/media/documents/b.pdf">dl</a></div></div>
+  </div>
+</body></html>
+"""
+
+ETH_PROBE_RECIPE = Recipe(
+    source_id="eth_pmo_test", country="Ethiopia", source_language="Amharic",
+    start_urls=["https://pmo.gov.et/speeches/"],
+    content_type="pdf",
+    listing={"link_pattern": r"/media/documents/.*\.pdf",
+             "item_selector": "div.row.content-display",
+             "item_date": {"selectors": ["div.meta-data p"]}},
+    title={}, text={}, date={},
+    speaker_default="Abiy Ahmed", position="prime minister",
+    date_languages=["am", "en"],
+    pagination={"type": "none"},
+)
+
+
+def _eth_probe(monkeypatch, tmp_path, n=2):
+    from tests.test_pdf import make_minimal_pdf
+
+    class FakeFetcher:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get(self, url):
+            return ETH_PROBE_LISTING
+
+        def get_bytes(self, url):
+            return "application/pdf", make_minimal_pdf("Abiy speaks.")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(probe, "Fetcher", FakeFetcher)
+    p = tmp_path / "eth.yml"
+    p.write_text(ETH_PROBE_RECIPE.model_dump_json(), encoding="utf-8")
+    return probe.probe(str(p), n=n, out_root=str(tmp_path))
+
+
+def test_probe_reports_the_listing_as_a_dates_source_not_no_match(monkeypatch, tmp_path):
+    """The #55 proof, and the #54-misdiagnosis guard: a PDF field the listing dated must
+    report WHERE the date came from, not ✗ NO MATCH over a date that resolved."""
+    report = _eth_probe(monkeypatch, tmp_path)
+
+    page = report["pages"][0]
+    assert page["parsed_date"] == "2023-10-06"
+    assert page["fields"]["date"]["matched_selector"] == "listing: div.meta-data p"
+
+
+def test_listing_meta_summary_counts_the_whole_harvest(monkeypatch, tmp_path):
+    """--n 2 can't tell 'all dated' from 'the two newest are'; the summary spans them all."""
+    report = _eth_probe(monkeypatch, tmp_path, n=1)   # sample just one page...
+
+    lm = report["listing_meta"]
+    assert lm["links"] == 2 and lm["dated"] == 2      # ...but the summary sees both
+    assert lm["date_min"] == "2018-05-14"
+    assert lm["date_max"] == "2023-10-06"
+
+
+def test_print_shouts_when_item_date_matched_nothing(monkeypatch, tmp_path, capsys):
+    """A silently-dead item_selector is the failure this whole feature must make loud."""
+    report = _eth_probe(monkeypatch, tmp_path)
+    report["listing_meta"] = {"links": 2, "dated": 0, "titled": 0,
+                              "date_min": None, "date_max": None}
+    probe._print(report)
+    out = capsys.readouterr().out
+    assert "LISTING-META" in out and "matched NOTHING" in out
+
+
+def test_print_warns_when_only_some_items_are_dated(monkeypatch, tmp_path, capsys):
+    report = _eth_probe(monkeypatch, tmp_path)
+    report["listing_meta"] = {"links": 30, "dated": 13, "titled": 0,
+                              "date_min": "2019-01-01", "date_max": "2023-10-06"}
+    probe._print(report)
+    out = capsys.readouterr().out
+    assert "17 link(s) got no date" in out
+
+
+def test_api_probe_no_longer_discards_entry_metadata(monkeypatch, tmp_path):
+    """The same bug through the api door: a source whose date lives in the JSON used to
+    probe ✗ date while the real run dated every row."""
+
+    class FakeFetcher:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get(self, url):
+            return "<html><h1>Speech</h1><div class='body'>Body text here.</div></html>"
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(probe, "Fetcher", FakeFetcher)
+    monkeypatch.setattr(
+        probe.api, "harvest_entries",
+        lambda *a, **k: [{"url": "https://x/s/1", "title": "T", "date": "2022-03-04",
+                          "text": "", "speaker": ""}])
+
+    recipe = Recipe(
+        source_id="x_api", country="Kyrgyzstan",
+        start_urls=["https://x/_api/search"],
+        listing={"link_selector": "a"},
+        title={"selectors": ["h1"]},
+        text={"selectors": ["div.body"]},
+        date={"selectors": [".no-such-date"]},   # the PAGE has no date...
+        pagination={"type": "api", "api": {"results_path": ".", "url_field": "url"}},
+    )
+    p = tmp_path / "api.yml"
+    p.write_text(recipe.model_dump_json(), encoding="utf-8")
+
+    report = probe.probe(str(p), n=1, out_root=str(tmp_path))
+    page = report["pages"][0]
+    assert page["parsed_date"] == "2022-03-04"     # ...but the JSON did, and the probe sees it
+    assert page["fields"]["date"]["matched_selector"] == "carried entry metadata"

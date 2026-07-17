@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pycountry
 
-from .extract import extract_pdf_record, extract_record, should_keep
+from .extract import apply_entry_meta, extract_pdf_record, extract_record, should_keep
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
@@ -264,7 +264,7 @@ def scrape_recipe(
     # counters live in a dict, and pending_rows/errors are cleared in place (never
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
-    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0}
+    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -272,7 +272,9 @@ def scrape_recipe(
     # Filled by paginate.harvest_links: how pagination ended, and whether it was cut short
     # by a broken pager rather than by reaching the end (see paginate.NORMAL_STOPS).
     harvest_stats: dict = {}
-    meta_by_url: dict[str, dict] = {}   # api/feed: per-URL metadata carried from the source
+    # Per-URL metadata carried from the source alongside the link: an api/feed row, or the
+    # HTML listing block the link was found in (listing.item_selector — issue #55).
+    meta_by_url: dict[str, dict] = {}
     pending_rows: list[dict] = []
     errors: list[dict] = []
 
@@ -321,13 +323,16 @@ def scrape_recipe(
                         kind, payload = _fetch_payload(fetcher, phase_recipe, url)
                         rec, via_generic = _extract_payload(kind, payload, url, phase_recipe)
 
-                # Fill any field the page extraction left empty from the carried api/feed
-                # metadata (e.g. SharePoint's reliable Write date when a page selector missed).
-                if entry:
-                    rec["text"] = rec["text"] or entry.get("text", "")
-                    rec["title"] = rec["title"] or entry.get("title", "")
-                    rec["date"] = rec["date"] or entry.get("date")
-                    rec["speaker"] = rec["speaker"] or entry.get("speaker", "")
+                # Fill any field the page extraction left empty from the carried per-item
+                # metadata: SharePoint's reliable Write date when a page selector missed, or
+                # an HTML listing's date when the "page" is a dateless PDF (issue #55). Only
+                # ever fills a blank — the page always wins. Note this cannot carry `text`
+                # for a listing source: there is no item_text field, precisely because the
+                # check above reads a carried text as "skip the fetch".
+                filled = apply_entry_meta(rec, entry)
+                if filled:
+                    stats["from_meta"] += 1
+                    log.debug("filled %s from carried metadata: %s", ",".join(filled), url)
 
                 # keep_if runs BEFORE the empty-text check: a page we deliberately reject
                 # is not a failure, and must not land in the errors file or trip the
@@ -393,8 +398,10 @@ def scrape_recipe(
             meta_by_url = {it["url"]: it for it in items}
         else:
             entries = []
+            # meta_by_url is mutated in place (never rebound), so the _scrape_phase call
+            # below sees whatever the listing carried.
             links = harvest_links(recipe, fetcher, max_pages=max_pages, max_links=max_links,
-                                  stats=harvest_stats)
+                                  stats=harvest_stats, meta=meta_by_url)
 
         # Persist the harvested list immediately (before any scraping) — a record of
         # what was found, and insurance against a crash mid-scrape.
@@ -504,9 +511,13 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
+                 # 0 here on a recipe that sets item_selector means it matched nothing and
+                 # the rows landed as bare as they would have without it.
+                 f" | {stats['from_meta']} completed from listing/api metadata"
+                 if stats["from_meta"] else "",
                  f" | +{extended_scraped} via wayback-extend" if extended_scraped else "",
                  " | ABORTED EARLY" if aborted_early else "",
                  " | PAGINATION STOPPED EARLY" if harvest_stats.get("stopped_early") else "",

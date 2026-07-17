@@ -22,16 +22,70 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
+from .extract import listing_meta
 from .recipe import Listing, PaginationType, Recipe
 
 log = logging.getLogger(__name__)
 
 
-def extract_links(html: str, base_url: str, listing: Listing) -> list[str]:
-    """Pull qualifying speech links off one listing page, order-preserving."""
+def _doc_base(soup: BeautifulSoup, base_url: str) -> str:
+    """The document's base URL for resolving its relative links.
+
+    Per the HTML spec a `<base href>` REPLACES the page URL as the resolution base for the
+    whole document. Rare, but Government Site Builder — the CMS behind much of the German
+    federal web — ships one on every page *and* serves hrefs with no leading slash
+    (`SharedDocs/Reden/DE/...`). Resolving those against the page URL yielded a 404 that
+    the site returns as **HTTP 200 with a full layout**, so nothing raised, the probe
+    reported a healthy listing, and a run would have written rows of "page not found"
+    chrome (issue #56).
+
+    `<base href>` may itself be relative, so it resolves against the page URL first. With
+    no `<base>` this returns `base_url` and nothing changes.
+    """
+    el = soup.find("base", href=True)
+    if not el:
+        return base_url
+    href = (el.get("href") or "").strip()
+    return urljoin(base_url, href) if href else base_url
+
+
+def _item_index(soup: BeautifulSoup, item_selector: str) -> dict:
+    """Map id(tag) -> item block. Keyed by IDENTITY, not equality: bs4 Tags compare by
+    value, so two listing rows with identical markup would collapse into one."""
+    return {id(el): el for el in soup.select(item_selector)}
+
+
+def _owning_item(anchor, index: dict):
+    """The nearest ancestor of `anchor` that is an item block, or None. Nearest, so nested
+    blocks resolve to the tightest one; by lookup, so nothing depends on a counted depth."""
+    for parent in anchor.parents:
+        item = index.get(id(parent))
+        if item is not None:
+            return item
+    return None
+
+
+def extract_links(html: str, base_url: str, listing: Listing,
+                  meta: dict | None = None,
+                  date_languages: list[str] | None = None) -> list[str]:
+    """Pull qualifying speech links off one listing page, order-preserving.
+
+    `meta` is an optional caller-supplied dict, mutated in place — the same out-param shape
+    as `stats` (issue #53). The return type stays `list[str]` deliberately: a `list[dict]`
+    would break every caller and the dozen tests that assert on it, for no gain.
+
+    When `listing.item_selector` is set, each qualifying link inside a block gets
+    `meta[url] = {title?, date?, date_raw?, _from}` read from THAT block (issue #55). First
+    occurrence wins, matching the harvest's own first-wins dedupe. The anchor loop itself
+    is untouched, so metadata can only ever be *added* to links we already found — a
+    mistyped item_selector costs dates, never links.
+    """
     soup = BeautifulSoup(html, "lxml")
+    doc_base = _doc_base(soup, base_url)
     anchors = soup.select(listing.link_selector) if listing.link_selector else soup.find_all("a")
     pattern = re.compile(listing.link_pattern) if listing.link_pattern else None
+    items = (_item_index(soup, listing.item_selector)
+             if meta is not None and listing.item_selector else {})
 
     out, seen = [], set()
     for a in anchors:
@@ -42,9 +96,15 @@ def extract_links(html: str, base_url: str, listing: Listing) -> list[str]:
         href = href.strip().strip("\\\"'").strip()
         if not href:
             continue
-        full = urljoin(base_url, href)
+        full = urljoin(doc_base, href)
         if pattern and not pattern.search(full):
             continue
+        if items and full not in meta:   # first occurrence wins; don't re-read a dupe
+            item = _owning_item(a, items)
+            if item is not None:
+                found = listing_meta(item, listing, date_languages)
+                if found:
+                    meta[full] = found
         if full not in seen:
             seen.add(full)
             out.append(full)
@@ -82,7 +142,15 @@ def _note(stats: dict | None, reason: str, early: bool = False) -> None:
 
 
 def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
-                  stats: dict | None = None) -> list[str]:
+                  stats: dict | None = None, meta: dict | None = None) -> list[str]:
+    """Every speech-page URL this source paginates to, de-duplicated.
+
+    `stats` (how pagination ended) and `meta` (per-link listing metadata, issue #55) are
+    optional caller-supplied dicts, mutated in place. `meta` is only ever filled by the
+    branches that actually parse listing HTML: `url_list` is handed speech URLs directly
+    and `sitemap` reads a list of bare <loc> URLs, so neither has any markup to read
+    metadata from and both leave `meta` untouched.
+    """
     pg = recipe.pagination
 
     if pg.type == PaginationType.url_list:
@@ -93,9 +161,9 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
         _note(stats, "single_page")
         return _harvest_sitemap(recipe, fetcher, max_links)
     if pg.type == PaginationType.click:
-        return _harvest_click(recipe, fetcher, max_pages, max_links, stats)
+        return _harvest_click(recipe, fetcher, max_pages, max_links, stats, meta)
     if pg.type == PaginationType.next_link:
-        return _harvest_next_link(recipe, fetcher, max_pages, max_links, stats)
+        return _harvest_next_link(recipe, fetcher, max_pages, max_links, stats, meta)
 
     collected, seen = [], set()
 
@@ -113,7 +181,8 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
     for start_url in recipe.start_urls:
         if pg.type == PaginationType.none:
             try:
-                add(extract_links(fetcher.get(start_url), start_url, recipe.listing))
+                add(extract_links(fetcher.get(start_url), start_url, recipe.listing,
+                                  meta, recipe.date_languages))
                 _note(stats, "single_page")
             except Exception as e:
                 log.warning("listing fetch failed: %s :: %s", start_url, e)
@@ -135,7 +204,8 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 log.warning("listing page failed, stopping pagination here: %s :: %s", page_url, e)
                 _note(stats, "listing_fetch_failed", early=True)
                 break
-            page_links = extract_links(html, page_url, recipe.listing)
+            page_links = extract_links(html, page_url, recipe.listing,
+                                       meta, recipe.date_languages)
             gained = add(page_links)
             if gained == 0:
                 # Two very different endings that used to look identical: a page with no
@@ -208,8 +278,12 @@ def _next_href(html: str, base_url: str, selector: str) -> str | None:
 
     `selector` may point at the <a> itself or at a wrapper (e.g. `li.next`); in the
     latter case the first descendant <a href> wins.
+
+    Honours `<base href>` for the same reason `extract_links` does (issue #56) — a pager
+    that resolves against the wrong base walks the crawl straight off the site after page 1.
     """
-    el = BeautifulSoup(html, "lxml").select_one(selector)
+    soup = BeautifulSoup(html, "lxml")
+    el = soup.select_one(selector)
     if el is None:
         return None
     href = el.get("href")
@@ -219,10 +293,11 @@ def _next_href(html: str, base_url: str, selector: str) -> str | None:
     if not href:
         return None
     href = href.strip().strip("\\\"'").strip()
-    return urljoin(base_url, href) if href else None
+    return urljoin(_doc_base(soup, base_url), href) if href else None
 
 
-def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None) -> list[str]:
+def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None,
+                       meta=None) -> list[str]:
     """Static pagination: follow the listing's own "next" link, page to page.
 
     For sites whose page URL cannot be *synthesised* — the pager carries a signed or
@@ -254,7 +329,7 @@ def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None
                 log.warning("listing page failed, stopping pagination here: %s :: %s", url, e)
                 _note(stats, "listing_fetch_failed", early=True)
                 break
-            for link in extract_links(html, url, recipe.listing):
+            for link in extract_links(html, url, recipe.listing, meta, recipe.date_languages):
                 if link not in seen:
                     seen.add(link)
                     collected.append(link)
@@ -280,7 +355,8 @@ def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None
     return collected[:max_links] if max_links else collected
 
 
-def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links, stats=None) -> list[str]:
+def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links, stats=None,
+                   meta=None) -> list[str]:
     """JS pagination: load the listing, repeatedly click the 'next' button.
 
     The two ways this ends are deliberately kept apart (see issue #53). No element
@@ -299,7 +375,8 @@ def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links, stats=None) ->
     for start_url in recipe.start_urls:
         page.goto(start_url, wait_until="networkidle")
         for page_idx in range(hard_cap):
-            for link in extract_links(page.content(), page.url, recipe.listing):
+            for link in extract_links(page.content(), page.url, recipe.listing,
+                                      meta, recipe.date_languages):
                 if link not in seen:
                     seen.add(link)
                     collected.append(link)

@@ -123,3 +123,38 @@ def test_committed_recipe_is_valid(path):
     recipe = load_recipe(path)
     assert recipe.source_id
     assert recipe.start_urls
+
+
+# --- issue #55: listing item-metadata schema --------------------------------------------
+
+
+def test_listing_item_meta_loads():
+    r = Recipe(**{**MINIMAL, "listing": {
+        "link_pattern": r"\.pdf",
+        "item_selector": "div.row.content-display",
+        "item_date": {"selectors": ["div.meta-data p"]},
+    }})
+    assert r.listing.item_selector == "div.row.content-display"
+    assert r.listing.item_date.selectors == ["div.meta-data p"]
+
+
+def test_item_date_without_item_selector_raises():
+    bad = {**MINIMAL, "listing": {"link_selector": "a",
+                                  "item_date": {"selectors": [".date"]}}}
+    with pytest.raises(Exception, match="item_selector"):
+        Recipe(**bad)
+
+
+def test_item_selector_without_any_item_field_raises():
+    bad = {**MINIMAL, "listing": {"link_selector": "a", "item_selector": "div.row"}}
+    with pytest.raises(Exception, match="does nothing"):
+        Recipe(**bad)
+
+
+def test_url_regex_on_an_item_field_raises():
+    """url_regex reads a URL, but an item field reads a listing block — so it silently does
+    nothing. Fail loudly instead."""
+    bad = {**MINIMAL, "listing": {"link_selector": "a", "item_selector": "div.row",
+                                  "item_date": {"url_regex": r"(\d{4})"}}}
+    with pytest.raises(Exception, match="url_regex"):
+        Recipe(**bad)

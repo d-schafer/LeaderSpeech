@@ -2,14 +2,15 @@
 #
 # WHY SITEMAP (not the live listing): the live /news/ index paginates as
 # /news/page/N/ but the site sets <base href="https://www.president.bg/"> and its
-# article links are RELATIVE (./newsNNNN/<slug>.html). Our engine resolves links
-# with urljoin(page_url, href) and does not honor <base>, so on /news/page/N/ the
-# links resolve to /news/page/N/newsNNNN/... which the (lenient) server soft-404s
-# to the homepage. The sitemap's <loc> entries are ABSOLUTE, so they sidestep that
-# entirely. Coverage: the sitemap is stale (last built 2016) => ~2012-2016
-# (Plevneliev era), ~4,379 clean /newsNNNN/ permalinks. For the 2017-2026 Radev-era
-# gap, add a wayback companion (bgr_president_wayback.yml); honoring <base href> in
-# the engine would also unlock the live listing.
+# article links are RELATIVE (./newsNNNN/<slug>.html). The sitemap's <loc> entries are
+# ABSOLUTE, so they sidestep that. Coverage: the sitemap is stale (last built 2016) =>
+# ~2012-2016 (Plevneliev era), ~4,379 clean /newsNNNN/ permalinks.
+#
+# UPDATE 2026-07 (issue #56): the engine now HONOURS <base href>, so the live /news/page/N/
+# listing is scrapable and would recover the 2017-2026 Radev-era gap the stale sitemap
+# misses. This recipe still uses the sitemap (it works and is complete for 2012-2016);
+# moving it to the live listing is tracked as a follow-up. A bgr_president_wayback.yml over
+# the IA CDX is the other route to the Radev gap.
 source_id: bgr_president
 country: Bulgaria
 source_language: Bulgarian
@@ -43,6 +44,7 @@ notes: >
   even on /en/ URLs, so source_language: Bulgarian and date_languages: [bg]
   (dates read like "21 Юни 2026"). Captures presidential + vice-presidential
   activity/statements; the cleaner's tenure gate narrows to leader speeches.
-  Speaker filled downstream from leader tenure. The live /news/page/N/ listing is
-  not scrapable here (engine does not honor <base href>; see header). FOLLOW-UP:
-  a bgr_president_wayback.yml over the IA CDX would cover the 2017-2026 gap.
+  Speaker filled downstream from leader tenure. FOLLOW-UP: the engine now honours
+  <base href> (issue #56), so the live /news/page/N/ listing is scrapable and would
+  cover the 2017-2026 Radev gap; a bgr_president_wayback.yml over the IA CDX is the
+  other route to it. This recipe stays on the sitemap for the complete 2012-2016 set.

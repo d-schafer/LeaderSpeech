@@ -118,7 +118,9 @@ The PR now carries the fixed recipe; the researcher still runs the FULL RUN and 
 - A final **`--spread` pass on a random, even selection across the full history passes cleanly**:
   `title` / `text` / `date` show ✓ on samples spanning the **whole** date range (old *and* new pages), and
   `LISTING` link count > 0. This is the non-negotiable gate — never push a fix you haven't watched work
-  end-to-end across the site's history.
+  end-to-end across the site's history. (The `--spread` sample now spans the list *inclusive of both
+  ends*, so the **oldest** item — the one most likely to break selectors — is always in it; before issue
+  #57 it stopped ~10% short of the tail and quietly under-reported a source's true date floor.)
 - The agent is **not actively working the branch** right now (don't race its pushes). If you just pinged
   `@agent`, let it take its swing first; only step in if it stalls or fumbles the paste.
 

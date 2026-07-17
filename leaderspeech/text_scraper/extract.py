@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 from dateparser.search import search_dates
 
 from . import pdf
-from .recipe import FieldSpec, KeepIf, Recipe
+from .recipe import FieldSpec, KeepIf, Listing, Recipe
 
 _INLINE_WS = re.compile(r"[ \t\f\v]+")
 
@@ -57,6 +57,82 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
                 value = m.group(0) if m else value
             return value
     return None
+
+
+def matched_selector(soup, spec: Optional[FieldSpec]) -> Optional[str]:
+    """Which selector in the chain matched first — i.e. the one `first_match` used."""
+    if spec is None:
+        return None
+    for selector in spec.selectors:
+        if _select(soup, selector):
+            return selector
+    return None
+
+
+# Fields that per-item metadata may supply, in the order run.py has always filled them.
+META_FIELDS = ("text", "title", "date", "speaker")
+
+
+def listing_meta(item, listing: Listing,
+                 languages: Optional[list[str]] = None) -> dict:
+    """Metadata read out of ONE listing block, for the speech link that block contains.
+
+    `item` is a bs4 Tag, so `first_match`'s `.select` is scoped to that block — and the
+    scoping is the whole point (see `recipe.Listing`).
+
+    The date is parsed with the SOURCE's `date_languages`. This is the one place that
+    differs from api/feed metadata on purpose: those dates arrive machine-formatted
+    (ISO/RFC) and are deliberately parsed *without* a language hint, which would mis-order
+    them; a listing date is written in the site's own language ("Oct. 6, 2023").
+
+    Never returns `text` — see `recipe.Listing`. `_from` records which selector matched, so
+    the probe can report provenance instead of "NO MATCH" over a value that resolved fine.
+    """
+    meta: dict = {}
+    origin: dict = {}
+    title = clean_text(first_match(item, listing.item_title) or "")
+    if title:
+        meta["title"] = title
+        origin["title"] = f"listing: {matched_selector(item, listing.item_title)}"
+    raw = first_match(item, listing.item_date)
+    date = parse_date(raw, languages)
+    if date:
+        meta["date"] = date
+        meta["date_raw"] = clean_text(raw)
+        origin["date"] = f"listing: {matched_selector(item, listing.item_date)}"
+    if meta:
+        meta["_from"] = origin
+    return meta
+
+
+def apply_entry_meta(rec: dict, entry: Optional[dict]) -> list[str]:
+    """Fill any field the page extraction left EMPTY from per-item metadata carried
+    alongside the URL — an api/feed row, or the HTML listing block the link came from.
+    Mutates `rec`; returns the names the metadata actually supplied.
+
+    One rule, and the safety of the whole feature rests on it: this only ever fills a
+    blank. A value the page produced always wins. Returning the filled names is what lets
+    the probe say WHERE a value came from rather than printing "✗ NO MATCH" over a field
+    that resolved perfectly well.
+    """
+    if not entry:
+        return []
+    filled = []
+    for name in META_FIELDS:
+        if rec.get(name):
+            continue
+        value = entry.get(name)
+        if not value:
+            continue
+        rec[name] = value
+        filled.append(name)
+    return filled
+
+
+def entry_source(entry: Optional[dict], name: str) -> str:
+    """How to name the carried metadata that supplied `name`: the listing selector that
+    matched, else a generic label. Shared so run's log and probe's report agree."""
+    return ((entry or {}).get("_from") or {}).get(name) or "carried entry metadata"
 
 
 def should_keep(spec: Optional[KeepIf], soup: Optional[BeautifulSoup] = None,

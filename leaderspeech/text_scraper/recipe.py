@@ -57,16 +57,76 @@ class PaginationType(str, Enum):
     none = "none"                 # a single listing page, no pagination
 
 
+class FieldSpec(BaseModel):
+    """An ordered fallback chain of selectors for one field.
+
+    Selectors are tried in order; the first that matches wins. This mirrors the
+    "try primary, else secondary" pattern in the existing R scrapers.
+
+    Defined here, above `Listing`, because `Listing.item_date`/`item_title` are FieldSpecs
+    and pydantic resolves the annotation when the class is created.
+    """
+
+    selectors: list[str] = Field(default_factory=list)
+    attr: Optional[str] = None    # read this attribute instead of the text
+    regex: Optional[str] = None   # optional regex to pull a substring out
+    # Extract this field from the page URL when no selector matches (or when there is no
+    # DOM at all — PDFs). Applied to the speech URL; the whole match is used, or group(1)
+    # if the regex captures. For dates, named groups (?P<year>)/(?P<month>)/(?P<day>) are
+    # assembled into an ISO date (handy for /YYYY/DD-MM-... archive paths). See docs.
+    url_regex: Optional[str] = None
+
+
 class Listing(BaseModel):
-    """How to harvest speech links from a listing/index page."""
+    """How to harvest speech links from a listing/index page — and, optionally, the
+    per-item metadata the listing carries that the speech "page" itself cannot supply."""
 
     link_selector: Optional[str] = None   # CSS selector for the <a> elements
     link_pattern: Optional[str] = None     # regex an href must match to qualify
+
+    # --- metadata carried from the listing ROW onto the row (issue #55) -----------------
+    # A listing routinely knows what the speech "page" cannot. pmo.gov.et prints
+    # "Oct. 6, 2023" beside a link to an opaque PDF slug, and the only 4-digit number in
+    # that filename is an ETHIOPIAN-calendar year (`..._2015.pdf` is listed Jan 27 2023),
+    # so a `date.url_regex` would stamp the row eight years wrong — plausibly, and
+    # silently. The date is right there in the HTML we already fetched; this carries it.
+    #
+    # `item_selector` names the block that CONTAINS one speech link; each harvested <a>
+    # belongs to its NEAREST matching ancestor. It is explicit — not the anchor's Nth
+    # ancestor — because that is brittle, and because on pmo.gov.et the date lives in a
+    # SIBLING column of the link's (col-md-4 vs col-md-8), which no walk up from the <a>
+    # reaches without naming the row. Scoping also makes an otherwise page-wide selector
+    # exact: `h1.heading` occurs 31x on that listing and exactly 1x per item.
+    #
+    # Purely additive. Links are harvested exactly as before; a link outside every block —
+    # or an item_selector matching nothing — simply carries no metadata. The row only takes
+    # these values for fields the speech page left EMPTY: the page always wins.
+    #
+    # Deliberately NO `item_text`: run.py reads a carried `text` as "the body is already
+    # here, skip the fetch", which on a PDF source would mean never reading the PDF.
+    item_selector: Optional[str] = None
+    item_date: Optional[FieldSpec] = None    # parsed with the recipe's `date_languages`
+    item_title: Optional[FieldSpec] = None
 
     @model_validator(mode="after")
     def _need_one(self):
         if not self.link_selector and not self.link_pattern:
             raise ValueError("listing needs link_selector and/or link_pattern")
+        if (self.item_date or self.item_title) and not self.item_selector:
+            raise ValueError(
+                "listing.item_date/item_title need an 'item_selector' naming the block that "
+                "contains one speech link — unscoped they would match the FIRST date on the "
+                "page and stamp every row with it")
+        if self.item_selector and not (self.item_date or self.item_title):
+            raise ValueError(
+                "listing.item_selector does nothing without item_date and/or item_title")
+        for name in ("item_date", "item_title"):
+            spec = getattr(self, name)
+            if spec is not None and spec.url_regex:
+                raise ValueError(
+                    f"listing.{name}.url_regex does nothing: item fields read the LISTING "
+                    f"block, not a URL. Put url_regex on the top-level '{name[5:]}' field, "
+                    f"which is applied to the speech URL.")
         return self
 
 
@@ -185,23 +245,6 @@ class Pagination(BaseModel):
     wayback_filter: Optional[list[str]] = None
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
-
-
-class FieldSpec(BaseModel):
-    """An ordered fallback chain of selectors for one field.
-
-    Selectors are tried in order; the first that matches wins. This mirrors the
-    "try primary, else secondary" pattern in the existing R scrapers.
-    """
-
-    selectors: list[str] = Field(default_factory=list)
-    attr: Optional[str] = None    # read this attribute instead of the text
-    regex: Optional[str] = None   # optional regex to pull a substring out
-    # Extract this field from the page URL when no selector matches (or when there is no
-    # DOM at all — PDFs). Applied to the speech URL; the whole match is used, or group(1)
-    # if the regex captures. For dates, named groups (?P<year>)/(?P<month>)/(?P<day>) are
-    # assembled into an ISO date (handy for /YYYY/DD-MM-... archive paths). See docs.
-    url_regex: Optional[str] = None
 
 
 class WaybackExtend(BaseModel):

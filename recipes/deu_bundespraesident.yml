@@ -1,0 +1,63 @@
+# Germany — Federal President (bundespraesident.de), "Reden und Interviews".
+# Frank-Walter Steinmeier (president since 2017).
+#
+# PROOF FOR ISSUE #56 (<base href>): this site runs Government Site Builder, which sets
+#   <base href="https://www.bundespraesident.de/"/>
+# on every page and then serves article links RELATIVE with no leading slash
+# (SharedDocs/Reden/DE/...). Before the fix the engine resolved those against the listing
+# URL, landing on a soft-404 "Fehlerseite" that returns HTTP 200 with a full layout — so a
+# run would have written pages of "not found" chrome. With <base href> honoured the links
+# resolve to https://www.bundespraesident.de/SharedDocs/Reden/DE/... and extract cleanly.
+#
+# ⚠️ PACING: the site advertises Crawl-delay: 30 and starts refusing connections (SSL
+# handshake timeouts, RemoteProtocolError) under even modest probing. Keep --n small and
+# lean on the engine's politeness knobs; do NOT hammer it.
+#
+# COVERAGE / FOLLOW-UP: the reden-und-interviews listing shows only the most recent items,
+# and its "Weiter" pager uses an opaque GSB chunk token (?gtp=...) that can't be
+# synthesised — so this recipe is pagination: none (recent items only). The deep archive
+# lives in per-president trees, incl. every president back to Weizsäcker (1984):
+#   /DE/amt-und-aufgaben/ehemalige-bundespraesidenten/{richard-von-weizsaecker,roman-herzog,
+#    johannes-rau,horst-koehler,christian-wulff,joachim-gauck}/reden/reden_node.html
+# and Steinmeier's own Reden/Interviews subtrees. Those are tracked as a follow-up (~40
+# years of German head-of-state speeches, now unblocked by #56).
+source_id: deu_bundespraesident
+country: Germany
+source_language: German
+start_urls:
+  - https://www.bundespraesident.de/DE/reden-und-aktuelles/reden-und-interviews/reden-und-interviews_node.html
+renderer: static
+
+listing:
+  # After <base href> resolution these are absolute bundespraesident.de/SharedDocs/... URLs;
+  # the pattern keeps speech/interview articles and drops nav/section links.
+  link_pattern: 'SharedDocs/Reden/DE/.+/(Reden|Interviews)/.+\.html$'
+
+pagination:
+  type: none
+
+title:
+  selectors: ["h1.c-article__headline"]
+text:
+  # .c-article__content is the FULL body (~11k chars); .c-article__text is only the ~200-char
+  # lead paragraph — do not use it for text.
+  selectors: [".c-article__content"]
+date:
+  # "9. Juli 2026" — the aria-hidden span inside the article's topline (the page also has an
+  # empty is-date in a related-teaser; scoping to c-article__topline-wrapper avoids it).
+  selectors: [".c-article__topline-wrapper .is-date [aria-hidden]"]
+
+position: president
+speaker_default: Frank-Walter Steinmeier
+date_languages: ["de"]
+notes: >
+  DRAFT — proof for issue #56 (<base href>). Probe-validated: the reden-und-interviews
+  listing yields ~9 recent Steinmeier reden/interviews, all resolving to
+  https://www.bundespraesident.de/SharedDocs/Reden/DE/... (NOT the Fehlerseite), with title
+  (h1.c-article__headline), body (.c-article__text) and a German date ("9. Juli 2026")
+  extracting cleanly. speaker_default: Frank-Walter Steinmeier is safe for the current
+  listing (president since 2017). COVERAGE is recent-items-only: the "Weiter" pager uses an
+  opaque GSB chunk token that can't be synthesised, so pagination is none. The 40-year deep
+  archive (per-president trees back to Weizsäcker 1984, + Steinmeier's own subtrees) is a
+  follow-up now unblocked by #56. PACING: site advertises Crawl-delay: 30 and drops
+  connections under load — keep runs gentle.
