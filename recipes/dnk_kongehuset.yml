@@ -1,0 +1,91 @@
+# Denmark — the Danish Monarchy (kongehuset.dk), "Taler" (speeches).
+#
+# TWO TRAPS, both of which cost a wrong recipe if you skip them:
+#
+# 1. `/taler/` IS NOT A LISTING — it is a SPEECH. Fetching https://www.kongehuset.dk/taler/
+#    returns a single speech page whose canonical is /taler/<slug> (verified: it served
+#    "H.K.H. Kronprinsessens tale ved åbningen af konferencen…"). There is no paginated
+#    index of speeches to crawl at all.
+# 2. The "load more" control on that page hangs off an Umbraco endpoint
+#    (/umbraco/api/blogapi/loadmorerelatedcontentstreamarticles?pageNumber=…&royalTags=…).
+#    It looks like the speech pager and IS NOT: it returns the RELATED-content stream —
+#    Instagram reels, photo galleries, press releases. An `api` recipe built on it would
+#    harvest the site's social feed, not speeches. (Site's robots.txt disallows /umbraco/
+#    anyway.)
+#
+# So the sitemap is not merely "better for depth" here, it is the only route: it lists all
+# 568 speech pages directly. (17,961 URLs total; /taler/ is 568 of them.)
+source_id: dnk_kongehuset
+country: Denmark
+source_language: Danish
+start_urls:
+  - https://www.kongehuset.dk/taler/
+renderer: static
+
+listing:
+  # Anchored to the DANISH tree: `kongehuset.dk/taler/<slug>` with no further path segment.
+  # The site also has an /en/ mirror; scraping both would duplicate every row, and the
+  # convention is to take the original language and let the translation stage do English.
+  link_pattern: 'kongehuset\.dk/taler/[^/]+$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.kongehuset.dk/sitemap.xml
+
+title:
+  # h1 is AMBIGUOUS on this template: the page carries 4 of them, and h1[0] is the speech
+  # only because of source order — h1[1..3] belong to the related-article stream at the
+  # bottom ("Statsbesøg til Belgien" etc.). Scope to the article header class; a bare `h1`
+  # fallback would silently title speeches with an unrelated news headline.
+  selectors: ["h1.article-header__content__title", ".article-header__content__title"]
+text:
+  # .rich-text is the speech body proper (~8.8k chars on the sample). Do NOT relax this to
+  # `article`: there are 4 article elements and the outer one swallows the share buttons,
+  # the date line and the related stream.
+  selectors: [".rich-text", ".article-header__content ~ .rich-text"]
+date:
+  # "Offentliggjort den 18. marts 2016" (= "PUBLISHED on 18 March 2016").
+  #
+  # KNOWN CAVEAT — this is the PUBLICATION date, not the delivery date, and the site is the
+  # only thing that offers a machine-readable date at all. Measured against slugs/titles that
+  # state the delivery date explicitly:
+  #   Copenhagen Fashion Summit  delivered 24 Apr 2014 / published 24 Apr 2014  (same day)
+  #   Danish Maritime Forum      delivered  7 Oct 2015 / published  8 Oct 2015  (+1 day)
+  #   Prinsesse Marie, Paris     delivered 15 Nov 2017 / published 20 Nov 2017  (+5 days)
+  #   Prins Joachim, lufthavn    delivered  5 Feb 2017 / published  3 May 2017  (+3 MONTHS)
+  # So it is usually within days but occasionally months late. The true delivery date is
+  # frequently in the TITLE ("… den 5. februar 2017", "The Danish Maritime Forum - 7. October
+  # 2015") — but not always (plenty of titles carry no date), and in mixed Danish/English
+  # formats, so a title regex would silently do worse than this does. Left as the publication
+  # date on purpose: it is honest, present on every page, and the cleaning stage's
+  # corrected-date pass can refine it from the title where one exists.
+  #
+  # dateparser.parse() returns None on the whole string because of the "Offentliggjort den"
+  # prefix; the engine's parse_date falls back to search_dates, which finds it. Danish
+  # months are WORDS here, so there is no DD.MM vs MM.DD ambiguity to worry about — but
+  # date_languages must still be ["da"]: with ["en"] the string does not parse at all.
+  selectors: ["p.introduction__container__text", ".introduction__container__text"]
+
+# position/speaker_default deliberately BOTH omitted. This is the monarchy's whole-household
+# speech archive, not one leader's: the sample alone spans H.M. Kongen, H.M. Dronningen,
+# H.K.H. Kronprinsessen and Prins Henrik. The speaker is named in the title, so the cleaning
+# stage's speaker extraction + the tenure crosscheck should assign it. Hard-coding either
+# field would mislabel most of the corpus.
+date_languages: ["da"]
+notes: >
+  Probe-validated: 568 links, coverage 2011..2026 on a 10-sample spread, bodies 1k-8.8k
+  chars, every title/text/date resolved. DATE IS THE PUBLICATION DATE (see the `date`
+  comment) — usually within days of delivery, occasionally months; the cleaner's
+  corrected-date pass should refine it from the title. Danish Monarchy speeches ("Taler"),
+  via sitemap — 568 speech URLs. NOT a listing crawl:
+  /taler/ is itself a speech page and the on-page "load more" is the Umbraco related-content
+  stream (reels/galleries/press releases), not speeches. Multi-speaker household archive
+  (King, Queen, Crown Princess, Prince Henrik, …) -> speaker/position left to the cleaner +
+  tenure crosscheck. Some speeches are delivered and published in ENGLISH even in the Danish
+  tree (e.g. "the-danish-maritime-forum-7-october-2015"), so source_language: Danish is the
+  dominant case, not a guarantee — the cleaner's language detection should settle each row.
+  Denmark's monarch is a ceremonial head of state (in scope per the researcher); the head of
+  government is the PM (stm.dk), which is not in master_sources and would be a separate
+  source. Sibling trees deliberately excluded: /nyheder (2,030 news), /presse (339 press
+  releases), /kalender (7,713 diary entries — engagement listings, NOT speeches).

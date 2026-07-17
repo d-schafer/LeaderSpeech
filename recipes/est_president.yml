@@ -1,0 +1,82 @@
+# Estonia — President of the Republic (president.ee), "Kõned" (Speeches).
+#
+# The site is a Nuxt SPA: president.ee/ serves a 1.8 KB shell whose only job is to read
+# an i18n cookie and redirect to /<lang>/. Point start_urls at the language path directly
+# — there is nothing to gain from the root. The listing itself renders client-side (the
+# server HTML carries exactly ONE speech link), so `renderer: js` is required; a static
+# fetch looks like a working page with an almost-empty archive.
+#
+# LANGUAGE: the Estonian (/et/) section is the original. An /en/ mirror exists but is a
+# partial translation; per project convention we scrape the original and let the
+# translation stage fill the English columns.
+source_id: est_president
+country: Estonia
+source_language: Estonian
+start_urls:
+  - https://president.ee/et/ametitegevus/koned/
+renderer: js
+
+listing:
+  # Speech permalinks are /et/ametitegevus/koned/<id>-<slug>. The numeric id keeps this
+  # off the section index and the sibling /avaldused (statements) and /kaskkirjad trees.
+  link_pattern: '/et/ametitegevus/koned/\d+'
+
+pagination:
+  # The pager's page links carry NO href — they are JS handlers (cursor:pointer, tabindex),
+  # and the URL never changes when you page (it stays /et/ametitegevus/koned), so the page
+  # URL cannot be synthesised and `query_param`/`path`/`next_link` are all unusable here.
+  # Verified: clicking `next` swaps in 20 fresh speech links.
+  #
+  # NOTE for a future maintainer: this is `click` DESPITE the Austria lesson (prefer
+  # next_link) because there is no href to follow. It is safe here only because the pager
+  # is genuinely VISIBLE after the JS runs (Playwright's actionability check passes) —
+  # verified with a real headless Chromium: `ul.pagination` is display:none in the server
+  # HTML and becomes display:inline-block once Nuxt hydrates.
+  #
+  # `:not(.disabled)` IS LOad-BEARING — do not simplify it away. On the LAST page (17) the
+  # site does not remove the next control, it adds class `disabled` and hides it. Without
+  # the guard the selector still matches, Playwright refuses to click a non-visible element,
+  # and the run ends on a "pagination stopped EARLY / harvest probably incomplete" warning
+  # (issue #53) on a harvest that is in fact COMPLETE. With the guard, the last page matches
+  # nothing and the crawl ends cleanly. Verified by walking all 17 pages: 334 links either way.
+  type: click
+  next_selector: "li.page-item.next:not(.disabled) a.page-link"
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  # div.body-content wraps only the speech paragraphs. Do NOT "fix" this to .col-lg-8 or
+  # #print-area: those also swallow the page title and the date line into the body.
+  selectors: ["div.body-content", "#print-area", "article"]
+date:
+  # Renders as bare numeric DD.MM.YYYY, e.g. "16.04.2026".
+  selectors: ["p.date", ".date"]
+
+position: president
+# speaker_default deliberately omitted even though the live archive is, TODAY, single-leader
+# (verified: all 334 items are Alar Karis, 2021-10-11 .. present). Two reasons:
+#   1. The floor is his inauguration, i.e. the site drops a departing president's speeches.
+#      Karis's term ends in Oct 2026, so a hard-coded speaker would silently go stale on the
+#      next re-run — exactly when nobody is looking.
+#   2. The tenure crosscheck already assigns the speaker correctly from country+date.
+#
+# date_languages MUST stay ["et"] ALONE — do not add "en" as a "safety" fallback.
+# dateparser resolves ambiguous numeric dates by locale and the FIRST matching locale wins:
+#   "01.07.2026" -> 2026-07-01 with ["et"]   (correct: 1 July, day-first)
+#   "01.07.2026" -> 2026-01-07 with ["en"] AND with ["et","en"]   (WRONG: 7 January)
+# Verified against this site's real format. Every date with day <= 12 corrupts silently.
+date_languages: ["et"]
+notes: >
+  Estonian President's speeches ("Kõned"). Probe-validated: 334 links, 17 pages, coverage
+  2021-10-11 .. 2026-07-04, bodies 1.4k-14k chars, dates all parsed. The archive floor is
+  Karis's own inauguration ("Ametisseastumise tseremoonial", 2021-10-11), so the live site
+  holds ONE president: Kersti Kaljulaid (2016-2021) and earlier are gone and would need a
+  wayback companion. Nuxt SPA -> renderer: js is mandatory (static HTML carries 1 speech
+  link; the JS-rendered listing carries 20/page). Pagination is a JS-only pager with no
+  hrefs and a URL that never changes -> type: click. SCOPE NOTE: Estonia's president is
+  ceremonial (leader_tenure_final.csv marks Karis is_ceremonial=TRUE); the head of
+  government is the PM (Kallas/Ratas). Ceremonial heads of state are in scope per the
+  researcher, but a stats.riigikantselei/valitsus.ee PM source would be the executive
+  counterpart and is not yet in master_sources. Sibling sections worth a source each:
+  /et/ametitegevus/avaldused (statements), /et/vabariigi-president/abikaasa/koned (the
+  First Lady's speeches — a different speaker, deliberately excluded here).

@@ -1,0 +1,71 @@
+# The Gambia — Office of the President (op.gov.gm), "Speeches".
+#
+# The speeches are PDFs, not web pages. /speeches is a Drupal *body field* holding a
+# hand-maintained <ul> of <h2><a> links straight to /sites/default/files/*.pdf — there is
+# no speech HTML anywhere. (Checked the sibling /<slug> article pages that also appear on
+# that listing: they are stubs — the sampled one had a 46-character body reading "OFFICE OF
+# THE PRESIDENT REPUBLIC OF THE GAMBIA" and no PDF link. They are not the speeches.)
+# Verified the PDFs extract cleanly: 7.7k chars of real text off the sample.
+#
+# COVERAGE IS PARTIAL AND THE SOURCE LOOKS STALE — see `notes`. This is a real but small
+# slice of Barrow's presidency, not the archive.
+source_id: gmb_op
+country: Gambia
+source_language: English
+start_urls:
+  - https://op.gov.gm/speeches
+renderer: static
+# Every harvested URL is a PDF; the engine downloads bytes and text-extracts with pdfminer
+# instead of BeautifulSoup. `auto` would also work (the URLs end in .pdf) but `pdf` states
+# the intent and survives a filename that loses its extension.
+content_type: pdf
+
+listing:
+  link_pattern: '/sites/default/files/.*\.pdf'
+
+pagination:
+  # `none` IS CORRECT — do not "improve" this by adding query_param/?page=.
+  # Verified: /speeches?page=0,1,2,5,20 all return the byte-identical page (len=64587, the
+  # same 58 PDFs). The site ignores the parameter entirely, which is indistinguishable from
+  # a one-page archive unless you check. It IS a one-page archive: all 58 speeches are on it.
+  # (If a pager ever appears, the engine will now warn "served N links but NONE were new"
+  # rather than silently truncating — issue #53.)
+  type: none
+
+title:
+  # No DOM to select from. The listing's <a> text carries the real, well-formed title
+  # ("Statement Delivered By His Excellency ... Held On 6th December 2022") but the engine
+  # cannot carry listing metadata onto a PDF row, so the filename stem is the best proxy.
+  # It stays PERCENT-ENCODED (…/11182022%20H.E%20Barrow%20Trade%20National%20…) — ugly but
+  # informative and recoverable. Deliberately NOT left to the PDF's first line: these PDFs
+  # open with a boilerplate letterhead ("HIS EXCELLENCY, THE PRESIDENT OF THE REPUBLIC OF
+  # THE GAMBIA,"), so every row would get a near-identical, useless title. The real title
+  # sits ~5 lines into the PDF text for the cleaning stage to lift.
+  url_regex: '/([^/]+)\.pdf'
+text: {}   # the PDF body itself; no selector applies (content_type: pdf)
+date:
+  # Filenames are prefixed MMDDYYYY — US-order, unusually for West Africa. VERIFIED, not
+  # assumed: 11182022 and 10272022 both have a >12 second field, so it can only be MMDD.
+  # Named groups assemble an unambiguous ISO date, so dateparser's locale ambiguity never
+  # applies here.
+  # The regex anchors the 8 digits to a '/' and requires a trailing separator, which keeps
+  # it off the '2024-02/' upload directories (only 4 consecutive digits) and off mid-name
+  # digit runs like "…OUTBREAK 100922.pdf" and "EngFinalCommunique03022022.pdf".
+  # Coverage: 41 of 58 PDFs (70%) get a date this way; the other 17 have no parseable date
+  # in the filename and will land with a BLANK date for the cleaner to fill. A blank date is
+  # honest; guessing one from the PDF body would mis-stamp any speech that quotes a date.
+  url_regex: '/(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)'
+
+position: president
+speaker_default: Adama Barrow
+date_languages: ["en"]
+notes: >
+  PARTIAL, and stale. Probe-validated: 58 speech PDFs on a single page (no pager — ?page=N
+  is ignored and re-serves page 1). Dated 2021-06-23 .. 2024-05-05 (2021:3, 2022:15,
+  2023:7, 2024:15) for 41 of 58; the remaining 17 filenames carry no parseable date.
+  Adama Barrow has been president since Jan 2017 and still is, so this source covers roughly
+  3 of ~9 years and has published NOTHING since May 2024 — treat it as a sample, not an
+  archive. speaker_default is safe here precisely because the range is short and entirely
+  Barrow's. Follow-ups worth a look: a wayback companion for 2017-2021 and for the
+  post-2024 gap; and op.gov.gm/newsletters / the /<slug> news tree if the President's
+  Office ever starts publishing speech text as HTML.
