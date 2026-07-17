@@ -134,10 +134,17 @@ def _pdf_page_report(recipe, url: str, rec: dict) -> dict:
             # Same precedence as extract_pdf_record: url_regex, then the per-field
             # fallbacks. Naming the mechanism keeps ✗ meaning "resolved to nothing".
             url_regex = getattr(spec, "url_regex", None) if spec else None
+            # `date` must be compared through date_from_url, NOT match_url: extract_pdf_record
+            # PARSES the url_regex match into an ISO date, so rec["date"] is "2022-12-06"
+            # while match_url returns the raw first group ("12"). Comparing those never
+            # matches, which reported a resolved date as ✗ NO MATCH — the very thing #54 is
+            # about, in the PDF path.
+            from_url = (date_from_url(spec, url, recipe.date_languages) if name == "date"
+                        else clean_text(match_url(spec, url) or ""))
             matched = None
             if not rec.get(name):
                 matched = None
-            elif url_regex and clean_text(match_url(spec, url) or "") == clean_text(rec[name]):
+            elif url_regex and from_url and from_url == rec[name]:
                 matched = f"url_regex: {url_regex}"
             elif name == "speaker" and rec[name] == recipe.speaker_default:
                 matched = f"speaker_default: {recipe.speaker_default}"

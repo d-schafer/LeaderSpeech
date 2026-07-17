@@ -7,7 +7,7 @@ cosmetic bug: it gets working recipes "fixed" and broken ones merged (issues #53
 from bs4 import BeautifulSoup
 
 from leaderspeech.text_scraper import probe, wayback
-from leaderspeech.text_scraper.extract import extract_record
+from leaderspeech.text_scraper.extract import extract_pdf_record, extract_record
 from leaderspeech.text_scraper.recipe import Recipe, WaybackExtend
 
 # A date that exists ONLY in the URL. Deliberate: aus_gg_wayback and
@@ -336,3 +336,54 @@ def test_print_warns_when_keep_if_filters_nothing(capsys):
     out = capsys.readouterr().out
 
     assert "filtered out nothing in this sample" in out
+
+
+# --- issue #54, PDF path: a url_regex-resolved DATE was still reported as ✗ NO MATCH ----
+
+def test_pdf_report_names_url_regex_for_a_date_it_resolved():
+    """Regression: found while authoring gmb_op. extract_pdf_record PARSES the url_regex
+    match into an ISO date, so rec["date"] is "2022-11-18" while match_url returns the raw
+    first group ("11"). Comparing those never matched, so the probe printed
+    `✗ date <- NO MATCH` directly above `parsed_date: 2022-11-18`."""
+    from tests.test_pdf import make_minimal_pdf
+
+    recipe = Recipe(
+        source_id="gmb_x", country="Gambia",
+        start_urls=["https://op.gov.gm/speeches"],
+        listing={"link_pattern": r"\.pdf"},
+        content_type="pdf",
+        title={"url_regex": r"/([^/]+)\.pdf"},
+        text={},
+        date={"url_regex": r"/(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)"},
+        speaker_default="Adama Barrow",
+    )
+    url = "https://op.gov.gm/sites/default/files/11182022%20H.E%20Barrow%20Trade.pdf"
+    rec = extract_pdf_record(make_minimal_pdf("Statement by the President."), url, recipe)
+    report = probe._pdf_page_report(recipe, url, rec)
+
+    assert rec["date"] == "2022-11-18"                       # MMDDYYYY, resolved
+    assert report["fields"]["date"]["matched_selector"] == (
+        r"url_regex: /(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)")
+    assert report["fields"]["title"]["matched_selector"] == r"url_regex: /([^/]+)\.pdf"
+    assert report["fields"]["speaker"]["matched_selector"] == "speaker_default: Adama Barrow"
+
+
+def test_pdf_report_still_flags_a_date_that_resolved_to_nothing():
+    from tests.test_pdf import make_minimal_pdf
+
+    recipe = Recipe(
+        source_id="gmb_x", country="Gambia",
+        start_urls=["https://op.gov.gm/speeches"],
+        listing={"link_pattern": r"\.pdf"},
+        content_type="pdf",
+        title={"url_regex": r"/([^/]+)\.pdf"},
+        text={},
+        date={"url_regex": r"/(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)"},
+    )
+    # No MMDDYYYY prefix -> genuinely undated (17 of gmb_op's 58 PDFs look like this).
+    url = "https://op.gov.gm/sites/default/files/EngFinalCommunique.pdf"
+    rec = extract_pdf_record(make_minimal_pdf("Communique text."), url, recipe)
+    report = probe._pdf_page_report(recipe, url, rec)
+
+    assert rec["date"] is None
+    assert report["fields"]["date"]["matched_selector"] is None
