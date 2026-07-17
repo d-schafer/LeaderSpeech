@@ -4,6 +4,8 @@ The probe is the only cheap check before a FULL RUN, so a misleading report is n
 cosmetic bug: it gets working recipes "fixed" and broken ones merged (issues #53/#54).
 """
 
+import json
+
 from bs4 import BeautifulSoup
 
 from leaderspeech.text_scraper import probe, wayback
@@ -562,3 +564,45 @@ def test_api_probe_no_longer_discards_entry_metadata(monkeypatch, tmp_path):
     page = report["pages"][0]
     assert page["parsed_date"] == "2022-03-04"     # ...but the JSON did, and the probe sees it
     assert page["fields"]["date"]["matched_selector"] == "carried entry metadata"
+
+
+# --- probe snapshot: a dated record of every probe -------------------------------------
+
+
+def test_save_probe_snapshot_writes_links_and_report(tmp_path):
+    """The .txt is every harvested link; the .json is the full report — both under
+    <out_root>/<Country>/sample/."""
+    report = {
+        "recipe": "eth_pmo", "country": "Ethiopia", "renderer": "static",
+        "listing": {"links_found": 2},
+        "harvested_links": ["https://x/a.pdf", "https://x/b.pdf"],
+        "pages": [{"url": "https://x/a.pdf", "parsed_date": "2023-10-06"}],
+    }
+
+    txt_path, json_path = probe.save_probe_snapshot(report, out_root=str(tmp_path))
+
+    assert txt_path.parent == tmp_path / "Ethiopia" / "sample"
+    assert txt_path.read_text(encoding="utf-8").splitlines() == [
+        "https://x/a.pdf", "https://x/b.pdf"]
+    saved = json.loads(json_path.read_text(encoding="utf-8"))
+    assert saved["pages"][0]["parsed_date"] == "2023-10-06"   # field structure is recorded
+    assert saved["harvested_links"] == report["harvested_links"]
+
+
+def test_save_probe_snapshot_handles_an_empty_harvest(tmp_path):
+    """A probe that found nothing still leaves a record (the empty txt + the report showing
+    why) rather than silently writing nothing."""
+    report = {"recipe": "x", "country": "Nowhere", "harvested_links": [], "listing": {}}
+    txt_path, json_path = probe.save_probe_snapshot(report, out_root=str(tmp_path))
+    assert txt_path.read_text(encoding="utf-8") == ""
+    assert json_path.exists()
+
+
+def test_probe_populates_harvested_links(monkeypatch, tmp_path):
+    """The report carries the FULL harvested list (not just the 3-link preview), which is
+    what the snapshot's .txt is written from."""
+    report = _eth_probe(monkeypatch, tmp_path)
+    assert report["harvested_links"] == [
+        "https://pmo.gov.et/media/documents/a.pdf",
+        "https://pmo.gov.et/media/documents/b.pdf",
+    ]

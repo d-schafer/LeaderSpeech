@@ -23,6 +23,23 @@ And under `data/state/<Country>.json`:
 | `filtered_urls` | fetched, but the recipe's [`keep_if`](recipes.md) judged them not this source's content — a decided rejection, never re-fetched (not even by `--retry-failed`). Loosened the `keep_if`? Delete this list to re-open them. |
 | `last_doc_num` | the per-country `doc_id` counter, so ids stay unique across runs |
 
+### What each probe leaves behind
+
+A `probe` (unlike a run) does **not** touch the source CSV/state — but it now keeps a dated
+record of what it found, under `data/scraped/<Country>/sample/`:
+
+| Artifact | What it's for |
+|----------|---------------|
+| `<source_id>_probe_<timestamp>.txt` | **every harvested link**, one per line — the full `--spread` list, or page 1 otherwise. A snapshot of the source's coverage at that moment (the run's `<id>_links.txt`, but for a probe, and never overwritten). |
+| `<source_id>_probe_<timestamp>.json` | the **full report** — the listing summary plus each sampled page's per-field results (which selector matched, parsed date, kept?). Audit the extracted structure straight from the file. |
+
+Written automatically on every CLI probe (the path is printed to stderr, so it never
+corrupts `--json` stdout). These live under the gitignored data tree, so they accumulate
+locally as a history and never clutter the repo. The sampled pages are chosen **evenly
+across the harvested list, inclusive of both ends** (not randomly), so `--spread` always
+includes the very newest and very oldest — re-probing the same recipe gives the same
+sample, which is what makes it a reproducible review check.
+
 The run also prints a summary when it finishes. Watch four numbers:
 - **`via_generic_fallback`** — how many pages the recipe's selectors missed and the generic extractor
   rescued. A few is fine (old/archived layouts). A lot means the recipe's selectors are drifting — fix them.

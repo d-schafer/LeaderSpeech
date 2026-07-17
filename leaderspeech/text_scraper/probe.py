@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -361,6 +362,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
             # below, the ends of this list are not the oldest/newest captures. Spanning the
             # whole list is still what we want; "across history" just isn't why.
             sample = _sample_evenly(entries, n)
+            links = [entry["original"] for entry in entries if entry.get("original")]
             report["listing"] = {
                 "mode": "wayback snapshots",
                 "snapshots_found": len(entries),
@@ -410,6 +412,10 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
         # What the listing itself knew, across the WHOLE harvest — not just the sample.
         if recipe.listing.item_selector and recipe.pagination.type != PaginationType.wayback:
             report["listing_meta"] = _listing_meta_summary(links, meta_by_url)
+
+        # The FULL harvested list (all pages under --spread; page 1 otherwise), so the saved
+        # snapshot and --json carry a record of everything found, not just the 3-link preview.
+        report["harvested_links"] = list(links)
 
         report["pages"] = _diagnose_pages(
             sample, recipe, fetcher=fetcher, wayback_client=wayback_client,
@@ -556,6 +562,34 @@ def _print_pages(pages: list, label: str):
                   f"{page['generic_text_len']} — fix the `text` selector.")
 
 
+def save_probe_snapshot(report: dict, out_root: str = "data/scraped") -> tuple[Path, Path]:
+    """Write a timestamped record of one probe to `<out_root>/<Country>/sample/`.
+
+    Two files per probe, so there's always a dated record of what a recipe pulled and how it
+    was structured at that moment (the CLI writes these automatically):
+      * `<id>_probe_<timestamp>.txt`  — every harvested link, one per line (the full
+        --spread list, or page 1 otherwise). The same shape as a run's `<id>_links.txt`,
+        but for a probe and never overwritten.
+      * `<id>_probe_<timestamp>.json` — the full report: the listing summary plus each
+        sampled page's per-field results (which selector matched, parsed date, kept?), so
+        the structure can be audited from the file.
+
+    Lives under the gitignored data tree, alongside the run outputs. Returns the two paths.
+    """
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    source_id = report.get("recipe", "probe")
+    snap_dir = Path(out_root) / report.get("country", "_unknown") / "sample"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+
+    links = report.get("harvested_links", [])
+    txt_path = snap_dir / f"{source_id}_probe_{stamp}.txt"
+    txt_path.write_text("\n".join(links) + ("\n" if links else ""), encoding="utf-8")
+
+    json_path = snap_dir / f"{source_id}_probe_{stamp}.json"
+    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return txt_path, json_path
+
+
 def main():
     ap = argparse.ArgumentParser(description="Diagnose a recipe against the live site")
     ap.add_argument("--recipe", required=True)
@@ -584,6 +618,13 @@ def main():
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         _print(report)
+    # Always keep a dated record of the probe. To stderr, so it never corrupts --json stdout;
+    # never let a save hiccup (e.g. a locked dir) mask the probe result the user came for.
+    try:
+        txt_path, json_path = save_probe_snapshot(report, args.out_root)
+        print(f"\nsaved probe snapshot: {txt_path}  +  {json_path.name}", file=sys.stderr)
+    except Exception as e:
+        print(f"\n(could not save probe snapshot: {e})", file=sys.stderr)
 
 
 if __name__ == "__main__":
