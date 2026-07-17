@@ -1,0 +1,79 @@
+# Finland — President of the Republic (presidentti.fi), "Puheet" (speeches).
+#
+# WHY api AND NOT AN HTML LISTING: presidentti.fi is WordPress with a JS front end. The
+# speech listing is a HASH-FRAGMENT SPA — /puheet/ and /category/puhe/ both redirect to
+# /ajankohtaista/#/?search=&…&contentTypes=POST&categories=puhe, whose static HTML carries
+# no article links, and /category/puhe/page/2/ is a 404. Its RSS feed exists but serves
+# only the latest 10 of 52. The REST API is the one route to the full set.
+#
+# The speech PAGES, by contrast, are plain server-rendered HTML — so the JSON supplies the
+# links and the engine fetches each page for clean text.
+source_id: fin_presidentti
+country: Finland
+source_language: Finnish
+start_urls:
+  # categories=21 is "Puheet" (Finnish speeches). Find ids via
+  # /wp-json/wp/v2/categories?per_page=100 — they are stable but worth re-checking if the
+  # harvest ever empties. 100 is WordPress's max per_page.
+  - https://www.presidentti.fi/wp-json/wp/v2/posts?categories=21&per_page=100
+renderer: static
+
+listing:
+  link_pattern: 'presidentti\.fi/[^/]+/?$'
+
+pagination:
+  type: api
+  param: page       # WordPress pages with ?page=N and returns HTTP 400
+  start: 1          # ("rest_post_invalid_page_number") once you run past the end, which
+  step: 1           # the engine logs and treats as "stop here" — expected, not a failure.
+  max_pages: 10
+  api:
+    # "." = the response IS the array. WordPress returns a bare JSON list at the root, and
+    # a dotted path cannot address one (it needs at least one key). Engine support for this
+    # was added for this recipe.
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    # text_field is deliberately NOT set. WP's content.rendered is HTML, so setting it would
+    # store markup as the speech body AND skip the page fetch entirely. Leaving it unset
+    # lets the engine fetch each `link` and use the `text` selector below for clean prose;
+    # the JSON is used only for url/title/date.
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".entry-content", "article"]
+date:
+  # attr: datetime IS THE POINT — do not drop it to read the element's text.
+  # <time datetime="2026-06-10T19:39:08+03:00">10.6.2026</time>
+  # The TEXT is Finnish numeric day-first and is a silent-corruption trap:
+  #   "10.6.2026" -> 2026-06-10 with ["fi"]   (correct: 10 June)
+  #   "10.6.2026" -> 2026-10-06 with ["en"] AND with ["fi","en"]   (WRONG: 6 October)
+  #   "1.7.2026"  -> 2026-07-01 with ["fi"] / 2026-01-07 otherwise
+  # The datetime ATTRIBUTE is ISO 8601, so it is unambiguous in any locale and cannot drift.
+  # The api's `date` field (also ISO) is the engine's fallback if this ever stops matching.
+  selectors: ["time"]
+  attr: datetime
+
+position: president
+# speaker_default deliberately omitted, same reasoning as est_president: the archive floor
+# (2024-03-01) is Alexander Stubb's own inauguration day, which shows the site drops the
+# outgoing president — Sauli Niinistö (2012-2024) is simply gone. A hard-coded speaker would
+# therefore silently mislabel the NEXT president's speeches. The tenure crosscheck assigns
+# it correctly from country+date and cannot go stale.
+#
+# Kept as a belt-and-braces for the day the datetime attribute disappears. MUST stay ["fi"]
+# alone — never ["fi","en"]: dateparser lets the first matching locale win, and "en" reads
+# Finnish day-first dates month-first (see above).
+date_languages: ["fi"]
+notes: >
+  Probe-validated. 52 speeches, coverage 2024-03-01 .. 2026-06-10 — i.e. Alexander Stubb's
+  term to date and nothing earlier: the floor is his inauguration, so Niinistö (2012-2024)
+  is gone from the live site and would need a wayback companion. Listing is REST-only (the
+  HTML listing is a hash-fragment SPA; RSS carries just 10 of 52); speech pages are static.
+  Categories 21 (puhe/FI), 23 (speech/EN) and 25 (tal/SV) each hold the SAME 52 speeches —
+  they are translations of one another, so scraping more than one would duplicate every row.
+  Finnish (21) is the original per project convention; the translation stage fills English.
+  Finland's president is the head of state with real foreign-policy powers but the PM leads
+  the government (valtioneuvosto.fi) — a separate source, not in master_sources.
