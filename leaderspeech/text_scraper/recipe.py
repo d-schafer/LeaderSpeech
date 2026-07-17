@@ -117,7 +117,9 @@ class ApiConfig(BaseModel):
     dotted (`a.b.c`); SharePoint's Key/Value `Cells` arrays are handled via cells mode.
     """
 
-    results_path: str                       # dotted path to the array of result rows
+    # Dotted path to the array of result rows — or "." when the response IS the array
+    # (a bare JSON list at the root, e.g. WordPress's /wp-json/wp/v2/posts).
+    results_path: str
     url_field: str                          # row path (or cell Key) for the speech URL
     title_field: Optional[str] = None       # row path (or cell Key) for the title
     date_field: Optional[str] = None        # row path (or cell Key) for the date

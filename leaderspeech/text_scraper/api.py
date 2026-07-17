@@ -135,6 +135,23 @@ def create_client(recipe: Recipe, timeout: float = 60.0) -> httpx.Client:
     )
 
 
+ROOT_PATH = "."
+
+
+def _rows_of(data, results_path: str):
+    """The result rows for one API response.
+
+    Normally `results_path` is a dotted path into an envelope object (SharePoint's
+    `d.query.…Table.Rows.results`). But plenty of REST APIs answer with a **bare JSON
+    array at the root** — WordPress's `/wp-json/wp/v2/posts` is the common one, and any
+    WP-backed government site hits this. A dotted path cannot address a root array
+    (`_dig` needs at least one key), so `results_path: "."` names the response itself.
+    """
+    if results_path.strip() == ROOT_PATH:
+        return data if isinstance(data, list) else None
+    return _dig(data, results_path)
+
+
 def harvest_entries(
     recipe: Recipe,
     max_links: Optional[int] = None,
@@ -181,7 +198,7 @@ def harvest_entries(
                 # one bad page shouldn't kill the whole harvest
                 log.warning("api page failed, stopping pagination here: %s :: %s", url, e)
                 break
-            rows = _dig(data, cfg.results_path)
+            rows = _rows_of(data, cfg.results_path)
             if not rows:
                 break  # past the last page of results
             gained = 0

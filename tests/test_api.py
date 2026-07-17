@@ -225,3 +225,52 @@ def test_post_single_request_when_no_paging():
     entries = api.harvest_entries(r, client=client)
     assert [e["url"] for e in entries] == ["https://x/prensa/1"]  # one POST only
     assert len(client.posts) == 1
+
+# --- root-array responses (WordPress REST and friends) ---------------------------------
+
+
+def _wp_rows():
+    return [
+        {"link": "https://www.presidentti.fi/a/", "date": "2026-06-10T19:39:08",
+         "title": {"rendered": "Puhe yksi"}},
+        {"link": "https://www.presidentti.fi/b/", "date": "2024-03-01T10:00:00",
+         "title": {"rendered": "Puhe kaksi"}},
+    ]
+
+
+def _wp_recipe():
+    r = _recipe({"results_path": ".", "url_field": "link",
+                 "title_field": "title.rendered", "date_field": "date"},
+                param="page", start=1, step=1, max_pages=3)
+    r.listing.link_pattern = "presidentti.fi/"
+    return r
+
+
+def test_results_path_dot_reads_a_bare_root_array():
+    """WordPress answers /wp-json/wp/v2/posts with a JSON list at the ROOT. A dotted path
+    cannot address that (it needs at least one key), so `results_path: "."` names the
+    response itself. Found while authoring fin_presidentti."""
+    client = FakeClient([_wp_rows(), []])
+    entries = api.harvest_entries(_wp_recipe(), client=client)
+
+    assert [e["url"] for e in entries] == ["https://www.presidentti.fi/a/",
+                                           "https://www.presidentti.fi/b/"]
+    assert entries[0]["title"] == "Puhe yksi"
+    assert entries[0]["date"] == "2026-06-10"   # ISO parsed; api dates skip date_languages
+    assert entries[1]["date"] == "2024-03-01"
+
+
+def test_root_array_path_ignores_a_non_list_response():
+    """'.' means "the response IS the array" — an envelope object is not one and must not
+    be mistaken for rows."""
+    client = FakeClient([{"code": "rest_post_invalid_page_number"}])
+    assert api.harvest_entries(_wp_recipe(), client=client) == []
+
+
+def test_dotted_results_path_still_works():
+    """Backward compatibility: the SharePoint envelope form is untouched."""
+    r = _recipe({"results_path": "d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results",
+                 "url_field": "Path", "cells_path": "Cells.results"})
+    client = FakeClient([_sp_page([_sp_row("http://x/prensa/1", "T", "2024-01-02T00:00:00Z")]),
+                         _sp_page([])])
+    assert [e["url"] for e in api.harvest_entries(r, client=client)] == ["http://x/prensa/1"]

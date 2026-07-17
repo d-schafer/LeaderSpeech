@@ -359,6 +359,40 @@ date_languages: ["ru"]
 > if the API's date is localized `DD.MM.YYYY`, prefer taking the date off the fetched
 > page (with `date_languages`) and treat the api `date_field` as a fallback.
 
+### WordPress REST (`results_path: "."`)
+
+WordPress powers a lot of government sites, and its REST API is usually open even when the
+visible listing is a JavaScript SPA you cannot crawl. The tell: `/wp-json/wp/v2/posts`
+returns JSON. Two things differ from the SharePoint shape above:
+
+- **The response is a bare array at the root**, not an envelope, so there is no dotted path
+  to give — use `results_path: "."`.
+- Fields are nested under `rendered`: `title.rendered`, `content.rendered`.
+
+Find the speech category id first (`/wp-json/wp/v2/categories?per_page=100` lists them with
+counts), then:
+
+```yaml
+start_urls:
+  - https://www.presidentti.fi/wp-json/wp/v2/posts?categories=21&per_page=100
+pagination:
+  type: api
+  param: page          # WP pages with ?page=N; it 400s past the last page, which the
+  start: 1             # engine treats as "stop here" (a logged warning, not a failure)
+  step: 1
+  max_pages: 10
+  api:
+    results_path: "."          # the response IS the array
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601; api dates skip date_languages by design
+```
+
+**Leave `text_field` unset** unless you have checked it: `content.rendered` is *HTML*, so
+setting it stores markup as the speech body **and** skips the page fetch entirely. Leaving it
+unset lets the engine fetch each `link` and extract clean text with your `text` selectors,
+using the JSON only for url/title/date.
+
 ## RSS/Atom feeds (`type: feed`)
 
 A lighter-weight option when a source publishes an RSS or Atom feed. Point `start_urls` at the feed URL(s);
@@ -478,7 +512,7 @@ date_languages: ["pt"]
 | `wayback_extend.link_pattern` | no | Regex selecting archived speech URLs. Default = `listing.link_pattern`. |
 | `wayback_extend.title` / `text` / `date` / `speaker` / `context` | no | Per-field selector-chain overrides for the (often differently structured) archived pages. Default = reuse the live recipe's selectors. |
 | `wayback_extend.wayback_from` / `wayback_to` / `wayback_delay` / `wayback_limit` / `wayback_match_type` / `wayback_collapse` | no | Archive pacing/bounds, mirroring the `wayback` knobs. `wayback_to` (YYYYMMDD) overrides the automatic "earliest live date" floor; otherwise it's computed for you. |
-| `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`). Paths may use list indices (`a.b[0].c`) and quoted keys with spaces/dots (`tags.metaData."Publish Date"[0].title`); plain `a.b.c` is unchanged. |
+| `pagination.api.results_path` | for api | Dotted path to the array of result rows in the JSON (e.g. `d.query.PrimaryQueryResult.RelevanceResults.Table.Rows.results`), **or `"."` when the response *is* the array** — a bare JSON list at the root, which is what WordPress's `/wp-json/wp/v2/posts` returns (see "WordPress REST" below). Paths may use list indices (`a.b[0].c`) and quoted keys with spaces/dots (`tags.metaData."Publish Date"[0].title`); plain `a.b.c` is unchanged. |
 | `pagination.api.url_field` | for api | Dotted path to a row's speech URL — or, in cells mode, the cell **key** naming it (e.g. `Path`). |
 | `pagination.api.title_field` / `date_field` / `text_field` / `speaker_field` | no | Same as `url_field` for the other fields. `text_field` lets the JSON carry the full body, skipping the per-speech page fetch. Dates are parsed as standard (ISO/RFC) formats — `date_languages` is **not** applied here. |
 | `pagination.api.method` | no | `GET` (default) or `POST`. Use `POST` for endpoints whose listing is a POST JSON call (SPA/SharePoint CSOM). |
