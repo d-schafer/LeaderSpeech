@@ -1,0 +1,69 @@
+# Egypt — Presidency of the Republic (presidency.eg), Abdel Fattah el-Sisi. NEW source: the
+# master row egy_sis is Egypt's State Information Service (a news portal with no locatable speech
+# section); THIS is the actual presidency site. No master row yet -> recorded in the outbox.
+#
+# CLOUDFLARE, and why this recipe is shaped the way it is (the general pattern for CF sites):
+#   * The site is behind Cloudflare. A plain HTTP client (httpx) gets 403 on the HTML pages —
+#     NOT because of the IP (it opens fine in a normal browser on the same connection) but
+#     because Cloudflare fingerprints the TLS handshake + wants the challenge JS run. A
+#     `user_agent` override does NOT help (CF checks the handshake, not just the UA).
+#   * renderer: js (a real headless Chromium) clears it: verified 200 with full content, no
+#     challenge. Egypt's CF is "light" (it does not re-challenge on paginated access the way
+#     Italy/Czechia do), so a full js crawl is viable.
+#   * The article DETAIL pages are 403 to httpx (browser-only) -> the body must be fetched under
+#     renderer: js. BUT the site's own infinite-scroll AJAX endpoint,
+#     /Surface/News/GetAll?pageNumber=N&categoryId=-1&culture=ar-EG, returns paginated HTML
+#     cards and is reachable — each card carries the article link + date + title. So the listing
+#     is that endpoint (synthesisable pageNumber pagination), and the date/title are carried off
+#     the CARD (issue #55 metadata) as a fallback, while the body comes from the article page.
+source_id: egy_presidency
+country: Egypt
+source_language: Arabic
+renderer: js
+start_urls:
+  # categoryId=-1 = all presidential activity (news/events); the cleaner's gate keeps the
+  # speech/official_statement items. pageNumber=1 MUST be present — the endpoint 404s without
+  # it; query_param below overrides it to 2,3,… for later pages.
+  - https://www.presidency.eg/Surface/News/GetAll?categoryId=-1&culture=ar-EG&pageNumber=1
+
+listing:
+  link_pattern: '/news\d+'
+  # Carry the title off each listing card (#55) as a light fallback. (The article page's own
+  # h1/.details-brief/.news-date are primary and reliable — verified all resolving — so no
+  # item_date is needed; the card's .card-date does not render under the js listing anyway.)
+  item_selector: '.card-container'
+  item_title: { selectors: ['.card-title'] }
+
+pagination:
+  type: query_param
+  param: pageNumber
+  start: 1
+  step: 1
+  max_pages: 400        # 8 cards/page; content runs ~2020->present (~400 pages, then 0 new
+                        # links -> the engine stops there automatically).
+
+title:
+  selectors: ["h1", ".details-title"]
+text:
+  # .details-brief is the article body (verified). article/main are generic fallbacks.
+  selectors: [".details-brief", "article", "main"]
+date:
+  # Arabic date, word-month + Arabic-Indic digits: "الثلاثاء, ١٤ يوليو ٢٠٢٦ / ٠٢:٥١ م" on the
+  # article, "١٤ يوليو ٢٠٢٦" on the card. Word month => no DD/MM ambiguity. date_languages
+  # ["ar"] so dateparser reads the Arabic month name and numerals.
+  selectors: [".news-date", ".card-date", "time"]
+
+position: president
+# speaker_default omitted: "presidential news" (categoryId=-1) is el-Sisi-centred but mixes his
+# own remarks with third-person event coverage, so the cleaner's speaker pass + tenure crosscheck
+# assign the speaker. el-Sisi has been president since 2014.
+date_languages: ["ar"]
+notes: >
+  DRAFT — probe-validated (no full run). Egypt Presidency (el-Sisi) via presidency.eg. NEW source
+  (the master-row egy_sis is the State Information Service, not the presidency). CLOUDFLARE ->
+  renderer: js REQUIRED (httpx gets 403 on HTML; a browser clears it — the block is TLS/JS
+  fingerprint, not the IP, so a user_agent override does NOT help). Listing via the infinite-
+  scroll AJAX endpoint /Surface/News/GetAll (pageNumber pagination); date+title carried off the
+  cards (#55), body from the article page (.details-brief). Coverage ~2020->present (current site
+  structure); pre-2020 el-Sisi would need Wayback (presidency.eg/ar has ~3728 archived captures
+  2020-2026). News-mixed -> cleaner's gate keeps speeches/official_statements. Arabic original.
