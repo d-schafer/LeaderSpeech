@@ -1,0 +1,49 @@
+source_id: kaz_akorda
+country: Kazakhstan
+source_language: Russian
+start_urls:
+  - https://www.akorda.kz/ru/speeches
+renderer: static
+verify_ssl: false
+
+# Official site of the President of Kazakhstan (Akorda), President Tokayev. We
+# scrape the RUSSIAN /ru/speeches listing: it is the deepest speech-SPECIFIC
+# listing (~200 speeches vs only ~30 on /en, and the /en/events archive mixes in
+# non-speeches). Russian text -> source_language Russian -> downstream translate
+# step fills English. verify_ssl:false: the akorda.kz cert chain is missing its
+# intermediate (CERTIFICATE_VERIFY_FAILED to httpx). PAGER QUIRK: ?page=0 and
+# ?page=1 both serve page 1 -> start:1 (same collision as Jordan). Listing rows are
+# ".card" with the article link in "h3 a" (scoping to h3 excludes sticky sidebar
+# widgets like "Сведения о декларациях" that a bare /ru/..-<id> pattern would grab)
+# and a clean Russian date in "h5.mt-3" (item_date). Article: title h2, body is the
+# whole <article> element (clean speech text, no title/nav inside — verified vs the
+# generic extractor), date p.date_main_block_small (regex-isolated; item_date is the
+# reliable fallback). FOLLOW-UP: /en/speeches (clean English subset), /ru/poslaniya
+# (annual addresses), and the deep /ru/events archive (needs a document_type filter).
+listing:
+  link_selector: "h3 a"
+  link_pattern: '/ru/[a-z0-9-]+-\d+$'
+  item_selector: ".card"
+  item_date:
+    selectors: ["h5.mt-3", "h5"]
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 40
+
+title:
+  selectors: ["h2", "title"]
+text:
+  selectors: ["article", "div.mt-5"]
+# The article pages carry NO real per-article date — every ".date_main_block_small"
+# on the page is a recent-news sidebar widget (always ~today), which mis-dates every
+# speech. So we take the date exclusively from the listing card (item_date, h5.mt-3);
+# "time" here never matches a speech page, leaving the date empty so item_date wins.
+date:
+  selectors: ["time"]
+
+position: president
+date_languages: ["ru"]
