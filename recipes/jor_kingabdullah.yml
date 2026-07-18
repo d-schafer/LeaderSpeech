@@ -1,0 +1,45 @@
+source_id: jor_kingabdullah
+country: Jordan
+source_language: English
+start_urls:
+  - https://kingabdullah.jo/en/speeches
+renderer: static
+
+# Official site of King Abdullah II of Jordan. The site has an official ENGLISH
+# edition (kingabdullah.jo/en) that carries full English transcripts, so we scrape
+# it directly into the English title/text fields (no translation needed). Static
+# HTML, honest bot UA works. The /en/speeches Media-Centre listing has a sliding-
+# window pager (?page=0..~36); each ".Speeches-card" carries a clean English date
+# ("25 May 2026") we harvest via item_date. Article page: title h2 (inside
+# .press-room-inner-video-section--content), body section.press-room-inner-content-
+# container, date in a sibling <h5> (regex-isolated; item_date is the fallback).
+# Video-only speeches (YouTube embed, no transcript) yield little text -> the
+# generic fallback / cleaner drop them. Sibling sections /en/throne-speeches,
+# /en/interviews, /en/letters, /en/news are the same CMS -> FOLLOW-UP recipes.
+listing:
+  link_selector: ".Speeches-card a"
+  link_pattern: '/en/speeches/[a-z0-9-]+$'
+  item_selector: ".Speeches-card"
+  item_date:
+    selectors: [".Speeches-card span"]
+
+pagination:
+  # Site quirk: ?page=0 and ?page=1 BOTH serve the first page; real pages begin at
+  # ?page=2. Starting at 1 (not 0) avoids the 0/1 collision that stalls the pager.
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 45
+
+title:
+  selectors: [".press-room-inner-video-section--content h2", "h2", "title"]
+text:
+  selectors: [".press-room-inner-content-container", "main"]
+date:
+  selectors: [".press-room-inner-video-section--content"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+\d{4}'
+
+position: king
+speaker_default: Abdullah II
+date_languages: ["en"]
