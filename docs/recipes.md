@@ -24,6 +24,21 @@ agent assigned a "new source" issue — can produce a working recipe by inspecti
    absent from the raw HTML, set `renderer: js`.
 5. **Note the language** for date parsing (`date_languages: ["es"]`).
 
+> **Renderer: `static` by default, `js` only when forced.** A plain HTTP fetch (`static`) is far
+> faster, lighter and more reliable than driving a real browser (a browser loads JS/CSS/images/ads
+> per page and adds ~5-20× latency, memory, and long-run flakiness), so **prefer it whenever it
+> works** — most gov sites are server-rendered or expose an API/RSS/sitemap. Reach for
+> `renderer: js` only when the content is client-rendered (step 4), the pager is JS-`click`, **or a
+> WAF blocks the plain client.** In particular: **a Cloudflare `403` to the bot UA (or any `httpx`
+> call) is a CLIENT-FINGERPRINT block — the TLS handshake + a JS challenge — NOT your IP** (the site
+> opens fine in a normal browser on the same connection). A `user_agent` override does **not** help
+> (Cloudflare reads the handshake, not just the UA); **`renderer: js` (a real headless Chromium) is
+> the fix**, and it clears "managed" challenges cleanly. It is not a silver bullet: some sites clear
+> the first navigation but re-challenge on pagination, and a Turnstile / strict-Akamai block stops
+> even headless Chromium — those go to Wayback. Worked examples in CLAUDE.md's blocking taxonomy:
+> `egy_presidency` (managed, js clears it), `ita_quirinale`/`cze_hrad` (re-challenge on pagination),
+> `grc_presidency` (Akamai, blocked even to a real browser).
+
 If a site is too irregular to pin down, run `fallback_generic.extract_generic` on a couple of pages to
 get a draft, then tighten it into real selectors.
 
@@ -542,7 +557,7 @@ bare as without it — check that the blocks really *contain* the links.
 | `source_language` | no | Default `English`. Non-English text routes to the `*_originlanguage` columns. |
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
-| `renderer` | no | `static` (default) or `js`. |
+| `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works) or `js` (a real headless Chromium). Escalate to `js` only when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client** — a CF 403 is a TLS/JS fingerprint block (not the IP; a `user_agent` override won't fix it), which `js` clears. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
