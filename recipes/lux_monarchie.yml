@@ -1,0 +1,45 @@
+source_id: lux_monarchie
+country: Luxembourg
+source_language: French
+start_urls:
+  - https://www.monarchie.lu/fr/actualites
+renderer: static
+
+# Official site of the Grand Ducal Court of Luxembourg (Cour grand-ducale). NOTE:
+# bare monarchie.lu does NOT resolve — must use www.monarchie.lu. Drupal + Tailwind,
+# static HTML, honest bot UA. We scrape the French /fr/actualites feed (deep archive,
+# 200+ pages). It mixes discours (speeches) with audiences/visits/ceremonies — all
+# kept; the cleaner's document_type gate keeps the actual speeches/statements. No
+# working discours-only filter (?type/?category are ignored). Article link
+# /fr/actualites/<slug>. PAGER: start:1 (bare /fr/actualites is a 13-item featured
+# landing; ?page=1 is the first real list page, ?page=2.. advance). Article page has a
+# related-news sidebar with MANY dates -> unreliable on-page date, so we take the date
+# from the listing card (item_date: p.text-orange-600, dd.mm.yyyy). Card wrapper is a
+# Tailwind grid col (matched via [class~='xl:col-span-4']). Title h1, body .prose
+# (intro + body). Grand Duke Henri abdicated to Guillaume in Oct 2025 -> speaker left
+# to the tenure crosscheck (no default). date_languages fr.
+listing:
+  link_selector: "a[href*='/fr/actualites/']"
+  link_pattern: '/fr/actualites/[a-z0-9-]+$'
+  item_selector: "[class~='xl:col-span-4']"
+  item_date:
+    selectors: ["p.text-orange-600", "p.text-sm"]
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".prose", "article"]
+# On-page date is polluted by a multi-date sidebar; "time" never matches so the
+# listing card's item_date wins.
+date:
+  selectors: ["time"]
+
+position: grand duke
+date_languages: ["fr"]
