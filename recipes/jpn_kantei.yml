@@ -1,0 +1,55 @@
+# Japan — Prime Minister (Kantei, kantei.go.jp). The head of GOVERNMENT, and a higher-value
+# source than the listed jpn_kunaicho (Imperial Household / Emperor, ceremonial). NEW source:
+# kantei.go.jp has no master_sources row yet — recorded in the outbox as a proposed source.
+#
+# STRUCTURE: kantei organises each cabinet under /jp/<N>/ (N = cabinet number; the incumbent
+# is 105 as of mid-2026). The PM's press conferences and statements are:
+#   /jp/105/statement/<year>/<MMDD>kaiken.html   (press conferences)
+#   /jp/105/discourse/<YYYYMMDD>message.html     (policy statements / 談話)
+# Both index pages list the term's items. The DATE IS IN THE URL, so a url_regex assembles an
+# unambiguous ISO date and we sidestep the Reiwa-era (令和) date printing on the page entirely.
+#
+# COVERAGE: this recipe is the INCUMBENT cabinet (105) only — its term to date. Predecessor
+# cabinets live at stable /jp/104/, /jp/103/ … trees and /jp/archive/; those are a follow-up
+# (each is one more start_url of the same shape), not attempted here.
+source_id: jpn_kantei
+country: Japan
+source_language: Japanese
+start_urls:
+  - https://www.kantei.go.jp/jp/105/statement/index.html
+  - https://www.kantei.go.jp/jp/105/discourse/index.html
+renderer: static
+
+listing:
+  # Individual speech/statement pages under the incumbent cabinet. Two filename shapes:
+  #   /statement/2026/0717kaiken.html  (year in a dir, filename = 4-digit MMDD + suffix)
+  #   /discourse/20260716message.html  (flat, filename = 8-digit YYYYMMDD + suffix)
+  # so the numeric part is \d{4,8}. (An earlier \d{6,8} silently dropped every press
+  # conference — the substantive speeches — because their filename is only 4 digits.)
+  link_pattern: '/jp/105/(?:statement|discourse)/(?:\d{4}/)?\d{4,8}[a-z_]*\.html$'
+
+pagination:
+  type: none
+
+title:
+  selectors: ["h1", "h2", "title"]
+text:
+  selectors: ["#format", ".section", "#contents", "article", "main"]
+date:
+  # Date off the URL — both shapes covered:
+  #   /statement/2026/0717kaiken.html  -> 2026 / 07 / 17   (slash before MMDD)
+  #   /discourse/20260716message.html  -> 2026 / 07 / 16   (no slash)
+  # Named groups assemble ISO directly; cannot drift, no calendar ambiguity.
+  url_regex: '/(?:statement|discourse)/(?P<year>\d{4})/?(?P<month>\d{2})(?P<day>\d{2})'
+
+position: prime minister
+# speaker_default omitted: cabinet 105's PM is assigned by the tenure crosscheck from
+# country+date (avoids hard-coding a name that a future re-run against a new cabinet dir would
+# not automatically update). Original language Japanese; the translation stage fills English.
+date_languages: ["ja"]
+notes: >
+  DRAFT — probe-validated (no full run). Japan PM (Kantei) — incumbent cabinet 105, press
+  conferences (/statement/) + policy statements (/discourse/). Date via url_regex (URL carries
+  YYYY+MMDD), which sidesteps the page's Reiwa-era dates. NEW source (no master row) — flagged
+  in the outbox; a higher-value sibling of jpn_kunaicho (Emperor). Incumbent-only coverage;
+  prior cabinets (/jp/104/ …) and /jp/archive/ are a follow-up.

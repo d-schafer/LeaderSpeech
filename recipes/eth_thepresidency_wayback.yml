@@ -1,0 +1,46 @@
+# Ethiopia — Presidency (thepresidency.gov.et). PURE-WAYBACK: the live domain is DEAD
+# (NXDOMAIN on every host variant). The Internet Archive holds ~3,120 captures, 2016-2023.
+#
+# The site is Joomla + K2. President's news/speeches are K2 items at
+#   /eng/index.php/news/item/<id>-<slug>
+# (~75 distinct English items, e.g. .../news/item/276-president-addresses-fifa-women-s-...).
+# The president here is Sahle-Work Zewde (2018-2024) and Mulatu Teshome (2013-2018) — both
+# CEREMONIAL. Ethiopia's head of GOVERNMENT is the PM (Abiy Ahmed), already covered by the
+# separate, live eth_pmo recipe — so this is the lower-value ceremonial companion.
+source_id: eth_thepresidency_wayback
+country: Ethiopia
+source_language: English
+start_urls:
+  - www.thepresidency.gov.et/eng/index.php/news/item
+renderer: static
+
+listing:
+  # K2 item pages: /eng/index.php/news/item/<numeric id>-<slug>. The id+dash excludes the
+  # category-listing captures (/index.php/<datetime-cat>/speech) and the /magazine/item tree.
+  link_pattern: '/eng/index\.php/news/item/\d+-'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", "h2.itemTitle", ".itemTitle", "title"]
+text:
+  selectors: [".itemFullText", ".itemIntroText", ".itemBody", "#k2Container", "article"]
+date:
+  # K2 renders a published date; scope to the item block (a wayback header/crawl-date widget
+  # clustering all rows on the snapshot date is the Sudan trap — sanity-check that dates vary).
+  selectors: [".itemDateCreated", ".itemDate", "time", ".date"]
+
+position: president
+# speaker_default omitted: the news feed covers the President plus office activity; the cleaner
+# assigns the speaker. Ceremonial head of state (eth_pmo is the executive head of government).
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Ethiopia Presidency, PURE-WAYBACK (live domain DEAD /
+  NXDOMAIN). Joomla+K2; ~75 archived /eng/index.php/news/item/<id>- captures, 2016-2023 (Sahle-
+  Work Zewde + Mulatu Teshome, both CEREMONIAL). Lower-value companion to the live eth_pmo
+  (Abiy Ahmed, head of government). News feed mixes speeches with office news -> the cleaner's
+  gate filters. English.

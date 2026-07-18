@@ -1,0 +1,54 @@
+# Iceland — President of Iceland (forseti.is). Ceremonial head of state (in scope per the
+# researcher). Current president Halla Tómasdóttir (since 2024-08-01); predecessor Guðni Th.
+# Jóhannesson (2016-2024).
+#
+# WHY sitemap: forseti.is publishes news, addresses and articles together under /frettir/<slug>
+# (the sitemap lists 511 of them), and the on-page listing uses a "Sjá fleiri fréttir" load-more
+# rather than synthesisable page URLs. The sitemap is the clean, full route. The site also has a
+# curated /forseti/avorp-og-greinar ("Addresses and articles") index, but the individual pages
+# it points to are the same /frettir/ items — so the sitemap already covers them.
+source_id: isl_forseti
+country: Iceland
+source_language: Icelandic
+start_urls:
+  - https://www.forseti.is/frettir
+renderer: static
+
+listing:
+  # Icelandic tree only: forseti.is/frettir/<slug>, no deeper segment. The /en/ mirror is a
+  # partial translation of the same items — scraping it would duplicate rows; convention is to
+  # take the original language and let the translation stage fill English.
+  link_pattern: 'forseti\.is/frettir/[^/]+$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.forseti.is/sitemap.xml
+
+title:
+  # ⚠️ The visible <h1> is polluted with injected zero-width Unicode (an anti-scraping trick):
+  # "Kvennaathvarfið​​​​‌﻿‍﻿…". The og:title meta tag carries the CLEAN title, so prefer it.
+  selectors: ["meta[property='og:title']", "h1", "title"]
+  attr: content
+date:
+  # The page has NO <time> element. The reliable date is the Open Graph article meta tag,
+  # which is ISO 8601 and unambiguous: <meta property="article:published_time"
+  # content="2026-01-03"/>. The visible "3. janúar 2026" sits in a generic utility-class <p>
+  # (text-label-small dm-sans-medium) with no stable hook — the meta tag is the right anchor.
+  selectors: ["meta[property='article:published_time']", "time", ".date"]
+  attr: content
+text:
+  selectors: ["article", ".article", ".news-single", "main", ".content"]
+
+position: president
+# speaker_default omitted: /frettir is the presidency's whole news feed (mixes the president's
+# own addresses with third-person news and, potentially, a departing president's items), and
+# the site is single-administration only for the incumbent. The cleaner's speaker pass + the
+# tenure crosscheck assign the speaker from country+date. Ceremonial head of state.
+date_languages: ["is"]
+notes: >
+  DRAFT — probe-validated (no full run). Iceland Presidency via sitemap over /frettir/ (511
+  URLs). Mixes addresses + news; the cleaner's document_type gate keeps the speeches /
+  official_statements. Check the date floor against the spread: if the site only holds the
+  incumbent (Halla, 2024->), Guðni Jóhannesson (2016-2024) needs a Wayback companion. Original
+  language Icelandic; the translation stage fills English.

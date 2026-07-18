@@ -1,0 +1,53 @@
+# Georgia — President of Georgia (president.gov.ge). PURE-WAYBACK: the live site is
+# geo-fenced (DNS resolves to 91.232.26.11 but there is NO TCP from outside Georgia — the
+# pak_pmo / edge-drop pattern), so it cannot be scraped live from here. The Internet Archive
+# holds it deeply: the whole host has ~20,000 captures spanning 2006-2025.
+#
+# SPEECH PATH: the modern site files news/speeches under /en/News/Article/<slug> — the CDX
+# shows ~513 distinct English article captures (2020-2023, the Zourabichvili presidency).
+# English is scraped here (the site is bilingual; the /ka-GE/ Georgian tree is deeper but its
+# percent-encoded Georgian slugs are far messier to pattern — a possible second pass). The
+# pre-2013 Saakashvili-era site had a different structure and is not covered by this prefix.
+source_id: geo_president_wayback
+country: Georgia
+source_language: English
+start_urls:
+  # CDX prefix — engine prefix-matches, so NO trailing '*'.
+  - www.president.gov.ge/en/News/Article
+renderer: static
+
+listing:
+  # Exclude the ~/getattachment/… .pdf.aspx decree attachments that also live under
+  # /News/Article/ — keep only the HTML article pages.
+  link_pattern: '/en/News/Article/(?!.*(?:getattachment|\.pdf))'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", ".InsideNewsTitle", "title"]
+text:
+  # .InsideNewsBox is the clean article body across BOTH template generations (verified on
+  # raw id_ snapshots: the 2019 gen and the 2021 redesign both wrap the body in it, childblocks
+  # ≈ 1). Do NOT use .col-md-12 / .main-column / .page-content — same text length but they also
+  # swallow the surrounding chrome.
+  selectors: [".InsideNewsBox", "article"]
+date:
+  # <time> carries the article date; sampled dates VARY (2019/2020/2021), not clustered on the
+  # snapshot date — so this is the article date, not the wayback crawl widget (the Sudan trap).
+  selectors: ["time", ".article-date", ".date", ".news-date"]
+
+position: president
+# speaker_default omitted: /en/News/Article is a news feed covering the president plus
+# administration figures; the cleaner's speaker pass + tenure crosscheck assign per row.
+# Georgia's president is a ceremonial head of state (executive power sits with the PM).
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Georgia Presidency, PURE-WAYBACK (live site geo-fenced,
+  no TCP from outside Georgia). ~513 archived /en/News/Article captures, 2020-2023 (Zourabichvili
+  era). English tree scraped; the deeper Georgian /ka-GE/ tree and the pre-2013 Saakashvili site
+  are possible additional passes. Selectors verified against archived snapshots. News feed ->
+  speaker assigned by the cleaner. Ceremonial head of state.

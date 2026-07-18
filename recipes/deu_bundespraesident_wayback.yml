@@ -1,0 +1,69 @@
+# Germany — Federal President (bundespraesident.de), THE DEEP ARCHIVE via Wayback.
+#
+# This is the wayback COMPANION to the live deu_bundespraesident.yml (which is recent-Steinmeier
+# only: the live listing shows ~12 items and its GSB pager uses an opaque ?gtp= token that can't
+# be synthesised, so the live recipe is pagination: none). The prize the live recipe can't reach
+# is the ~40-year back-catalogue — and every speech sits at a STABLE, DATED URL:
+#   /SharedDocs/Reden/DE/<President-Name>/Reden|Interviews/<YYYY>/<MM>/<YYMMDD|YYYYMMDD>-<slug>.html
+# The Internet Archive holds ~11,785 of these article-shaped captures across SEVEN presidents:
+#   Horst Köhler 3953, Frank-Walter Steinmeier 2524, Christian Wulff 2005, Joachim Gauck 1987,
+#   Johannes Rau 628, Roman Herzog 406, Richard von Weizsäcker 281 — back to Weizsäcker 1985.
+# Wayback also sidesteps the live server's fragility (Crawl-delay: 30, drops connections under
+# load) entirely.
+#
+# WHY the URL carries the date (url_regex, no selector): the path is always /YYYY/MM/ and the
+# filename starts with the full date (YYMMDD- or YYYYMMDD_). Assembling year+month from the path
+# and the day from the filename is unambiguous and template-independent — which matters because
+# the archive spans TWO Government Site Builder template generations (see title/text below).
+source_id: deu_bundespraesident_wayback
+country: Germany
+source_language: German
+start_urls:
+  # CDX prefix — engine prefix-matches, so NO trailing '*'. One prefix covers all presidents.
+  - bundespraesident.de/SharedDocs/Reden/DE
+renderer: static
+
+listing:
+  # Article shape: /SharedDocs/Reden/DE/<Name>/(Reden|Interviews)/<YYYY>/<MM>/<file>.html.
+  # Requiring the /YYYY/MM/ segment excludes the section/index (_node.html) captures.
+  link_pattern: '/SharedDocs/Reden/DE/[^/]+/(?:Reden|Interviews)/\d{4}/\d{2}/.+\.html'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # New template (post-2019 redesign): h1.c-article__headline. OLD GSB template: the bare <h1>
+  # is "Navigation und Service" (nav chrome) — the speech title is #content h1 (verified on
+  # 2011/2021 captures). <title> ("… / Reden / Rede von Bundespräsident …") is the last resort.
+  selectors: ["h1.c-article__headline", "#content h1", "title"]
+text:
+  # New template: .c-article__content. OLD template: #content wraps the whole speech body
+  # (8-13k chars on sampled captures). article is a final fallback.
+  selectors: [".c-article__content", "#content", "article"]
+date:
+  # From the URL — works across both template generations and cannot drift. The /YYYY/MM/ path
+  # gives year+month; the filename's leading date-number gives the day:
+  #   /2011/11/111107-…   (YYMMDD)   -> 2011-11-07
+  #   /1985/05/19850508_… (YYYYMMDD) -> 1985-05-08
+  # \d{4,} requires >=6 leading digits (a real date) before the day, so a filename that merely
+  # starts with a YEAR reference (e.g. "2014-Jahresbericht") does NOT get mis-dated — it just
+  # falls through undated for the cleaner's corrected-date pass to handle.
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/\d{4,}(?P<day>\d{2})[-_.]'
+
+position: president
+# speaker_default deliberately omitted: the archive spans SEVEN presidents (1985-present). The
+# date is reliable (from the URL), so the tenure crosscheck assigns the right president from
+# country+date; the president's name is also in the URL path as a cross-check. A hard-coded
+# speaker would mislabel six of the seven.
+date_languages: ["de"]
+notes: >
+  DRAFT — probe-validated (no full run). Germany Federal President DEEP ARCHIVE via Wayback —
+  ~11,785 archived Reden/Interviews across SEVEN presidents (Weizsäcker 1985 -> Steinmeier),
+  companion to the recent-only live deu_bundespraesident.yml. Date from the URL (url_regex,
+  template-independent). Title/text selector chains span two GSB template generations (new
+  .c-article__* / old #content). speaker omitted -> tenure crosscheck assigns per date. This is
+  the ~40 years of German head-of-state speeches unblocked by issue #56. German original; the
+  translation stage fills English. FULL RUN (11k+ archived fetches) is the researcher's gate.

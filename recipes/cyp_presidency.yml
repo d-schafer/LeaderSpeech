@@ -1,0 +1,72 @@
+# Cyprus — Presidency of the Republic. The old presidency.gov.cy site was folded into the
+# whole-of-government portal gov.cy; presidential speeches now live under gov.cy/speeches/<slug>
+# (the master row still names presidency.gov.cy — same office, migrated domain).
+#
+# WHY api (WordPress REST) + a browser user_agent:
+#   * gov.cy is WordPress behind an Azure WAF that is UA-KEYED: the honest bot UA gets 403,
+#     a browser UA gets 200 (verified: bot 403 / Chrome 200 on every path). So a per-recipe
+#     browser `user_agent` is required — this is the col_presidencia / ind_pmindia shape, an
+#     opt-in policy exception for a WAF that hard-blocks the bot UA.
+#   * The site exposes a dedicated `speech` CUSTOM POST TYPE at /wp-json/wp/v2/speech
+#     (X-WP-Total = 1647), which is the clean, dated, full route to every speech. The visible
+#     front end is a decoupled SPA, so the REST API is the right entry point (fin_presidentti
+#     shape). results_path "." because WordPress returns a bare array at the root.
+#
+# COVERAGE FLOOR: the `speech` post type's oldest item is 2024-06-18 — i.e. when the gov.cy
+# CMS launched, NOT when the president took office (Christodoulides, since 2023-02-28). So the
+# live source is ~2024-06 -> present; Anastasiades (2013-2023) and the first ~16 months of
+# Christodoulides live only on the old presidency.gov.cy site (Wayback territory — a
+# *_wayback.yml companion is the way to add that depth, not this recipe).
+#
+# NOTE the `speech` type is ALL-OF-GOVERNMENT (ministers, spokesman, president), not the
+# president alone — so speaker_default is omitted and the cleaner's speaker pass + tenure
+# crosscheck assign the speaker from the title/country/date. The president's own subset is
+# category 179 (proedros-proedria), but the type endpoint has no clean category filter, so we
+# take all speeches and let the gate keep the head-of-state ones.
+source_id: cyp_presidency
+country: Cyprus
+source_language: Greek
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+start_urls:
+  - https://www.gov.cy/wp-json/wp/v2/speech?per_page=100
+
+renderer: static
+
+listing:
+  # url_field already yields the speech permalink; this is a light guard.
+  link_pattern: 'gov\.cy/speeches/'
+
+pagination:
+  type: api
+  param: page          # WP pages with ?page=N and 400s past the last page (engine stops there)
+  start: 1
+  step: 1
+  max_pages: 20        # 1647 / 100 ≈ 17 pages
+  api:
+    results_path: "."          # the response IS the array (WordPress)
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601 — api dates skip date_languages by design
+    # text_field deliberately unset: content.rendered is HTML. Let the engine fetch each
+    # speech page (with the browser user_agent) and pull clean prose via the `text` selectors.
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".entry-content", "article", "main", ".speech-content", ".field--name-body"]
+date:
+  # Fallback only; the api `date` (ISO) is authoritative. Greek numeric dates would be
+  # day-first, hence ["el"] alone below (never add "en" — first matching locale wins).
+  selectors: ["time", ".date"]
+  attr: datetime
+
+position: president
+date_languages: ["el"]
+notes: >
+  DRAFT — probe-validated (no full run). Cyprus Presidency via the gov.cy WordPress `speech`
+  custom post type (/wp-json/wp/v2/speech, 1647 items). UA-keyed Azure WAF -> browser
+  user_agent required (bot UA = 403). Coverage floor is 2024-06-18 (gov.cy CMS launch), NOT
+  the president's 2023 inauguration: Anastasiades (2013-2023) and early Christodoulides need a
+  presidency.gov.cy wayback companion. The `speech` type is all-of-government (ministers +
+  president), so speaker_default is omitted and the cleaner assigns the speaker; the gate keeps
+  the head-of-state subset. Original language Greek; the translation stage fills English.

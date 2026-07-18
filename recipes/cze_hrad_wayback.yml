@@ -1,0 +1,55 @@
+# Czechia — President of the Republic (hrad.cz, Prague Castle). PURE-WAYBACK: the live site is
+# behind a Cloudflare INTERACTIVE challenge for both the bot UA and a browser UA, and even a
+# real headless Chromium only clears the FIRST navigation — sustained/paginated access is
+# re-challenged (the Italy/Quirinale pattern), so a full live crawl is not viable here.
+#
+# The Internet Archive holds the old Government-CMS site well. The President's press output —
+# which includes speech/address transcripts ("projevy") alongside shorter press notices — is
+# published as numbered articles at /cs/pro-media/tiskove-zpravy/<N>.shtml (~1,040 archived,
+# Zeman/Klaus era, roughly 2009-2020). There is no cleaner speeches-only URL section (the site
+# never exposed /vybrane-projevy* etc. — verified 0 captures), so this is the press stream and
+# the cleaner's document_type gate keeps the speech/official_statement items.
+source_id: cze_hrad_wayback
+country: Czechia
+source_language: Czech
+start_urls:
+  - hrad.cz/cs/pro-media/tiskove-zpravy
+renderer: static
+
+listing:
+  # Numbered article pages: /cs/pro-media/tiskove-zpravy/<N>.shtml. Excludes the index/listing
+  # captures (/tiskove-zpravy/ and its ?page: variants).
+  link_pattern: '/cs/pro-media/tiskove-zpravy/\d+\.shtml'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", ".article-title", "title"]
+text:
+  selectors: ["#content", ".detail-text", ".article-detail", "article", ".content"]
+date:
+  # The date sits in <p class="label">Datum: 17. 8. 2011, Praha</p> (verified) — a scoped meta
+  # line, so the regex is safe from the "first date in the body" trap. Czech numeric D. M. YYYY,
+  # day-first (note non-breaking spaces, which \s matches). date_languages MUST be ["cs"] alone
+  # (day-first; adding "en" would read day<=12 dates month-first — the est_president trap).
+  # Sanity-check sampled dates VARY, not clustered on the wayback crawl date (the Sudan trap).
+  selectors: ["p.label", ".label", ".date"]
+  regex: '\d{1,2}\.\s*\d{1,2}\.\s*\d{4}'
+
+position: president
+# speaker_default omitted: the press stream spans Klaus and Zeman (and covers the office
+# generally); the cleaner + tenure crosscheck assign the speaker from country+date.
+date_languages: ["cs"]
+notes: >
+  DRAFT — probe-validated (no full run). Czechia President (Prague Castle), PURE-WAYBACK (live
+  Cloudflare interactive challenge, unclearable for a full crawl). ~1,040 archived
+  /cs/pro-media/tiskove-zpravy/<N>.shtml press articles (Klaus/Zeman era, ~2009-2020). This is
+  the press stream (short notices mixed with speech transcripts), not a speeches-only section
+  (none exists on the site) -> the cleaner's gate keeps the speech/official_statement items.
+  Czech original; the translation stage fills English. NOTE the current president is Petr Pavel
+  (2023->); the live Cloudflare block means his term is not yet captured here — a residential-IP
+  live attempt by the researcher, or a later archive pass, would add it.

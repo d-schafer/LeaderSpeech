@@ -1,0 +1,50 @@
+# Fiji — President's Office (presidentsoffice.gov.fj). PURE-WAYBACK: the live site does not
+# accept TCP at all (ConnectTimeout — dead or geo-fenced), so it cannot be scraped live from
+# here. The Internet Archive holds ~650 captures spanning 2020-2025.
+#
+# STRUCTURE: it is a flat PHP site with a DEDICATED speeches endpoint —
+#   speechdetail.php?id=<N>   (the President's speeches; ~100+ archived ids)
+# distinct from mediadetail.php?id=<N> (general news/media, only ~13 archived). So the speech
+# set is the speechdetail.php?id=N pages; speeches.php is the listing shell, not the articles.
+source_id: fji_presidentsoffice_wayback
+country: Fiji
+source_language: English
+start_urls:
+  # CDX prefix DELIBERATELY truncated to 'speechdetail' (no '.php'): the speeches are
+  # distinguished only by ?id=N under the single path /speechdetail.php, and the engine's
+  # wayback filter drops any capture whose path (query stripped) equals a start_url's path —
+  # so a '…/speechdetail.php' start_url would drop every speech. The truncated prefix still
+  # prefix-matches speechdetail.php?id=N while keeping its own path (/speechdetail) distinct.
+  - presidentsoffice.gov.fj/speechdetail
+renderer: static
+
+listing:
+  # Individual speech detail pages carry a numeric ?id=.
+  link_pattern: 'speechdetail\.php\?id=\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", ".title", "h2", "title"]
+text:
+  selectors: ["#content", ".content", ".detail", "article", "main"]
+date:
+  # The meta line under the title is a single <p class="text-muted text-uppercase …"> holding
+  # "November 30, 2020 Parliament House" (date + venue). Scope to it and regex out just the
+  # date — this is NOT the body, so it is safe from the "first date on the page" trap.
+  selectors: ["p.text-muted", "p.text-uppercase"]
+  regex: '[A-Za-z]+\s+\d{1,2},?\s+\d{4}'
+
+position: president
+# speaker_default omitted: the media feed covers the President (and the office generally);
+# the cleaner assigns the speaker. Fiji's president is a ceremonial head of state.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Fiji President's Office, PURE-WAYBACK (live site: no
+  TCP). ~354 archived mediadetail.php?id=N pages, 2020-2025. Flat PHP site; the media feed
+  includes the President's speeches/messages mixed with office news -> the cleaner's gate keeps
+  the speeches/official_statements. Selectors verified against archived snapshots. English.

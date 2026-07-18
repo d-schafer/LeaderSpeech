@@ -1,0 +1,62 @@
+# Greece — President of the Hellenic Republic (presidency.gr). PURE-WAYBACK: the live site is
+# hard-blocked by Akamai — 403 "Access Denied" for the bot UA, a browser UA, AND a real headless
+# Chromium (datacenter-IP / TLS-fingerprint block), so it cannot be scraped live from here.
+#
+# This recipe covers the LEGACY speeches section: presidency.gr/omil_content.asp?rid=<N>
+# ("Ομιλίες") — ~168 archived captures, the older presidents' era (~2004+, Stephanopoulos /
+# Papoulias). The speech body is cleanly in <td class="textverdana"> and the venue+date header
+# in <span class="titlesmaller_black13"> ("Αροανία Αχαΐας, 16 Ιουλίου 2004"). Page charset is
+# iso-8859-7 (Greek) — BeautifulSoup detects it.
+#
+# PARTIAL — this is the legacy section only. The modern WordPress era (2015+, Pavlopoulos /
+# Sakellaropoulou) has flat Greek-slug permalinks with no speech-only URL pattern, so isolating
+# its speeches needs a keep_if on the article's own category (an /en/category/speeches-statements
+# category exists) — a separate, heavier pass tracked as a follow-up.
+source_id: grc_presidency_wayback
+country: Greece
+source_language: Greek
+start_urls:
+  # Truncated prefix (no '.asp'): the speeches are ?rid=N under the single path
+  # /omil_content.asp, and the engine's wayback filter drops any capture whose path (query
+  # stripped) equals a start_url path — so '/omil_content.asp' would drop every speech. The
+  # truncated prefix still prefix-matches omil_content.asp?rid=N while keeping its own path
+  # (/omil_content) distinct. (Same fix as fji_presidentsoffice_wayback.)
+  - presidency.gr/omil_content
+renderer: static
+
+listing:
+  link_pattern: 'omil_content\.asp\?rid=\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # No separate speech-title element in this legacy template; the venue+date header line is the
+  # best available title (the cleaner can refine). span.titlesmaller_black13 holds e.g.
+  # "Αροανία Αχαΐας, 16 Ιουλίου 2004".
+  selectors: ["span.titlesmaller_black13", "title"]
+text:
+  # td.textverdana is the pure speech body (~14k chars; salutation-first, no chrome).
+  selectors: ["td.textverdana", ".textverdana"]
+date:
+  # Same header span; regex pulls the Greek WORD-date out of "venue, DD Month YYYY". A word
+  # month is unambiguous (no DD/MM trap), but keep date_languages ["el"] alone so dateparser
+  # reads the Greek month name.
+  selectors: ["span.titlesmaller_black13"]
+  regex: '\d{1,2}\s+[Α-Ωα-ωΆ-ώϊϋΐΰ]+\s+\d{4}'
+
+position: president
+# speaker_default omitted: the legacy section spans Stephanopoulos (1995-2005) and Papoulias
+# (2005-2015); the cleaner + tenure crosscheck assign the speaker from country+date. Greece's
+# president is a ceremonial head of state.
+date_languages: ["el"]
+notes: >
+  DRAFT / PARTIAL — probe-validated (no full run). Greece Presidency, PURE-WAYBACK (live site
+  Akamai-blocked even to headless Chromium). LEGACY speeches only: ~168 omil_content.asp?rid=N
+  captures (~2004+, Stephanopoulos/Papoulias). Body td.textverdana, date+venue
+  span.titlesmaller_black13 (Greek word-date), charset iso-8859-7. The modern WordPress era
+  (2015+) needs a keep_if-on-category pass and is a documented follow-up. Greek original; the
+  translation stage fills English.

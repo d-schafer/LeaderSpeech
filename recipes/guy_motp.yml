@@ -1,0 +1,57 @@
+# Guyana — Office of the President. The master row names motp.gov.gy (Ministry of the
+# Presidency), which is DEAD (NXDOMAIN — the office was renamed and the domain retired). Its
+# successor is op.gov.gy (Office of the President), verified live (200). Same office, migrated
+# domain — so this recipe keeps source_id guy_motp (the backlog row) but points at op.gov.gy,
+# and the outbox records the migration. (motp.gov.gy's old content 2015-2022, Granger era,
+# survives only in Wayback — a possible *_wayback.yml companion.)
+#
+# op.gov.gy is WordPress with a dedicated "Speeches" category (id 106): /wp-json/wp/v2/posts
+# ?categories=106 returns 106 speeches spanning 2020-08-08 .. present = President Irfaan Ali's
+# full term (inaugurated 2020-08-02). results_path "." because WordPress returns a root array.
+# Press releases (category 105, 615 items) are a sibling stream deliberately excluded here —
+# they are third-person communiqués, not speeches; if wanted they are a separate pass.
+source_id: guy_motp
+country: Guyana
+source_language: English
+start_urls:
+  - https://op.gov.gy/wp-json/wp/v2/posts?categories=106&per_page=100
+
+renderer: static
+
+listing:
+  link_pattern: 'op\.gov\.gy/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 10        # 106 / 100 ≈ 2 pages
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601
+    # text_field unset: fetch each WP page for clean prose (content.rendered is HTML).
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article", ".post-content", "main"]
+date:
+  selectors: ["time", ".entry-date", ".date"]
+  attr: datetime
+
+position: president
+# speaker_default omitted: although category 106 is, today, entirely President Ali (2020->),
+# a WordPress category is not guaranteed single-speaker going forward, and the tenure
+# crosscheck assigns the speaker from country+date correctly. Guyana's president is the
+# executive head of state.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Guyana Office of the President via op.gov.gy WordPress
+  "Speeches" category (id 106), /wp-json/wp/v2/posts. 106 speeches, 2020-08-08 .. present =
+  Irfaan Ali's full term (the site's speeches predate nothing earlier — Granger 2015-2020 is on
+  the retired motp.gov.gy, Wayback-only). NOTE: master row source_id guy_motp / motp.gov.gy is
+  DEAD (NXDOMAIN); op.gov.gy is the renamed successor office — recorded in the outbox. English
+  source, so the translation stage is a no-op.

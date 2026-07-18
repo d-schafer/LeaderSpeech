@@ -1,0 +1,59 @@
+# Ghana — Office of the President (presidency.gov.gh).
+#
+# SOURCE NOTE: the master row is gha_ghana = ghana.gov.gh, which is the whole-of-government
+# PORTAL, not the presidency, and carries no dedicated presidential-speech stream. The real
+# presidency site is presidency.gov.gh — a WordPress install with 302 posts, all current
+# administration (John Mahama, sworn in 2025-01-07). Per the "flag, don't silently switch"
+# rule this is authored as a NEW source (gha_presidency) and the portal row (gha_ghana) is
+# flagged in the outbox rather than repurposed.
+#
+# CONTENT CAVEAT: presidency.gov.gh posts are a mix of verbatim addresses AND third-person
+# news items about the president ("President engages National House of Chiefs", ~700-1300
+# chars). All 302 sit in the single "uncategorized" category, so there is no category filter
+# to isolate speeches — we take all posts and let the cleaner's document_type gate keep the
+# speeches / official_statements and drop pure news. results_path "." (WordPress root array).
+source_id: gha_presidency
+country: Ghana
+source_language: English
+start_urls:
+  - https://presidency.gov.gh/wp-json/wp/v2/posts?per_page=100
+
+renderer: static
+
+listing:
+  link_pattern: 'presidency\.gov\.gh/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 10        # 302 / 100 ≈ 4 pages
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601
+    # text_field unset: fetch each WP page for clean prose.
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article", ".post-content", "main"]
+date:
+  selectors: ["time", ".entry-date", ".date"]
+  attr: datetime
+
+position: president
+# speaker_default omitted: the site is single-administration TODAY (Mahama), but the floor is
+# his own 2025 inauguration (the site drops predecessors), so a hard-coded speaker would go
+# stale on the next president. The tenure crosscheck assigns it from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Ghana Office of the President via presidency.gov.gh
+  WordPress REST (/wp-json/wp/v2/posts, 302 posts, all Mahama-era 2025-01 -> present). NOT the
+  master-row portal ghana.gov.gh, which carries no presidential-speech stream — authored as a
+  new source and the portal is flagged in the outbox. Posts mix verbatim addresses with
+  third-person news (single "uncategorized" category, no speech filter) -> the cleaner's gate
+  keeps speeches/official_statements. English source. Coverage is shallow (incumbent only);
+  older administrations (Akufo-Addo etc.) would need Wayback.

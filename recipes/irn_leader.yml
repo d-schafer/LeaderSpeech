@@ -1,0 +1,59 @@
+# Iran — Office of the Supreme Leader (leader.ir), Ali Khamenei. Khamenei is the actual head
+# of state and the speech-bearing leader (the President at president.ir is a separate, lower
+# office — a different source).
+#
+# WHY feed (RSS) rather than the HTML listing:
+#   * The site's speech listings (/fa/services/1/… , /fa/archive?topic=speech) are JS-hydrated
+#     and paginate by a Solar-Hijri ?year= param that proved UNRELIABLE (year=1390 returned the
+#     newest ids, not 2011's) — so the deep year-archive is not a dependable crawl.
+#   * The RSS feed (/fa/rss) is reliable: 30 recent items with title + link (/fa/content/<id>)
+#     + an RFC pubDate. Crucially the pubDate is GREGORIAN ("Tue, 14 Jul 2026 …"), so the feed
+#     route sidesteps the Solar-Hijri calendar conversion entirely (1404 ≈ 2025). The feed
+#     carries no body, so use_content:false makes the engine fetch each content page — whose
+#     body IS server-rendered in <article id="details"> (verified).
+#
+# COVERAGE CAVEAT: the feed is RECENT-ONLY (~30 items). This is a shallow but dependable draft;
+# the full Khamenei back-catalogue (leader since 1989) needs the JS year-archive (unreliable, a
+# follow-up) — and note english.khamenei.ir carries full English speech transcripts and is a
+# strong sibling source worth proposing separately (flagged in the outbox).
+source_id: irn_leader
+country: Iran, Islamic Republic of
+source_language: Persian
+start_urls:
+  - https://www.leader.ir/fa/rss
+renderer: static
+
+listing:
+  link_pattern: '/fa/content/\d+'
+
+pagination:
+  type: feed
+  feed:
+    use_content: false     # feed has no body -> fetch each content page for the text
+
+title:
+  # Fallback only — the feed's <title> fills this. The page's own <title> is the site name, so
+  # do not rely on a page selector here.
+  selectors: [".page_title", "h1", "title"]
+text:
+  # <article id="details"> (inner .text) is the server-rendered speech body (verified static).
+  selectors: ["article#details", ".text", ".news_body", "article"]
+date:
+  # Fallback only — the feed's RFC pubDate (Gregorian) fills this and is authoritative. A page
+  # date would be Solar-Hijri; date_languages ["fa"] would apply to that fallback only (feed
+  # dates skip date_languages by design).
+  selectors: ["time", ".date"]
+
+position: supreme leader
+# speaker_default omitted: although leader.ir is the Supreme Leader's office, the feed carries
+# memorial/office news as well as Khamenei's own remarks, so the cleaner's speaker pass + tenure
+# crosscheck assign the speaker from country+date rather than hard-coding one.
+date_languages: ["fa"]
+notes: >
+  DRAFT / PARTIAL — probe-validated (no full run). Iran Supreme Leader (Khamenei) via the
+  leader.ir RSS feed: ~30 recent items, title+link+Gregorian date from the feed, body fetched
+  from <article id="details">. RECENT-ONLY — the deep archive needs the JS ?year= listing
+  (Solar-Hijri, unreliable pagination) and is a follow-up. Feed dates are Gregorian, sidestepping
+  the Solar-Hijri trap. Persian original; the translation stage fills English. SIBLING:
+  english.khamenei.ir has full English transcripts with real depth — flagged in the outbox as a
+  proposed richer source.
