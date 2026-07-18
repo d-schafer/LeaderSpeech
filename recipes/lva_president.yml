@@ -1,0 +1,37 @@
+source_id: lva_president
+country: Latvia
+source_language: English
+start_urls:
+  - https://www.president.lv/en/articles
+renderer: static
+
+# Chancery of the President of Latvia. Drupal, static HTML, honest bot UA works.
+# We scrape the ENGLISH edition /en/articles (~340 pages of English articles ->
+# straight into English title/text, no translation). The parallel /lv/jaunumi is
+# far deeper (~1394 pages) but Latvian; English is the clean primary. Listing rows
+# are ".views-row"; article links are /en/article/<slug> (slug usually ends with the
+# event date). Standard Drupal ?page= pager (0-indexed, no collision). Article: title
+# h1.display-4, body .text__text-content (CKEditor content), date ".submitted"
+# ("Published: 16.07.2026." -> dd.mm.yyyy, regex-isolated, date_languages lv).
+# Spans multiple presidents -> speaker left to the tenure crosscheck (no default).
+listing:
+  link_selector: ".views-row a"
+  link_pattern: '/en/article/[a-z0-9-]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 360
+
+title:
+  selectors: ["h1.display-4", "h1", "title"]
+text:
+  selectors: [".text__text-content", ".cke_editable", ".field--name-body"]
+date:
+  selectors: [".submitted"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+
+position: president
+date_languages: ["lv"]
