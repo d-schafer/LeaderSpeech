@@ -1,0 +1,39 @@
+source_id: hun_keh_wayback
+country: Hungary
+source_language: Hungarian
+start_urls:
+  - keh.hu/beszedek/
+renderer: static
+
+# WAYBACK recipe for the PREDECESSOR office domain keh.hu (Köztársasági Elnöki
+# Hivatal) — the President of Hungary's site BEFORE sandorpalota.hu. It is NOT a
+# companion of the live sandorpalota recipe (whose own Wayback adds nothing — the
+# live site already serves back to its 2022 launch floor); keh.hu is a distinct,
+# now-defunct source that adds real chronological depth. The IA holds ~19,500
+# keh.hu captures back to 2001; this recipe targets the clean modern speech scheme
+# /beszedek/<id>-<slug> (Áder János's two terms, ~2012–2022). Archived page:
+# title h2, date div.newsDate ("2012. május 10."), body p.text. Speaker is left to
+# the tenure crosscheck (the id-slug era is almost all Áder, but overlaps Novák's
+# 2022 start). FOLLOW-UP: the older keh.hu schemes (/beszedek.YYYYMM.html indexes +
+# /beszedekYYYYMMDD_slug.html articles, and index2.php?... — Sólyom/Mádl 2000–2010)
+# use different URL shapes and are not covered here.
+listing:
+  link_pattern: '/beszedek/\d+-'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h2", "title"]
+text:
+  selectors: ["p.text", ".text", "#content"]
+date:
+  selectors: ["div.newsDate", ".newsDate"]
+
+position: president
+date_languages: ["hu"]

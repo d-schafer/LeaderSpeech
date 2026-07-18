@@ -1,0 +1,39 @@
+source_id: hun_sandorpalota
+country: Hungary
+source_language: Hungarian
+start_urls:
+  - https://www.sandorpalota.hu/hu/hirek
+renderer: static
+
+# Drupal site of the President of Hungary (Sándor Palace). Static HTML, plain
+# Apache, no WAF. The /hu/hirek Views listing mixes categories — Hírek (news),
+# Beszédek (speeches), Sajtónyilatkozat / Sajtóközlemények (press statements /
+# releases), interjú (interviews) — all kept; the cleaner's document_type gate
+# separates speeches/statements downstream. Each listing row carries a clean ISO
+# <time datetime> which we harvest via item_date (the article page shows only a
+# Hungarian word-month string "2026 május 09."), so the date is reliable even
+# where the on-page hu date fails to parse.
+listing:
+  link_selector: "h3.post-title a"
+  link_pattern: '/hu/[a-z0-9-]{8,}$'
+  item_selector: "div.views-row"
+  item_date:
+    selectors: ["span.post-created time"]
+    attr: datetime
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 90
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  selectors: [".node__content", ".field--name-body", ".post-content"]
+date:
+  selectors: ["span.post-created"]
+
+position: president
+date_languages: ["hu"]
