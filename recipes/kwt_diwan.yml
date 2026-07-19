@@ -1,0 +1,40 @@
+source_id: kwt_diwan
+country: Kuwait
+source_language: Arabic
+start_urls:
+  - https://www.da.gov.kw/ar/news/
+renderer: static
+
+# SUBSTITUTED SOURCE. The master lead for Kuwait was e.gov.kw (a generic e-government
+# portal with no leader speeches). The real head-of-state source is the AMIRI DIWAN
+# (الديوان الأميري) at da.gov.kw — bare diwan.gov.kw/amiridiwan.gov.kw do not resolve;
+# KUNA (kuna.net.kw) is geo-fenced (TCP timeout from outside Kuwait). Static HTML,
+# honest bot UA works, cert valid. The dedicated /ar/speeches page holds only 2 curated
+# speeches; the real coverage is /ar/news (~211 pages) — the Amir's addresses,
+# statements and congratulatory messages (mostly official_statement -> kept by the
+# cleaner's document_type gate). Arabic text -> source_language Arabic -> downstream
+# translate step fills English. Article URL /ar/news/<id>-DD_MM_YYYY/ carries the date,
+# extracted via url_regex (unambiguous ISO). Spans multiple Amirs (Sabah IV / Nawaf /
+# Mishal) -> speaker from the tenure crosscheck. Title .news-title, body .col-xl-8
+# (generic fallback backs it up). FOLLOW-UP: /ar/speeches (2 full speeches), /en/news
+# (English subset).
+listing:
+  link_selector: "a[href*='/ar/news/']"
+  link_pattern: '/ar/news/\d+-\d{2}_\d{2}_\d{4}/?$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 220
+
+title:
+  selectors: [".news-title", "h1", "title"]
+text:
+  selectors: [".col-xl-8", "article", "main"]
+date:
+  url_regex: '/news/\d+-(?P<day>\d{2})_(?P<month>\d{2})_(?P<year>\d{4})'
+
+position: amir
+date_languages: ["ar"]
