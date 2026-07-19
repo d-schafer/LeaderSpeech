@@ -1,0 +1,40 @@
+source_id: mdg_presidence_wayback
+country: Madagascar
+source_language: French
+start_urls:
+  - presidence.gov.mg/actualites
+renderer: static
+
+# WAYBACK recipe for the Presidency of Madagascar (presidence.gov.mg). The LIVE site
+# is broken (nginx returns 404 for every path, both UAs) -> IA archive is the route.
+# Joomla site, ~6600 caps 2014-2026 (Rajaonarimampianina 2014-2018 + Rajoelina 2019+).
+# We target the /actualites article set (id-slug URLs), which mixes discours et
+# déclarations (speeches) with communiqués de presse and conseil des ministres reports
+# (official_statement -> kept by the doc_type gate). French/Malagasy text -> translate
+# later. Archived Joomla page: article title is the h2 (h1 is the category label), body
+# .item-page (generic fallback backs it). DATE CAVEAT: Joomla exposes no clean date
+# element here; we regex a French in-text date ("le 15 mars 2019") off .item-page, so
+# date coverage is PARTIAL (communiqués that omit a prose date land undated). Speaker
+# from the tenure crosscheck. FOLLOW-UP: revisit live if presidence.gov.mg is fixed;
+# the dedicated /actualites/discours-et-declarations category has only ~8 archived caps.
+listing:
+  link_pattern: '/actualites/(?:[a-z-]+/)?\d+-'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: [".item-page h2", "h2", "title"]
+text:
+  selectors: [".item-page", "article", "main"]
+date:
+  selectors: [".item-page"]
+  regex: '\d{1,2}\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+\d{4}'
+
+position: president
+date_languages: ["fr"]
