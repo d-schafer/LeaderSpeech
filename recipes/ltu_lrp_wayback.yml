@@ -1,0 +1,37 @@
+source_id: ltu_lrp_wayback
+country: Lithuania
+source_language: English
+start_urls:
+  - lrp.lt/en/media-center/news
+renderer: static
+
+# WAYBACK recipe for the President of Lithuania (lrp.lt). The LIVE site is behind a
+# Cloudflare managed challenge that neither the bot UA, a browser UA, nor headless
+# Chromium (Playwright times out on networkidle) can clear — so it is live-blocked and
+# the IA archive is the route. We scrape the archived ENGLISH news
+# /en/media-center/news/<slug>/<id> (1780 caps, 2019-2024, President Nausėda's term,
+# plus older items about Grybauskaitė) -> English title/text, no translation. Archived
+# page: title h1 (inside div.news_inner), the article date is an ISO string right after
+# the title in .news_inner (regex-isolated; the standalone .date elements are a recent-
+# news sidebar), body .news_inner / generic fallback. Speaker from the tenure crosscheck.
+listing:
+  link_pattern: '/en/media-center/news/[a-z][a-z0-9-]+/\d+$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".news_inner", "article", "main"]
+date:
+  selectors: [".news_inner"]
+  regex: '\d{4}-\d{2}-\d{2}'
+
+position: president
+date_languages: ["en"]
