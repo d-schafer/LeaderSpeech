@@ -1,0 +1,40 @@
+source_id: kaz_akorda_wayback
+country: Kazakhstan
+source_language: Russian
+start_urls:
+  - akorda.kz/ru/speeches
+renderer: static
+
+# WAYBACK companion to the live kaz_akorda (which covers only 2021+ Tokayev via the
+# modern /ru/<slug>-<id> scheme). This targets the PRE-2021 akorda site, whose speeches
+# lived under the /ru/speeches/<category>/<slug> tree (addresses_congratulations,
+# internal_political_affairs/in_speeches_and_addresses, ...). ~420 archived Russian
+# speech caps, 2010-2019 -> mostly President NAZARBAYEV's era (huge added depth) plus
+# early Tokayev. Archived page: body .text (clean), date .date ("12 июня 2019", Russian,
+# date_languages ru). CAVEAT: the on-page h1 is the section label ("Выступления"), not
+# the article title -> title falls back to the <title> tag (the cleaner can refine).
+# Speaker from the tenure crosscheck (Nazarbayev pre-2019, Tokayev after). Complements
+# the live recipe's modern-scheme 95 (2021+); dedupe is by URL so no overlap.
+listing:
+  # Two category levels then a long HYPHENATED slug = the modern-template speech
+  # pages (which carry .text + .date). This excludes category-index pages (?page=N)
+  # and the old 2010-2012 underscore-slug template (different HTML, no .text/.date).
+  link_pattern: '/ru/speeches/[a-z_]+/[a-z_]+/[a-z0-9-]{12,}'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h2", ".news-detail__title", "title"]
+text:
+  selectors: [".text", "#content_text", "article"]
+date:
+  selectors: [".date"]
+
+position: president
+date_languages: ["ru"]
