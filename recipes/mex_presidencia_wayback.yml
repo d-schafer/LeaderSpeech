@@ -1,0 +1,43 @@
+# Mexico — gob.mx presidency, ARCHIVED stenographic versions for the AMLO era (2018-12 .. 2024-09).
+# The live recipe (recipes/mex_presidencia.yml) only reaches the current presidency's archive
+# (Sheinbaum, from 2024-10 — page ~200 of filter_origin=archive is already empty). AMLO's
+# "versión estenográfica" mañaneras/events (2018-2024) survive only via the Internet Archive:
+# CDX shows ~1,435 captures of /presidencia/es/articulos/version-estenografica* plus ~2,284 of the
+# earlier /presidencia/articulos/version-estenografica* path (URL scheme changed mid-term), so both
+# prefixes are enumerated. This is a Wayback COMPANION to the live recipe, never a replacement.
+source_id: mex_presidencia_wayback
+country: Mexico
+source_language: Spanish
+start_urls:
+  - www.gob.mx/presidencia/es/articulos/version-estenografica
+  - www.gob.mx/presidencia/articulos/version-estenografica
+renderer: static
+
+listing:
+  link_pattern: 'version-estenografica'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_from: "20181201"   # AMLO inauguration
+  wayback_to: "20241001"     # Sheinbaum inauguration — the live recipe covers from here
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+
+title:
+  selectors: [".bottom-buffer", "h1", "title"]
+text:
+  selectors: [".article-body", "main article", ".entry-content", "article"]
+date:
+  selectors: ["section p", "time", ".fecha"]
+context:
+  selectors: [".pull-left h2"]
+
+position: president
+date_languages: ["es"]
+notes: >
+  DRAFT — Wayback companion to mex_presidencia.yml (never a replacement). Covers the AMLO era
+  (2018-12 .. 2024-09) stenographic versions, which are absent from the live filter_origin=archive
+  listing (that only holds the current presidency). Two CDX prefixes cover the mid-term URL-path
+  change (/presidencia/articulos/... -> /presidencia/es/articulos/...). Reuses the live recipe's
+  selectors; speaker omitted so the cleaner's tenure crosscheck assigns AMLO from the date. High
+  volume (~2,000+ daily transcripts) — FULL RUN pending and heavy.

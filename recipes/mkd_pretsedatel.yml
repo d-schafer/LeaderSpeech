@@ -1,0 +1,61 @@
+# North Macedonia — President of the Republic (pretsedatel.mk), Gordana Siljanovska-Davkova.
+# WordPress (Divi theme) behind a non-challenging Cloudflare. The visible front end is a Divi
+# blog, but the clean, dated route to the speeches is the WordPress REST API
+# (/wp-json/wp/v2/posts), same shape as cyp_presidency / fin_presidentti.
+#
+# WHICH CATEGORIES: the site tags content in Macedonian, Albanian and English parallel
+# categories (translations are SEPARATE posts). To stay in the original language and avoid
+# duplicate translations, we take only the two Macedonian speech categories:
+#   * cat 5  obrakjanja (Обраќања = Addresses)  — 72 items
+#   * cat 3  intervjua   (Интервјуа = Interviews) — 51 items
+# (English `speeches`/`interviews` and Albanian `fjalimet`/`intervistat` are the same content
+# re-posted, so they are deliberately excluded.) The `press`/`soopshtenija` categories are
+# press releases and are left to the cleaner's gate rather than harvested here.
+source_id: mkd_pretsedatel
+country: North Macedonia
+source_language: Macedonian
+start_urls:
+  - https://pretsedatel.mk/wp-json/wp/v2/posts?categories=5,3&per_page=100
+
+renderer: static
+
+listing:
+  # url_field already yields the post permalink; this is a light guard that also drops the
+  # occasional /en/ translation link and the API root itself.
+  link_pattern: 'pretsedatel\.mk/(?!en/|wp-json)'
+
+pagination:
+  type: api
+  param: page          # WP pages with ?page=N and 400s past the last page (engine stops there)
+  start: 1
+  step: 1
+  max_pages: 10        # 123 / 100 = 2 pages; headroom for growth
+  api:
+    results_path: "."          # WordPress returns a bare array at the root
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601 — api dates skip date_languages by design
+    # text_field unset on purpose: content.rendered is HTML and clean_text does not strip
+    # tags, so let the engine fetch each post and pull clean prose via the `text` selectors.
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # Divi single-post body container (verified: matches the API content.rendered length).
+  selectors: [".et_pb_post_content", ".entry-content", "article"]
+date:
+  # Fallback only; the api `date` (ISO) is authoritative.
+  selectors: ["time", ".published"]
+  attr: datetime
+
+position: president
+speaker_default: Gordana Siljanovska-Davkova
+date_languages: ["mk"]
+notes: >
+  DRAFT — probe-validated (no full run). North Macedonia Presidency via the pretsedatel.mk
+  WordPress REST API (categories 5 obrakjanja + 3 intervjua = 123 Macedonian items). Divi
+  theme; body pulled from .et_pb_post_content on each post page. Cloudflare is non-challenging
+  to the bot UA. Original language Macedonian; translation stage fills English. speaker_default
+  is the incumbent (Siljanovska-Davkova, since 2024-05); the cleaner's tenure crosscheck fixes
+  any predecessor (Pendarovski) addresses that predate her term. Predecessor depth beyond what
+  this WP install holds would be Wayback territory.

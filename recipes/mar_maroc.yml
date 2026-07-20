@@ -1,0 +1,59 @@
+# Morocco — maroc.ma, the official government portal's Royal Speeches section
+# (HM King Mohammed VI, head of state). Plain static Drupal, reachable to the bot UA
+# (Cloudflare present but non-challenging).
+#
+# LANGUAGE: the King speaks in Arabic; maroc.ma publishes an OFFICIAL English translation at
+# /en/... which is what this recipe takes (source_language English -> straight into the English
+# text column, no MT needed). Its companion recipe mar_diplomatie takes the Arabic ORIGINAL from
+# diplomatie.ma, so the two sources are complementary (official-English + Arabic-original) rather
+# than duplicates.
+#
+# DATE comes from the LISTING CARD, not the article: each speech's detail page has no own-date
+# element — the only <time> tags on it belong to a "related actualités" sidebar (they mis-date
+# the article, the Kazakhstan/Luxembourg trap). Each listing card (.item-text) carries the real
+# date in .item-time as numeric DD-MM-YYYY, carried onto the row via item_date; the article
+# `date` selector is deliberately dead so the sidebar is never used.
+source_id: mar_maroc
+country: Morocco
+source_language: English
+start_urls:
+  - https://maroc.ma/en/royal-speeches-and-messages/royal-speeches
+renderer: static
+
+listing:
+  item_selector: ".item-text"
+  # Match only the final /royal-speeches/<slug> article links (not the bare listing, not
+  # /royal-messages, not the ?page= pager).
+  link_pattern: '/royal-speeches/[a-z0-9]'
+  item_date:
+    selectors: [".item-time .date-time-line span", ".item-time"]
+
+pagination:
+  # Drupal Views, 0-indexed: ?page=0 is the newest page (identical to the bare start_url),
+  # ?page=1 the next-older, etc. The engine fetches ?page=<start> FIRST (it does not fetch the
+  # bare start_url separately for query_param), so start MUST be 0 here — start:1 would skip the
+  # newest page. Verified ?page=0 != ?page=1 (no collision), so 0 is safe.
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 50
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".c-wysiwyg", "section.wrapper--c-wysiwyg", "article"]
+date:
+  # Dead on purpose — see header. The date is filled from the listing card via item_date.
+  selectors: ["nonexistent-article-date"]
+
+position: king
+speaker_default: King Mohammed VI
+date_languages: ["fr"]   # numeric DD-MM-YYYY on this site -> "fr" forces day-first parsing
+notes: >
+  DRAFT — probe-validated (no full run). Morocco royal speeches (King Mohammed VI) via
+  maroc.ma /en (official English translation; source_language English). Static Drupal, bot-UA
+  OK. Body from .c-wysiwyg; date carried from the listing card's .item-time (DD-MM-YYYY,
+  day-first via the "fr" hint) because the detail page's only <time> tags are a related-news
+  sidebar. Companion source mar_diplomatie takes the Arabic original from diplomatie.ma.
+  FULL RUN pending.

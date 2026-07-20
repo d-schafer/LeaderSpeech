@@ -1,0 +1,42 @@
+# New Zealand — the Governor-General (gg.govt.nz), head of state's representative (the master's
+# listed NZ source; the head-of-government companion is nzl_beehive). Drupal site behind a
+# Cloudflare "Just a moment" JS challenge that a real headless Chromium CLEARS cleanly
+# (case a) -> renderer: js. The /publications/speeches listing shows /publications/<slug> speech
+# links and a 0-indexed ?page=N pager.
+source_id: nzl_gg
+country: New Zealand
+source_language: English
+renderer: js
+start_urls:
+  - https://gg.govt.nz/publications/speeches
+
+listing:
+  link_selector: "a[href*='/publications/']"
+  # Individual speeches are /publications/<slug>; drop the /publications/speeches and
+  # /publications/archive listing/nav links.
+  link_pattern: '/publications/(?!speeches|archive)[a-z]'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 100
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["main article", "main"]
+date:
+  selectors: ["time"]
+  attr: datetime      # ISO 8601 datetime attr
+
+position: governor-general
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). New Zealand Governor-General via gg.govt.nz
+  /publications/speeches (the master's listed NZ head-of-state source; head-of-government companion
+  is nzl_beehive). Cloudflare "Just a moment" JS challenge cleared by headless Chromium (case a) ->
+  renderer: js. Listing /publications/<slug> + 0-indexed ?page= pager; detail title h1, text <main>,
+  date <time datetime> (ISO). Archive spans multiple Governors-General, so speaker_default is omitted
+  and left to the cleaner/tenure crosscheck. FULL RUN pending (js render of listing + detail pages).

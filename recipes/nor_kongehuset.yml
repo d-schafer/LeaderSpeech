@@ -1,0 +1,44 @@
+# Norway — the Royal House (kongehuset.no), head of state King Harald V (the archive also holds
+# Crown Prince Haakon, Queen Sonja, Crown Princess Mette-Marit). Modern SSR site (Vercel), served
+# fully server-rendered to the bot UA. The full speech history is not in a live paginated listing
+# but IS in the sitemap: 1,232 /taler-og-budskap/<royal>/<slug> URLs (fra_elysee sitemap pattern).
+# The speaker is in the URL path; the date is a Norwegian header line ("9. mars 2026") that is the
+# first date in <main>.
+source_id: nor_kongehuset
+country: Norway
+source_language: Norwegian
+renderer: static
+start_urls:
+  - https://www.kongehuset.no/offisielle-taler
+
+listing:
+  link_pattern: '/taler-og-budskap/[^/]+/'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.kongehuset.no/sitemap.xml
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["main article", "main", ".rich-text"]
+date:
+  # No <time> element; the visible header date ("9. mars 2026") is the first Norwegian date in
+  # <main>. Pull it by regex; date_languages nb parses the month name.
+  selectors: ["main"]
+  regex: '\d{1,2}\.\s*[a-zæøåA-ZÆØÅ]+\s+\d{4}'
+speaker:
+  # /taler-og-budskap/<speaker-slug>/<slug> — e.g. kong-harald-v, kronprins-haakon, dronning-sonja.
+  # A slug hint; the cleaner normalises it and the tenure crosscheck keeps the head of state.
+  url_regex: '/taler-og-budskap/([^/]+)/'
+
+position: king
+date_languages: ["nb"]
+notes: >
+  DRAFT — probe-validated (no full run). Norway Royal House (King Harald V + other royals) via
+  kongehuset.no. NEW master row needed. Full history (1,232 speeches, back to ~2000s) taken from the
+  sitemap (fra_elysee pattern); live listing only shows recent items. SSR site, bot-UA OK. Title h1,
+  text <main>, date regex-extracted from the Norwegian header line (date_languages nb), speaker from
+  the URL path (slug hint -> cleaner normalises; tenure crosscheck keeps the King/regent). Original
+  language Norwegian; royalcourt.no is the English mirror (not used). FULL RUN pending.

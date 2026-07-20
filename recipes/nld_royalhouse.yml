@@ -1,0 +1,113 @@
+# Netherlands - the Royal House (royal-house.nl), reigning head of state (King Willem-Alexander;
+# the archive also holds Queen Maxima and pre-2013 Queen Beatrix / Crown-Prince speeches).
+# Same Platform-Rijksoverheid "Search-UI" SPA as rijksoverheid.nl: the /documents listing renders
+# client-side (renderer: js) and its detail pages are static HTML with full text in <main>; every
+# document URL carries its date (/documents/YYYY/MM/DD/slug -> url_regex).
+#
+# WHY a synthesised start_urls list instead of a pager: the SPA's only pager is a cursor
+# ("Next page" -> ?current=n_2_n) that the engine cannot chain reliably (click is blocked by the
+# cookie overlay; next_link chains only ~1 hop). BUT the cursor token is just the page number:
+# ?type=speech&current=n_<page>_n renders page <page> directly (verified: n_1=2026 ... n_55=2004,
+# n_65 empty). So we enumerate the pages as start_urls (type: none) and let the engine render +
+# harvest each. ~60 pages x 10 -> ~600 documents back to ~2004.
+#
+# speaker_default is intentionally omitted: the type=speech set mixes King Willem-Alexander, Queen
+# Maxima and (pre-2013) Queen Beatrix, so the cleaner's speaker pass + tenure crosscheck assign the
+# speaker from the title and keep the reigning head of state. A few non-speech royal reports leak
+# through the imperfect type facet and are dropped by the cleaner's document-type gate.
+source_id: nld_royalhouse
+country: Netherlands
+source_language: English
+renderer: js
+start_urls:
+  - https://www.royal-house.nl/documents?type=speech&current=n_1_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_2_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_3_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_4_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_5_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_6_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_7_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_8_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_9_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_10_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_11_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_12_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_13_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_14_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_15_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_16_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_17_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_18_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_19_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_20_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_21_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_22_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_23_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_24_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_25_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_26_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_27_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_28_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_29_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_30_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_31_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_32_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_33_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_34_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_35_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_36_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_37_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_38_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_39_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_40_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_41_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_42_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_43_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_44_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_45_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_46_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_47_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_48_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_49_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_50_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_51_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_52_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_53_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_54_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_55_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_56_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_57_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_58_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_59_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_60_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_61_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_62_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_63_n
+  - https://www.royal-house.nl/documents?type=speech&current=n_64_n
+
+pagination:
+  type: none          # each start_url is one fully-rendered listing page (cursor pages enumerated)
+
+listing:
+  link_selector: ".sui-results-container a, .search-block__results a"
+  link_pattern: '/documents/\d{4}/\d{2}/\d{2}/'
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["main article", "main"]
+date:
+  url_regex: '/documents/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+position: king
+date_languages: ["en", "nl"]
+notes: >
+  DRAFT - probe-validated (no full run). Netherlands Royal House via royal-house.nl
+  /documents?type=speech. Platform-Rijksoverheid Search-UI SPA -> renderer: js; the cursor pager
+  is not chainable, so the ~60 cursor pages (?current=n_<page>_n) are enumerated as start_urls
+  (type: none), covering ~2004->present (King Willem-Alexander 2013-, plus Queen Maxima and pre-2013
+  Beatrix/Crown-Prince). Detail pages static; text from <main>; date from the document URL.
+  speaker_default omitted (mixed royals) - cleaner assigns speaker + keeps the head of state; the
+  document-type gate drops the few non-speech royal reports the type facet leaks. Speeches are in
+  their delivery language (mostly English, some German/French/Dutch on state visits). FULL RUN
+  pending (js render of ~60 listing pages + detail pages).

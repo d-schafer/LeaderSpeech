@@ -1,0 +1,69 @@
+# Moldova — Presidency of the Republic (presedinte.md), President Maia Sandu (archive also holds
+# Dodon 2016-2020 and Timofti 2012-2016). Plain static site, but the TLS chain does not validate
+# from outside .md (CERTIFICATE_VERIFY_FAILED) -> verify_ssl: false.
+#
+# STRUCTURE: /discursuri is a year archive. Each year is a CakePHP-paginated listing at
+# /rom/discursuri/index/YYYY/page:N (~7 speeches/page; page:1 == the bare /discursuri/YYYY page;
+# past the last page returns 0 links so the engine auto-stops). Individual speeches live at
+# /rom/discursuri/<slug>. We enumerate the per-year index bases as start_urls and let path
+# pagination walk page:1..N of each year. Detail pages carry title (h1), body (<article>), and a
+# machine-readable date (<time datetime>).
+source_id: mda_presedinte
+country: Moldova
+source_language: Romanian
+verify_ssl: false
+renderer: static
+start_urls:
+  - https://presedinte.md/rom/discursuri/index/2013
+  - https://presedinte.md/rom/discursuri/index/2014
+  - https://presedinte.md/rom/discursuri/index/2015
+  - https://presedinte.md/rom/discursuri/index/2016
+  - https://presedinte.md/rom/discursuri/index/2017
+  - https://presedinte.md/rom/discursuri/index/2018
+  - https://presedinte.md/rom/discursuri/index/2019
+  - https://presedinte.md/rom/discursuri/index/2020
+  - https://presedinte.md/rom/discursuri/index/2021
+  - https://presedinte.md/rom/discursuri/index/2022
+  - https://presedinte.md/rom/discursuri/index/2023
+  - https://presedinte.md/rom/discursuri/index/2024
+  - https://presedinte.md/rom/discursuri/index/2025
+  - https://presedinte.md/rom/discursuri/index/2026
+
+politeness:
+  # presedinte.md throttles rapid bursts (WinError 10060 after ~50 requests), so pace the crawl.
+  delay_range: [0.5, 1.2]
+  pause_every: 25
+  pause_seconds: 5
+
+pagination:
+  # CakePHP page:N pager appended to each year-index base; each year self-terminates when a page
+  # yields no new speech links.
+  type: path
+  path_format: "page:{n}"
+  start: 1
+  step: 1
+  max_pages: 30
+
+listing:
+  # Individual speeches only: /rom/discursuri/<slug>. Exclude the /discursuri/<year> index links
+  # and the /discursuri/index/<year>/page:N pager links.
+  link_pattern: '/discursuri/(?!index|\d{4})[a-z]'
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["article", ".content", "main"]
+date:
+  selectors: ["time", ".date"]
+  attr: datetime
+
+position: president
+date_languages: ["ro"]
+notes: >
+  DRAFT — probe-validated (no full run). Moldova Presidency (Maia Sandu; archive also holds Dodon
+  and Timofti) via presedinte.md. NEW master row needed (Moldova had no row). Static, broken TLS ->
+  verify_ssl:false. Per-year CakePHP listings /rom/discursuri/index/YYYY/page:N walked by path
+  pagination (~7/page, auto-stops at the first empty page); individual speeches /rom/discursuri/<slug>.
+  Title h1, body <article>, date from <time datetime> (ISO). Original language Romanian (an /eng
+  mirror exists but is not used). Speaker left to the cleaner's tenure crosscheck (multiple presidents
+  in the archive). FULL RUN pending.

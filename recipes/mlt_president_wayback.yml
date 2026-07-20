@@ -1,0 +1,43 @@
+# Malta — President of the Republic (president.gov.mt), archived speeches. The LIVE site is behind a
+# Cloudflare firewall: httpx gets "Attention Required" (403) on every .gov.mt host, and while headless
+# Chromium clears the homepage/listing, the speech DETAIL pages hard-block ("Sorry, you have been
+# blocked", CF 1020 — the Italy/Czechia "clears first nav, re-challenges deeper" pattern). So the text
+# is only reachable via the Internet Archive. president.gov.mt is WordPress; ~985 archived speech
+# pages exist across the site's redesigns (/diskors-<slug> Maltese, /speeches/<slug>, and English
+# /the-presidents-address-<slug>), covering President George Vella (2019-2024) and earlier, plus early
+# Myriam Spiteri Debono (2024-).
+source_id: mlt_president_wayback
+country: Malta
+source_language: English
+renderer: static
+start_urls:
+  - president.gov.mt/diskors
+  - president.gov.mt/speeches
+  - president.gov.mt/the-presidents-address
+
+listing:
+  link_pattern: '(diskors|/speeches/[a-z]|presidents-address)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+
+title:
+  selectors: ["h1.elementor-heading-title", "h1", "title"]
+text:
+  # Elementor theme: the speech body is the post-content widget.
+  selectors: [".elementor-widget-theme-post-content", ".elementor-widget-text-editor", "article"]
+date:
+  # Elementor post-info date widget, numeric DD.MM.YYYY (day-first) -> the "fr" hint below.
+  selectors: [".elementor-post-info__item--type-date", ".elementor-widget-post-info"]
+
+position: president
+date_languages: ["fr"]   # numeric DD.MM.YYYY dates -> "fr" forces day-first parsing
+notes: >
+  DRAFT — Wayback recipe (the live site is CF-blocked: whole-of-.gov.mt firewall + detail-page hard
+  block that even headless Chromium can't pass — case b). NEW master row status. president.gov.mt is
+  WordPress; ~985 archived speech pages across redesigns (/diskors-<slug>, /speeches/<slug>,
+  /the-presidents-address-<slug>). Covers George Vella (2019-2024), earlier presidents, and early
+  Spiteri Debono. WP selectors: title h1.entry-title, text .entry-content, date <time datetime>.
+  Speaker cleaner-assigned (multiple presidents). Bilingual (English + Maltese). FULL RUN pending.

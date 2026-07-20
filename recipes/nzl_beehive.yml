@@ -1,0 +1,44 @@
+# New Zealand — the Beehive (beehive.govt.nz), the official NZ Government site: speeches by the
+# Prime Minister and ministers (head of government). The site is behind an Imperva INCAPSULA JS
+# challenge (httpx gets a 212-byte _Incapsula_Resource stub on every HTML page), which a real
+# headless Chromium clears cleanly -> renderer: js. The /speeches listing then shows /speech/<slug>
+# links and a 0-indexed ?page=N pager.
+source_id: nzl_beehive
+country: New Zealand
+source_language: English
+renderer: js
+start_urls:
+  - https://www.beehive.govt.nz/speeches
+
+listing:
+  link_selector: "a[href*='/speech/']"
+  link_pattern: '/speech/[a-z0-9]'
+
+pagination:
+  # 0-indexed pager: ?page=0 is the newest page (== the bare /speeches). query_param fetches
+  # ?page=<start> first, so start:0.
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 200      # NZ govt speeches run back to the mid/late-2000s; engine stops at the first empty page
+
+title:
+  selectors: ["h1"]
+text:
+  # Silverstripe site; the body-specific classes vary, but <main> holds the full speech (~13k chars).
+  selectors: ["main article", ".release__body", "main"]
+date:
+  # <time> carries the date as text ("17 July 2026"); no datetime attr.
+  selectors: ["time", ".release__date", ".published"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). New Zealand Government (PM + ministers) via
+  beehive.govt.nz/speeches. NEW master row needed (head-of-government companion to the listed
+  Governor-General source nzl_gg). Imperva Incapsula JS challenge -> renderer: js (headless Chromium
+  clears it; httpx gets a 212-byte _Incapsula_Resource stub). Listing /speech/<slug> + 0-indexed
+  ?page= pager; detail title h1, text <main>, date <time> text (en). All-of-government speeches -
+  the cleaner's speaker pass + gate keep the PM's. FULL RUN pending (js render of ~100+ listing
+  pages + detail pages; heavier than average).

@@ -17,7 +17,11 @@ pagination:
   param: page
   start: 1
   step: 1
-  max_pages: 50
+  # The filter_origin=archive listing covers the CURRENT presidency only (Sheinbaum, from
+  # 2024-10): page ~105 reaches 2024-10-23 and page ~200 is empty. max_pages 50 truncated it at
+  # ~2025-09 (11 of ~22 months), so raise to 130 to capture her full term. AMLO (2018-2024) is
+  # NOT in this archive — see the mex_presidencia_wayback companion.
+  max_pages: 130
 
 title:
   selectors: [".bottom-buffer", "h1", "title"]
