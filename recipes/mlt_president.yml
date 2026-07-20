@@ -1,0 +1,53 @@
+# Malta — President of the Republic (president.gov.mt), LIVE site. WordPress + Elementor behind
+# Cloudflare bot-management: httpx = 403, and Playwright's own Chromium (headless AND headful) is
+# fingerprint-blocked on the speech DETAIL pages (CF-1020 "Sorry, you have been blocked"). A REAL
+# Chrome passes, so this recipe uses renderer: cdp — it attaches over DevTools to a Chrome the
+# researcher launches:
+#     & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-cdp"
+# then run the probe/scrape (endpoint defaults to http://localhost:9222; override via cdp_endpoint
+# or the LEADERSPEECH_CDP_ENDPOINT env var). Validated: via CDP the detail pages return full text.
+# A probe-green Wayback companion (mlt_president_wayback) covers history without a live browser.
+source_id: mlt_president
+country: Malta
+source_language: English
+renderer: cdp
+
+start_urls:
+  - https://president.gov.mt/speeches/
+
+listing:
+  # Each speech is an Elementor post card carrying the link + a "Month D, YYYY" date.
+  item_selector: "article.elementor-post"
+  link_selector: "a[href*='/speeches/']"
+  link_pattern: '/speeches/(?![0-9]+/?$)[a-z0-9][a-z0-9-]{6,}/?$'
+  item_date:
+    selectors: [".elementor-post-date", ".elementor-post__meta-data", "article.elementor-post"]
+    regex: '\w+\s+\d{1,2},?\s+\d{4}'
+
+pagination:
+  # WordPress path pager: /speeches/ (page 1), /speeches/2/, /speeches/3/, ...
+  type: path
+  path_format: "{n}"
+  start: 1
+  step: 1
+  max_pages: 40
+
+title:
+  selectors: ["h1.elementor-heading-title", "h1", "title"]
+text:
+  selectors: [".elementor-widget-theme-post-content", ".entry-content", "article"]
+date:
+  # The current live detail theme shows no date; it's carried from the listing card (item_date).
+  selectors: ["nonexistent-detail-date"]
+
+position: president
+date_languages: ["en"]   # listing card dates are "Month D, YYYY"
+notes: >
+  DRAFT — probe-validated via renderer: cdp (issue #62). LIVE Malta Presidency. Cloudflare
+  bot-management fingerprint-blocks Playwright's own Chromium (headless + headful) on detail pages;
+  attaching over CDP to a user-launched real Chrome clears it (verified: detail text 3-8k chars).
+  WordPress+Elementor: listing /speeches/<slug> + /speeches/N/ path pager; title h1.elementor-heading-title,
+  text .elementor-widget-theme-post-content; the current detail theme has no date, so it's carried
+  from the Elementor listing card (item_date, "Month D, YYYY"). Speaker via cleaner tenure crosscheck
+  (Spiteri Debono 2024-, George Vella). REQUIRES a debug Chrome (see header) or fall back to the
+  probe-green mlt_president_wayback. FULL RUN pending.

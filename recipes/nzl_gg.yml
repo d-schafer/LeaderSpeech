@@ -6,7 +6,10 @@
 source_id: nzl_gg
 country: New Zealand
 source_language: English
-renderer: js
+# gg.govt.nz's Cloudflare "Just a moment" challenge CRASHES the engine's headless Chromium
+# (Page.goto: Page crashed). A real Chrome clears it, so use renderer: cdp — launch Chrome with
+# --remote-debugging-port=9222 (see docs/recipes.md) and the engine attaches over CDP.
+renderer: cdp
 start_urls:
   - https://gg.govt.nz/publications/speeches
 

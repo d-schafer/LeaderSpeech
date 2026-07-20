@@ -23,7 +23,9 @@ except Exception:  # pragma: no cover
 
 class Renderer(str, Enum):
     static = "static"   # plain HTML over HTTP (httpx)
-    js = "js"           # JavaScript-rendered (Playwright)
+    js = "js"           # JavaScript-rendered (Playwright, own headless Chromium)
+    cdp = "cdp"         # attach over CDP to a user-launched real Chrome (defeats CF bot-fingerprint
+                        # blocks that headless/headful Playwright can't — see docs/recipes.md)
 
 
 class ContentType(str, Enum):
@@ -314,6 +316,14 @@ class Recipe(BaseModel):
     content_type: ContentType = ContentType.auto
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
+    # Extra seconds to wait AFTER page load (js/cdp renderers) for late JS to paint. The engine
+    # also auto-waits for a Cloudflare "Just a moment" interstitial to self-clear regardless; set
+    # this only when content arrives after that (rarely needed).
+    js_settle: float = 0.0
+    # For renderer: cdp — the DevTools endpoint of a user-launched Chrome
+    # (chrome.exe --remote-debugging-port=9222). Defaults to http://localhost:9222 (or the
+    # LEADERSPEECH_CDP_ENDPOINT env var) when omitted.
+    cdp_endpoint: Optional[str] = None
     listing: Listing
     # Optional predicate over the FETCHED page, for sites whose category lives on the page
     # rather than in the URL (see KeepIf). Default off; applies to every source type.

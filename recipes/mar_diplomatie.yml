@@ -1,0 +1,56 @@
+# Morocco — diplomatie.ma (Foreign Ministry) Royal Speeches, the SECOND royal-speech source the
+# researcher asked for alongside maroc.ma. Static Drupal behind an F5/BIG-IP ASM WAF that is
+# UA-KEYED (the honest bot UA gets a "Request Rejected/support ID" 244-byte page; a browser UA gets
+# the full page) plus a broken TLS chain -> browser user_agent + verify_ssl:false. Arabic ORIGINAL
+# (complements maroc.ma's official English translation).
+#
+# DATE CAVEAT: the listing cards show the date in MAGHREBI Arabic month names (نونبر=Nov, يوليوز=Jul,
+# غشت=Aug, دجنبر=Dec) that dateparser cannot parse (it falls back to today's date), and the detail
+# pages carry no date element and a generic h1 ("الأخبار الملكية"). So the speech TITLE is carried
+# from the listing card (item_title) and the DATE is left to the clean_structure_metadata
+# corrected-date pass (King Mohammed VI is the sole speaker, so speaker_default keeps the tenure
+# crosscheck valid). See the engine follow-up issue re: a Maghrebi-month map for date parsing.
+source_id: mar_diplomatie
+country: Morocco
+source_language: Arabic
+renderer: static
+verify_ssl: false
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+start_urls:
+  - https://diplomatie.ma/ar/%D8%A7%D9%84%D8%AE%D8%B7%D8%A8-%D8%A7%D9%84%D9%85%D9%84%D9%83%D9%8A%D8%A9
+
+listing:
+  item_selector: ".card"
+  # Royal-speech article slugs start with جلالة الملك ("His Majesty the King") -> %D8%AC%D9%84%D8%A7%D9%84%D8%A9.
+  link_pattern: '%D8%AC%D9%84%D8%A7%D9%84%D8%A9'
+  item_title:
+    selectors: [".card a", "a"]
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 30
+
+title:
+  # Detail h1 is a generic section title; the real speech title is carried from the card (item_title).
+  selectors: ["h1.page-title", "h1"]
+text:
+  selectors: [".field--name-body", ".node__content", "article"]
+date:
+  # Maghrebi Arabic month names -> unparseable by dateparser; left for the cleaner's corrected-date
+  # pass. Kept here so a future engine Maghrebi-month map would light it up.
+  selectors: [".card .date", "time"]
+
+position: king
+speaker_default: King Mohammed VI
+date_languages: ["ar"]
+notes: >
+  DRAFT — Morocco royal speeches (King Mohammed VI), Arabic ORIGINAL from diplomatie.ma (the second
+  source the researcher requested alongside maroc.ma's English). Static Drupal; F5/BIG-IP ASM
+  UA-keyed WAF -> browser user_agent; broken TLS -> verify_ssl:false. Title carried from the listing
+  card (detail h1 is generic); text .field--name-body. DATE is Maghrebi Arabic (نونبر/يوليوز/غشت)
+  which dateparser can't read, so date is left to the cleaner's corrected-date pass (speaker_default
+  King Mohammed VI keeps the tenure crosscheck valid); a Maghrebi-month engine map (see follow-up
+  issue) would fix dates at scrape time. FULL RUN pending.

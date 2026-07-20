@@ -34,6 +34,20 @@ def test_user_agent_override_loads():
     assert r.user_agent == "Mozilla/5.0 (compatible)"
 
 
+def test_defaults_for_js_settle_and_cdp_endpoint():
+    r = Recipe(**MINIMAL)
+    assert r.js_settle == 0.0
+    assert r.cdp_endpoint is None
+
+
+def test_cdp_renderer_and_settle_fields_load():
+    r = Recipe(**{**MINIMAL, "renderer": "cdp", "js_settle": 2.5,
+                  "cdp_endpoint": "http://localhost:9222"})
+    assert r.renderer.value == "cdp"
+    assert r.js_settle == 2.5
+    assert r.cdp_endpoint == "http://localhost:9222"
+
+
 def test_missing_required_field_selectors_raises():
     bad = {**MINIMAL, "text": {"selectors": []}}
     with pytest.raises(Exception):

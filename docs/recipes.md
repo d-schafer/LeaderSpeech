@@ -547,6 +547,38 @@ LISTING-META ✓ the listing dated 30 of 30 link(s) (2018-05-14 .. 2023-10-06), 
 A `✗` there means `item_selector`/`item_date` matched nothing and the rows will land as
 bare as without it — check that the blocks really *contain* the links.
 
+## Cloudflare-blocked sites (`renderer: js` vs `cdp`)
+
+Cloudflare comes in escalating flavors; match the renderer to what the site actually does:
+
+1. **`403` to the plain client only** → `renderer: js`. A CF 403 to httpx is a TLS/JS-fingerprint
+   block, not the IP — a real headless Chromium clears it. (A `user_agent` override does *not* help.)
+2. **"Just a moment" JS interstitial** → still `renderer: js`. The engine loads DOM-first, then
+   auto-waits for the interstitial to self-clear before reading the page (so you get the real page,
+   not the challenge shell). Nothing extra to configure; bump `js_settle` only if content is still late.
+3. **CF blocks even headless Chromium** — the "Just a moment" never clears, *crashes* headless
+   (`Page.goto: Page crashed`, e.g. gg.govt.nz), or detail pages hard-block with CF-1020
+   ("Attention Required" / "Sorry, you have been blocked", e.g. president.gov.mt). This is
+   **automation-fingerprint** detection: it flags Playwright's own Chromium (headless *and* headful)
+   but lets a real, hand-launched Chrome through. → **`renderer: cdp`**.
+
+### Using `renderer: cdp`
+
+Launch a real Chrome with a DevTools port and a throwaway profile (so it doesn't reuse a running
+Chrome, which would ignore the flag), then run the probe/scrape:
+
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-cdp"
+```
+
+The engine attaches over CDP to that Chrome instead of launching its own browser, so the real
+browser's fingerprint (and any CF clearance you earned by visiting the site once) carries the crawl.
+Endpoint defaults to `http://localhost:9222`; override with the recipe's `cdp_endpoint` or the
+`LEADERSPEECH_CDP_ENDPOINT` env var. Everything else in the recipe (selectors, pagination) is
+unchanged — only the fetch transport differs. Keep that Chrome window open for the whole run.
+Verified on `mlt_president` (president.gov.mt), `nzl_gg` (gg.govt.nz). A probe-green Wayback
+companion (e.g. `mlt_president_wayback`) is the browser-free fallback for history.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -557,10 +589,12 @@ bare as without it — check that the blocks really *contain* the links.
 | `source_language` | no | Default `English`. Non-English text routes to the `*_originlanguage` columns. |
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
-| `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works) or `js` (a real headless Chromium). Escalate to `js` only when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client** — a CF 403 is a TLS/JS fingerprint block (not the IP; a `user_agent` override won't fix it), which `js` clears. See "How to inspect a site". |
+| `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
+| `js_settle` | no | `js`/`cdp` only. Extra seconds to wait after DOM-ready for late JS to paint. Rarely needed — the engine already loads DOM-first, waits briefly for the network to settle, and auto-waits for a CF "Just a moment" interstitial to self-clear. Set only when content still arrives later. |
+| `cdp_endpoint` | no | `cdp` only. DevTools endpoint of a user-launched Chrome (default `http://localhost:9222`, or the `LEADERSPEECH_CDP_ENDPOINT` env var). See "Cloudflare-blocked sites". |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
 | `listing.item_selector` | no | CSS selector for the block that **contains one speech link** — enables carrying per-item `item_date`/`item_title` off the listing onto the row (see "When the date is on the LISTING"). Each harvested link takes the metadata of its nearest matching ancestor. |

@@ -1,0 +1,49 @@
+# Nigeria — State House, ARCHIVED speeches for President Buhari's FIRST term (2015-2019). The live
+# site (recipes/nga_statehouse.yml) only goes back to its ~2019 rebuild, so Buhari 2015-2019 lives
+# only on the old Joomla site (www.statehouse.gov.ng/index.php/news/<id>-<slug>) via the Internet
+# Archive: CDX shows ~517 speech/address/statement captures. This is a Wayback COMPANION to the
+# live recipe, never a replacement.
+#
+# DATE NOTE: the old Joomla article pages carry NO date element and no in-body date, so the scrape
+# yields title + full text with a BLANK date; the clean_structure_metadata corrected-date pass
+# derives the date from the speech content downstream. (A future engine option to fall back to the
+# Wayback capture timestamp would date these directly — see the engine follow-up issue.)
+source_id: nga_statehouse_wayback
+country: Nigeria
+source_language: English
+renderer: static
+start_urls:
+  - statehouse.gov.ng/index.php/news
+
+listing:
+  # Old Joomla article URLs: /index.php/news/<numeric-id>-<slug>. Require the numeric id so category
+  # /listing pages are excluded.
+  link_pattern: 'index\.php/news/\d+-'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_from: "20150529"   # Buhari inauguration
+  wayback_to: "20190401"     # before the live recipe's ~2019 floor
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+
+title:
+  selectors: [".item-page h2", "h2.item-title", "h1", "title"]
+text:
+  selectors: [".item-page", ".article-content", ".contentpaneopen"]
+date:
+  # Old Joomla pages expose no date; left to fill only if a capture happens to include one.
+  # Otherwise the cleaner's corrected-date pass supplies it from the speech text.
+  selectors: ["dd.create", "time", ".create", ".createdate"]
+
+position: president
+speaker_default: Muhammadu Buhari
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion to nga_statehouse.yml (never a replacement). Buhari FIRST term
+  (2015-2019), the old Joomla statehouse.gov.ng/index.php/news/<id>-<slug> pages (~517 CDX
+  speech captures). NEW master row needed. Title .item-page h2, text .item-page (both confirmed on
+  archived pages). The old pages carry NO date -> the scrape leaves date blank and the cleaner's
+  corrected-date pass fills it from the speech content (Buhari is the sole speaker of the era, so
+  speaker_default is set and the tenure crosscheck is unaffected by the missing date). ENGINE
+  FOLLOW-UP: falling back to the Wayback capture timestamp would date these directly. FULL RUN pending.

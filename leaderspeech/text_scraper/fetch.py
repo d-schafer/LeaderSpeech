@@ -9,6 +9,7 @@ retries with exponential backoff.
 
 from __future__ import annotations
 
+import os
 import random
 import time
 import urllib.robotparser
@@ -16,6 +17,25 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
+
+# After DOM-ready, how long to let the network settle so SPA/AJAX content can paint. Bounded so a
+# CF challenge / analytics polling (which never reach networkidle) can't hang the fetch.
+_NETWORKIDLE_BONUS_MS = 10000
+
+# Title/markers of a Cloudflare (or similar) JS interstitial that SELF-CLEARS a few seconds after
+# the page first reaches networkidle. We poll for these to disappear so a `js`/`cdp` fetch returns
+# the real page, not the challenge shell (issue #61). NOT included: "attention required" / "sorry,
+# you have been blocked" (CF-1020) — those are hard denials that never clear by waiting, so we don't
+# burn time polling them (they need renderer: cdp / a real browser session instead — issue #62).
+_CHALLENGE_MARKERS = (
+    "just a moment",
+    "checking your browser",
+    "verifying you are human",
+    "verify you are human",
+    "un momento",
+)
+_CHALLENGE_MAX_WAIT = 15.0   # seconds to let an interstitial self-clear before giving up
+_DEFAULT_CDP_ENDPOINT = "http://localhost:9222"
 
 USER_AGENT = (
     "LeaderSpeechBot/0.1 "
@@ -98,6 +118,8 @@ class Fetcher:
         respect_robots: bool = False,
         verify_ssl: bool = True,
         user_agent: Optional[str] = None,
+        js_settle: float = 0.0,
+        cdp_endpoint: Optional[str] = None,
     ):
         self.renderer = renderer
         self.delay_range = delay_range
@@ -107,6 +129,14 @@ class Fetcher:
         self.backoff = backoff
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+        # Extra fixed wait after a js/cdp page load (rarely needed; the challenge auto-wait is
+        # separate and always on).
+        self.js_settle = js_settle
+        # renderer: cdp -> the DevTools endpoint of a user-launched Chrome. Recipe field wins,
+        # else the env var, else localhost:9222.
+        self.cdp_endpoint = cdp_endpoint or os.environ.get(
+            "LEADERSPEECH_CDP_ENDPOINT", _DEFAULT_CDP_ENDPOINT
+        )
         # None => the honest default bot UA; a recipe may override it to clear a WAF
         # that hard-blocks the bot UA (e.g. some gov SharePoint sites).
         self.user_agent = user_agent or USER_AGENT
@@ -135,6 +165,20 @@ class Fetcher:
         from playwright.sync_api import sync_playwright
 
         self._pw = sync_playwright().start()
+        if self.renderer == "cdp":
+            # Attach to a Chrome the user launched with --remote-debugging-port. That real browser
+            # (real fingerprint, no --enable-automation, navigator.webdriver=false, plus any CF
+            # clearance the user already earned) passes CF bot checks that headless/headful
+            # Playwright-launched Chromium cannot (issue #62). Reuse its existing context so we
+            # inherit its cookies; don't override the UA (Chrome's own UA is what CF trusts).
+            self._browser = self._pw.chromium.connect_over_cdp(self.cdp_endpoint)
+            context = (
+                self._browser.contexts[0]
+                if self._browser.contexts
+                else self._browser.new_context()
+            )
+            self._page = context.new_page()
+            return
         self._browser = self._pw.chromium.launch(headless=True)
         context = self._browser.new_context(
             user_agent=self.user_agent,
@@ -144,6 +188,24 @@ class Fetcher:
             extra_http_headers={"Accept-Language": DEFAULT_HEADERS["Accept-Language"]},
         )
         self._page = context.new_page()
+
+    def _settle_challenge(self):
+        """After a js/cdp navigation, give a self-clearing CF 'Just a moment' interstitial time to
+        redirect to the real page, and honor any fixed js_settle wait. Cheap when there's no
+        challenge: one title read, then return. Only an actual interstitial incurs the poll (issue
+        #61). Hard denials (CF-1020 'Attention Required') are not polled — they never clear by
+        waiting; use renderer: cdp for those."""
+        if self.js_settle > 0:
+            self._page.wait_for_timeout(int(self.js_settle * 1000))
+        deadline = time.monotonic() + _CHALLENGE_MAX_WAIT
+        while time.monotonic() < deadline:
+            try:
+                title = (self._page.title() or "").lower()
+            except Exception:
+                return
+            if not any(m in title for m in _CHALLENGE_MARKERS):
+                return
+            self._page.wait_for_timeout(1000)
 
     @property
     def page(self):
@@ -174,7 +236,17 @@ class Fetcher:
                     resp = self._client.get(url)
                     resp.raise_for_status()
                     return resp.text
-                self._page.goto(url, wait_until="networkidle", timeout=self.timeout * 1000)
+                # js / cdp: load the DOM first (fires even on CF interstitials and sites with
+                # persistent polling), then give the network a SHORT window to settle so SPA/AJAX
+                # content can paint — but never hang on it, because CF challenges/analytics never
+                # reach networkidle (that hang made gg.govt.nz time out 3x -> 0 links). Finally let
+                # any CF "Just a moment" interstitial self-clear (issue #61) before reading the DOM.
+                self._page.goto(url, wait_until="domcontentloaded", timeout=self.timeout * 1000)
+                try:
+                    self._page.wait_for_load_state("networkidle", timeout=_NETWORKIDLE_BONUS_MS)
+                except Exception:
+                    pass
+                self._settle_challenge()
                 return self._page.content()
             except Exception as e:  # network error, timeout, HTTP error
                 last_err = e

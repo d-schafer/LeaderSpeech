@@ -255,6 +255,8 @@ def scrape_recipe(
         respect_robots=respect_robots,
         verify_ssl=recipe.verify_ssl,
         user_agent=recipe.user_agent,
+        js_settle=recipe.js_settle,
+        cdp_endpoint=recipe.cdp_endpoint,
     )
     wayback_client = None
 

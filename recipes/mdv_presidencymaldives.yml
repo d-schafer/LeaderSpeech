@@ -1,0 +1,43 @@
+# Maldives — President's Office. IMPORTANT: the master URL www.presidencymaldives.gov.mv is a
+# Cloudflare-gated redirect that a real browser passes (challenge -> bounce) but httpx cannot; its
+# DESTINATION, presidency.gov.mv, is a plain STATIC site with no Cloudflare at all - so we target it
+# directly. Speeches are category 12 (/Press/Articles/12), paginated ?page=N (~48 pages back to 1979).
+# Articles at /Press/Article/<id>. (This is the same office as the old presidencymaldives SPA; use the
+# clean presidency.gov.mv HTML rather than that domain's CF-blocked /api SPA.)
+source_id: mdv_presidencymaldives
+country: Maldives
+source_language: English
+renderer: static
+start_urls:
+  - https://presidency.gov.mv/Press/Articles/12
+
+listing:
+  link_pattern: '/Press/Article/\d+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 55        # ~48 pages of speeches (to 1979); engine stops at the first empty page
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: [".article-body", "article", "main"]
+date:
+  # The article date sits in .small-text under the h1 ("15 June 2026, Ref: ..."); regex the date.
+  # (Do NOT use .date-text here - on the detail page that is the recent-releases sidebar, which
+  # mis-dates the article.)
+  selectors: [".small-text"]
+  regex: '\d{1,2}\s+\w+\s+\d{4}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated. Maldives President's Office via presidency.gov.mv (the clean static
+  destination of the CF-gated www.presidencymaldives.gov.mv redirect - target this domain directly).
+  Speeches = category /Press/Articles/12, ?page=N pager (~48 pages to 1979); articles /Press/Article/<id>.
+  Title h1, text .article-body; date carried from the listing card .date-text (which also names the
+  speaker - captured downstream by the cleaner's tenure crosscheck across Gayoom/Nasheed/Waheed/Yameen/
+  Solih/Muizzu). Some speeches are Dhivehi, some English - cleaner detects per-doc. FULL RUN pending.
