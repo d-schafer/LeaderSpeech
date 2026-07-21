@@ -1,0 +1,42 @@
+# Slovakia — President (prezident.sk), via the Internet Archive.
+# WHY WAYBACK (pure-wayback, like Sudan): the LIVE prezident.sk /page/prejavy listing is a hard SPA
+# that shows only 1 speech and loads the rest via a JS control with NO server pager, NO sitemap, NO
+# RSS and NO reachable AJAX endpoint (?page=/?strana=/?offset= all 301) — it can't be enumerated.
+# The Internet Archive holds it well: CDX for prezident.sk/article/ = 3322 statuscode:200 captures
+# spanning 2015-2026 — presidents Kiska (2014-2019), Čaputová (2019-2024), Pellegrini (2024- ).
+# The /article/ namespace is the whole news feed (speeches + other), so the cleaner's document_type
+# gate does the speech/non-speech split. Body via the generic extractor (archived pages wrap the
+# text in nav chrome); date from the .date/time element (DD.MM.YYYY, Slovak).
+source_id: svk_prezident_wayback
+country: Slovakia
+source_language: Slovak
+renderer: static
+start_urls:
+  - prezident.sk/article/
+
+listing:
+  link_pattern: 'prezident\.sk/article/[a-z0-9-]{8,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1.article__title", "article h1", "h1", "title"]
+text:
+  # Archived pages mix nav with the body; the generic extractor recovers clean prose when these miss.
+  selectors: [".article__content", ".article-detail__content"]
+date:
+  selectors: [".date", "time", ".datum"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?20\d\d'
+
+position: president
+date_languages: ["sk"]
+notes: >
+  DRAFT — probe-validated (no full run). Pure-wayback (live SPA un-crawlable). prezident.sk/article/
+  2015-2026, ~3322 captures, presidents Kiska/Čaputová/Pellegrini -> no speaker_default, tenure
+  crosscheck. /article/ is the full news feed -> cleaner's document_type gate keeps the speeches
+  (prejavy). Body via the generic extractor; date DD.MM.YYYY (date_languages sk). Slovak; translation
+  stage fills English.

@@ -1,0 +1,63 @@
+# Romania — Presidency (presidency.ro), Klaus Iohannis era, via the Internet Archive.
+# WHY WAYBACK: the live presidency.ro sits behind a "Verifying your browser" JS challenge that
+# headless Chromium (renderer: js) and even a CDP-attached real Chrome DON'T clear inside the
+# engine's settle window — it only clears after ~5s in an interactive browser — AND the live
+# /ro/media/discursuri listing loads via JS with no server pager. The Archive holds the speeches
+# cleanly: CDX for presidency.ro/ro/media/discursuri = 480 statuscode:200 captures spanning
+# 2016..2023, ~314 distinct article slugs (heaviest in 2022). This is the Iohannis presidency
+# (2014-2024); many discursuri are his ENGLISH international addresses, so source_language Romanian
+# is nominal — trust the cleaner's per-row language detection.
+#
+# No wayback_to bound: the companion live recipe (rou_presidency) covers only the CURRENT president
+# (Nicușor Dan, 2025- ) and needs a user-launched Chrome, so this archive harvest is the primary
+# Iohannis-era source and should collect its full 2016-2023 span.
+source_id: rou_presidency_wayback
+country: Romania
+source_language: Romanian
+renderer: static
+start_urls:
+  # CDX prefix — the engine prefix-matches (no trailing '*').
+  - presidency.ro/ro/media/discursuri
+
+listing:
+  # Require a real article slug (>=10 chars) after discursuri/, excluding the bare listing page and
+  # its year-filter captures. Slugs sometimes carry %E2%80 (smart-quote) encoding, so [^/] not [a-z].
+  link_pattern: '/ro/media/discursuri/[^/]{10,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # h1 is the site banner ("Președintele României"); the speech title is the h2.
+  selectors: ["h2", ".news-title", "title"]
+text:
+  # .news-details carries a short "înapoi la Discursuri / Vezi ..." nav prefix before the body;
+  # the cleaner tolerates it. .inner-left / .content are archived-layout fallbacks.
+  selectors: [".news-details", ".inner-left", ".content"]
+date:
+  # DATE TRAP: presidency.ro's .link-big-date element renders a crawl/JS "current" value on
+  # re-crawled captures (the probe read uniform garbage — day always 21, year 2026, even future
+  # months), NOT the article date; on a few contemporaneous captures it happens to be right, but
+  # it is untrustworthy overall. So we DO NOT select it — better an empty date the cleaner fills
+  # than a confidently-wrong year. These selectors intentionally miss on the archived layout;
+  # the article date comes from the cleaner's corrected-date pass (occasion/date stated in-text),
+  # constrained to Iohannis's 2014-2024 term. -> recipe_status: partial.
+  selectors: ["time.published", ".news-date"]
+
+position: president
+speaker_default: Klaus Iohannis
+date_languages: ["ro"]
+notes: >
+  PARTIAL — probe-validated (no full run): title (h2) + text (.news-details) GREEN over 474
+  archived captures; DATE is the known-weak field. Iohannis-era discursuri via the Internet
+  Archive (2016-2023, ~314 slugs). speaker_default Klaus Iohannis (the whole CDX window is his
+  term, 2014-2024); tenure crosscheck corrects strays. presidency.ro publishes NO reliable
+  machine-readable article date in the archived HTML — .link-big-date is a crawl/JS artifact
+  (garbage on re-crawls) and the URL slugs carry no date — so dates are DEFERRED to the cleaner's
+  corrected-date pass, mirroring mdg_presidence_wayback. Language is MIXED (many of Iohannis's
+  addresses are in English) — trust the cleaner's per-row detection over source_language. Live
+  presidency.ro is challenge-blocked (see the header + the pol/rou live notes); this archive
+  harvest is the Iohannis primary. recipe_status: partial.

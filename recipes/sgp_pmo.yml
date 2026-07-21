@@ -1,0 +1,39 @@
+# Singapore — Prime Minister's Office (pmo.gov.sg), ENGLISH.
+# Isomer (Next.js) STATICALLY-GENERATED site: the full article body is in the raw HTML (no JS needed).
+# Enumerate via the sitemap — /sitemap.xml lists 3115 /newsroom/ URLs (far deeper than the on-page
+# listing, which shows ~13 and has no server pager). Article: title h1; body <main> (title+labels+body,
+# the cleaner trims); date is a .prose-label-sm-medium label that SHARES its class with the speaker and
+# topic labels, so it can't be selected by class — instead regex the first "D Month YYYY" out of <main>
+# (the publication date sits in the header, before the speech body). Covers PM Lawrence Wong, SM Lee
+# Hsien Loong, SM Tharman, DPMs etc. -> no speaker_default; the newsroom mixes speeches/press releases/
+# appointments so the cleaner's document_type gate filters.
+source_id: sgp_pmo
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  - https://www.pmo.gov.sg/newsroom
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.pmo.gov.sg/sitemap.xml
+
+listing:
+  link_pattern: '/newsroom/[a-z0-9-]{10,}'
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["main", "article"]
+date:
+  selectors: ["main"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+20\d\d'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Singapore PMO via the Isomer sitemap (3115 newsroom URLs,
+  static HTML). Multiple office-holders (PM Wong, SM Lee, SM Tharman, DPMs) -> no speaker_default;
+  cleaner's gate keeps speeches/interviews. Date regexed from <main> (its dedicated label shares a
+  class with speaker/topic). English.

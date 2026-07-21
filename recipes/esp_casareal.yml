@@ -1,0 +1,40 @@
+# Spain — Casa de S.M. el Rey (casareal.es), the master's listed source: King Felipe VI (2014- ).
+# ASP.NET/SharePoint but — unlike La Moncloa — the discursos listing paginates via a GET pager
+# ?pageSize=N&page=N (server-rendered, crawlable). Speeches are actividades_discursos_detalle.aspx?data=<ID>.
+# Title h1; date .date ("Teatro Campoamor. Oviedo, 22.10.2024" -> regex DD.MM.YYYY, day-first, es);
+# body is unclassed divs so the generic extractor recovers it. The listing carries ALL royal-family
+# discursos (King, Queen, Princess of Asturias) -> no speaker_default; the cleaner's speaker pass keeps
+# the King's (head of state) and can drop the rest.
+source_id: esp_casareal
+country: Spain
+source_language: Spanish
+renderer: static
+start_urls:
+  - https://www.casareal.es/ES/Actividades/Paginas/actividades_discursos.aspx?pageSize=20
+
+listing:
+  link_pattern: 'discursos_detalle\.aspx\?data=\d+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # unclassed body -> generic extractor recovers it when these miss.
+  selectors: [".customWidth", ".contenido", "article", "main"]
+date:
+  selectors: [".date", "[class*=fecha]", "[class*=date]"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+
+date_languages: ["es"]
+notes: >
+  DRAFT — probe-validated (no full run). Casa Real discursos (casareal.es) via the GET pager
+  ?pageSize=20&page=N. King Felipe VI (+ older Juan Carlos if the data-id archive reaches back);
+  the listing also holds Queen/Princess discursos -> no speaker_default, the cleaner's speaker pass
+  keeps the King. Date from .date (regex DD.MM.YYYY, day-first, es); body via the generic extractor
+  (unclassed markup). Spanish; translation stage fills English.

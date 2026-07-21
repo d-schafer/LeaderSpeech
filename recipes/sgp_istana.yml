@@ -1,0 +1,35 @@
+# Singapore — Istana / President's Office (istana.gov.sg), ENGLISH.
+# Same Isomer (Next.js) statically-generated stack as pmo.gov.sg — full body in raw HTML, enumerate
+# via /sitemap.xml (953 /newsroom/ URLs). Ceremonial head of state: President Tharman Shanmugaratnam
+# (2023- ), Halimah Yacob (2017-2023), Tony Tan (2011-2017). Selectors identical to sgp_pmo: title h1;
+# body <main>; date regexed as "D Month YYYY" from <main> (the date label shares a class with speaker/
+# topic labels). No speaker_default (multiple presidents) -> tenure crosscheck.
+source_id: sgp_istana
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  - https://www.istana.gov.sg/newsroom
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.istana.gov.sg/sitemap.xml
+
+listing:
+  link_pattern: '/newsroom/[a-z0-9-]{10,}'
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["main", "article"]
+date:
+  selectors: ["main"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+20\d\d'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Singapore Istana (President) via the Isomer sitemap
+  (953 newsroom URLs, static HTML). Presidents Tharman / Halimah / Tony Tan -> no speaker_default,
+  tenure crosscheck. Same shape as sgp_pmo. English.

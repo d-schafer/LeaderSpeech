@@ -1,0 +1,41 @@
+# Slovenia — President of the Republic (predsednica-slo.si), Nataša Pirc Musar (2022- ).
+# The master's up-rs.si redirects here. Static site; the SPEECHES category is /sl/objave/govori,
+# paginated ?start=N (step 16). Article URLs /sl/objave/<slug> (no date in URL). Title h1; body via
+# the generic extractor (the site's article container isn't a stable class); date is a Slovenian
+# "Datum objave 30. 5. 2026" label (present on most pages) -> regex D. M. YYYY, date_languages sl.
+# Predecessors (Pahor 2012-2022, Türk 2007-2012) are on the OLD up-rs.si domain -> svn_up_rs_wayback.
+source_id: svn_predsednica
+country: Slovenia
+source_language: Slovenian
+renderer: static
+start_urls:
+  - https://www.predsednica-slo.si/sl/objave/govori
+
+listing:
+  # articles under /sl/objave/<slug>, excluding the category tabs (vse/govori/poslanice/...).
+  link_pattern: '/sl/objave/(?!vse|govori|poslanice|aktivnosti|mednarodne|intervjuji|novinarska)[a-z0-9-]{8,}'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 16
+  max_pages: 40
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # Generic extractor recovers the body when these miss (no stable content container).
+  selectors: [".news-single", ".article-body", ".news-list-section"]
+date:
+  selectors: ["[class*=date]", "[class*=datum]"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?20\d\d'
+
+position: president
+speaker_default: Nataša Pirc Musar
+date_languages: ["sl"]
+notes: >
+  DRAFT — probe-validated (no full run). Slovenia President Pirc Musar speeches (/sl/objave/govori),
+  ?start= pager step 16. speaker_default Nataša Pirc Musar (2022- ); body via the generic extractor;
+  date from the "Datum objave" label (regex D. M. YYYY, may miss on some pages -> cleaner fills).
+  Predecessors -> svn_up_rs_wayback. Slovenian; translation stage fills English.

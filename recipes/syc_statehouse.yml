@@ -1,0 +1,42 @@
+# Seychelles — State House / Office of the President (statehouse.gov.sc), ENGLISH.
+# Static Apache site built with the "Nicepage" page builder (generic u-* classes, no WordPress).
+# Speeches listing /speeches, pager ?page=N (~30 pages). Speech pages are /speeches/<id>/<slug>.
+# The builder assigns positional classes that ARE stable across speech pages:
+#   * title  = the .u-text-default.u-text-1 heading (first in document order; a footer repeat comes later)
+#   * date   = the p.u-text-2 that is neither the .u-subtitle banner nor the .u-small-text copyright,
+#              text "09 July 2026 | <topic>" -> regex isolates the date
+#   * body   = the .u-sheet-1 content sheet (title/date lines leak in but the cleaner tolerates them)
+# Multilingual site (English/French/Creole via ?language=); the default /speeches is English.
+# Covers President Herminie (2025- ) back through predecessors + some VP remarks -> no speaker_default.
+source_id: syc_statehouse
+country: Seychelles
+source_language: English
+renderer: static
+start_urls:
+  - https://www.statehouse.gov.sc/speeches
+
+listing:
+  link_pattern: '/speeches/\d+/[a-z0-9-]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 40
+
+title:
+  selectors: [".u-text-default.u-text-1", "title"]
+text:
+  selectors: [".u-sheet-1", ".container"]
+date:
+  selectors: ["p.u-text-2:not(.u-subtitle):not(.u-small-text)"]
+  regex: '\d{1,2}\s+\w+\s+20\d\d'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Seychelles State House speeches. Nicepage-built static
+  site; positional u-* selectors validated stable across pages. English. Spans President Herminie
+  (2025- ) + predecessors (Ramkalawan, Faure) and occasional VP remarks -> no speaker_default,
+  tenure crosscheck / cleaner assigns speaker. Wayback assessed separately (see outbox).

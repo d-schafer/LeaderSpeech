@@ -1,0 +1,39 @@
+# South Africa — SA Government speeches aggregator (gov.za/news/speeches), ENGLISH.
+# The deep official archive of ALL government speeches (President + ministers). Static Drupal:
+# title h1; body .field--name-body; date the <time> element ("10 Jul 2026"); pager ?page=N (0-indexed).
+# Article URLs /news/speeches/<slug>. This is broader than the presidency (the master's
+# thepresidency.gov.za only shows the current 7th administration), so it is the depth source the
+# researcher chose. No speaker_default / no position — the cleaner's speaker pass keeps the President's
+# (Ramaphosa etc.) speeches and the document_type gate filters; ministers' speeches are also retained
+# if useful. Covers many years back (SONA, presidential addresses + ministerial).
+source_id: zaf_gov
+country: South Africa
+source_language: English
+renderer: static
+start_urls:
+  - https://www.gov.za/news/speeches
+
+listing:
+  link_pattern: '/news/speeches/[a-z0-9-]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 800
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".field--name-body", ".node__content", "article"]
+date:
+  selectors: ["time", ".field--name-field-start-date time", ".date-display-single"]
+
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). gov.za/news/speeches — the deep official aggregator of SA
+  government speeches (President + ministers). Drupal; title h1 / body .field--name-body / date <time>
+  / pager ?page= (0-indexed). No speaker_default -> the cleaner's speaker pass + document_type gate
+  keep the President's (and other leaders') speeches. Chosen by the researcher as SA's depth source
+  alongside zaf_thepresidency (live current admin) + zaf_thepresidency_wayback (older admins).

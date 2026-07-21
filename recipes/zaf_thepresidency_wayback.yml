@@ -1,0 +1,42 @@
+# South Africa — Presidency (thepresidency.gov.za), OLD site, via the Internet Archive.
+# The current thepresidency.gov.za was rebuilt for the 7th administration (2024- ) and its live
+# speeches listing is a JS/AJAX Drupal view; current presidential speeches are also on gov.za
+# (see zaf_gov), so this recipe targets the PREVIOUS presidency site's deep speech archive.
+# CDX for thepresidency.gov.za/speeches = 3638 distinct /speeches/<slug> article captures (of 42k+
+# total captures), the old Drupal-7 site: Zuma (to 2018), Ramaphosa as Deputy President then
+# President (2014-2024). Archived article: title h1, body .field-name-body (Drupal 7 single-dash),
+# date a date-class element ("19 March 2015"). English.
+source_id: zaf_thepresidency_wayback
+country: South Africa
+source_language: English
+renderer: static
+start_urls:
+  - thepresidency.gov.za/speeches
+
+listing:
+  # [^?] excludes the ?page=N referrer variants that archive the SAME speech many times
+  # (the canonical query-less capture is kept, deduping ~26k captures down to the real articles).
+  link_pattern: 'thepresidency\.gov\.za/speeches/[^?]{12,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1#page-title", "h1", "title"]
+text:
+  selectors: [".field-name-body", ".field--name-body", ".node__content"]
+date:
+  selectors: [".date-display-single", "[class*=date-display]", "[class*=date]", "time"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+\d{4}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Old thepresidency.gov.za Drupal-7 speech archive
+  (Zuma / Ramaphosa 2014-2024) via the Internet Archive, ~3638 /speeches/<slug> captures. Title h1,
+  body .field-name-body, date from a date-class element (regex "D Month YYYY"). No speaker_default
+  (Zuma, Ramaphosa, deputy presidents) -> tenure crosscheck. Complements zaf_gov (current + broad
+  aggregator). English.

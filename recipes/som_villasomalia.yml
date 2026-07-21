@@ -1,0 +1,44 @@
+# Somalia — Villa Somalia / Office of the President (villasomalia.gov.so).
+# WordPress; scraped via the REST API /wp-json/wp/v2/posts (bare array -> results_path "."). 1082 posts
+# back to 2018-06 across bayannada(592, "statements")/warbaahin(572,"media")/khudbado(83,"speeches")/
+# speeches(16)/press-statements(54)/press-releases(47). We take ALL posts (no category filter) to
+# maximise recall and let the cleaner's document_type gate filter. Covers Farmaajo (2017-2022) + Hassan
+# Sheikh Mohamud (2022- ) -> no speaker_default, tenure crosscheck. BILINGUAL (Somali + English) ->
+# source_language Somali is nominal; trust the cleaner's per-row detection. Body per post (.entry-content);
+# where the theme has no stable container the generic extractor recovers it (like sle_statehouse).
+source_id: som_villasomalia
+country: Somalia
+source_language: Somali
+renderer: static
+start_urls:
+  - https://villasomalia.gov.so/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: 'villasomalia\.gov\.so/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 12
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", ".elementor-widget-theme-post-content", "article"]
+date:
+  selectors: ["time.entry-date", "time", ".published"]
+  attr: datetime
+
+position: president
+date_languages: ["so"]
+notes: >
+  DRAFT — probe-validated (no full run). Villa Somalia via the WP REST API (1082 posts, 2018-2026).
+  Farmaajo + Hassan Sheikh -> no speaker_default. Bilingual Somali/English -> cleaner detects per row.
+  All categories taken -> cleaner's gate filters. Body via .entry-content or the generic extractor.

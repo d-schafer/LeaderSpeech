@@ -1,0 +1,50 @@
+# Sierra Leone — State House (statehouse.gov.sl), President Julius Maada Bio.
+# WordPress; the clean, dated route is the REST API /wp-json/wp/v2/posts (bare array -> results_path ".").
+# The install's posts only go back to 2025-01 (285 posts) even though Bio has been president since
+# 2018 — the older content is Wayback territory (see sle_statehouse_wayback). We take ALL posts (no
+# category filter: news 264 / statements 47 / ecowas 48 / press-releases 14) to maximise speech recall
+# and let the cleaner's document_type gate keep addresses/statements and drop routine press.
+# BODY NOTE: the theme is Astra+Elementor with NO stable post-content container (the body isn't in
+# .entry-content or a single widget, and varies per post), so the text selectors below deliberately
+# MISS and the engine's generic article extractor recovers the body (probe flags this; a real run
+# populates text via generic — verified the generic extractor returns the full ~3-4k-char bodies).
+# Title + date come cleanly from the WP API (title.rendered / ISO date).
+source_id: sle_statehouse
+country: Sierra Leone
+source_language: English
+renderer: static
+start_urls:
+  - https://statehouse.gov.sl/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: 'statehouse\.gov\.sl/20\d\d/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 6
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date        # ISO 8601 -> api dates skip date_languages
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # These clean-MISS on this Elementor layout so the generic extractor recovers the body (see header).
+  selectors: [".entry-content", ".elementor-widget-theme-post-content"]
+date:
+  selectors: ["time.entry-date", "time", ".published"]
+  attr: datetime
+
+position: president
+speaker_default: Julius Maada Bio
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run): title + date GREEN via the WP REST API; body via the
+  engine's generic extractor (Elementor site, no stable content container). speaker_default Julius
+  Maada Bio (this install is his presidency; live posts 2025-01 onward only). All post categories
+  taken -> cleaner's gate filters. Bio's 2018-2024 + late Koroma are covered by sle_statehouse_wayback.

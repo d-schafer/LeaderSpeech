@@ -1,0 +1,44 @@
+# Spain — La Moncloa / President of the Government (Prime Minister), via the Internet Archive.
+# The ADDED head-of-government source (PM Pedro Sánchez; the master's casareal.es is the ceremonial
+# King). lamoncloa.gob.es is ASP.NET/SharePoint: the /presidente/intervenciones/ listing paginates
+# ONLY via __doPostBack (a JS postback — ?pagina=/?page= are ignored, no sitemap, no per-year listing),
+# so the live listing can't be enumerated. But the individual .aspx pages are clean and the Archive
+# holds them well: CDX for lamoncloa.gob.es/presidente/intervenciones/Paginas = 2183 dated captures
+# spanning 2014-2026 (Rajoy 2014-2018, Sánchez 2018- ). The speech URL embeds the date:
+# /Paginas/YYYY/YYYYMMDD-<slug>.aspx -> date via url_regex (unambiguous ISO). Title h1; body .customWidth.
+source_id: esp_lamoncloa_wayback
+country: Spain
+source_language: Spanish
+renderer: static
+start_urls:
+  - lamoncloa.gob.es/presidente/intervenciones/Paginas
+
+listing:
+  link_pattern: '/intervenciones/Paginas/\d{4}/\d{8}-[^?]+\.aspx$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".customWidth", ".contentPage", "article", "main"]
+date:
+  # .date carries the article date "28.5.2024" (DD.M.YYYY, day-first) on all years — preferred over
+  # the URL, whose date format is INCONSISTENT (2024+ = YYYYMMDD, 2021-and-earlier = DDMMYYYY, e.g.
+  # /2021/13052021-...). date_languages ["es"] parses it day-first.
+  selectors: [".date", "[class*=fecha]"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+
+position: prime minister
+date_languages: ["es"]
+notes: >
+  DRAFT — probe-validated (no full run). La Moncloa (Spanish PM) via the Internet Archive
+  (2014-2026, ~2183 dated intervenciones). Pure-wayback: the live listing paginates only via
+  ASP.NET __doPostBack (un-crawlable), no sitemap. Date from the /Paginas/YYYY/YYYYMMDD-slug.aspx
+  permalink (url_regex). Rajoy + Sánchez -> no speaker_default, tenure crosscheck. Spanish;
+  translation stage fills English. A live renderer:js + click recipe is a possible future upgrade
+  for current speeches.

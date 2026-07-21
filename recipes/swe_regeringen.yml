@@ -1,0 +1,37 @@
+# Sweden — Government Offices / Prime Minister (regeringen.se), SWEDISH.
+# The ADDED head-of-government source (PM Ulf Kristersson; the master's kungahuset.se is the ceremonial
+# King). The /tal/ (speeches) listing paginates only via JS (?page= is ignored), but the sitemap lists
+# every speech: /sitemap.xml has 278 /tal/YYYY/MM/<slug> URLs back to 1996. Static article pages:
+# title h1; date <time> ("14 oktober 2015", Swedish); body .has-wordExplanation (SiteVision content).
+# regeringen.se/tal is the whole GOVERNMENT's speeches (PM + ministers), so no speaker_default / no
+# position -> the cleaner's speaker pass keeps the PM's (and other leaders') and the gate filters.
+# (An English mirror exists at government.se; Swedish is the fuller original.)
+source_id: swe_regeringen
+country: Sweden
+source_language: Swedish
+renderer: static
+start_urls:
+  - https://www.regeringen.se/tal/
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.regeringen.se/sitemap.xml
+
+listing:
+  link_pattern: '/tal/\d{4}/\d{2}/[a-z0-9-]+'
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".has-wordExplanation", ".col-1", "main"]
+date:
+  selectors: ["time", ".published"]
+  regex: '\d{1,2}\s+\w+\s+\d{4}'
+
+date_languages: ["sv"]
+notes: >
+  DRAFT — probe-validated (no full run). Sweden Government speeches via the regeringen.se sitemap
+  (278 /tal/ URLs, 1996-2026). Whole-government feed (PM + ministers) -> no speaker_default; the
+  cleaner's speaker pass + document_type gate keep PM Kristersson's (and other leaders') speeches.
+  Date from <time> (regex, date_languages sv). Swedish; translation stage fills English.

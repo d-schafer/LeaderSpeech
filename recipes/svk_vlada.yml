@@ -1,0 +1,41 @@
+# Slovakia — Government Office / Prime Minister (vlada.gov.sk), SLOVAK.
+# The ADDED head-of-government source (Slovakia's PM Robert Fico is the dominant political actor;
+# the master's prezident.sk is the president). Static site on the Slovak IDSK/govuk design system.
+# Press-release feed /tlacove-spravy/, path pager /tlacove-spravy/stranaN/ (strana1 == page 1, so
+# start:1 is clean). Articles /tlacove-spravy/<slug>. Selectors: title h1; date span.idsk-card-meta-date
+# ("01.07.2026", DD.MM.YYYY); body the <article> content column. Feed spans PMs (Fico 2023- , and
+# back through the site's history) -> no speaker_default, tenure crosscheck. Government wire ->
+# cleaner's document_type gate keeps PM speeches/statements ("prihovor"/"prejav") and drops routine PR.
+source_id: svk_vlada
+country: Slovakia
+source_language: Slovak
+renderer: static
+start_urls:
+  - https://www.vlada.gov.sk/tlacove-spravy/
+
+listing:
+  link_pattern: '/tlacove-spravy/(?!strana)[a-z0-9-]{8,}'
+
+pagination:
+  type: path
+  path_format: "strana{n}/"
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["article.govuk-grid-column-two-thirds-from-desktop", "article", ".govuk-body"]
+date:
+  # The page has several span.idsk-card-meta-date (article date + a 'latest news' sidebar of
+  # cards); first_match joins them all, so the regex takes the FIRST date = the article's own.
+  selectors: ["span.idsk-card-meta-date", ".idsk-card-meta-date", "time"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?20\d\d'
+
+position: prime minister
+date_languages: ["sk"]
+notes: >
+  DRAFT — probe-validated (no full run). Slovak Government Office / PM press releases via
+  vlada.gov.sk/tlacove-spravy/. Slovak; translation stage fills English. Multiple PMs in scope ->
+  tenure crosscheck. Broad government wire -> cleaner's gate keeps PM speeches/statements.

@@ -1,0 +1,49 @@
+# Sri Lanka — President (president.gov.lk), via the Internet Archive.
+# WHY WAYBACK: the live site is Cloudflare "Just a moment" — headless renderer:js clears the LISTING
+# landing (title "President of Sri Lanka"), but ARTICLE pages RE-CHALLENGE ("Performing security
+# verification", even with js_settle=7) and the news list is JS-lazy-loaded with a broken pager
+# (/news/page/2 yields ~1 link); the wp-json REST API is CF+httpx-blocked too. So the live site needs
+# CDP + scroll (a follow-up). The Archive has good depth: CDX for president.gov.lk (domain) = 5000+
+# statuscode:200 captures, HEAVY 2016-2020 (3433 in 2019 alone) = Sirisena (2015-2019) / Gotabaya
+# (2019-2022) era. The OLD site used ROOT-LEVEL article slugs /<slug> (e.g. /15th-biennial-...); title
+# is h1, body via the generic extractor. English (Sri Lankan gov English edition).
+source_id: lka_president_wayback
+country: Sri Lanka
+source_language: English
+renderer: static
+start_urls:
+  - president.gov.lk
+
+listing:
+  # root-level hyphenated article slugs; exclude WP taxonomy/section/asset paths.
+  link_pattern: 'president\.gov\.lk/(?!wp-|category/|tag/|author/|page/|feed|news/page|media/|en/page)[a-z0-9][a-z0-9-]{16,}/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # These clean-MISS so the generic extractor recovers the full body (a bare `article` selector
+  # grabbed only a short container on some pages; letting generic run yields the whole speech).
+  selectors: [".td-post-content", ".entry-content", ".single-content"]
+date:
+  # The archived articles carry NO machine-readable date (no date element, no meta) -> these
+  # intentionally miss and the date is DEFERRED to the cleaner's corrected-date pass (like
+  # rou_presidency_wayback / mdg_presidence_wayback). -> recipe_status: partial.
+  selectors: [".td-post-date time", ".entry-date"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+\d{4}|\d{4}-\d{2}-\d{2}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  PARTIAL — probe-validated (no full run): title (h1) GREEN + body (generic extractor) over 2107
+  archived captures; DATE is the weak field (archived articles carry no machine-readable date ->
+  deferred to the cleaner's corrected-date pass, constrained by tenure). Sri Lanka President via
+  the Internet Archive, heavy 2016-2020 (Sirisena/Gotabaya). Live site is CF case-(b) + JS-lazy-load
+  (see header) -> this archive harvest is the practical source; a live CDP+scroll recipe is a
+  follow-up (see outbox). Root-level /<slug> articles. Spans multiple presidents -> no
+  speaker_default, tenure crosscheck. English. recipe_status: partial.

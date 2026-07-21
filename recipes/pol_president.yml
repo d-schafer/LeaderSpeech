@@ -1,0 +1,61 @@
+# Poland — President of the Republic (president.pl), ENGLISH edition.
+# Cloudflare "Just a moment" managed challenge that does NOT clear under headless Chromium
+# (renderer: js still captured the interstitial shell), so this is a case-(c) block →
+# renderer: cdp (attach to a user-launched real Chrome). Launch Chrome first:
+#   & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 \
+#       --user-data-dir="$env:TEMP\chrome-cdp" https://www.president.pl/news
+# then run probe/run; keep that window open for the whole crawl.
+#
+# We scrape the ENGLISH edition (English title + body → straight into English columns, no
+# translation step). The current president's feed is /news; each PAST president keeps a full
+# English news archive under /archives/<name>/news — so three start_urls give the whole live
+# English record 2010→2026 (Komorowski 2010-15, Duda 2015-25, Nawrocki 2025- ) with no Wayback
+# needed. (Kaczyński 2005-10 and Kwaśniewski 1995-2005 have /archives landing pages but NO /news
+# listing — their English press archive was never migrated; pre-2010 English is unavailable, and
+# the CDX shows only a handful of pre-2010 English captures, so a wayback recipe adds ~nothing.)
+# Listing rows are <base>/news/<slug>,<numeric-id>; the pager is <base>/news/page,N (page,1 == the
+# bare listing, so start:1 is clean; the engine paginates each start_url independently).
+# IMPORTANT: even on the English edition the date renders in POLISH ("27 maja 2026" / "04 sierpnia
+# 2025"), so date_languages: ["pl"]; the article date is .articles-single__date (the
+# .articles-item__date elements are the related-articles sidebar — do not select those). Spans
+# multiple presidents → speaker left to the tenure crosscheck, no default.
+source_id: pol_president
+country: Poland
+source_language: English
+renderer: cdp
+start_urls:
+  - https://www.president.pl/news                              # Nawrocki (current)
+  - https://www.president.pl/archives/andrzej-duda/news        # Duda 2015-2025
+  - https://www.president.pl/archives/bronislaw-komorowski/news # Komorowski 2010-2015
+
+listing:
+  # <slug>,<id> articles under any /news/ (current or archive); (?!page,) drops the .../news/page,N
+  # pager anchors (which also end ,<n>); galleries are .../news/gallery/<slug>,<id> (extra path
+  # segment) and don't match [^/]+.
+  link_pattern: '/news/(?!page,)[^/]+,\d+$'
+
+pagination:
+  type: path
+  path_format: "/page,{n}"
+  start: 1
+  step: 1
+  max_pages: 300
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".articles-single__description", ".articles-single", "main#main-content"]
+date:
+  selectors: [".articles-single__date"]
+
+position: president
+date_languages: ["pl"]
+notes: >
+  DRAFT — probe-validated over CDP (no full run). English edition of president.pl. Live site is
+  Cloudflare case-(c): headless js captures the "Just a moment" shell, so renderer: cdp against a
+  user-launched real Chrome is required (mlt_president/nzl_gg precedent). Date is Polish even on
+  the English pages (date_languages: ["pl"]). Three start_urls (current /news + Duda + Komorowski
+  archives) give the full live English record 2010-2026; no speaker_default (Komorowski/Duda/
+  Nawrocki all in scope), tenure crosscheck assigns. NO wayback recipe: the only era the live site
+  lacks is pre-2010 (Kaczyński/Kwaśniewski), whose English press archive was never migrated AND is
+  near-absent from the CDX — wayback would add ~nothing.

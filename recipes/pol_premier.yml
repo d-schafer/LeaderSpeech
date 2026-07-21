@@ -1,0 +1,40 @@
+# Poland — Chancellery of the Prime Minister (KPRM), gov.pl/web/premier, POLISH.
+# The unified gov.pl portal is plain static HTML to the bot UA (no Cloudflare, unlike president.pl).
+# The Chancellery's news feed is /web/premier/wydarzenia, paginated ?page=N&size=10 (~294 pages).
+# News cards are div.art-prev (10/page); scoping link_selector to '.art-prev a' keeps us to
+# articles and off the institutional nav (which shares the /web/premier/ prefix). Article body is
+# .editor-content, date .event-date (14.07.2026, DD.MM.YYYY). Feed spans multiple PMs (Tusk 2023- ,
+# Morawiecki 2017-2023, back to the portal's ~2019 launch) -> no speaker_default, tenure crosscheck.
+# This is the KPRM wire (Chancellery news), broader than PM speeches; the cleaner's document_type
+# gate keeps the speeches/statements and drops the rest.
+source_id: pol_premier
+country: Poland
+source_language: Polish
+renderer: static
+start_urls:
+  - https://www.gov.pl/web/premier/wydarzenia?size=10
+
+listing:
+  link_selector: ".art-prev a"
+  link_pattern: '/web/premier/[a-z0-9-]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 300
+
+title:
+  selectors: ["h2.event-title", ".article-area__title", "h1.article-area__title", "title"]
+text:
+  selectors: [".editor-content", ".article-area__content", "article"]
+date:
+  selectors: [".event-date"]
+
+position: prime minister
+date_languages: ["pl"]
+notes: >
+  DRAFT — probe-validated (no full run). KPRM/PM office news via gov.pl/web/premier/wydarzenia.
+  Polish; translation stage fills English. Multiple PMs in scope -> tenure crosscheck. Broad news
+  feed -> cleaner's document_type gate filters to speeches/statements.

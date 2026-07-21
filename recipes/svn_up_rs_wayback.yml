@@ -1,0 +1,43 @@
+# Slovenia — President (old up-rs.si domain), via the Internet Archive. ENGLISH edition.
+# The president's office moved to predsednica-slo.si in 2022 (Pirc Musar); the PREDECESSORS lived on
+# up-rs.si, a Lotus Domino site. CDX for the up-rs.si domain = 5000+ statuscode:200 captures spanning
+# 2001-2023. Speech documents are at /up-rs/uprs-eng.nsf/dokumentiweb/<UNID> (the English edition;
+# ~986 doc captures) — clean pages: title h1, an h2 dateline "Ljubljana, 28.1.2009 | speech" (carries
+# the DD.MM.YYYY date AND the doc type), body .inner-page-content. Spans presidents Drnovšek
+# (2002-2007), Türk (2007-2012), Pahor (2012-2022) -> no speaker_default. English edition -> straight
+# into English columns. Bounded by wayback_to so it doesn't overlap the live svn_predsednica.
+source_id: svn_up_rs_wayback
+country: Slovenia
+source_language: English
+renderer: static
+start_urls:
+  - up-rs.si/up-rs/uprs-eng.nsf/dokumentiweb
+
+listing:
+  link_pattern: 'uprs-eng\.nsf/dokumentiweb/[0-9A-F]{20,}'
+
+pagination:
+  type: wayback
+  wayback_to: "20221201"
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".inner-page-content", ".yui-b"]
+date:
+  # h2 dateline "Ljubljana, 28.1.2009  |  speech" -> DD.MM.YYYY
+  selectors: ["h2"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?20\d\d'
+
+position: president
+date_languages: ["sl"]
+notes: >
+  DRAFT — probe-validated (no full run). Slovenia President predecessors (Drnovšek/Türk/Pahor,
+  2001-2022) via the archived up-rs.si Lotus Domino ENGLISH edition (uprs-eng.nsf/dokumentiweb,
+  ~986 docs). Title h1, date from the h2 dateline (DD.MM.YYYY), body .inner-page-content. No
+  speaker_default (multiple presidents) -> tenure crosscheck. English edition -> no translation
+  needed. wayback_to 20221201 keeps it clear of the live svn_predsednica (Pirc Musar). A parallel
+  Slovenian edition exists at uprs.nsf/dokumenti if fuller coverage is wanted later.

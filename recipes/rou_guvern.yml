@@ -1,0 +1,40 @@
+# Romania — Government of Romania / Prime Minister (gov.ro), ROMANIAN.
+# Plain static HTML to the bot UA (Apache; no anti-bot, unlike presidency.ro which sits behind a
+# "Verifying your browser" JS challenge). News feed /ro/stiri, paginated ?page=N (5 items/page).
+# Markup is largely unclassed: article title is the first <h2> inside .page.w635, body is
+# .pageDescription, and the date is an unclassed <span> "Sâmbătă, 18 Iulie 2026" — pulled with a
+# regex over .page.w635 (first date-like match = the article date at the top). Feed spans PMs
+# (Bolojan 2025- , and back through the site's history) -> no speaker_default, tenure crosscheck.
+# This is the Government wire (broader than PM speeches); the cleaner's document_type gate filters.
+source_id: rou_guvern
+country: Romania
+source_language: Romanian
+renderer: static
+start_urls:
+  - https://gov.ro/ro/stiri
+
+listing:
+  link_selector: "h2 a"
+  link_pattern: '/ro/stiri/[a-z0-9-]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 800   # 5 items/page; ~2023-06 at page 300, so raised to reach the site's real floor
+
+title:
+  selectors: [".page.w635 h2", "h2", "title"]
+text:
+  selectors: [".pageDescription", ".page.w635"]
+date:
+  selectors: [".page.w635"]
+  regex: '\d{1,2}\s+\w+\s+20\d\d'
+
+position: prime minister
+date_languages: ["ro"]
+notes: >
+  DRAFT — probe-validated (no full run). Government of Romania / PM news via gov.ro/ro/stiri.
+  Romanian; translation stage fills English. Multiple PMs in scope -> tenure crosscheck. Broad
+  government wire -> cleaner's document_type gate keeps PM speeches/statements.

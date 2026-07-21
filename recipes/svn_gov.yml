@@ -1,0 +1,39 @@
+# Slovenia — Government of Slovenia / Prime Minister (gov.si), SLOVENIAN.
+# The ADDED head-of-government source (PM Robert Golob; the master's up-rs.si is the ceremonial
+# president). Static gov.si news feed /novice/, pager ?page=N. Article URLs embed the date:
+# /novice/YYYY-MM-DD-<slug> -> date via url_regex (unambiguous ISO). Title h1; body article.news-page.
+# This is the WHOLE government wire (all ministries), so the cleaner's document_type + speaker pass
+# does the heavy lifting of keeping the PM's speeches/statements; no position hint (mixed offices).
+source_id: svn_gov
+country: Slovenia
+source_language: Slovenian
+renderer: static
+start_urls:
+  - https://www.gov.si/novice/
+
+listing:
+  link_pattern: '/novice/\d{4}-\d{2}-\d{2}-[a-z0-9-]+'
+
+pagination:
+  # gov.si ignores ?page=; the real pager is ?start=N with step 20 (page 2 = ?start=20).
+  # The archive is very deep (~1930 pages / ~38k items, whole-of-government) -> the cleaner's gate
+  # keeps only leaders' speeches; raise/lower max_pages to trade coverage vs cleaning cost.
+  type: query_param
+  param: start
+  start: 0
+  step: 20
+  max_pages: 2000
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["article.news-page .content", "article.news-page", ".article-cols"]
+date:
+  url_regex: '/novice/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+
+date_languages: ["sl"]
+notes: >
+  DRAFT — probe-validated (no full run). Slovenia government news via gov.si/novice. Date from the
+  /novice/YYYY-MM-DD-slug permalink (url_regex). Broad government wire (all ministries) -> no
+  speaker_default / no position; the cleaner's gate + speaker pass keep PM Golob's (and other
+  leaders') speeches. Slovenian; translation stage fills English.
