@@ -65,6 +65,20 @@ def is_english(language: str) -> bool:
     return lang.startswith("english") or lang == "en"
 
 
+def _sample_evenly(items: list, n: int) -> list:
+    """Pick `n` items spread evenly across `items`, inclusive of both ends (mirrors
+    probe._sample_evenly). `--sample` uses this to scrape a slice that SPANS a source's whole
+    history — a representative calibration sample — instead of just the newest N (`--limit`)."""
+    if n <= 0 or not items:
+        return []
+    if n >= len(items):
+        return list(items)
+    if n == 1:
+        return [items[0]]
+    last = len(items) - 1
+    return [items[i] for i in sorted({round(i * last / (n - 1)) for i in range(n)})]
+
+
 def load_state(path: Path) -> dict:
     if path.exists():
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -223,6 +237,7 @@ def scrape_recipe(
     max_pages: int | None = None,
     max_links: int | None = None,
     limit: int | None = None,
+    sample: int | None = None,
     respect_robots: bool = False,
     retry_failed: bool = False,
     extend_wayback: bool = False,
@@ -408,15 +423,26 @@ def scrape_recipe(
         # Persist the harvested list immediately (before any scraping) — a record of
         # what was found, and insurance against a crash mid-scrape.
         if links:
+            links_body = "\n".join(links) + "\n"
             links_path = out_dir / f"{recipe.source_id}_links.txt"
             links_path.parent.mkdir(parents=True, exist_ok=True)
-            links_path.write_text("\n".join(links) + "\n", encoding="utf-8")
-            log.info("saved %d harvested links to %s", len(links), links_path.name)
+            links_path.write_text(links_body, encoding="utf-8")   # latest (overwritten each run)
+            # Also keep a DATED, never-overwritten snapshot beside the probe snapshots, so we have
+            # an archive of the link set as it existed at each run. The fixed file above is just
+            # the latest (what the counter reads); readers wanting history pick the newest stamp.
+            snap_dir = out_dir / "sample"
+            snap_dir.mkdir(parents=True, exist_ok=True)
+            snap_path = snap_dir / f"{recipe.source_id}_links_{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+            snap_path.write_text(links_body, encoding="utf-8")
+            log.info("saved %d harvested links to %s (+ dated snapshot sample/%s)",
+                     len(links), links_path.name, snap_path.name)
 
         skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
             todo_entries = [entry for entry in entries if entry.get("original") not in skip]
-            if limit:
+            if sample:
+                todo_entries = _sample_evenly(todo_entries, sample)
+            elif limit:
                 todo_entries = todo_entries[:limit]
             log.info("harvested %d archived capture(s); %d to scrape (%d done, %d known-failed, "
                      "%d filtered out earlier%s)",
@@ -425,7 +451,9 @@ def scrape_recipe(
             todo = todo_entries
         else:
             todo = [url for url in links if url not in skip]
-            if limit:
+            if sample:
+                todo = _sample_evenly(todo, sample)
+            elif limit:
                 todo = todo[:limit]
             log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed, "
                      "%d filtered out earlier%s)",
@@ -468,7 +496,9 @@ def scrape_recipe(
                     )
                 skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
                 todo2 = [e for e in ext_entries if e.get("original") not in skip]
-                if limit:
+                if sample:
+                    todo2 = _sample_evenly(todo2, sample)
+                elif limit:
                     todo2 = todo2[:limit]
                 log.info("[wayback-extend] prefix=%s to=%s | %d archived capture(s); %d to scrape",
                          prefix, to_date, len(ext_entries), len(todo2))
@@ -566,7 +596,11 @@ def main():
     ap.add_argument("--state-root", default="data/state")
     ap.add_argument("--max-pages", type=int, default=None, help="cap listing pages crawled")
     ap.add_argument("--max-links", type=int, default=None, help="cap speech links harvested")
-    ap.add_argument("--limit", type=int, default=None, help="cap speeches scraped this run")
+    ap.add_argument("--limit", type=int, default=None, help="cap speeches scraped this run (the newest N)")
+    ap.add_argument("--sample", type=int, default=None,
+                    help="scrape N speeches SPREAD EVENLY across the whole harvested list (a "
+                         "representative slice spanning the source's history; overrides --limit). "
+                         "Great for calibration samples. Resumable like any run.")
     ap.add_argument("--respect-robots", action="store_true",
                     help="honor robots.txt (off by default for this public-record project)")
     ap.add_argument("--retry-failed", action="store_true",
@@ -579,6 +613,7 @@ def main():
     result = scrape_recipe(
         args.recipe, args.out_root, args.state_root,
         args.max_pages, args.max_links, args.limit,
+        sample=args.sample,
         respect_robots=args.respect_robots,
         retry_failed=args.retry_failed,
         extend_wayback=args.extend_wayback,

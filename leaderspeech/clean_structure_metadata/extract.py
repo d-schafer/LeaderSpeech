@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 # --- the fields the model returns; also the keys of every parsed dict ---
 META_FIELDS = [
-    "document_type", "is_first_person", "speaker", "speaker_attributed_correct",
+    "document_type", "is_first_person", "is_substantive", "speaker", "speaker_attributed_correct",
     "speaker_type", "position", "date", "date_matches_metadata", "language",
     "audience", "speech_type", "venue", "confidence", "reasoning",
 ]
@@ -35,6 +35,7 @@ class SpeechMeta(BaseModel):
 
     document_type: Optional[str] = None          # speech | interview | official_statement | other
     is_first_person: Optional[str] = None        # yes | no | unsure (recorded; not a gate)
+    is_substantive: Optional[str] = None         # yes | no | unsure — position/policy/values vs pure courtesy
     speaker: Optional[str] = None                # best name from text/title, or null
     speaker_attributed_correct: Optional[str] = None  # yes | no | unsure (vs scraped speaker)
     speaker_type: Optional[str] = None           # head_of_state|head_of_government|both|other_minister|foreign_visitor|other|unknown
@@ -74,6 +75,12 @@ Prefer "official_statement" over "other" whenever the document expresses the lea
 
 is_first_person: "yes" if the leader's own words are present (first-person remarks, quoted or reported), "no" if the document is wholly third-person, "unsure" otherwise. (Recorded for analysis only — an official_statement can be third-person and still be kept.)
 
+is_substantive: does the document convey a SUBSTANTIVE expression of the leader's position — a stance, argument, commitment, priority, value, or view on a public matter (governance, policy, the economy, security, foreign affairs, society, ideology, national identity, or support for a group or cause)?
+  - "yes": it expresses such a position or reasoning, even briefly — a policy statement, a values-laden address, a reaction that takes a side, a pledge of support to a group or cause.
+  - "no": it is pure courtesy, ceremony, protocol, or logistics carrying NO such stance — e.g. a birthday/anniversary/holiday greeting, a routine congratulation or condolence, a thank-you or good-wishes message, a formulaic honorific, or a bare notice of an appointment/schedule/meeting.
+  - "unsure": genuinely borderline, or too little text to tell.
+  Judge the CONTENT, not the format or document_type: a ceremonial-event speech that articulates values or policy is "yes"; a one-line congratulatory message is "no". Recorded for downstream filtering — it does NOT by itself change document_type or whether the row is kept.
+
 speaker: the actual person whose position the document represents, as a clean full name (no title). Determine from the text and title. A title in front of a name does NOT make a different person ("President X" IS X). Accent/transliteration variants are the same person. If the document is clearly a DIFFERENT named individual than the attributed SPEAKER (e.g. a visiting foreign leader's own speech hosted on this government site, or a minister speaking, not the president), give the ACTUAL person. If no person can be identified, null.
 
 speaker_attributed_correct: compared to the scraped SPEAKER — "yes" if they are the same person (ignore titles/accents/spelling), "no" if a genuinely different person spoke, "unsure" if unclear or SPEAKER was blank.
@@ -96,7 +103,7 @@ reasoning: one or two sentences explaining your key judgments (especially any sp
 
 Guidance: most documents on these government sites ARE genuine speeches or official statements correctly attributed to the listed leader. Set document_type="other" or change the speaker only on clear evidence. If the SPEAKER appears in the CONFIRMED LEADERS IN OFFICE list, that strongly supports correct attribution.
 
-Respond with JSON only, exactly these keys: {"document_type","is_first_person","speaker","speaker_attributed_correct","speaker_type","position","date","date_matches_metadata","language","audience","speech_type","venue","confidence","reasoning"}. Use null for unknown values.""" % (
+Respond with JSON only, exactly these keys: {"document_type","is_first_person","is_substantive","speaker","speaker_attributed_correct","speaker_type","position","date","date_matches_metadata","language","audience","speech_type","venue","confidence","reasoning"}. Use null for unknown values.""" % (
     ", ".join(SPEECH_TYPES),
     ", ".join(AUDIENCES),
 )

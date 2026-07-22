@@ -89,6 +89,7 @@ stage — GPT reads non-English fine):
 |-------|--------|
 | `document_type` | speech / interview / official_statement / other |
 | `is_first_person` | yes / no / unsure (recorded for analysis — not a gate) |
+| `is_substantive` | yes / no / unsure — does it express a position / policy / value on a public matter (**yes**) vs. pure courtesy / protocol / logistics such as a greeting, congratulation, or condolence (**no**)? Recorded, not a gate; feeds `inclusion_tier` (tier `4_courtesy`). |
 | `speaker` | clean full name, or null |
 | `speaker_attributed_correct` | yes / no / unsure (vs the scraped speaker) |
 | `speaker_type` | head_of_state / head_of_government / both / other_minister / foreign_visitor / other / unknown |
@@ -101,8 +102,28 @@ stage — GPT reads non-English fine):
 | `confidence`, `reasoning` | overall confidence; 1–2 sentence rationale |
 
 After extraction, deterministic post-processing fills `tenure_match`
-(`exact` / `other_country` / `none`), `is_ceremonial` (from the tenure key), and the `clean_status`
-gate decision.
+(`exact` / `other_country` / `none`), `is_ceremonial` (from the tenure key), `inclusion_tier`
+(see below), and the `clean_status` gate decision.
+
+**`inclusion_tier`** is a convenience label (derived from `document_type` + `is_first_person` +
+`is_substantive`) that places every kept row on the strict→broad inclusion spectrum, so a dataset
+user can filter by strictness with a single column instead of re-deriving the boolean logic:
+
+| `inclusion_tier` | meaning |
+|------------------|---------|
+| `1_speech` | a delivered speech or interview — the leader speaking directly |
+| `2_first_person_statement` | a substantive official statement in the leader's own words (first person) |
+| `3_third_person_statement` | a substantive official statement/communiqué *about* the leader's position (third person: "the president reaffirmed / announced …") |
+| `4_courtesy` | kept but **pure courtesy/protocol** (`is_substantive == no`): greetings, congratulations, condolences, thank-yous, bare appointment/schedule notices |
+
+`None` for `document_type` `other`/unknown (i.e. rejected rows). Thresholds: **strict** = tier 1;
+**middle** = tiers 1–2; **substantive** = tiers 1–3; **broad** = tiers 1–4 (everything the default
+gate keeps). `is_substantive == no` demotes any kept row to tier 4 regardless of type; a missing or
+`unsure` substance flag is treated as substantive (never demoted — we don't drop on uncertainty).
+This only *labels* rows — the keep gate is unchanged, so a stricter subset stays fully recoverable
+downstream. `inclusion_tier` is backfilled for free on `--regate`, but **`is_substantive` itself is a
+model judgment**, so tier `4_courtesy` only appears after a fresh clean (a re-clean of existing data),
+not from `--regate` alone.
 
 ## The gate
 

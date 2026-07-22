@@ -93,6 +93,31 @@ def _year_of(date_str) -> int | None:
     return int(s[:4]) if len(s) >= 4 and s[:4].isdigit() else None
 
 
+def _inclusion_tier(document_type, is_first_person, is_substantive=None) -> str | None:
+    """A single ordinal handle on the strict->broad inclusion spectrum, derived from
+    document_type + is_first_person + is_substantive, so a dataset user filters by strictness
+    without re-deriving the boolean logic every time:
+      1_speech                 -- a delivered speech or interview (the leader speaking directly)
+      2_first_person_statement -- an official statement in the leader's OWN words (first person)
+      3_third_person_statement -- an official statement/communique ABOUT the leader's position
+                                  (third person: "the president congratulated / signed ...")
+      4_courtesy               -- kept but PURE courtesy/protocol (is_substantive == 'no'):
+                                  greetings, congratulations, condolences, thank-yous, bare notices
+    None for document_type 'other'/unknown (typically a rejected row). The keep gate is unchanged
+    (still broad); this only LABELS each kept row. is_substantive == 'no' demotes ANY kept doc to
+    tier 4 regardless of type; a missing/'unsure' substance flag is treated as substantive (NOT
+    demoted -- we never drop on uncertainty). Thresholds: strict = tier 1; middle = tiers 1-2;
+    substantive = tiers 1-3; broad = tiers 1-4 (everything the gate keeps)."""
+    d = _norm(document_type)
+    if d not in ("speech", "interview", "official_statement"):
+        return None
+    if _norm(is_substantive) == "no":
+        return "4_courtesy"
+    if d in ("speech", "interview"):
+        return "1_speech"
+    return "2_first_person_statement" if _norm(is_first_person) == "yes" else "3_third_person_statement"
+
+
 def _locate_parquet(out_root: str, source_id: str, country: str | None) -> tuple[Path, str]:
     root = Path(out_root)
     if country:
@@ -133,6 +158,12 @@ def regate_source(
             "speaker": df.at[i, "speaker"],
             "speaker_type": df.at[i, "speaker_type"] if "speaker_type" in df.columns else None,
         }
+        # backfill the derived inclusion tier for free (it depends only on stored fields), so an
+        # old Parquet gains the column on the next --regate without any API calls.
+        df.at[i, "inclusion_tier"] = _inclusion_tier(
+            meta["document_type"],
+            df.at[i, "is_first_person"] if "is_first_person" in df.columns else None,
+            df.at[i, "is_substantive"] if "is_substantive" in df.columns else None)
         new_status, new_reason = gate.decide(meta, config)
         if new_status != status_now:
             df.at[i, "clean_status"] = new_status
@@ -208,6 +239,9 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     # extracted metadata
     out["document_type"] = meta.get("document_type")
     out["is_first_person"] = meta.get("is_first_person")
+    out["is_substantive"] = meta.get("is_substantive")
+    out["inclusion_tier"] = _inclusion_tier(
+        meta.get("document_type"), meta.get("is_first_person"), meta.get("is_substantive"))
     out["speaker_type"] = meta.get("speaker_type")
     out["audience"] = meta.get("audience")
     out["speech_type"] = meta.get("speech_type")
@@ -242,6 +276,7 @@ def clean_source(
     country: str | None = None,
     limit: int | None = None,
     retry_failed: bool = False,
+    reclean: bool = False,
     dry_run: bool = False,
     save_every_chunks: int = 1,
 ) -> dict:
@@ -254,7 +289,7 @@ def clean_source(
     return clean_file(
         csv_path, out_path, state_path=state_path,
         config=config, model=model, label=source_id, country_label=country,
-        limit=limit, retry_failed=retry_failed, dry_run=dry_run,
+        limit=limit, retry_failed=retry_failed, reclean=reclean, dry_run=dry_run,
         refresh_index=True, index_root=out_root, save_every_chunks=save_every_chunks,
     )
 
@@ -270,6 +305,7 @@ def clean_file(
     country_label: str | None = None,
     limit: int | None = None,
     retry_failed: bool = False,
+    reclean: bool = False,
     dry_run: bool = False,
     refresh_index: bool = False,
     index_root: str | Path | None = None,
@@ -302,7 +338,9 @@ def clean_file(
     if not existing.empty:
         existing["doc_id"] = existing["doc_id"].astype(str)
     done, failed = store.done_and_failed(existing)
-    skip = done if retry_failed else (done | failed)
+    # reclean re-sends EVERY row to the model (to populate a newly-added field like is_substantive);
+    # otherwise skip already-done rows (and, unless retry_failed, previously-failed ones too).
+    skip = set() if reclean else (done if retry_failed else (done | failed))
 
     todo = scraped[~scraped["doc_id"].isin(skip)].copy()
     if limit:

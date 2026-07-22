@@ -10,9 +10,29 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pandas as pd
+
+
+def _retry_win_lock(fn, *args, attempts: int = 6, delay: float = 0.4):
+    """Run a filesystem op, retrying if Windows transiently rejects it with a lock
+    (PermissionError — WinError 5 'access denied' / 32 'in use'). The usual cause under a
+    Dropbox or OneDrive folder, or with antivirus, is the destination being held for a moment
+    during sync/scan; a short backoff clears it. Re-raises with a hint if it never releases."""
+    last = None
+    for i in range(attempts):
+        try:
+            return fn(*args)
+        except PermissionError as e:
+            last = e
+            time.sleep(delay * (i + 1))
+    raise PermissionError(
+        f"{last} — the file stayed locked after {attempts} retries. On Windows this is almost "
+        f"always Dropbox/OneDrive or antivirus holding the file during sync/scan. Pause syncing on "
+        f"data/cleaned (or move the data tree outside the synced folder) and re-run."
+    ) from last
 
 # The 15 standardized scraper columns (carried through unchanged for mergeability).
 SCRAPED_COLUMNS = [
@@ -26,7 +46,7 @@ SCRAPED_COLUMNS = [
 # Columns the cleaner adds.
 CLEAN_COLUMNS = [
     "speaker_scraped", "date_scraped",           # audit copies of the originals
-    "document_type", "is_first_person",
+    "document_type", "is_first_person", "is_substantive", "inclusion_tier",
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language",
     "speaker_attributed_correct", "date_matches_metadata",
@@ -87,8 +107,9 @@ def write_source_atomic(df: pd.DataFrame, path: str | Path, compression: str = "
     tmp = p.with_suffix(p.suffix + ".tmp")
     out.to_parquet(tmp, engine="pyarrow", compression=compression, index=False)
     if p.exists():
-        shutil.copy2(p, p.with_suffix(p.suffix + ".bak"))
-    os.replace(tmp, p)
+        _retry_win_lock(shutil.copy2, p, p.with_suffix(p.suffix + ".bak"))
+    # atomic swap, retried through transient Dropbox/antivirus locks on Windows (WinError 5/32)
+    _retry_win_lock(os.replace, tmp, p)
 
 
 def done_and_failed(df: pd.DataFrame) -> tuple[set, set]:
