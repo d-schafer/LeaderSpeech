@@ -241,6 +241,7 @@ def scrape_recipe(
     respect_robots: bool = False,
     retry_failed: bool = False,
     extend_wayback: bool = False,
+    rescrape: bool = False,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
@@ -252,8 +253,10 @@ def scrape_recipe(
     state_path = Path(state_root) / f"{recipe.country}.json"
 
     log_path, log_handler = _add_log_file(out_dir, recipe.source_id)
-    log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s respect_robots=%s",
-             recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed, respect_robots)
+    log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s rescrape=%s "
+             "respect_robots=%s",
+             recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
+             rescrape, respect_robots)
 
     state = load_state(state_path)
     seen = set(state["seen_urls"])       # already scraped — never re-fetched
@@ -439,6 +442,32 @@ def scrape_recipe(
             log.info("saved %d harvested links to %s (+ dated snapshot sample/%s)",
                      len(links), links_path.name, snap_path.name)
 
+        # --- rescrape: re-fetch this ONE source from scratch (issue #66) -----------------
+        # The per-country state is SHARED across sources, so a rescrape must touch only THIS
+        # source's harvested URLs: drop them from seen/failed so they are ALL re-fetched
+        # (only keep_if `filtered` rejections still stand — skip them), and REWRITE the
+        # source CSV instead of appending. doc_ids are deliberately NOT reset — new rows
+        # continue the country sequence, so the freed old ids just leave a harmless gap and
+        # nothing collides with the country's other sources, whose seen/failed/CSVs are
+        # untouched. The old CSV is renamed to `.bak` (recoverable), the errors file cleared.
+        if rescrape:
+            if links:
+                source_urls = set(links)
+                seen -= source_urls
+                failed -= source_urls
+                if out_path.exists():
+                    out_path.replace(out_path.parent / (out_path.name + ".bak"))
+                if err_path.exists():
+                    err_path.unlink()
+                log.info("[rescrape] %s: re-fetching %d harvested link(s) from scratch — prior "
+                         "CSV backed up to %s.bak, this source's seen/failed reset (doc_ids "
+                         "continue from %d; other sources in %s untouched)",
+                         recipe.source_id, len(source_urls), out_path.name,
+                         state["last_doc_num"], recipe.country)
+            else:
+                log.warning("[rescrape] harvested 0 links — leaving the existing CSV and state "
+                            "untouched (nothing to re-fetch). Fix the harvest first, then retry.")
+
         skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
             todo_entries = [entry for entry in entries if entry.get("original") not in skip]
@@ -496,6 +525,12 @@ def scrape_recipe(
                         "\n".join(e["original"] for e in ext_entries if e.get("original")) + "\n",
                         encoding="utf-8",
                     )
+                # rescrape re-fetches the archived continuation too: reopen its captures
+                # (the live CSV was already truncated once, above; this phase appends to it).
+                if rescrape:
+                    ext_urls = {e["original"] for e in ext_entries if e.get("original")}
+                    seen -= ext_urls
+                    failed -= ext_urls
                 skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
                 todo2 = [e for e in ext_entries if e.get("original") not in skip]
                 if sample:
@@ -578,6 +613,7 @@ def scrape_recipe(
         "filtered_total": len(filtered),
         "extended_links_found": extended_links_found,  # archived captures found by wayback_extend
         "extended_scraped": extended_scraped,          # of those, newly scraped this run
+        "rescrape": rescrape,                 # this run re-fetched the source from scratch
         "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
         "aborted_early": aborted_early,       # circuit breaker tripped (likely blocked/broken)
         # True => the harvest was truncated by a pager problem, so coverage is incomplete
@@ -607,6 +643,13 @@ def main():
                     help="honor robots.txt (off by default for this public-record project)")
     ap.add_argument("--retry-failed", action="store_true",
                     help="re-attempt URLs that previously errored/were empty (use after fixing a recipe)")
+    ap.add_argument("--rescrape", action="store_true",
+                    help="re-fetch this ONE source from scratch after fixing its bug: ignore "
+                         "seen/failed (re-do ALL harvested links, keeping only keep_if rejects) "
+                         "and REWRITE its CSV (old one backed up to <id>.csv.bak). doc_ids "
+                         "continue the country sequence (not reset); other sources in the country "
+                         "are untouched. Use for pages that were scraped 'successfully' as junk "
+                         "(a block page #65, thin extraction #64) so --retry-failed won't re-do them.")
     ap.add_argument("--extend-wayback", action="store_true",
                     help="after the live crawl, continue into the Internet Archive for older "
                          "speeches (same as recipe `wayback_extend: true`; reuses the live selectors)")
@@ -619,6 +662,7 @@ def main():
         respect_robots=args.respect_robots,
         retry_failed=args.retry_failed,
         extend_wayback=args.extend_wayback,
+        rescrape=args.rescrape,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

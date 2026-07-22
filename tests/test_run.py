@@ -139,6 +139,112 @@ def test_failure_is_logged_then_fixable_and_resumable(tmp_path, monkeypatch):
     assert state["last_doc_num"] == 2
 
 
+# --- issue #66: --rescrape re-fetches one source from scratch, rewriting its CSV ---------
+
+
+def test_rescrape_refetches_seen_urls_and_rewrites_csv(tmp_path, monkeypatch):
+    """After fixing a bug, --rescrape re-does ALL harvested links even though they are
+    already `seen`, REWRITES the CSV (not append), continues doc_ids, and backs up the old
+    CSV to .bak."""
+    urls = ["http://x/a", "http://x/b"]
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
+
+    body = {"text": "primera version"}   # flip the body between runs (a "fixed" site/recipe)
+
+    class Flip:
+        def __init__(self, **kw):
+            pass
+
+        def get(self, url):
+            return ("<html><h1>Titulo</h1><span class='date'>1 de enero de 2020</span>"
+                    f"<div class='body'>{body['text']}</div></html>")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(run, "Fetcher", Flip)
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    recipe = _recipe(tmp_path)
+
+    res1 = run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+    assert res1["scraped_this_run"] == 2
+    csv1 = (out / "Argentina" / "test_src.csv").read_text(encoding="utf-8")
+    assert "primera version" in csv1 and "ARG0001" in csv1 and "ARG0002" in csv1
+
+    # a plain re-run does nothing (both are `seen`) — the problem --rescrape solves
+    assert run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))[
+        "scraped_this_run"] == 0
+
+    body["text"] = "version corregida"
+    res2 = run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir), rescrape=True)
+    assert res2["scraped_this_run"] == 2          # both re-fetched despite being `seen`
+    assert res2["rescrape"] is True
+
+    csv2 = (out / "Argentina" / "test_src.csv").read_text(encoding="utf-8")
+    assert "version corregida" in csv2            # fresh content
+    assert "primera version" not in csv2          # CSV was REWRITTEN, not appended
+    assert "ARG0003" in csv2 and "ARG0004" in csv2   # doc_ids continued (not reset)
+    assert "ARG0001" not in csv2                   # old rows gone from the live CSV
+
+    bak = (out / "Argentina" / "test_src.csv.bak").read_text(encoding="utf-8")
+    assert "primera version" in bak and "ARG0001" in bak   # old rows recoverable
+
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["last_doc_num"] == 4             # NOT reset — a harmless gap at 0001/0002
+    assert set(state["seen_urls"]) == set(urls)   # re-added (idempotent)
+
+
+def test_rescrape_leaves_other_sources_in_the_country_untouched(tmp_path, monkeypatch):
+    """The per-country state is shared, so --rescrape of source A must not disturb source
+    B's CSV, its `seen`, or the doc_id continuity."""
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    out, state_dir = tmp_path / "s", tmp_path / "st"
+
+    recipe_a = _recipe(tmp_path)                                  # source_id test_src
+    recipe_b = tmp_path / "b.yml"
+    recipe_b.write_text(RECIPE_YAML.replace("test_src", "test_src_b"), encoding="utf-8")
+
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a1", "http://x/a2"])
+    run.scrape_recipe(recipe_a, out_root=str(out), state_root=str(state_dir))       # ARG0001-2
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/b1", "http://x/b2"])
+    run.scrape_recipe(str(recipe_b), out_root=str(out), state_root=str(state_dir))  # ARG0003-4
+
+    b_csv_before = (out / "Argentina" / "test_src_b.csv").read_text(encoding="utf-8")
+
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a1", "http://x/a2"])
+    res = run.scrape_recipe(recipe_a, out_root=str(out), state_root=str(state_dir), rescrape=True)
+    assert res["scraped_this_run"] == 2
+
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["last_doc_num"] == 6                                   # A's re-do got ARG0005-6
+    assert {"http://x/b1", "http://x/b2"} <= set(state["seen_urls"])    # B still seen
+    # B's CSV is byte-for-byte unchanged; A's has the new ids
+    assert (out / "Argentina" / "test_src_b.csv").read_text(encoding="utf-8") == b_csv_before
+    a_csv = (out / "Argentina" / "test_src.csv").read_text(encoding="utf-8")
+    assert "ARG0005" in a_csv and "ARG0006" in a_csv
+    assert not (out / "Argentina" / "test_src_b.csv.bak").exists()      # B never backed up
+
+
+def test_rescrape_with_no_harvested_links_preserves_the_csv(tmp_path, monkeypatch):
+    """Safety: if the harvest returns nothing (a transient failure), --rescrape must NOT
+    wipe the existing good CSV."""
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    out, state_dir = tmp_path / "s", tmp_path / "st"
+    recipe = _recipe(tmp_path)
+
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a", "http://x/b"])
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+    csv_before = (out / "Argentina" / "test_src.csv").read_text(encoding="utf-8")
+
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: [])
+    res = run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir), rescrape=True)
+    assert res["scraped_this_run"] == 0
+    assert (out / "Argentina" / "test_src.csv").read_text(encoding="utf-8") == csv_before
+    assert not (out / "Argentina" / "test_src.csv.bak").exists()        # nothing backed up
+
+
 def test_circuit_breaker_aborts_on_consecutive_failures(tmp_path, monkeypatch):
     urls = [f"http://x/{i}-boom" for i in range(20)]
     monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))

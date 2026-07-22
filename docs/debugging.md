@@ -18,8 +18,8 @@ And under `data/state/<Country>.json`:
 
 | Field | Meaning |
 |-------|---------|
-| `seen_urls` | already scraped — never re-fetched |
-| `failed_urls` | errored or empty — skipped on a normal re-run, re-fetched only with `--retry-failed` |
+| `seen_urls` | already scraped — never re-fetched (except by `--rescrape`, which re-does the whole source; see below) |
+| `failed_urls` | errored or empty — skipped on a normal re-run, re-fetched with `--retry-failed` (or `--rescrape`) |
 | `filtered_urls` | fetched, but the recipe's [`keep_if`](recipes.md) judged them not this source's content — a decided rejection, never re-fetched (not even by `--retry-failed`). Loosened the `keep_if`? Delete this list to re-open them. |
 | `last_doc_num` | the per-country `doc_id` counter, so ids stay unique across runs |
 
@@ -67,7 +67,33 @@ python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml
 
 #    After fixing the recipe, re-attempt the URLs that had failed:
 python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --retry-failed
+
+#    If the bug produced rows that scraped "successfully" as JUNK (a WAF block page served
+#    as 200, or a thin/wrong extraction) they are `seen`, so --retry-failed will NOT re-do
+#    them. --rescrape re-fetches the WHOLE source from scratch and rewrites its CSV:
+python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --rescrape
 ```
+
+### `--rescrape`: re-fetch one source from scratch
+
+`--retry-failed` only re-does `failed` URLs. A row that came back HTTP 200 + non-empty text —
+a Cloudflare block page ([#65](recipes.md#block-page-guard)), a thin/wrong extraction — is `seen`,
+not `failed`, so it is never re-fetched. `--rescrape` fixes exactly that:
+
+- Ignores `seen`/`failed` for this source (re-fetches **all** harvested links; only `keep_if`
+  `filtered` rejections still stand) and **rewrites** `<id>.csv` instead of appending — the old CSV
+  is renamed to `<id>.csv.bak` (recoverable), the errors file is cleared.
+- Does **not** reset the country's `last_doc_num`: new rows continue the sequence, so the freed old
+  ids just leave a harmless gap and nothing collides with the country's **other** sources (their
+  CSVs / `seen` / `failed` are untouched — state is per-country, but `--rescrape` only ever clears
+  this source's harvested URLs).
+- A harvest that returns **0 links** (transient failure) leaves the CSV and state untouched — it
+  never wipes good data.
+
+Combine with `--sample N` / `--limit N` to re-do just a slice (e.g. a calibration sample):
+`... --rescrape --sample 20`. Then **also clear the cleaned artifacts** for the source before
+re-cleaning, so the metadata step doesn't skip the fresh rows as already-done: delete
+`data/cleaned/<Country>/<id>.parquet` and its `data/clean_state/` entry (see [cleaning.md](cleaning.md)).
 
 ## Reading the errors
 
