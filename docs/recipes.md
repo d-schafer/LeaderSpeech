@@ -46,7 +46,10 @@ get a draft, then tighten it into real selectors.
 ignore `?page=`, so a paginated crawl looks clean but stops a few weeks back. If you suspect this (or just
 want the full history), check the site's **sitemap** — `/<root>/sitemap.xml` and the entries in
 `/robots.txt`. A sitemap usually lists every article URL going back years; use `pagination.type: sitemap`
-with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speeches.
+with `sitemap_urls`, and keep your `listing.link_pattern` to filter it to speeches. **Gzipped sitemaps
+(`*.xml.gz`) work transparently** — many government sitemap *indexes* point only at `.gz` children; the
+engine fetches those as bytes and gunzips them for you (issue #63), so just point `sitemap_urls` at the
+index and let it follow through (e.g. Sweden's `swe_kungahuset`: `/sitemapindex.xml` → `/sitemap1.xml.gz`).
 
 > ⚠️ **Wayback is a fallback, never a replacement.** Use `pagination: wayback` *only*
 > to reach speeches from **before** the live site's coverage. **Never convert or edit a
@@ -579,6 +582,28 @@ unchanged — only the fetch transport differs. Keep that Chrome window open for
 Verified on `mlt_president` (president.gov.mt), `nzl_gg` (gg.govt.nz). A probe-green Wayback
 companion (e.g. `mlt_president_wayback`) is the browser-free fallback for history.
 
+## Block-page guard
+
+Some WAFs serve a block or challenge page with **HTTP 200** rather than an error status —
+Cloudflare's *"Sorry, you have been blocked"* (CF-1020) and *"Just a moment…"* interstitial,
+F5/BIG-IP's *"The requested URL was rejected"*, Incapsula, generic *"Access denied"*. Without a
+guard the engine would accept that page as the speech body: it writes a ~460-char block page as a
+*speech*, marks the URL `seen` (so `--retry-failed` never re-does it), and the junk is only caught
+much later by the cleaner. That silently pollutes a whole source (e.g. a throttled `isr_pmo` run
+returning thousands of identical Cloudflare rows — issues #64/#65).
+
+**On by default, nothing to configure.** The engine matches common WAF/challenge signatures on any
+fetched page and, when one hits a **short** page (a real speech is long — the length gate is what
+prevents false positives on a speech that merely quotes "cloudflare"), treats the fetch as a
+**failure**: the retries/backoff fire (which clears a *transient* rate-limit block), and once
+exhausted the URL lands in `failed_urls` (retryable via `--retry-failed`) and `_errors.csv` instead
+of being written as a row. A run that hits many blocks then surfaces as a **high failure rate**, not
+a clean run full of junk. A probe reports a blocked page as a `fetch error` on that page.
+
+Overrides: `block_page: false` disables the guard for the rare site whose legitimate content
+matches a signature; `block_page_patterns: ["…"]` adds extra case-insensitive phrases for a
+site-specific block message.
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -595,6 +620,8 @@ companion (e.g. `mlt_president_wayback`) is the browser-free fallback for histor
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `js_settle` | no | `js`/`cdp` only. Extra seconds to wait after DOM-ready for late JS to paint. Rarely needed — the engine already loads DOM-first, waits briefly for the network to settle, and auto-waits for a CF "Just a moment" interstitial to self-clear. Set only when content still arrives later. |
 | `cdp_endpoint` | no | `cdp` only. DevTools endpoint of a user-launched Chrome (default `http://localhost:9222`, or the `LEADERSPEECH_CDP_ENDPOINT` env var). See "Cloudflare-blocked sites". |
+| `block_page` | no | Default `true`. Detect WAF/block/challenge pages served with **HTTP 200** (Cloudflare "Sorry, you have been blocked" / "Just a moment", F5, Incapsula, "Access denied") and treat them as a **fetch failure** instead of writing them as a junk "speech" (issue #65). Set `false` for the rare site whose legitimate content matches a signature. See "Block-page guard". |
+| `block_page_patterns` | no | Extra case-insensitive signature phrases to add to the built-in block-page list, for a site whose block page has a distinctive message the defaults miss. |
 | `listing.link_selector` | one of these | CSS selector for the `<a>` elements linking to speeches. |
 | `listing.link_pattern` | one of these | Regex an href must match (e.g. `"/discursos/\\d+"`). Use with or instead of `link_selector`. |
 | `listing.item_selector` | no | CSS selector for the block that **contains one speech link** — enables carrying per-item `item_date`/`item_title` off the listing onto the row (see "When the date is on the LISTING"). Each harvested link takes the metadata of its nearest matching ancestor. |
@@ -609,7 +636,7 @@ companion (e.g. `mlt_president_wayback`) is the browser-free fallback for histor
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
 | `pagination.next_selector` | for click / next_link | CSS selector of the "next" control. May point at the `<a>` itself or a wrapper (e.g. `li.next`), in which case its first descendant `<a href>` is used. |
 | `pagination.url_list` | for url_list | Explicit list of **speech-page URLs**. They are used **as-is**: the engine does *not* fetch them as listings, does *not* extract links from them, and does *not* apply `listing.link_pattern` to them. To enumerate several **listing** pages instead, put them all in `start_urls` and leave `pagination.type` as `none` — see "Several listing pages" below. |
-| `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. Best for full history — see the tip below. |
+| `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. **Gzipped sitemaps (`*.xml.gz`, served as `application/gzip`) are decompressed transparently** (issue #63). Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
 | `pagination.wayback_filter` | no | A list of raw CDX `filter=` expressions (`field:regex`) ANDed together — e.g. `["mimetype:application/pdf", "statuscode:200"]` to keep only real PDF captures and drop a prefix query's text/html noise. |
 | `wayback_extend` | no | Opt-in continuation of a **live** recipe into the Internet Archive after its crawl finishes (see "Auto-continuing a live recipe into the archive"). `true` reuses everything; a mapping supplies overrides. `false`/absent = off. Same-host only. |

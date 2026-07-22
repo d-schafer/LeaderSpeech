@@ -48,8 +48,8 @@ python -m leaderspeech.clean_structure_metadata.run --all
 python -m leaderspeech.clean_structure_metadata.run --input data/LeaderSpeech.parquet       # -> data/LeaderSpeech.cleaned.parquet
 python -m leaderspeech.clean_structure_metadata.run --input corpus.csv --output out.parquet  # explicit destination
 
-# 3) MERGE — concatenate accepted rows from every source into the intermediate dataset.
-python -m leaderspeech.clean_structure_metadata.merge
+# 3) MERGE — concatenate the kept rows (default: leader + minister/foreign speeches) into the dataset.
+python -m leaderspeech.clean_structure_metadata.merge          # --keep accepted|speakers|all
 
 # 4) EXPORT — apply fixNames and write the final deliverable (Parquet + RData + csv.gz).
 Rscript scripts/export_leaderspeech.R
@@ -179,9 +179,14 @@ tune `keep_document_types` / `require_leader_type` without re-spending or losing
 - **State + logs:** `data/clean_state/<Country>/<id>.json` (counts, model, last run) and a timestamped
   `.log` next to the Parquet. `data/cleaned/cleaned_progress_log.xlsx` indexes every source.
 - **Deliverable:** the Python merge writes the intermediate `data/_build/LeaderSpeech_merged.parquet`
-  (accepted rows, deduped by `doc_id`); the R export applies `key_fixNames.R` and writes the final
-  `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`, all name-consistent. All of these are derived
-  and regenerable — re-run merge + export anytime; it costs nothing.
+  (deduped by `doc_id`). **`--keep` selects which rows go in** — default `speakers` = leader speeches
+  PLUS minister/foreign-visitor speeches (`rejected_non_leader` / `rejected_foreign`), `accepted` =
+  leader-only (the old behavior), `all` = everything except errors. Rejected rows are RETAINED
+  per-source regardless. Every deliverable row carries `clean_status` / `speaker_type` /
+  `is_ceremonial` / `is_substantive` / `inclusion_tier`, so a user can filter to any stricter subset
+  (leader-only, substantive-only, executive-only). The R export applies `key_fixNames.R` and writes
+  the final `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`, all name-consistent. All derived and
+  regenerable — re-run merge + export anytime; it costs nothing.
 
 ## Cleaned columns
 

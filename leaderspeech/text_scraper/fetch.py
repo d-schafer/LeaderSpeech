@@ -18,6 +18,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .block import BlockPageError, looks_like_block_page
+
 # After DOM-ready, how long to let the network settle so SPA/AJAX content can paint. Bounded so a
 # CF challenge / analytics polling (which never reach networkidle) can't hang the fetch.
 _NETWORKIDLE_BONUS_MS = 10000
@@ -120,6 +122,8 @@ class Fetcher:
         user_agent: Optional[str] = None,
         js_settle: float = 0.0,
         cdp_endpoint: Optional[str] = None,
+        block_page: bool = True,
+        block_page_patterns: Optional[list[str]] = None,
     ):
         self.renderer = renderer
         self.delay_range = delay_range
@@ -129,6 +133,11 @@ class Fetcher:
         self.backoff = backoff
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+        # Detect WAF/block pages served with HTTP 200 and treat them as fetch failures
+        # (issue #65). On by default; a recipe may disable it (block_page: false) or add
+        # signatures (block_page_patterns) for a site whose real content matches.
+        self.block_page = block_page
+        self.block_page_patterns = block_page_patterns or None
         # Extra fixed wait after a js/cdp page load (rarely needed; the challenge auto-wait is
         # separate and always on).
         self.js_settle = js_settle
@@ -235,7 +244,7 @@ class Fetcher:
                 if self.renderer == "static":
                     resp = self._client.get(url)
                     resp.raise_for_status()
-                    return resp.text
+                    return self._guard_block(resp.text, url)
                 # js / cdp: load the DOM first (fires even on CF interstitials and sites with
                 # persistent polling), then give the network a SHORT window to settle so SPA/AJAX
                 # content can paint — but never hang on it, because CF challenges/analytics never
@@ -247,12 +256,22 @@ class Fetcher:
                 except Exception:
                     pass
                 self._settle_challenge()
-                return self._page.content()
-            except Exception as e:  # network error, timeout, HTTP error
+                return self._guard_block(self._page.content(), url)
+            except Exception as e:  # network error, timeout, HTTP error, or a WAF block page
                 last_err = e
                 if attempt < self.retries:
                     time.sleep(self.backoff * (2 ** (attempt - 1)))  # exponential backoff
         raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}")
+
+    def _guard_block(self, html: str, url: str) -> str:
+        """Raise BlockPageError if `html` is a WAF/block/challenge page served with HTTP
+        200 (issue #65). Raised INSIDE get()'s retry loop, so retries/backoff fire (which
+        clears a transient rate-limit block) and, once exhausted, the URL surfaces as an
+        ordinary fetch failure — logged in _errors.csv and retryable via --retry-failed —
+        instead of being written as a ~460-char junk 'speech'."""
+        if self.block_page and looks_like_block_page(html, self.block_page_patterns):
+            raise BlockPageError(f"WAF/block page served with HTTP 200: {url}")
+        return html
 
     def _byte_client(self) -> httpx.Client:
         """The httpx client used for raw-byte fetches: the static client if we have one,

@@ -1,0 +1,53 @@
+# Sweden — the Royal Court (kungahuset.se), speeches section /arkiv/tal/.
+# Sweden's head of state is the King (H.M. Konungen); the section also carries speeches by
+# other members of the Royal House (Queen, Crown Princess, Prince Daniel, ...). DRAFT —
+# probe-validated (no full run); the researcher decides inclusion + how the ceremonial
+# monarchy fits the "national leader" scope.
+#
+# LISTING via the site's GZIPPED sitemap (issue #63). robots.txt -> /sitemapindex.xml ->
+# /sitemap1.xml.gz (35,204 <loc>, of which 1,509 are /arkiv/tal/ speech URLs). The child
+# sitemap is served as application/gzip, so this recipe only works with the engine's
+# transparent gunzip of *.xml.gz sitemaps. The sitemap index is followed into its child
+# automatically; link_pattern keeps only the dated speech pages.
+source_id: swe_kungahuset
+country: Sweden
+source_language: Swedish
+renderer: static
+start_urls:
+  - https://www.kungahuset.se/
+
+listing:
+  # /arkiv/tal/YYYY-MM-DD-<slug> — the date-in-URL speech pages.
+  link_pattern: '/arkiv/tal/\d{4}-\d{2}-\d{2}-'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://www.kungahuset.se/sitemapindex.xml
+
+title:
+  selectors: ["h1"]
+text:
+  # Sitevision CMS: the article body is the single .pagecontent wrapper; main is a wider
+  # fallback, and the structure-agnostic generic extractor catches any drifted layout.
+  selectors: [".pagecontent", "main"]
+date:
+  # The page carries no visible/`<time>` date, but the URL does: /arkiv/tal/2024-04-15-...
+  # Named year/month/day groups assemble to an unambiguous ISO date (no selector needed).
+  url_regex: '/arkiv/tal/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+
+# Speaker deliberately LEFT BLANK: /arkiv/tal/ mixes the King, Queen, Crown Princess,
+# Prince Daniel, etc. — the title says who ("H.M. Konungens tal", "H.K.H. Kronprinsessans
+# tal"). The metadata-cleaning step / researcher assigns the speaker from the title.
+date_languages: ["sv"]
+
+notes: >
+  DRAFT — probe-validated (no full run). Swedish Royal Court (kungahuset.se) speeches at
+  /arkiv/tal/. Motivating case for issue #63 (gzipped sitemaps): the only clean listing is
+  the site's GZIPPED sitemap — robots -> /sitemapindex.xml -> /sitemap1.xml.gz (35,204 locs,
+  1,509 /arkiv/tal/ speech URLs) — which harvests to 0 links without the engine's transparent
+  gunzip of *.xml.gz. Title h1; body .pagecontent (Sitevision), generic fallback for drift;
+  date parsed from the URL's YYYY-MM-DD via url_regex named groups (the page has no visible
+  date). Swedish source_language (title/text land in *_originlanguage for the translate step).
+  Speaker left blank — mixed royals; assigned downstream from the title. The sitemap holds
+  the CURRENTLY-live speeches only; older removed pages 404 and simply aren't harvested.

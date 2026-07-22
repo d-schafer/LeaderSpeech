@@ -1,8 +1,9 @@
 """Merge the per-source cleaned Parquets into ONE intermediate dataset, and keep a
 human-readable index of what's been cleaned.
 
-This produces `data/_build/LeaderSpeech_merged.parquet` (accepted rows only, deduped
-by doc_id) — the INTERMEDIATE. The FINAL deliverable (with authoritative `fixNames`
+This produces `data/_build/LeaderSpeech_merged.parquet` (the kept rows — by default leader
+speeches PLUS minister/foreign-visitor speeches; see `--keep` / KEEP_SETS — deduped by
+doc_id) — the INTERMEDIATE. The FINAL deliverable (with authoritative `fixNames`
 name standardization, plus `.RData`/`.csv.gz`) is produced by `scripts/export_leaderspeech.R`,
 which reads this file. Keeping the merge cheap and idempotent means it can be re-run
 anytime without re-spending on the model.
@@ -26,12 +27,25 @@ from . import gate, store
 log = logging.getLogger("leaderspeech.clean_structure_metadata.merge")
 
 # Curated metadata kept in the deliverable (alongside the 15 standardized scraper columns).
+# clean_status/gate_reason + is_substantive/inclusion_tier are carried so a dataset user can filter
+# to any stricter subset (leader-only, substantive-only, executive-only) downstream.
 DELIVERABLE_META = [
-    "document_type", "is_first_person",
+    "document_type", "is_first_person", "is_substantive", "inclusion_tier",
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language", "is_ceremonial", "tenure_match", "clean_confidence",
+    "clean_status", "gate_reason",
 ]
 DELIVERABLE_COLUMNS = store.SCRAPED_COLUMNS + DELIVERABLE_META
+
+# Which rows go into the built dataset (rejected rows are RETAINED per-source regardless; this is
+# only what the merged deliverable includes). "speakers" (default) keeps the leader's speeches PLUS
+# real speeches by ministers / foreign visitors (useful for expanding to other speaker types later);
+# every row carries clean_status/speaker_type/is_ceremonial/is_substantive so any subset is filterable.
+KEEP_SETS = {
+    "accepted": {gate.ACCEPTED},
+    "speakers": {gate.ACCEPTED, gate.REJECTED_NON_LEADER, gate.REJECTED_FOREIGN},
+    "all":      None,   # everything EXCEPT error_* rows (news/agenda/no-speaker included)
+}
 
 INDEX_NAME = "cleaned_progress_log.xlsx"
 DEFAULT_BUILD = "data/_build/LeaderSpeech_merged.parquet"
@@ -52,9 +66,13 @@ def build_dataset(
     out_root: str = "data/cleaned",
     build_path: str = DEFAULT_BUILD,
     compression: str = "zstd",
+    keep: str = "speakers",
 ) -> Optional[Path]:
-    """Concatenate accepted rows from every per-source Parquet, dedupe by doc_id, and
-    write the intermediate merged Parquet. Returns the written path (or None if empty)."""
+    """Concatenate the kept rows from every per-source Parquet, dedupe by doc_id, and write the
+    intermediate merged Parquet. `keep` selects which clean_status rows are included (see KEEP_SETS;
+    default "speakers" = leader speeches + minister/foreign-visitor speeches, dropping non-speeches
+    and errors). Returns the written path (or None if empty)."""
+    keep_set = KEEP_SETS[keep]
     frames = []
     for p in _source_parquets(out_root):
         try:
@@ -63,7 +81,8 @@ def build_dataset(
             log.warning("merge: skipping unreadable %s :: %s", p, e)
             continue
         if "clean_status" in df.columns:
-            df = df[df["clean_status"] == gate.ACCEPTED]
+            st = df["clean_status"].astype(str)
+            df = df[~st.str.startswith("error")] if keep_set is None else df[st.isin(keep_set)]
         cols = [c for c in DELIVERABLE_COLUMNS if c in df.columns]
         frames.append(df[cols])
 
@@ -139,10 +158,14 @@ def main():
     ap.add_argument("--out-root", default="data/cleaned")
     ap.add_argument("--build-path", default=DEFAULT_BUILD)
     ap.add_argument("--compression", default="zstd")
+    ap.add_argument("--keep", choices=list(KEEP_SETS), default="speakers",
+                    help="which clean_status rows go in the built dataset: speakers (default) = "
+                         "leader + minister/foreign-visitor speeches; accepted = leader only; all = "
+                         "everything except errors. Rejected rows are kept per-source regardless.")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    path = build_dataset(args.out_root, args.build_path, args.compression)
+    path = build_dataset(args.out_root, args.build_path, args.compression, keep=args.keep)
     build_clean_index(args.out_root)
     if path:
         print(f"wrote {path}")

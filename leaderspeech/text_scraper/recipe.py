@@ -316,6 +316,13 @@ class Recipe(BaseModel):
     content_type: ContentType = ContentType.auto
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
+    # WAF/block-page guard (issue #65): a Cloudflare/WAF block or challenge page served with
+    # HTTP 200 is treated as a fetch FAILURE (retried, logged in _errors.csv, retryable via
+    # --retry-failed) instead of being written as a junk "speech". On by default. Set
+    # `block_page: false` for the rare site whose legitimate content matches a signature;
+    # `block_page_patterns` adds extra case-insensitive signatures for a site-specific block.
+    block_page: bool = True
+    block_page_patterns: list[str] = Field(default_factory=list)
     # Extra seconds to wait AFTER page load (js/cdp renderers) for late JS to paint. The engine
     # also auto-waits for a Cloudflare "Just a moment" interstitial to self-clear regardless; set
     # this only when content arrives after that (rarely needed).

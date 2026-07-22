@@ -1,6 +1,8 @@
 """Pagination URL construction — especially `path_format`, which lets a `path`
 page target non-numeric URLs (e.g. president.ie's /P0, /P20, /P40)."""
 
+import gzip
+
 import pytest
 
 from leaderspeech.text_scraper import paginate
@@ -531,6 +533,93 @@ def test_first_occurrence_wins_when_a_url_repeats():
     links = paginate.extract_links(html, "https://x/", ITEM_ANY_PDF, meta, ["en"])
     assert links == ["https://x/a.pdf"]
     assert meta["https://x/a.pdf"]["date"] == "2018-05-14"   # the first block's date
+
+
+# --- issue #63: gzipped (.gz) sitemaps ---------------------------------------------------
+# Many government sitemaps are `*.xml.gz` served as application/gzip (NOT
+# Content-Encoding: gzip), so httpx never decompresses them and the old `fetcher.get`
+# (decoded text) path found 0 <loc>. The engine now fetches sitemap BYTES and gunzips
+# when the URL ends in .gz or the payload carries the gzip magic. (Sweden's Royal Court:
+# /sitemapindex.xml -> /sitemap1.xml.gz with 2611 /arkiv/tal/ speech URLs.)
+
+_SITEMAP_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    '<url><loc>https://x.se/arkiv/tal/2020-01-02-a</loc></url>'
+    '<url><loc>https://x.se/press/2020-01-03-note</loc></url>'   # filtered out by pattern
+    '<url><loc>https://x.se/arkiv/tal/2019-06-07-b</loc></url>'
+    '</urlset>'
+)
+
+
+def _sitemap_recipe(sitemap_urls):
+    return Recipe(
+        source_id="swe", country="Sweden",
+        start_urls=["https://x.se/"],
+        listing={"link_pattern": r"/arkiv/tal/\d{4}-\d{2}-\d{2}-"},
+        title={"selectors": ["h1"]}, text={"selectors": ["article"]},
+        date={"selectors": [".date"]},
+        pagination={"type": "sitemap", "sitemap_urls": sitemap_urls},
+    )
+
+
+class SitemapBytesFetcher:
+    """Serves sitemap payloads as raw BYTES (like the real Fetcher.get_bytes), keyed by
+    URL. Values may be plain or gzip-compressed bytes."""
+
+    def __init__(self, payloads: dict):
+        self.payloads = payloads
+        self.urls = []
+
+    def get_bytes(self, url):
+        self.urls.append(url)
+        return "application/octet-stream", self.payloads[url]
+
+
+def test_sitemap_plain_xml_is_unchanged():
+    f = SitemapBytesFetcher({"https://x.se/sitemap.xml": _SITEMAP_XML.encode("utf-8")})
+    r = _sitemap_recipe(["https://x.se/sitemap.xml"])
+    links = paginate.harvest_links(r, f)
+    assert links == ["https://x.se/arkiv/tal/2020-01-02-a",
+                     "https://x.se/arkiv/tal/2019-06-07-b"]
+
+
+def test_sitemap_gzip_by_url_suffix_is_decompressed():
+    gz = gzip.compress(_SITEMAP_XML.encode("utf-8"))
+    f = SitemapBytesFetcher({"https://x.se/sitemap1.xml.gz": gz})
+    r = _sitemap_recipe(["https://x.se/sitemap1.xml.gz"])
+    links = paginate.harvest_links(r, f)
+    assert links == ["https://x.se/arkiv/tal/2020-01-02-a",
+                     "https://x.se/arkiv/tal/2019-06-07-b"]
+
+
+def test_sitemap_gzip_detected_by_magic_without_gz_suffix():
+    # served gzip at a plain .xml URL — caught by the 0x1f 0x8b magic, not the suffix.
+    gz = gzip.compress(_SITEMAP_XML.encode("utf-8"))
+    f = SitemapBytesFetcher({"https://x.se/sitemap.xml": gz})
+    r = _sitemap_recipe(["https://x.se/sitemap.xml"])
+    links = paginate.harvest_links(r, f)
+    assert links == ["https://x.se/arkiv/tal/2020-01-02-a",
+                     "https://x.se/arkiv/tal/2019-06-07-b"]
+
+
+def test_sitemap_index_followed_into_gzipped_children():
+    # The Sweden shape: an .xml index whose children are all .gz.
+    index_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        '<sitemap><loc>https://x.se/sitemap1.xml.gz</loc></sitemap>'
+        '</sitemapindex>'
+    )
+    f = SitemapBytesFetcher({
+        "https://x.se/sitemapindex.xml": index_xml.encode("utf-8"),
+        "https://x.se/sitemap1.xml.gz": gzip.compress(_SITEMAP_XML.encode("utf-8")),
+    })
+    r = _sitemap_recipe(["https://x.se/sitemapindex.xml"])
+    links = paginate.harvest_links(r, f)
+    assert links == ["https://x.se/arkiv/tal/2020-01-02-a",
+                     "https://x.se/arkiv/tal/2019-06-07-b"]
+    assert "https://x.se/sitemap1.xml.gz" in f.urls   # the child WAS opened
 
 
 def test_next_link_pagination_threads_meta():

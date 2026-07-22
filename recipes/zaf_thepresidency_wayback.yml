@@ -14,9 +14,17 @@ start_urls:
   - thepresidency.gov.za/speeches
 
 listing:
-  # [^?] excludes the ?page=N referrer variants that archive the SAME speech many times
-  # (the canonical query-less capture is kept, deduping ~26k captures down to the real articles).
-  link_pattern: 'thepresidency\.gov\.za/speeches/[^?]{12,}$'
+  # A real Drupal pathauto slug is lowercase alphanumerics + hyphens only (e.g.
+  # /speeches/address-deputy-president-cyril-ramaphosa-...). Match EXACTLY that (issue #64):
+  #   * excludes the ?page=N referrer variants (no '?' can appear in [a-z0-9-]);
+  #   * excludes the hundreds of MALFORMED captures the Archive holds under /speeches/ —
+  #     percent-encoded mirror junk like /speeches/%22http:/en.wikipedia.org/.../system.base.css
+  #     and /speeches/%22mailto:...%22 — which are NOT speeches: they fetch a ~659-char
+  #     nav-chrome page (no .field-name-body), so the generic fallback wrote a thin snippet
+  #     and the cleaner rejected ~every row. The old '[^?]{12,}$' admitted all of them
+  #     (138 junk vs 22 real in a 160-capture sample); this keeps only real article slugs.
+  # {11,} => a ≥12-char slug (real speech slugs are long descriptive strings).
+  link_pattern: 'thepresidency\.gov\.za/speeches/[a-z0-9][a-z0-9-]{11,}$'
 
 pagination:
   type: wayback
@@ -36,7 +44,14 @@ position: president
 date_languages: ["en"]
 notes: >
   DRAFT — probe-validated (no full run). Old thepresidency.gov.za Drupal-7 speech archive
-  (Zuma / Ramaphosa 2014-2024) via the Internet Archive, ~3638 /speeches/<slug> captures. Title h1,
-  body .field-name-body, date from a date-class element (regex "D Month YYYY"). No speaker_default
-  (Zuma, Ramaphosa, deputy presidents) -> tenure crosscheck. Complements zaf_gov (current + broad
-  aggregator). English.
+  (Zuma / Ramaphosa 2014-2024) via the Internet Archive. Title h1, body .field-name-body,
+  date from a date-class element (regex "D Month YYYY"). No speaker_default (Zuma, Ramaphosa,
+  deputy presidents) -> tenure crosscheck. Complements zaf_gov (current + broad aggregator).
+  English.
+  FIX (issue #64): the earlier "~659 chars/speech, ~0% keep" was NOT a text-selector bug —
+  .field-name-body extracts the full body (3k–17k chars, correct dates) on real speech pages.
+  The cause was the over-permissive link_pattern '[^?]{12,}$', which admitted hundreds of
+  MALFORMED captures the Archive stores under /speeches/ (percent-encoded mirror junk like
+  /speeches/%22http:/en.wikipedia.org/.../system.base.css). Those fetch a 659-char nav page
+  and the cleaner rejected them. link_pattern now matches only real lowercase-hyphen Drupal
+  slugs, so the harvest is real articles only.

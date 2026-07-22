@@ -76,6 +76,15 @@ date_languages: ["he"]
 # headless fetches get "Sorry, you have been blocked" after the first page. ~15s/request
 # clears reliably. This makes a full ~10k-item run LONG (~40+ hours) — a deliberate
 # FULL-RUN pacing cost of the js BODY fetch, not the api harvest.
+#
+# BLOCK-PAGE GUARD (issue #64/#65): when Cloudflare DOES serve the "Sorry, you have been
+# blocked" page (HTTP 200), the engine now detects it and treats the fetch as a FAILURE —
+# the ~460-char block page is NOT written as a speech, the retries/backoff below fire, and
+# the URL lands in failed_urls (retryable via --retry-failed) + _errors.csv. So a throttled
+# run surfaces the block as a high failure rate instead of silently polluting the CSV with
+# thousands of identical junk rows. If a full run shows a high block rate even at this
+# pacing, that is the signal to fall back to Wayback for the bodies or switch to the Hebrew
+# section (a FULL-RUN researcher decision — see notes).
 politeness:
   delay_range: [12, 18]
   retries: 4

@@ -1,7 +1,11 @@
 """Header construction: browser-like defaults that clear WAFs, plus the opt-in
 User-Agent override for sites that hard-block the honest bot UA."""
 
-from leaderspeech.text_scraper.fetch import USER_AGENT, build_headers
+import pytest
+
+from leaderspeech.text_scraper.fetch import USER_AGENT, Fetcher, build_headers
+from leaderspeech.text_scraper.block import BlockPageError
+from tests.test_block import CLOUDFLARE_BLOCK, REAL_SPEECH
 
 
 def test_default_headers_include_accept_and_accept_language():
@@ -39,4 +43,71 @@ def test_fetcher_stores_js_settle_and_resolves_cdp_endpoint(monkeypatch):
 
     f = Fetcher(renderer="static", cdp_endpoint="http://explicit:1234")
     assert f.cdp_endpoint == "http://explicit:1234"  # explicit arg wins over env
+    f.close()
+
+
+# --- issue #65: block-page guard in Fetcher.get -----------------------------------------
+
+class _FakeResponse:
+    def __init__(self, text):
+        self.text = text
+
+    def raise_for_status(self):
+        pass
+
+
+class _FakeClient:
+    """Stands in for the static httpx client: returns a fixed body and counts calls."""
+
+    def __init__(self, text):
+        self.text = text
+        self.calls = 0
+
+    def get(self, url):
+        self.calls += 1
+        return _FakeResponse(self.text)
+
+    def close(self):
+        pass
+
+
+def _static_fetcher(text, **kw):
+    # retries=2 with backoff=0 so a failure retries (observably) but never sleeps.
+    f = Fetcher(renderer="static", retries=2, backoff=0.0, pause_every=0, **kw)
+    f._client = _FakeClient(text)
+    return f
+
+
+def test_get_raises_on_block_page_and_retries():
+    """A Cloudflare block page served as 200 must become a fetch FAILURE, not a return
+    value — and it must exhaust the retry budget (so a transient rate-limit block gets a
+    second chance)."""
+    f = _static_fetcher(CLOUDFLARE_BLOCK)
+    with pytest.raises(RuntimeError) as ei:
+        f.get("https://gov.example/speech")
+    assert "WAF/block page" in str(ei.value)   # the BlockPageError message is surfaced
+    assert f._client.calls == 2                 # retried the full budget
+    f.close()
+
+
+def test_get_returns_a_real_page_untouched():
+    f = _static_fetcher(REAL_SPEECH)
+    assert f.get("https://gov.example/speech") == REAL_SPEECH
+    assert f._client.calls == 1                 # no retry — it succeeded first time
+    f.close()
+
+
+def test_block_guard_can_be_disabled_per_recipe():
+    """block_page: false -> the block page is returned verbatim (the escape hatch for a
+    site whose legitimate content matches a signature)."""
+    f = _static_fetcher(CLOUDFLARE_BLOCK, block_page=False)
+    assert f.get("https://gov.example/speech") == CLOUDFLARE_BLOCK
+    f.close()
+
+
+def test_block_guard_raises_block_page_error_directly():
+    """The guard helper raises the typed error before the retry wrapper converts it."""
+    f = _static_fetcher(CLOUDFLARE_BLOCK)
+    with pytest.raises(BlockPageError):
+        f._guard_block(CLOUDFLARE_BLOCK, "https://gov.example/speech")
     f.close()

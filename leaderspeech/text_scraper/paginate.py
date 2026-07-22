@@ -15,6 +15,7 @@ Note the difference between the two "explicit" cases:
 
 from __future__ import annotations
 
+import gzip
 import logging
 import re
 import time
@@ -241,12 +242,34 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
     return collected[:max_links] if max_links else collected
 
 
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
+def _fetch_sitemap_xml(fetcher, sm_url: str) -> str:
+    """Fetch one sitemap and return its XML as text, transparently gunzipping a gzipped
+    sitemap.
+
+    Many government sitemaps are served as ``*.xml.gz`` with ``Content-Type:
+    application/gzip`` (NOT ``Content-Encoding: gzip``), so httpx does not decompress
+    them: ``fetcher.get`` would hand back ~800 KB of raw gzip bytes decoded as a mangled
+    string, and BeautifulSoup would find 0 ``<loc>`` (issue #63). We fetch RAW BYTES and
+    gunzip whenever the URL ends in ``.gz`` or the payload starts with the gzip magic
+    (``0x1f 0x8b``), then decode UTF-8 (the sitemaps.org-mandated encoding). Plain
+    (non-gzipped) sitemaps are unaffected — they just skip the decompress branch.
+    """
+    data = fetcher.get_bytes(sm_url)[1]
+    if sm_url.lower().endswith(".gz") or data[:2] == _GZIP_MAGIC:
+        data = gzip.decompress(data)
+    return data.decode("utf-8", "replace")
+
+
 def _harvest_sitemap(recipe: Recipe, fetcher, max_links) -> list[str]:
     """Enumerate speech URLs from the site's sitemap(s).
 
     Sitemaps are the canonical "every URL" list — far more complete than paging a
     listing that only shows recent items. A sitemap *index* is followed into its
-    child sitemaps. URLs are kept if they match listing.link_pattern.
+    child sitemaps. URLs are kept if they match listing.link_pattern. Gzipped sitemaps
+    (``*.xml.gz``) are decompressed transparently (issue #63).
     """
     pattern = re.compile(recipe.listing.link_pattern) if recipe.listing.link_pattern else None
     collected, seen = [], set()
@@ -256,7 +279,7 @@ def _harvest_sitemap(recipe: Recipe, fetcher, max_links) -> list[str]:
         sm_url = queue.pop(0)
         fetched += 1
         try:
-            soup = BeautifulSoup(fetcher.get(sm_url), "xml")
+            soup = BeautifulSoup(_fetch_sitemap_xml(fetcher, sm_url), "xml")
         except Exception as e:
             log.warning("sitemap fetch failed: %s :: %s", sm_url, e)
             continue

@@ -337,7 +337,9 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
     }
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl, user_agent=recipe.user_agent,
-                      js_settle=recipe.js_settle, cdp_endpoint=recipe.cdp_endpoint)
+                      js_settle=recipe.js_settle, cdp_endpoint=recipe.cdp_endpoint,
+                      block_page=recipe.block_page,
+                      block_page_patterns=recipe.block_page_patterns)
     wayback_client = None
     links: list = []
     meta_by_url: dict[str, dict] = {}

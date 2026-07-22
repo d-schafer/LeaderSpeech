@@ -204,12 +204,16 @@ def test_merge_is_idempotent(env):
     out_root = str(env["tmp"] / "cleaned")
     build_path = str(env["tmp"] / "_build" / "merged.parquet")
 
-    p = merge.build_dataset(out_root, build_path)
+    p = merge.build_dataset(out_root, build_path)            # default keep="speakers"
     merged = pd.read_parquet(p)
-    assert len(merged) == 2                                  # the accepted speech + statement
-    assert "clean_status" not in merged.columns             # deliverable drops process columns
+    assert len(merged) == 3                                  # 2 accepted + the foreign-visitor speech
+    assert "clean_status" in merged.columns                 # carried so users can filter downstream
+    assert "is_substantive" in merged.columns               # (and the substantive/courtesy split)
     assert "speech_type" in merged.columns                  # keeps curated metadata
     assert "document_type" in merged.columns                 # statement-vs-speech distinction kept
 
-    merge.build_dataset(out_root, build_path)                # re-run
-    assert len(pd.read_parquet(p)) == 2                      # unchanged
+    merge.build_dataset(out_root, build_path, keep="accepted")  # leader-only reverts to accepted
+    assert len(pd.read_parquet(p)) == 2                      # just the accepted speech + statement
+
+    merge.build_dataset(out_root, build_path)                # re-run default -> unchanged (idempotent)
+    assert len(pd.read_parquet(p)) == 3
