@@ -49,6 +49,10 @@ SCHEMA_COLUMNS = [
     "title", "title_originlanguage",
     "text", "text_originlanguage",
     "date", "source", "source_language", "dataset",
+    # For wayback rows: the Internet-Archive capture date (YYYY-MM-DD) of the snapshot we
+    # scraped — an approximate publication date (a "no-later-than" bound), used downstream
+    # only as a last-resort date fallback when no date is recoverable from the page/text.
+    "wayback_capture",
 ]
 ERROR_COLUMNS = ["timestamp", "url", "error"]
 
@@ -119,6 +123,18 @@ def save_state(path: Path, state: dict):
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _wayback_capture_iso(timestamp) -> str:
+    """An Internet-Archive capture timestamp (YYYYMMDD…) as an ISO date, or '' if unusable.
+    A 00 month/day (some CDX rows) is clamped to 01 rather than dropped."""
+    s = str(timestamp or "")
+    if len(s) < 8 or not s[:8].isdigit():
+        return ""
+    y, m, d = int(s[:4]), int(s[4:6]) or 1, int(s[6:8]) or 1
+    if 1990 <= y <= 2100 and 1 <= m <= 12 and 1 <= d <= 31:
+        return f"{y:04d}-{m:02d}-{d:02d}"
+    return ""
+
+
 def map_to_schema(rec: dict, recipe: Recipe, doc_id: str) -> dict:
     row = {col: "" for col in SCHEMA_COLUMNS}
     row.update(
@@ -168,11 +184,16 @@ def _fetch_payload(fetcher, recipe: Recipe, url: str) -> tuple[str, object]:
     return "html", fetcher.get(url)
 
 
-def _extract_payload(kind: str, payload, url: str, recipe: Recipe) -> tuple[dict, bool]:
+def _extract_payload(kind: str, payload, url: str, recipe: Recipe,
+                     fill_date: bool = True) -> tuple[dict, bool]:
     """Build a speech record from a fetched payload. `payload` is PDF bytes (kind='pdf')
     or HTML text (kind='html'). Returns (rec, via_generic). A 'pdf' payload that isn't
     actually a PDF — a mixed listing, an HTML error page — is parsed as HTML instead.
-    HTML that the recipe selectors miss falls back to the generic article extractor."""
+    HTML that the recipe selectors miss falls back to the generic article extractor.
+
+    `fill_date=False` (used for wayback captures) suppresses the generic extractor's DATE
+    guess: on archived pages trafilatura routinely latches onto a template/footer year (e.g.
+    a uniform 2020), which is worse than an honest empty date + the `wayback_capture` fallback."""
     if kind == "pdf" and looks_like_pdf(payload):
         return extract_pdf_record(payload, url, recipe), False
 
@@ -187,7 +208,8 @@ def _extract_payload(kind: str, payload, url: str, recipe: Recipe) -> tuple[dict
         if gen["text"]:
             rec["text"] = gen["text"]
             rec["title"] = rec["title"] or gen["title"]
-            rec["date"] = rec["date"] or gen["date"]
+            if fill_date:
+                rec["date"] = rec["date"] or gen["date"]
             rec["speaker"] = rec["speaker"] or gen["speaker"]
             via_generic = True
     return rec, via_generic
@@ -242,6 +264,7 @@ def scrape_recipe(
     retry_failed: bool = False,
     extend_wayback: bool = False,
     rescrape: bool = False,
+    wayback_delay: float | None = None,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
@@ -257,6 +280,14 @@ def scrape_recipe(
              "respect_robots=%s",
              recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
              rescrape, respect_robots)
+
+    # Per-fetch Internet-Archive pacing: the recipe's pagination.wayback_delay, unless this run
+    # overrides it (`--wayback-delay`). Raising it paces politely when another crawler shares the
+    # IP and IA is throttling. Applies to both a wayback recipe and a live recipe's wayback-extend.
+    wb_delay = recipe.pagination.wayback_delay if wayback_delay is None else wayback_delay
+    if wayback_delay is not None:
+        log.info("wayback_delay override: %.1fs between Internet-Archive fetches (recipe default %.1fs)",
+                 wayback_delay, recipe.pagination.wayback_delay)
 
     state = load_state(state_path)
     seen = set(state["seen_urls"])       # already scraped — never re-fetched
@@ -321,19 +352,23 @@ def scrape_recipe(
             try:
                 via_generic = False
                 entry: dict = {}
+                wb_capture = ""
                 if is_wayback:
                     url = todo_item["original"]
+                    wb_capture = _wayback_capture_iso(todo_item.get("timestamp"))
                     # Archived captures may be HTML pages or (content_type: pdf) PDF bytes.
+                    # fill_date=False: don't let the generic extractor invent a template date
+                    # on an archived page — wayback_capture is the honest date fallback.
                     if wants_pdf(phase_recipe, url):
                         _, data = wayback.fetch_snapshot_bytes(
                             todo_item, delay=wayback_delay, client=wayback_client,
                         )
-                        rec, via_generic = _extract_payload("pdf", data, url, phase_recipe)
+                        rec, via_generic = _extract_payload("pdf", data, url, phase_recipe, fill_date=False)
                     else:
                         html = wayback.fetch_snapshot(
                             todo_item, delay=wayback_delay, client=wayback_client,
                         )
-                        rec, via_generic = _extract_payload("html", html, url, phase_recipe)
+                        rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
                 else:
                     url = todo_item
                     entry = meta_by_url.get(url, {})
@@ -374,7 +409,10 @@ def scrape_recipe(
                 else:
                     state["last_doc_num"] += 1
                     doc_id = f"{alpha3}{state['last_doc_num']:04d}"
-                    pending_rows.append(map_to_schema(rec, phase_recipe, doc_id))
+                    row = map_to_schema(rec, phase_recipe, doc_id)
+                    if wb_capture:
+                        row["wayback_capture"] = wb_capture
+                    pending_rows.append(row)
                     seen.add(url)
                     failed.discard(url)      # in case this was a previously-failed retry
                     stats["scraped"] += 1
@@ -493,7 +531,7 @@ def scrape_recipe(
 
         aborted_early = _scrape_phase(
             todo, is_wayback=wayback_mode, meta_by_url=meta_by_url,
-            wayback_delay=recipe.pagination.wayback_delay, phase_recipe=recipe, label="live",
+            wayback_delay=wb_delay, phase_recipe=recipe, label="live",
         )
 
         # --- wayback_extend: continue a LIVE recipe into the Internet Archive -----------
@@ -545,7 +583,8 @@ def scrape_recipe(
                     phase_recipe = wayback.extend_recipe(recipe, ext)
                     scraped_before = stats["scraped"]
                     aborted_early = _scrape_phase(
-                        todo2, is_wayback=True, meta_by_url={}, wayback_delay=ext.wayback_delay,
+                        todo2, is_wayback=True, meta_by_url={},
+                        wayback_delay=(ext.wayback_delay if wayback_delay is None else wayback_delay),
                         phase_recipe=phase_recipe, label="wayback-extend",
                     ) or aborted_early
                     extended_scraped = stats["scraped"] - scraped_before
@@ -653,6 +692,11 @@ def main():
     ap.add_argument("--extend-wayback", action="store_true",
                     help="after the live crawl, continue into the Internet Archive for older "
                          "speeches (same as recipe `wayback_extend: true`; reuses the live selectors)")
+    ap.add_argument("--wayback-delay", type=float, default=None, metavar="SECONDS",
+                    help="override the recipe's pagination.wayback_delay (seconds paused before each "
+                         "Internet-Archive fetch) for THIS run only — raise it (e.g. 12) to pace "
+                         "politely when another crawler shares your IP and IA is throttling. Applies "
+                         "to a wayback recipe and to a live recipe's wayback-extend phase.")
     args = ap.parse_args()
 
     result = scrape_recipe(
@@ -663,6 +707,7 @@ def main():
         retry_failed=args.retry_failed,
         extend_wayback=args.extend_wayback,
         rescrape=args.rescrape,
+        wayback_delay=args.wayback_delay,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

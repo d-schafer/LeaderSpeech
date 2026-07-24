@@ -10,7 +10,7 @@ from .base import Translator, split_into_chunks, split_sentences
 
 __all__ = ["Translator", "get_translator", "split_into_chunks", "split_sentences", "AVAILABLE"]
 
-AVAILABLE = ("google", "opusmt", "nllb")
+AVAILABLE = ("google", "googletrans", "opusmt", "nllb")
 
 
 def get_translator(name: str, config=None) -> Translator:
@@ -20,6 +20,9 @@ def get_translator(name: str, config=None) -> Translator:
     if key == "google":
         from .google import GoogleBackend
         return _construct(GoogleBackend, config, "google", "deep-translator", "translate-google")
+    if key == "googletrans":
+        from .googletrans import GoogleTransBackend
+        return _construct(GoogleTransBackend, config, "googletrans", "httpx", "")
     if key == "opusmt":
         from .opusmt import OpusMTBackend
         return _construct(OpusMTBackend, config, "opusmt", "transformers/torch/sentencepiece", "translate-hf")

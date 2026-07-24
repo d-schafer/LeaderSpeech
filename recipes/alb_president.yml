@@ -1,0 +1,68 @@
+# Albania — President of the Republic (president.al), LIVE via CDP.
+# Cloudflare interactive/managed challenge: httpx = 403 "Just a moment…" AND headless Chromium does
+# NOT clear it (issue #16) — but a REAL Chrome renders the site fine (researcher confirmed in-browser;
+# verified 2026-07-23 via CDP). Case-(c) block → renderer: cdp: attach over DevTools to a Chrome the
+# researcher launches, e.g.
+#   & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 `
+#       --user-data-dir="$env:TEMP\chrome-cdp" https://president.al/
+# then run probe/run and keep that window open for the whole crawl. (mlt_president/pol_president/
+# nzl_gg precedent.) WordPress/Elementor; section listings /<section>/ paginate /page/{n}/, and
+# articles are long root-slug permalinks (/fjala-e-presidentit-…/). Multiple presidents in scope.
+source_id: alb_president
+country: Albania
+source_language: Albanian
+renderer: cdp
+start_urls:
+  - https://president.al/fjalime/       # speeches (core; ~9 pages)
+  - https://president.al/mesazhe/        # messages
+  - https://president.al/intervistat/    # interviews
+  - https://president.al/aktivitetet/    # activities (event speeches / readouts)
+  - https://president.al/lajme/          # news
+
+listing:
+  # article permalinks are long root slugs (/fjala-e-presidentit-…/, /presidenti-begaj-…/); the ≥12-
+  # char length excludes the short static nav slugs (funksionet, simbolet, dekrete, galeria,
+  # intervistat…). A handful of long institutional pages (bio, constitution) leak in → cleaner drops.
+  link_pattern: '^https?://(www\.)?president\.al/[a-z][a-z0-9-]{11,}/$'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+  max_pages: 300   # engine stops when a page yields no new links (fjalime ~9 pp; lajme deeper)
+
+title:
+  selectors: ["h1.albititullpostnew", "h1", "title"]
+text:
+  selectors: [".fullcontent", ".entry.entryfull", ".entryfull", ".leftside", "article"]
+date:
+  # span.post-date = "19/06/2026 •" (DD/MM/YYYY). Strip the trailing bullet; day-first via [sq].
+  selectors: [".post-date", ".entry-date", "time"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+
+position: president
+date_languages: ["sq"]
+
+politeness:
+  # president.al's Cloudflare intermittently serves a block page to rapid CDP requests; a small
+  # per-request delay keeps the real-Chrome crawl under the radar. Pair with `run --retry-failed`.
+  delay_range: [1.5, 3.0]
+
+notes: >
+  DRAFT — probe-validated over CDP (2026-07-23, no full run). LIVE president.al via renderer: cdp
+  (real Chrome; headless js does NOT clear the CF challenge, issue #16; a real browser does — verified
+  by CDP inspection). WordPress/Elementor "dekoline" theme: title h1.albititullpostnew, body
+  .fullcontent, date span.post-date (DD/MM/YYYY + " •" bullet → regex). Section listings /fjalime/
+  (speeches, ~9 pp), /mesazhe/, /intervistat/, /aktivitetet/, /lajme/ (news), each paginating
+  /page/{n}/; articles are long root-slug permalinks. The link_pattern also pulls a few static
+  institutional pages (bio/constitution) → the cleaner's document-type gate + tenure crosscheck keep
+  actual speeches/statements. Multiple presidents (Meta 2017–22, Begaj 2022– within live reach) → NO
+  speaker_default; the cleaner assigns via the tenure key. Deep history (pre-2017 + other CMS eras)
+  is the companion alb_president_wayback.yml. NOTE: pagination confirmed on /fjalime/; the other
+  sections are assumed to share the /page/{n}/ pattern (engine stops on empty). English content
+  exists at /speeches/?lang=en etc. — this recipe takes the Albanian originals; the translation stage
+  fills English. End-to-end confirmed on a real fjalime speech (title + date 2026-06-19 + 8,878-char
+  body; the .fullcontent body carries a short "date • category • author" meta prefix the cleaner
+  strips). CF intermittently 200-block pages under rapid CDP fire → politeness delay above +
+  `run --retry-failed`. FULL RUN (needs Chrome open the whole time) is the researcher's gate.

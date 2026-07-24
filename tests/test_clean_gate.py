@@ -58,6 +58,24 @@ def test_rejects_non_leader_minister():
     assert status == gate.REJECTED_NON_LEADER
 
 
+def test_tenure_exact_overrides_uncertain_speaker_type():
+    # a tenure-CONFIRMED in-office leader is not dropped even if the model typed the speaker
+    # 'other'/'foreign' (issue #68 — trust the crosscheck over an uncertain model type)
+    m = _meta(document_type="official_statement", speaker_type="other")
+    assert gate.decide(m, CleanConfig())[0] == gate.REJECTED_NON_LEADER
+    assert gate.decide(m, CleanConfig(), tenure_match="exact")[0] == gate.ACCEPTED
+    # a foreign-typed speaker that exactly matches THIS country's leader is also kept
+    mf = _meta(speaker_type="foreign_visitor")
+    assert gate.decide(mf, CleanConfig(), tenure_match="exact")[0] == gate.ACCEPTED
+
+
+def test_tenure_exact_does_not_rescue_a_non_speech_doctype():
+    # the exact match only overrides the leader-type check, NOT the document_type gate:
+    # third-person NEWS about the leader is still rejected as not-representative
+    m = _meta(document_type="other", speaker_type="other")
+    assert gate.decide(m, CleanConfig(), tenure_match="exact")[0] == gate.REJECTED_NOT_REPRESENTATIVE
+
+
 def test_unknown_speaker_type_still_accepted():
     # we don't drop a representative document just because the role was uncertain
     status, _ = gate.decide(_meta(speaker_type="unknown"), CleanConfig())

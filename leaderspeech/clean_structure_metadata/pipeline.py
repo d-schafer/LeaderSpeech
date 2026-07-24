@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import extract, gate, llm, store, tenure
+from . import extract, gate, jalali, llm, store, tenure
 from .config import CleanConfig
 
 log = logging.getLogger("leaderspeech.clean_structure_metadata.pipeline")
@@ -93,6 +93,31 @@ def _year_of(date_str) -> int | None:
     return int(s[:4]) if len(s) >= 4 and s[:4].isdigit() else None
 
 
+def resolve_date(row: dict, meta: dict | None = None) -> tuple[str, str | None]:
+    """Best available date for a row + a precision label, in priority order:
+      1. a Solar-Hijri (Jalali) date parsed from the original-language TEXT — deterministic and
+         exact for Afghan/Persian sources ("day"), or an approximate year ("year");
+      2. the model's corrected date, or the scraped date ("model" / "scraped") — normal sources;
+      3. the Internet-Archive capture date ("wayback_capture") — a last-resort approximate bound.
+    Returns ("", None) when nothing is available. `meta` (the model reply) is only consulted at
+    enrich time; pass None pre-LLM (used just to pick the tenure/leaders crosscheck year)."""
+    text = row.get("text_originlanguage") or row.get("text") or ""
+    jiso, jprec = jalali.parse_jalali(text)
+    if jiso:
+        return jiso, jprec
+    scraped = (row.get("date") or "").strip()
+    if meta is not None:
+        meta_date = (meta.get("date") or "").strip()
+        if meta_date and (not scraped or _norm(meta.get("date_matches_metadata")) == "no"):
+            return meta_date, "model"
+    if scraped:
+        return scraped, "scraped"
+    wb = (row.get("wayback_capture") or "").strip()
+    if wb:
+        return wb, "wayback_capture"
+    return "", None
+
+
 def _inclusion_tier(document_type, is_first_person, is_substantive=None) -> str | None:
     """A single ordinal handle on the strict->broad inclusion spectrum, derived from
     document_type + is_first_person + is_substantive, so a dataset user filters by strictness
@@ -164,7 +189,8 @@ def regate_source(
             meta["document_type"],
             df.at[i, "is_first_person"] if "is_first_person" in df.columns else None,
             df.at[i, "is_substantive"] if "is_substantive" in df.columns else None)
-        new_status, new_reason = gate.decide(meta, config)
+        tmatch = df.at[i, "tenure_match"] if "tenure_match" in df.columns else ""
+        new_status, new_reason = gate.decide(meta, config, tmatch)
         if new_status != status_now:
             df.at[i, "clean_status"] = new_status
             df.at[i, "gate_reason"] = new_reason
@@ -219,12 +245,9 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     if not (row.get("position") or "").strip() and (meta.get("position") or "").strip():
         out["position"] = meta["position"].strip()
 
-    scraped_date = (row.get("date") or "").strip()
-    meta_date = (meta.get("date") or "").strip()
-    if not scraped_date and meta_date:
-        out["date"] = meta_date
-    elif _norm(meta.get("date_matches_metadata")) == "no" and meta_date:
-        out["date"] = meta_date
+    # date: Jalali(text) > model-corrected/scraped > wayback_capture (see resolve_date). The
+    # precision label records which source won, so a downstream user can filter approximate dates.
+    out["date"], out["date_precision"] = resolve_date(row, meta)
 
     # tenure crosscheck on the (possibly corrected) speaker + date
     if tenure_df is not None:
@@ -254,7 +277,7 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     out["clean_model"] = config.model
     out["cleaned_at"] = datetime.now().isoformat(timespec="seconds")
 
-    status, reason = gate.decide(meta, config)
+    status, reason = gate.decide(meta, config, out.get("tenure_match", ""))
     out["clean_status"] = status
     out["gate_reason"] = reason
     return out
@@ -381,7 +404,9 @@ def clean_file(
     items = []
     for _, r in todo.iterrows():
         row = r.to_dict()
-        year = _year_of(row.get("date"))
+        # Resolve the date BEFORE the leaders lookup so a Jalali/wayback-corrected year (not the
+        # bogus scraped one) picks which leaders are named to the model.
+        year = _year_of(resolve_date(row)[0])
         leaders_info = ""
         if tenure_df is not None:
             leaders = tenure.leaders_for(tenure_df, row.get("country", ""), year, config.tenure_window)

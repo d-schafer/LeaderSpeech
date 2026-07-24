@@ -40,7 +40,7 @@ SCRAPED_COLUMNS = [
     "context", "context_originlanguage",
     "title", "title_originlanguage",
     "text", "text_originlanguage",
-    "date", "source", "source_language", "dataset",
+    "date", "source", "source_language", "dataset", "wayback_capture",
 ]
 
 # Columns the cleaner adds.
@@ -49,7 +49,7 @@ CLEAN_COLUMNS = [
     "document_type", "is_first_person", "is_substantive", "inclusion_tier",
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language",
-    "speaker_attributed_correct", "date_matches_metadata",
+    "speaker_attributed_correct", "date_matches_metadata", "date_precision",
     "tenure_match", "tenure_matched_name", "is_ceremonial",
     "clean_status", "gate_reason",
     "clean_confidence", "clean_reasoning", "clean_model", "cleaned_at",

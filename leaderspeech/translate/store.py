@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -34,4 +35,14 @@ def write_table_atomic(df: pd.DataFrame, path: str | Path, compression: str = "z
         df.to_csv(tmp, index=False, encoding="utf-8")
     if p.exists():
         shutil.copy2(p, p.with_suffix(p.suffix + ".bak"))
-    os.replace(tmp, p)
+    # Retry the atomic replace: on Windows a transient lock on the target — Dropbox mid-sync,
+    # an antivirus scan, or an open viewer (Excel/RStudio) — briefly denies access. Waiting and
+    # retrying is far better than crashing and losing a whole translation run.
+    for attempt in range(5):
+        try:
+            os.replace(tmp, p)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(0.5 * (attempt + 1))

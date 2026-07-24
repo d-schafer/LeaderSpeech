@@ -70,7 +70,10 @@ def main():
     sel.add_argument("--input", help="translate an arbitrary CSV/Parquet (raw scraped, merged build, ...)")
     ap.add_argument("--output", default=None, help="with --input: write here instead of in place")
     ap.add_argument("--out-root", default="data/cleaned", help="root for --source/--country/--all")
-    ap.add_argument("--translator", default=None, help="google (default) | opusmt | nllb")
+    ap.add_argument("--translator", default=None,
+                    help="google | nllb | opusmt. If omitted in an interactive terminal, you'll be "
+                         "prompted to pick one (with a GPU-based recommendation); scripts fall back "
+                         "to the config default (google).")
     ap.add_argument("--config", default=None, help="path to translate_config.yml (else defaults)")
     ap.add_argument("--limit", type=int, default=None, help="cap rows translated per file this run")
     ap.add_argument("--force", action="store_true", help="re-translate even if the English column is filled")
@@ -80,11 +83,17 @@ def main():
     _ensure_console()
     config = load_config(args.config)
     if args.translator:
-        config = config.model_copy(update={"translator": args.translator})
+        translator_name = args.translator
+    elif sys.stdin.isatty():                       # interactive + no --translator: offer the picker
+        from .select import choose_backend
+        translator_name, config = choose_backend(config)
+    else:
+        translator_name = config.translator        # scripted / non-TTY: use the config default
+    config = config.model_copy(update={"translator": translator_name})
     if args.all_rows:
         config = config.model_copy(update={"only_accepted": False})
 
-    translator = get_translator(config.translator, config)
+    translator = get_translator(translator_name, config)
 
     if args.input:
         targets = [Path(args.input)]

@@ -89,9 +89,12 @@ def translate_table(
         idxs = idxs[:limit]
 
     n_done = 0
+    n_failed = 0
+    total = len(idxs)
     for count, i in enumerate(idxs, 1):
         row = df.loc[i]
         src = resolve_src_lang(row)
+        log.info("translating %d/%d (doc_id=%s)", count, total, row.get("doc_id"))
         changed = False
         for f in fields:
             if not _needs(row, f, force):
@@ -100,9 +103,20 @@ def translate_table(
             try:
                 out = translator.translate(origin, src)
             except Exception as e:
-                log.warning("translate failed (doc_id=%s field=%s src=%s): %s",
-                            row.get("doc_id"), f, src, e)
+                # The backend's own message ("...api connection error...") hides the real cause.
+                # Report the text length + chunk count and flag the common failure mode: a very long
+                # text is split into many chunks, and the burst of requests trips the free Google
+                # endpoint's rate limit. (Short texts = one request = fine.)
+                n_chunks = len(origin) // max(1, config.max_chunk_chars) + 1
+                etype = type(e).__name__
+                looks_rate = "requesterror" in etype.lower() or any(
+                    s in str(e).lower() for s in ("rate", "too many", "connection"))
+                hint = (f"  [len={len(origin)} chars -> ~{n_chunks} chunk(s); long texts make many "
+                        "requests and can trip the free endpoint's rate limit]") if (looks_rate and n_chunks > 1) else ""
+                log.warning("translate failed after retries (doc_id=%s field=%s src=%s len=%d chunks~%d): %s: %s%s",
+                            row.get("doc_id"), f, src, len(origin), n_chunks, etype, e, hint)
                 out = ""
+                n_failed += 1
             if out:
                 df.at[i, f] = out
                 changed = True
@@ -117,6 +131,9 @@ def translate_table(
             on_checkpoint(df)
             log.info("checkpoint: %d/%d rows processed (%d translated)", count, len(idxs), n_done)
 
+    if n_failed:
+        log.warning("%d field(s) failed to translate (likely rate-limit) — they were left empty; "
+                    "re-run to retry just those (already-filled rows are skipped).", n_failed)
     return df, n_done
 
 

@@ -291,6 +291,63 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     assert "2008-01-01" in csv
 
 
+def test_wayback_delay_override_paces_archive_fetches(tmp_path, monkeypatch):
+    """`--wayback-delay` (scrape_recipe wayback_delay=) overrides the recipe's
+    pagination.wayback_delay for the actual archived fetches; None keeps the recipe default (5.0)."""
+    entries = [
+        {"timestamp": "20080101", "original": "https://www.casarosada.gob.ar/informacion/discursos/1"},
+        {"timestamp": "20080102", "original": "https://www.casarosada.gob.ar/informacion/discursos/2"},
+    ]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    seen_delays: list[float] = []
+
+    def _record(entry, delay=5.0, timeout=60.0, client=None):
+        seen_delays.append(delay)
+        return WAYBACK_HTML
+
+    monkeypatch.setattr(run.wayback, "fetch_snapshot", _record)
+
+    # override -> every archived fetch is paced at 12s
+    run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(tmp_path / "o1"),
+                      state_root=str(tmp_path / "s1"), wayback_delay=12.0)
+    assert seen_delays and all(d == 12.0 for d in seen_delays)
+
+    # no override -> the recipe default (5.0) is used
+    seen_delays.clear()
+    run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(tmp_path / "o2"),
+                      state_root=str(tmp_path / "s2"))
+    assert seen_delays and all(d == 5.0 for d in seen_delays)
+
+
+def test_wayback_capture_iso_helper():
+    assert run._wayback_capture_iso("20230815120000") == "2023-08-15"
+    assert run._wayback_capture_iso("20080100") == "2008-01-01"   # 00 month/day clamped to 01
+    assert run._wayback_capture_iso("2023") == ""                 # too short
+    assert run._wayback_capture_iso(None) == ""
+
+
+def test_wayback_capture_recorded_on_rows(tmp_path, monkeypatch):
+    """Every wayback row records the IA snapshot's capture date in `wayback_capture`."""
+    import pandas as pd
+    entries = [
+        {"timestamp": "20230815120000", "original": "https://www.casarosada.gob.ar/informacion/discursos/1"},
+        {"timestamp": "20240101000000", "original": "https://www.casarosada.gob.ar/informacion/discursos/2"},
+    ]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    monkeypatch.setattr(run.wayback, "fetch_snapshot",
+                        lambda entry, delay=3.0, timeout=60.0, client=None: WAYBACK_HTML)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    df = pd.read_csv(out / "Argentina" / "test_wayback.csv", dtype=str).fillna("")
+    assert "wayback_capture" in df.columns
+    assert set(df["wayback_capture"]) == {"2023-08-15", "2024-01-01"}
+
+
 def test_api_carries_json_metadata_and_skips_fetch_when_text_present(tmp_path, monkeypatch):
     """api/feed entries carry metadata: the page-extracted record is enriched from the
     JSON for fields it missed (here, the date), and an entry whose text is already in

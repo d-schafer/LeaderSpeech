@@ -28,8 +28,9 @@ def _norm(v) -> str:
     return (v or "").strip().lower() if isinstance(v, str) else ""
 
 
-def decide(meta: dict, config) -> tuple[str, str]:
-    """Return (clean_status, gate_reason). `meta` is a parsed extraction dict."""
+def decide(meta: dict, config, tenure_match: str = "") -> tuple[str, str]:
+    """Return (clean_status, gate_reason). `meta` is a parsed extraction dict; `tenure_match`
+    is the crosscheck verdict ('exact'/'other_country'/'none')."""
     dtype = _norm(meta.get("document_type"))
     speaker = (meta.get("speaker") or "").strip()
     stype = _norm(meta.get("speaker_type"))
@@ -44,10 +45,12 @@ def decide(meta: dict, config) -> tuple[str, str]:
     if not speaker:
         return REJECTED_NO_SPEAKER, "no speaker could be identified"
 
-    # 3) must be a national leader (configurable). Foreign visitors and clearly
-    #    non-leader speakers are set aside; 'unknown'/'head_*'/'both' pass (we don't
-    #    drop a real leader just because the type was uncertain).
-    if config.require_leader_type:
+    # 3) must be a national leader (configurable). Foreign visitors and clearly non-leader
+    #    speakers are set aside; 'unknown'/'head_*'/'both' pass (we don't drop a real leader
+    #    just because the type was uncertain). BUT if the tenure crosscheck EXACTLY matched a
+    #    leader in office for this country+year, trust that over an uncertain model speaker_type:
+    #    a confirmed in-office leader must not be dropped as non-leader/foreign (issue #68).
+    if config.require_leader_type and _norm(tenure_match) != "exact":
         if stype == "foreign_visitor":
             return REJECTED_FOREIGN, "speaker is a foreign visitor, not this country's leader"
         if stype in _NON_LEADER_TYPES:

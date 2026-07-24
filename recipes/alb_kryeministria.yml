@@ -1,0 +1,49 @@
+# Albania — Kryeministria (Office of the Prime Minister, kryeministria.al). Head-of-government
+# speeches & statements (PM Edi Rama, in office since Sept 2013). WordPress behind an Imperva
+# INCAPSULA JS challenge (httpx → a 212-byte _Incapsula_Resource stub; a browser UA alone does NOT
+# clear it) → renderer: js (headless Chromium passes it cleanly; no user_agent override needed).
+# Listings live at /newsrooms/<category>/ (plural); articles at /newsroom/<slug>/ (singular).
+source_id: alb_kryeministria
+country: Albania
+source_language: Albanian
+renderer: js
+start_urls:
+  - https://kryeministria.al/newsrooms/deklarata-per-shtyp/   # Fjalime (speeches / press statements)
+  - https://kryeministria.al/newsrooms/lajme/                 # Lajme (news)
+
+listing:
+  # singular /newsroom/<slug>/ article links; excludes the plural /newsrooms/ listings and the
+  # static taxonomy pages (/newsroom/parqet|muzete|monumentet-e-kultures/).
+  link_selector: "article a, h2 a, h3 a, a[href*='/newsroom/']"
+  link_pattern: '^https?://kryeministria\.al/newsroom/(?!parqet|muzete|monumentet)[^/?#]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+  max_pages: 260   # Fjalime ~57, Lajme ~205; engine stops when a page yields no new links
+
+title:
+  # h1.page-title nests the date (.topper__deck) and repeats the headline; the real headline is the
+  # first text line, so pull it with a first-line regex (drops the "21 Korrik 2026" deck + the dup).
+  selectors: ["h1.page-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  selectors: [".body-content .col-xs-12", ".body-content .row", "article .body-content", "article"]
+date:
+  selectors: ["h1 .topper__deck", ".topper__deck", ".deck"]
+
+speaker_default: Edi Rama
+position: prime minister
+date_languages: ["sq"]
+notes: >
+  DRAFT — pending probe. Albanian PM office (Edi Rama, 2013–). renderer: js (Imperva Incapsula JS
+  challenge; headless Chromium clears it — no user_agent override). WordPress /newsrooms/<cat>/
+  page/{n}/ pager; articles /newsroom/<slug>/. Title h1.page-title CONTAINS a nested .topper__deck
+  date — verify at probe whether it leaks into the title; if so prefer <title> or strip the trailing
+  Albanian date with a regex. Date from .topper__deck ("21 Korrik 2026", Albanian months → [sq]); no
+  <time>/meta date. Text .body-content (.col-xs-12 skips an inline <style>). deklarata-per-shtyp =
+  speeches; lajme adds third-person press releases (the cleaner's document-type gate keeps
+  speeches/statements). RISK: Incapsula may re-challenge on deep pagination (cf. ita_quirinale/
+  cze_hrad) — if so, an Albania-PM Wayback companion is the fallback. FULL RUN is the researcher's gate.

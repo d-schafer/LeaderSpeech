@@ -31,6 +31,10 @@ class TranslateConfig(BaseModel):
     max_chunk_chars: int = 4500         # split longer text at sentence/punctuation boundaries
     pause_every: int = 50               # after this many translated rows, breathe
     pause_seconds: float = 1.0          # ...for this long (online backends only)
+    call_delay: float = 0.5             # wait this long before EACH online API call (rate-limit guard;
+                                        # set 0 for the local HF backends, which don't rate-limit)
+    retries: int = 3                    # retry a failed chunk this many times (transient rate-limits)
+    backoff: float = 2.0                # exponential backoff base seconds between chunk retries
 
     # --- checkpointing / storage ---
     checkpoint_every: int = 50          # rows between atomic rewrites of the file
@@ -41,8 +45,9 @@ class TranslateConfig(BaseModel):
 
     # --- NLLB backend (facebook/nllb-200; one multilingual model) ---
     nllb_model: str = "facebook/nllb-200-distilled-600M"  # set to nllb-200-3.3B for top quality
-    nllb_max_tokens: int = 512          # generation cap per chunk
-    nllb_chunk_tokens: int = 400        # split text into chunks of ~this many source tokens
+    nllb_chunk_tokens: int = 400        # split text into chunks of <=this many source tokens (< 1024)
+    nllb_max_tokens: int = 640          # generation cap per chunk (headroom over chunk_tokens so the
+                                        # translation of a full chunk isn't truncated on the output side)
 
     # --- device for the local (HF) backends ---
     device: str = "auto"                # auto | cuda | cpu

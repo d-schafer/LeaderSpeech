@@ -1,0 +1,56 @@
+# Afghanistan — Office of the President ("Arg" / aop.gov.af), archived speeches & statements via the
+# Internet Archive. The LIVE origin is UNREACHABLE (ConnectTimeout / WinError 10060 for both bot &
+# browser UA — a connect-level failure, likely dead post-2021 or geo-fenced, same slot as pak_pmo).
+# Issue #15 (afg_aop.csv): no live recipe possible; Wayback is the only route. CDX for aop.gov.af/*
+# ≈ 3885 statuscode:200 captures 2015–2026 (covers the Ghani presidency through the Aug-2021
+# transition). The Dari /dr/ tree is the fullest.
+source_id: afg_aop_wayback
+country: Afghanistan
+source_language: Dari
+start_urls:
+  - aop.gov.af/dr/news_details
+  - aop.gov.af/dr/information_details
+
+listing:
+  # individual article detail pages in the Dari news/information trees
+  link_pattern: '/dr/(news|information)_details'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # probe: archived aop pages have no h1; the <title> tag carries the headline (sometimes " - AOP"
+  # suffixed or doubled). Take the first line to drop the dup; the cleaner refines the rest.
+  selectors: ["h1", ".news-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # The custom Afghan CMS body is under none of the usual containers (probe: all missed). Kept a
+  # few specific guesses; the real body comes from the engine's generic (trafilatura) fallback,
+  # which fires automatically when these miss (probe confirmed 0.8k–26k chars recovered). Broad
+  # selectors (main/.content/article) are deliberately OMITTED so they can't match a nav blob and
+  # pre-empt that fallback.
+  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+date:
+  # No standard date element in the archived DOM (probe: all missed). Best-effort chain; the date
+  # is recovered by the generic fallback / the cleaner's metadata pass (dates are likely Solar
+  # Hijri / Dari, which selector parsing can't handle anyway).
+  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+
+position: president
+date_languages: ["fa", "ps", "en"]
+notes: >
+  DRAFT — probe-validated (no full run), recipe_status: partial. Wayback-only (live origin
+  unreachable/geo-fenced, issue #15). Probe (2026-07-23, --spread --n 6): link_pattern harvests
+  2,380 snapshots with the confirmed path-id scheme /dr/news_details/<id> + /dr/information_details/
+  <id> (NOT the ?s=dari&c=… query form). Title from the <title> tag (first line; cleaner refines).
+  TEXT is recovered by the engine's generic (trafilatura) fallback — the custom CMS body matches none
+  of the usual containers, and run.py auto-falls back when selectors miss (probe: 0.8k–26k chars).
+  DATE has no DOM element → generic/cleaner backstop (likely Solar Hijri / Dari). No speaker_default
+  (Office of the President; cleaner assigns via tenure — Ghani 2014–2021). The harvest includes some
+  procurement notices ("اعلان داوطلبی" = tender announcements) — the cleaner's document-type gate
+  rejects them. NOTE the sampled captures are Islamic-Emirate-era (post-2021) items too; coverage
+  spans 2015–2026 per issue #15's CDX. FULL RUN is the researcher's gate.

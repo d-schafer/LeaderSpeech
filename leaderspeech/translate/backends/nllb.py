@@ -20,7 +20,7 @@ ISO_TO_NLLB = {
     "id": "ind_Latn", "is": "isl_Latn", "it": "ita_Latn", "ja": "jpn_Jpan",
     "ka": "kat_Geor", "kk": "kaz_Cyrl", "ko": "kor_Hang", "lt": "lit_Latn",
     "lv": "lvs_Latn", "mk": "mkd_Cyrl", "ms": "zsm_Latn", "nl": "nld_Latn",
-    "no": "nob_Latn", "pl": "pol_Latn", "pt": "por_Latn", "ro": "ron_Latn",
+    "no": "nob_Latn", "pl": "pol_Latn", "ps": "pbt_Arab", "pt": "por_Latn", "ro": "ron_Latn",
     "ru": "rus_Cyrl", "sk": "slk_Latn", "sl": "slv_Latn", "sq": "als_Latn",
     "sr": "srp_Cyrl", "sv": "swe_Latn", "sw": "swh_Latn", "th": "tha_Thai",
     "tr": "tur_Latn", "uk": "ukr_Cyrl", "ur": "urd_Arab", "vi": "vie_Latn",
@@ -55,18 +55,36 @@ class NLLBBackend(Translator):
             self._model_name, torch_dtype=dtype).to(self._device)
         self._model.eval()
 
+    def _ntok(self, s: str) -> int:
+        return int(self._tok(s, return_tensors="pt", truncation=False).input_ids.shape[1])
+
+    def _split_oversize_sentence(self, sent: str) -> list[str]:
+        """Hard-split a single sentence that exceeds the token budget into <=budget-token windows
+        (tokenize once, decode fixed-size id windows). Run-on Dari/Pashto sentences hit this; without
+        it a long sentence would exceed the model's 1024-token limit and be SILENTLY TRUNCATED."""
+        ids = self._tok(sent, return_tensors="pt", truncation=False).input_ids[0]
+        if len(ids) <= self._chunk_tokens:
+            return [sent]
+        out = []
+        for i in range(0, len(ids), self._chunk_tokens):
+            piece = self._tok.decode(ids[i:i + self._chunk_tokens], skip_special_tokens=True).strip()
+            if piece:
+                out.append(piece)
+        return out or [sent]
+
     def _token_chunks(self, text: str) -> list[str]:
-        """Greedy sentence packing under a source-token budget (per translate_training.py)."""
-        test = self._tok(text, return_tensors="pt", truncation=False)
-        if test.input_ids.shape[1] <= self._chunk_tokens * 2:
+        """Pack sentences under the source-token budget; any single sentence over budget is
+        hard-split (see _split_oversize_sentence) so NO piece exceeds the budget — the model's
+        1024-token limit is never reached and nothing is silently truncated/dropped."""
+        if self._ntok(text) <= self._chunk_tokens:
             return [text]
         chunks, current = [], []
         for sent in split_sentences(text) or [text]:
-            current.append(sent)
-            joined = " ".join(current)
-            if self._tok(joined, return_tensors="pt", truncation=False).input_ids.shape[1] > self._chunk_tokens:
-                chunks.append(joined)
-                current = []
+            for part in self._split_oversize_sentence(sent):
+                if current and self._ntok(" ".join(current + [part])) > self._chunk_tokens:
+                    chunks.append(" ".join(current))
+                    current = []
+                current.append(part)
         if current:
             chunks.append(" ".join(current))
         return chunks

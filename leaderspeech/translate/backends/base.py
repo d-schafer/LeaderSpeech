@@ -9,6 +9,7 @@ so each backend only implements `_translate_chunk`.
 from __future__ import annotations
 
 import re
+import time
 
 
 def split_into_chunks(text: str, max_chars: int) -> list[str]:
@@ -52,10 +53,29 @@ class Translator:
             return ""
         text = str(text)
         if len(text) <= self.max_chunk_chars:
-            return self._translate_chunk(text, src_lang)
+            return self._chunk(text, src_lang)
         pieces = split_into_chunks(text, self.max_chunk_chars)
-        out = [self._translate_chunk(c, src_lang) for c in pieces if c.strip()]
+        out = [self._chunk(c, src_lang) for c in pieces if c.strip()]
         return " ".join(p for p in out if p).strip()
+
+    def _chunk(self, chunk: str, src_lang: str | None) -> str:
+        """One chunk, with pacing + retry/backoff so a transient online rate-limit self-heals
+        instead of dropping the row. Paces before each call (config.call_delay) and, on failure,
+        waits an exponentially growing backoff before retrying (config.retries / config.backoff)."""
+        delay = getattr(self.config, "call_delay", 0.0) if self.config else 0.0
+        retries = getattr(self.config, "retries", 0) if self.config else 0
+        backoff = getattr(self.config, "backoff", 2.0) if self.config else 2.0
+        last_err: Exception | None = None
+        for attempt in range(retries + 1):
+            if delay:
+                time.sleep(delay)
+            try:
+                return self._translate_chunk(chunk, src_lang)
+            except Exception as e:      # noqa: BLE001 — retry any transient backend error
+                last_err = e
+                if attempt < retries:
+                    time.sleep(backoff * (2 ** attempt))
+        raise last_err
 
     def _translate_chunk(self, chunk: str, src_lang: str | None) -> str:
         raise NotImplementedError

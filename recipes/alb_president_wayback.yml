@@ -1,0 +1,62 @@
+# Albania — President of the Republic (president.al), archived history via the Internet Archive.
+# COMPANION to the live recipe (alb_president.yml, renderer: cdp): Wayback adds the deep back-catalog
+# the live site won't page through — CDX ≈ 31,600 statuscode:200 captures 2001–2025, multiple
+# presidents (Meidani→Begaj). This is "yes-and", not a replacement for the live recipe.
+#
+# president.al has cycled through several CMSes: old ASP query pages (/shqip/…asp?id=, /english/…,
+# ~2001–2011), early WordPress ?p=<id> (~2014–16), and the modern WordPress SLUG permalinks at the
+# domain root (/<long-hyphen-slug>/, ~2018–2025) — plus an arkiva.president.al archive subdomain.
+# There are NO /YYYY/MM/ date permalinks. This recipe targets the tractable, high-value MODERN WP
+# slug permalinks (root + arkiva. + /old/); the pre-2012 ASP era has a different page structure and
+# is a documented follow-up (a separate *_asp_wayback variant). The cleaner's document-type gate +
+# tenure crosscheck keep actual speeches/statements out of the decree/administrative noise.
+source_id: alb_president_wayback
+country: Albania
+source_language: Albanian
+renderer: static
+start_urls:
+  - president.al
+
+listing:
+  # Modern WordPress slug permalinks at the domain root: /<long-hyphen-slug>/, also on the arkiva.
+  # archive subdomain and under /old/. Requires a single ≥12-char hyphenated slug and a trailing
+  # slash (no query) → excludes the old ASP pages (/shqip/…asp?id=), the ?p=<id> and ?lang=en dup
+  # variants, /category/, /album/, short section pages (/kontakt/, /biografia/), and /en/ English dups.
+  link_pattern: '^https?://(arkiva\.|www\.)?president\.al/(old/)?[a-z][a-z0-9-]{11,}/$'
+
+pagination:
+  type: wayback
+  wayback_match_type: domain
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # probe-confirmed: the plain h1 carries the headline cleanly on every era.
+  selectors: ["h1.entry-title", ".entry-title", "h1.post-title", "h1", "title"]
+text:
+  # probe-confirmed: <article> recovers the speech body (Meta decoration speech = 5,706 chars). The
+  # more specific tagDiv/WP content classes go first as refinements; short administrative decrees
+  # that no selector catches are rejected by the cleaner's document-type gate anyway.
+  selectors: ["article .td-post-content", ".td-post-content", "article .entry-content", ".entry-content", ".post-content", "article", "main"]
+date:
+  # Unreliable across the archive's CMS eras (probe: only .post-date hit, 1/6). Broad best-effort
+  # chain; the DATE is primarily recovered downstream by the cleaner's metadata pass (cf.
+  # lka_president_wayback / rou_presidency_wayback which likewise defer the date).
+  selectors: [".post-date", ".td-post-date", "time.entry-date", "time[datetime]", "time", ".entry-date", ".entry-meta .date", ".date", "span.date", ".published"]
+
+position: president
+date_languages: ["sq"]
+notes: >
+  DRAFT — probe-validated (no full run), recipe_status: partial. Wayback companion to the live
+  alb_president.yml (yes-and). Probe (2026-07-23, --spread --n 6): the corrected link_pattern harvests
+  8,487 modern-WP slug snapshots (president.al root + arkiva.president.al + /old/); h1 titles clean;
+  <article> text OK on real speeches; DATE mostly absent from the DOM → deferred to the cleaner.
+  Multiple presidents (Meidani→Begaj) → NO speaker_default; the cleaner assigns via the tenure key.
+  The harvest also pulls administrative decrees + some general-gov notices — the cleaner's
+  document-type gate + tenure crosscheck keep actual speeches/statements. FOLLOW-UPS: (1) the pre-2012
+  ASP era (/shqip/…asp?id=, /english/…) has a different page structure and needs a separate
+  *_asp_wayback variant; (2) bound with wayback_to at the live recipe's earliest date once the live
+  cdp coverage span is known (keeps doc_id/date continuity). FULL RUN (8k+ IA fetches) is the
+  researcher's gate.
