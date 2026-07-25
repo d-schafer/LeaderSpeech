@@ -33,6 +33,14 @@ require_leader_type: true
 tenure_file: data/sources/leader_tenure_final.csv
 tenure_window: 1           # +/- years when listing plausible leaders
 
+# --- date resolution ---
+# date_flag_years: max gap (in years) between a date PARSED FROM TEXT (e.g. a Solar-Hijri date
+#   in the body) and the page's Wayback capture date before that parsed date is treated as
+#   suspect -- flagged in date_disagreement_flag and handed to the model to adjudicate rather
+#   than trusted blindly. LOWER = stricter (flags more). Scraped CMS date fields are exempt.
+#   Override per-run with --date-flag-years N.
+date_flag_years: 5
+
 # --- storage ---
 compression: zstd          # parquet codec ("snappy" is the conservative fallback)
 

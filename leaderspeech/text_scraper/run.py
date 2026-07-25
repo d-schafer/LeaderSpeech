@@ -23,11 +23,15 @@ from pathlib import Path
 
 import pycountry
 
-from .extract import apply_entry_meta, extract_pdf_record, extract_record, should_keep
+from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
+
+from .extract import apply_entry_meta, extract_pdf_record, extract_record, first_match, should_keep
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import harvest_links
-from .pdf import is_pdf_url, looks_like_pdf
+from .pdf import is_pdf_url, looks_like_pdf, pdf_bytes_to_text
 from .recipe import ContentType, PaginationType, Recipe, WaybackExtend, load_recipe
 from . import api, feed, index, wayback
 
@@ -215,6 +219,48 @@ def _extract_payload(kind: str, payload, url: str, recipe: Recipe,
     return rec, via_generic
 
 
+def _first_line(text: str, limit: int = 200) -> str:
+    for line in text.splitlines():
+        s = line.strip()
+        if s:
+            return s[:limit]
+    return ""
+
+
+def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
+                     is_wayback: bool, timestamp: str | None = None,
+                     wayback_client=None, wayback_delay: float = 5.0, fetcher=None) -> bool:
+    """For a page that is just a title + a link to the speech PDF (`recipe.pdf_link`): find the
+    PDF, fetch it (the archived capture nearest the page under wayback, else live), extract its
+    text, and use that as the body — overriding the HTML chrome. Returns True if the body was
+    replaced. Any missing link / un-archived PDF / parse failure leaves `rec` untouched (fall back
+    to the HTML body) rather than failing the row, since not every page in a source is PDF-backed."""
+    if recipe.pdf_link is None or not html:
+        return False
+    try:
+        href = first_match(BeautifulSoup(html, "html.parser"), recipe.pdf_link)
+        if not href:
+            return False
+        pdf_url = urljoin(page_url, href.strip())
+        if is_wayback:
+            entry = {"timestamp": timestamp, "original": pdf_url}
+            _, data = wayback.fetch_snapshot_bytes(entry, delay=wayback_delay, client=wayback_client)
+        else:
+            _, data = fetcher.get_bytes(pdf_url)
+        if not looks_like_pdf(data):
+            return False
+        text = pdf_bytes_to_text(data)
+        if not (text and text.strip()):
+            return False
+        rec["text"] = text.strip()
+        if not rec.get("title"):            # a chrome-only page often has no real title; use the PDF's
+            rec["title"] = _first_line(text)
+        return True
+    except Exception as e:
+        log.info("pdf-follow skipped for %s: %s", page_url, e)
+        return False
+
+
 def _record_from_entry(entry: dict, url: str, recipe: Recipe) -> dict:
     """Build a speech record straight from a harvested api/feed entry, for when the
     JSON/feed already carries the full text (so no page fetch is needed). Same shape
@@ -317,7 +363,7 @@ def scrape_recipe(
     # counters live in a dict, and pending_rows/errors are cleared in place (never
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
-    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0}
+    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -369,6 +415,13 @@ def scrape_recipe(
                             todo_item, delay=wayback_delay, client=wayback_client,
                         )
                         rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
+                        # a page that is just a title + a link to the speech PDF: pull the body
+                        # from the archived PDF nearest this capture (see _follow_pdf_body).
+                        if _follow_pdf_body(rec, html, url, phase_recipe, is_wayback=True,
+                                            timestamp=todo_item.get("timestamp"),
+                                            wayback_client=wayback_client, wayback_delay=wayback_delay):
+                            via_generic = False
+                            stats["pdf_body"] += 1
                 else:
                     url = todo_item
                     entry = meta_by_url.get(url, {})
@@ -379,6 +432,10 @@ def scrape_recipe(
                     else:
                         kind, payload = _fetch_payload(fetcher, phase_recipe, url)
                         rec, via_generic = _extract_payload(kind, payload, url, phase_recipe)
+                        if kind == "html" and _follow_pdf_body(
+                                rec, payload, url, phase_recipe, is_wayback=False, fetcher=fetcher):
+                            via_generic = False
+                            stats["pdf_body"] += 1
 
                 # Fill any field the page extraction left empty from the carried per-item
                 # metadata: SharePoint's reliable Write date when a page selector missed, or
@@ -619,13 +676,14 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
                  # 0 here on a recipe that sets item_selector means it matched nothing and
                  # the rows landed as bare as they would have without it.
                  f" | {stats['from_meta']} completed from listing/api metadata"
                  if stats["from_meta"] else "",
+                 f" | {stats['pdf_body']} bodies from linked PDFs" if stats["pdf_body"] else "",
                  f" | +{extended_scraped} via wayback-extend" if extended_scraped else "",
                  " | ABORTED EARLY" if aborted_early else "",
                  " | PAGINATION STOPPED EARLY" if harvest_stats.get("stopped_early") else "",
@@ -645,6 +703,7 @@ def scrape_recipe(
         "links_found": len(links),
         "scraped_this_run": stats["scraped"],
         "via_generic_fallback": stats["generic"],   # high => recipe selectors are drifting
+        "bodies_from_linked_pdf": stats["pdf_body"],  # pages whose body came from a followed PDF link
         "failed_this_run": stats["failed"],
         # keep_if rejections: fetched, judged not this source's content, not written.
         # filtered_out == links_found with 0 scraped => the keep_if is wrong, not the site.

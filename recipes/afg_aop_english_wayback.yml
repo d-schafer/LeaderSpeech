@@ -1,0 +1,43 @@
+# Afghanistan — Office of the President (aop.gov.af), the OLD (pre-2020) site's ENGLISH
+# individual-article scheme, via the Internet Archive. English sibling of afg_aop_dari_wayback.yml.
+# The Archive holds ~227 status-200 English article captures under aop.gov.af/english/<id>/<slug>,
+# 2016–2017 (Ghani) plus a 2021 batch — e.g. /english/1082/President+Ghani+Approves+National+
+# Counter+Narcotics+Plan. English source → text lands directly in the English `text` column (no
+# translation needed). Live origin unreachable/geo-fenced (issue #15) → Wayback only.
+source_id: afg_aop_english_wayback
+country: Afghanistan
+source_language: English
+start_urls:
+  - aop.gov.af/english
+
+listing:
+  # OLD-scheme individual English article pages: /english/<numeric-id>[/<slug>]
+  link_pattern: '/english/\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".news-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # generic (trafilatura) fallback recovers the body (custom CMS containers miss); see the Dari recipe
+  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+date:
+  # English pages may carry a Gregorian date in the body; dateparser handles it, else cleaner backstop
+  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  PROBE-VALIDATED (2026-07-24, --spread --n 5) — Wayback-only recovery of the OLD aop.gov.af ENGLISH
+  article scheme (Ghani era). The probe harvested 228 /english/<id> snapshots; titles extract via h1
+  (e.g. "Status of Kamal Khan Dam's Contractor Clarified…", plus institutional directorate pages the
+  cleaner gates out). English text goes straight to the English `text` column. Coverage PARTIAL. TITLE
+  from <title>/h1; TEXT via generic fallback; DATE from the body or cleaner/wayback_capture backstop.
+  No speaker_default (cleaner assigns via tenure — Ghani 2014–2021). FULL RUN is the researcher's gate.

@@ -496,6 +496,34 @@ date_languages: ["pt"]
 > wayback recipe clean — a bare prefix query otherwise returns thousands of `text/html`
 > listing / redirect / `.pdf/view` captures alongside the actual PDF binaries.
 
+### When the body is a PDF LINKED from an HTML page (`pdf_link`)
+
+Different from `content_type: pdf` (where the *harvested URL itself* is a PDF): some CMSs serve a
+speech as an **HTML page that is only a title + a link to the speech PDF** (the visible body is nav
+chrome). Point **`pdf_link`** at that link — an ordinary field spec, usually `selectors` + `attr:
+href` — and after extracting the HTML page the engine fetches the PDF (**the archived capture
+nearest the page under `pagination: wayback`, else live**) and uses its extracted text as the body,
+overriding the chrome. Pages with no matching link are untouched, so the same recipe still handles
+its normal inline-HTML speeches.
+
+```yaml
+pdf_link:
+  selectors: ["a[href*='/storage/uploads/']"]   # be SPECIFIC — see below
+  attr: href
+```
+
+Notes and caveats:
+- Make the selector **specific** (a path fragment unique to the speech-PDF store), so it can't latch
+  onto an unrelated sidebar/download PDF on a page that already has a real HTML body.
+- A relative href is resolved against the page URL; in wayback mode the engine pairs the **page's
+  capture timestamp** with the original PDF URL, so the Archive serves the nearest PDF capture.
+- **Fails gracefully.** A missing link, an un-archived PDF, an Archive-side **truncated** capture
+  (large files are sometimes stored partial), or an **image-only scan** (no text layer — OCR would
+  be needed) all yield no text, leaving the HTML body in place rather than failing the row. So
+  expect a recovery *rate*, not 100%. The run summary reports `bodies_from_linked_pdf`.
+- Every PDF-backed page costs one extra fetch (and, over wayback, one `wayback_delay`), incurred
+  only for pages that actually link a PDF.
+
 ### When the date (or title) is on the LISTING (`item_selector`)
 
 A listing routinely knows something the speech "page" cannot. Ethiopia's PMO lists each

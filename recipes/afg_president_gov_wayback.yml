@@ -1,0 +1,52 @@
+# Afghanistan — the OLDER presidential domain president.gov.af (distinct from aop.gov.af), via the
+# Internet Archive. This is the KARZAI-era site: CDX shows captures back to 2006, deep in 2009–2010,
+# spanning into 2021 (Ghani) — 57 CDX index pages. Speeches/statements live under the ASP.NET scheme
+# `president.gov.af/Contents/<cat>/Documents/<id>/<slug>.html`, with dated slugs (e.g.
+# 24,Joza,1388-Nato.html = 24 Jawza 1388 SH ≈ June 2009; june-20-2009-Dari.html). No Afghan
+# government web presence exists before 2006, so this is the earliest recoverable stratum. Live
+# origin is dead → Wayback only. Complements afg_aop_dari_wayback / afg_aop_english_wayback (Ghani).
+source_id: afg_president_gov_wayback
+country: Afghanistan
+source_language: Dari
+start_urls:
+  - president.gov.af/Contents
+
+listing:
+  # only the article "Documents" pages, NOT the /Contents/<cat>/ category/landing shells
+  link_pattern: '/Contents/\d+/Documents/\d+/'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # static ASP.NET pages usually have an h1/<title>; fall back to the slug off the URL
+  selectors: ["h1", ".title", "title"]
+  url_regex: '/Documents/\d+/(.+?)\.html'
+text:
+  # older static HTML: the generic (trafilatura) fallback recovers the body when these miss
+  selectors: [".content", "#content", ".article", ".post"]
+date:
+  # slug carries a Latin-transliterated Solar-Hijri date (24,Joza,1388) that jalali.py (Persian-script
+  # gated) won't parse; the Dari body carries the SH date in Persian digits → cleaner Jalali, with the
+  # wayback_capture bound + disagreement guard as backstop.
+  selectors: [".date", "time", ".news-date", ".published"]
+
+position: president
+date_languages: ["fa", "ps", "en"]
+notes: >
+  PROBE-VALIDATED (2026-07-24, --spread --n 6) — Wayback-only recovery of the Karzai-era
+  president.gov.af (2006–2014) + Ghani (to 2021). CDX shows the ASP.NET scheme
+  /Contents/<cat>/Documents/<id>/<slug>.html, deep in 2009–2010 (57 CDX index pages). The probe
+  confirmed real Karzai-era items (e.g. 'President Karzai meets U.S. congressional delegation';
+  a Dari ambassador-credentials statement; a Pashto item dated 1388 SH naming حامدکرزي). link_pattern
+  isolates the Documents/ article pages from the /Contents/<cat>/ landing shells. Content is mixed
+  Dari/Pashto/English (slug suffixes _dari/_pashto/_eng). TITLE from h1/<title> else the URL slug
+  (url_regex); TEXT via generic (trafilatura) fallback;
+  DATE from the Dari body's Solar-Hijri date (cleaner Jalali) + wayback_capture backstop. source_language
+  Dari (the /Contents/126 Dari tree dominates; per-row language is detected downstream). No speaker_default
+  (cleaner assigns via tenure — Karzai 2001/2004–2014, Ghani 2014–2021). FULL RUN is the researcher's gate.

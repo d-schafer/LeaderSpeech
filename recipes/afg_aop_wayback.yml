@@ -40,6 +40,14 @@ date:
   # Hijri / Dari, which selector parsing can't handle anyway).
   selectors: [".date", ".news-date", "time", ".published", ".post-date"]
 
+pdf_link:
+  # Many /dr/(news|information)_details pages are just a title + a link to the speech PDF
+  # (aop.gov.af/storage/uploads/<category>/<id>.pdf) — the HTML body is only nav chrome. When such
+  # a link is present the engine fetches that archived PDF and uses its text as the body; pages with
+  # a real inline HTML body (no such link) are unaffected. The PDFs ARE archived (probe-confirmed).
+  selectors: ["a[href*='/storage/uploads/']"]
+  attr: href
+
 position: president
 date_languages: ["fa", "ps", "en"]
 notes: >

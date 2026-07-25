@@ -46,6 +46,18 @@ def _meta_for(message):
     if "STATEMENT" in message:  # third-person communiqué conveying the leader's position -> kept
         return dict(document_type="official_statement", is_first_person="no", speaker="Pat Leader",
                     speaker_type="head_of_state", confidence="high", reasoning="conveys leader's stance")
+    if "AFGDATE" in message:  # Emirate-era speech whose page carries a stray old Solar-Hijri date
+        return dict(document_type="speech", is_first_person="yes", speaker="Pat Leader",
+                    speaker_attributed_correct="yes", speaker_type="head_of_state", position="President",
+                    date="2023-01-15", date_matches_metadata="no", language="fa",
+                    audience="General Public", speech_type="Policy Announcement", venue="Kabul",
+                    confidence="high", reasoning="stray 1351 date on the page; real speech is recent")
+    if "AFGGAP" in message:  # a real speech but the model can't pin a date (date=None) -> gap rule alone
+        return dict(document_type="speech", is_first_person="yes", speaker="Pat Leader",
+                    speaker_attributed_correct="yes", speaker_type="head_of_state", position="President",
+                    date=None, date_matches_metadata="unsure", language="fa",
+                    audience="General Public", speech_type="Policy Announcement", venue="Kabul",
+                    confidence="high", reasoning="date unclear from text")
     return extract.empty_meta()
 
 
@@ -107,6 +119,11 @@ def test_clean_gate_outcomes_and_tenure(env):
     assert row["is_ceremonial"] in (False, 0)
     assert row["speech_type"] == "Policy Announcement"
     assert row["speaker_scraped"] == "Pat Leader"           # audit copy retained
+    # the date-audit columns are populated: a normal consistent row is NOT flagged, and the
+    # model's raw suggestion is recorded independently of what won.
+    assert bool(row["date_disagreement_flag"]) is False
+    assert row["date_model"] == "2020-03-01"                # GPT's suggestion, always recorded
+    assert row["date"] == "2020-03-01" and row["date_precision"] == "scraped"
 
 
 def test_resume_skips_already_cleaned(env):
@@ -197,6 +214,65 @@ def test_input_mode_mixed_corpus(tmp_path, monkeypatch):
     summary2 = pipeline.clean_file(in_path, out_path, config=config, label="corpus")
     assert summary2["to_clean"] == 0
     assert len(calls) == calls_after
+
+
+def test_date_disagreement_flagged_and_adjudicated_end_to_end(tmp_path, monkeypatch):
+    """A wayback row whose Persian body carries a stray Solar-Hijri date (1351/12/22 -> 1973) far
+    from its 2023 capture: the parse must NOT silently win. The model adjudicates to a plausible
+    recent date, and the row is flagged for review with the raw parse recorded."""
+    async def fake_extract_one(client, config, message, sem):
+        return _meta_for(message)
+    monkeypatch.setattr(extract, "extract_one", fake_extract_one)
+    monkeypatch.setattr(llm, "load_api_key", lambda config: "test-key")
+    monkeypatch.setattr(llm, "create_async_client", lambda key: object())
+
+    common = dict(ISO3N="", position="", source="http://x", source_language="Dari")
+    rows = [dict(doc_id="AFG9001", country="Testland", speaker="", date="",
+                 text_originlanguage="AFGDATE ۱۳۵۱/۱۲/۲۲ سخنرانی رهبر امارت اسلامی",
+                 wayback_capture="2023-12-04", dataset="LeaderSpeech", **common)]
+    in_path = tmp_path / "afg.parquet"
+    pd.DataFrame(rows).to_parquet(in_path, index=False)
+
+    tenure_csv = tmp_path / "tenure.csv"
+    pd.DataFrame([dict(speaker="Pat Leader", country="Testland", year=2023, is_ceremonial=False)]).to_csv(
+        tenure_csv, index=False)
+    config = CleanConfig(tenure_file=str(tenure_csv), chunk_size=2, batch_size=2)
+
+    out_path = tmp_path / "afg.cleaned.parquet"
+    pipeline.clean_file(in_path, out_path, config=config, label="afg")
+
+    out = store.read_source(out_path).set_index("doc_id")
+    r = out.loc["AFG9001"]
+    assert bool(r["date_disagreement_flag"]) is True          # not silently trusted
+    assert r["date_parsed"] == "1973-03-13"                   # the raw misparse recorded for audit
+    assert r["date_model"] == "2023-01-15"                    # GPT's suggestion recorded
+    assert r["date"] == "2023-01-15" and r["date_precision"] == "model"   # GPT adjudicated the winner
+
+
+def test_stricter_date_flag_years_config_is_honored(tmp_path, monkeypatch):
+    """A 2016 speech captured 2021 (gap 5) is trusted at the default, but flagged when the
+    config tightens date_flag_years to 3 -- proving the knob threads through the pipeline."""
+    async def fake_extract_one(client, config, message, sem):
+        return _meta_for(message)
+    monkeypatch.setattr(extract, "extract_one", fake_extract_one)
+    monkeypatch.setattr(llm, "load_api_key", lambda config: "test-key")
+    monkeypatch.setattr(llm, "create_async_client", lambda key: object())
+
+    common = dict(ISO3N="", position="", source="http://x", source_language="Dari")
+    rows = [dict(doc_id="AFG9002", country="Testland", speaker="", date="",
+                 text_originlanguage="AFGGAP ۱۹ حمل ۱۳۹۵ سخنرانی", wayback_capture="2021-08-16",
+                 dataset="LeaderSpeech", **common)]
+    in_path = tmp_path / "afg2.parquet"
+    pd.DataFrame(rows).to_parquet(in_path, index=False)
+    tenure_csv = tmp_path / "tenure.csv"
+    pd.DataFrame([dict(speaker="Pat Leader", country="Testland", year=2016, is_ceremonial=False)]).to_csv(
+        tenure_csv, index=False)
+
+    strict = CleanConfig(tenure_file=str(tenure_csv), chunk_size=2, batch_size=2, date_flag_years=3)
+    out_path = tmp_path / "afg2.cleaned.parquet"
+    pipeline.clean_file(in_path, out_path, config=strict, label="afg2")
+    r = store.read_source(out_path).set_index("doc_id").loc["AFG9002"]
+    assert bool(r["date_disagreement_flag"]) is True
 
 
 def test_merge_is_idempotent(env):

@@ -50,6 +50,7 @@ CLEAN_COLUMNS = [
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language",
     "speaker_attributed_correct", "date_matches_metadata", "date_precision",
+    "date_model", "date_parsed", "date_disagreement_flag",  # date audit + adjudication (see resolve_date)
     "tenure_match", "tenure_matched_name", "is_ceremonial",
     "clean_status", "gate_reason",
     "clean_confidence", "clean_reasoning", "clean_model", "cleaned_at",

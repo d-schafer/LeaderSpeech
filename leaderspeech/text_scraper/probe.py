@@ -27,6 +27,7 @@ from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
 from .pdf import is_pdf_url, looks_like_pdf
 from .recipe import ContentType, FieldSpec, PaginationType, WaybackExtend, load_recipe
+from .run import _follow_pdf_body
 from . import api, feed, index, wayback
 
 try:
@@ -279,16 +280,27 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         rec = extract_record(phtml, url, recipe)              # what the recipe yields
         filled = apply_entry_meta(rec, entry)
         gen = extract_generic(phtml, url)                     # what generic would yield
+        # pdf_link: if this page is just a title + a link to the speech PDF, follow it exactly as
+        # the run would, so the probe reports the PDF body length the real scrape will write.
+        pdf_body_len = None
+        if recipe.pdf_link is not None:
+            if _follow_pdf_body(rec, phtml, url, recipe, is_wayback=is_wayback,
+                                timestamp=(item.get("timestamp") if is_wayback else None),
+                                wayback_client=wayback_client, wayback_delay=0.0, fetcher=fetcher):
+                pdf_body_len = len(rec["text"])
         fields = {name: _html_field_report(recipe, name, soup, url, rec) for name in FIELDS}
         _note_meta(fields, entry, filled)
-        pages.append({
+        page = {
             "url": url,
             "parsed_date": rec["date"],
             "recipe_text_len": len(rec["text"]),
             "generic_text_len": len(gen["text"]),
             "keep": rec.get("keep", True),      # False => keep_if would drop this page
             "fields": fields,
-        })
+        }
+        if pdf_body_len is not None:
+            page["pdf_body_len"] = pdf_body_len   # body recovered from a followed PDF link
+        pages.append(page)
     return pages
 
 

@@ -58,6 +58,10 @@ def main():
     ap.add_argument("--state-root", default="data/clean_state")
     ap.add_argument("--config", default=None, help="path to clean_config.yml (else defaults)")
     ap.add_argument("--model", default=None, help="override the model for this run")
+    ap.add_argument("--date-flag-years", type=int, default=None, dest="date_flag_years",
+                    help="override date_flag_years for this run: max parsed-vs-Wayback-capture year "
+                         "gap before a text-parsed date is flagged + adjudicated by the model "
+                         "(default 5; LOWER = stricter)")
     ap.add_argument("--limit", type=int, default=None, help="cap speeches cleaned per source this run")
     ap.add_argument("--retry-failed", action="store_true", help="re-attempt rows that errored")
     ap.add_argument("--reclean", action="store_true",
@@ -72,6 +76,8 @@ def main():
     args = ap.parse_args()
 
     config = load_config(args.config)
+    if args.date_flag_years is not None:
+        config = config.model_copy(update={"date_flag_years": args.date_flag_years})
     if args.reclean and args.regate:
         ap.error("--reclean re-runs the model; --regate is no-API. Use one or the other.")
 

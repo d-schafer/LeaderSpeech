@@ -14,6 +14,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import pandas as pd
 
@@ -93,29 +94,84 @@ def _year_of(date_str) -> int | None:
     return int(s[:4]) if len(s) >= 4 and s[:4].isdigit() else None
 
 
-def resolve_date(row: dict, meta: dict | None = None) -> tuple[str, str | None]:
-    """Best available date for a row + a precision label, in priority order:
-      1. a Solar-Hijri (Jalali) date parsed from the original-language TEXT — deterministic and
-         exact for Afghan/Persian sources ("day"), or an approximate year ("year");
-      2. the model's corrected date, or the scraped date ("model" / "scraped") — normal sources;
-      3. the Internet-Archive capture date ("wayback_capture") — a last-resort approximate bound.
-    Returns ("", None) when nothing is available. `meta` (the model reply) is only consulted at
-    enrich time; pass None pre-LLM (used just to pick the tenure/leaders crosscheck year)."""
+class DateResolution(NamedTuple):
+    """Result of `resolve_date`: the chosen `date`, a `precision`/source label, the model's raw
+    suggested date (`model_date`, for audit), a `disagreement` flag (the deterministic parse
+    conflicted with the evidence and was adjudicated), and the raw deterministic `parsed` value.
+    Field order keeps `[0]`/`[1]` == (date, precision) for legacy positional use."""
+    date: str
+    precision: str | None
+    model_date: str | None = None
+    disagreement: bool = False
+    parsed: str | None = None
+
+
+def resolve_date(row: dict, meta: dict | None = None, *, flag_years: int = 5) -> DateResolution:
+    """Best available date for a row, with the GPT check as adjudicator instead of a blind fallback.
+
+    A naive date PARSED FROM TEXT (a Solar-Hijri date in the body) has no context — it can grab a
+    founding year, an institutional date, or a stray document date. So we cross-check it against the
+    Internet-Archive capture date (a hard bound: a page cannot be archived before its speech existed)
+    and the model's own read of the text. On a material conflict the parsed date is FLAGGED and the
+    model adjudicates; the capture date is only ever an approximate bound, never asserted correct.
+
+    Priority when there is NO disagreement:
+      1. a Solar-Hijri (Jalali) date parsed from the text — "day" (exact) or "year" (approximate);
+      2. the scraped CMS date ("scraped"); 3. the capture date ("wayback_capture").
+    On disagreement: the model's date ("model") if present and itself plausible vs the capture; else
+    the capture date; else the flagged parse. `meta` (the model reply) is only consulted at enrich
+    time; pass None pre-LLM (used to pick the tenure/leaders year — the guard keeps a misparse from
+    choosing wrong leaders there too). `flag_years`: max parsed-vs-capture year gap tolerated."""
     text = row.get("text_originlanguage") or row.get("text") or ""
     jiso, jprec = jalali.parse_jalali(text)
-    if jiso:
-        return jiso, jprec
     scraped = (row.get("date") or "").strip()
-    if meta is not None:
-        meta_date = (meta.get("date") or "").strip()
-        if meta_date and (not scraped or _norm(meta.get("date_matches_metadata")) == "no"):
-            return meta_date, "model"
-    if scraped:
-        return scraped, "scraped"
     wb = (row.get("wayback_capture") or "").strip()
-    if wb:
-        return wb, "wayback_capture"
-    return "", None
+
+    # the deterministic candidate: a text-parsed Jalali date (preferred) else the scraped CMS date.
+    if jiso:
+        det, detprec, det_from_text = jiso, jprec, True
+    elif scraped:
+        det, detprec, det_from_text = scraped, "scraped", False
+    else:
+        det, detprec, det_from_text = "", None, False
+
+    model_date = (meta.get("date") or "").strip() if meta is not None else ""
+    model_says_no = (_norm(meta.get("date_matches_metadata")) == "no") if meta is not None else False
+
+    cap_y, det_y, model_y = _year_of(wb), _year_of(det), _year_of(model_date)
+
+    # --- disagreement detection (only text-parsed dates get the capture-gap/impossibility checks;
+    #     a scraped CMS date field is trusted and exempt, though it still gets the model override) ---
+    disagreement = False
+    if det_from_text and det_y is not None and cap_y is not None:
+        if abs(det_y - cap_y) > flag_years:   # parsed date implausibly far from the capture
+            disagreement = True
+        if det_y > cap_y:                     # parsed date AFTER capture — logically impossible
+            disagreement = True
+    if model_says_no:                         # the model read the text and says the date is wrong
+        disagreement = True
+    if model_y is not None and det_y is not None and abs(model_y - det_y) > flag_years:
+        disagreement = True
+
+    # --- choose the final date ---
+    if not disagreement:
+        if det:
+            final, prec = det, detprec
+        elif wb:
+            final, prec = wb, "wayback_capture"
+        else:
+            final, prec = "", None
+    else:
+        # a model date is plausible unless it is itself impossible (after the capture year)
+        model_ok = bool(model_date) and model_y is not None and (cap_y is None or model_y <= cap_y)
+        if model_ok:
+            final, prec = model_date, "model"
+        elif wb:
+            final, prec = wb, "wayback_capture"   # approximate upper bound; stays flagged
+        else:
+            final, prec = (det, detprec) if det else ("", None)
+
+    return DateResolution(final, prec, model_date or None, disagreement, det or None)
 
 
 def _inclusion_tier(document_type, is_first_person, is_substantive=None) -> str | None:
@@ -245,9 +301,16 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     if not (row.get("position") or "").strip() and (meta.get("position") or "").strip():
         out["position"] = meta["position"].strip()
 
-    # date: Jalali(text) > model-corrected/scraped > wayback_capture (see resolve_date). The
-    # precision label records which source won, so a downstream user can filter approximate dates.
-    out["date"], out["date_precision"] = resolve_date(row, meta)
+    # date: adjudicated by resolve_date (parsed date cross-checked against the capture date + the
+    # model; see resolve_date). The precision label records which source won; date_model is the
+    # model's raw suggestion, date_parsed the raw deterministic parse, and date_disagreement_flag
+    # marks rows where the parse conflicted with the evidence and was overridden -- for review.
+    _dr = resolve_date(row, meta, flag_years=config.date_flag_years)
+    out["date"] = _dr.date
+    out["date_precision"] = _dr.precision
+    out["date_model"] = _dr.model_date
+    out["date_parsed"] = _dr.parsed
+    out["date_disagreement_flag"] = _dr.disagreement
 
     # tenure crosscheck on the (possibly corrected) speaker + date
     if tenure_df is not None:
@@ -404,14 +467,20 @@ def clean_file(
     items = []
     for _, r in todo.iterrows():
         row = r.to_dict()
-        # Resolve the date BEFORE the leaders lookup so a Jalali/wayback-corrected year (not the
-        # bogus scraped one) picks which leaders are named to the model.
-        year = _year_of(resolve_date(row)[0])
+        # Resolve the date BEFORE the leaders lookup so a Jalali/wayback-corrected year (not a
+        # bogus parsed one) picks which leaders are named to the model. Feed that same resolved
+        # candidate to the model as DATE (on a message-only copy -- the stored row is untouched so
+        # date_scraped keeps the original) so date_matches_metadata judges the REAL candidate.
+        res_pre = resolve_date(row, flag_years=config.date_flag_years)
+        year = _year_of(res_pre.date)
         leaders_info = ""
         if tenure_df is not None:
             leaders = tenure.leaders_for(tenure_df, row.get("country", ""), year, config.tenure_window)
             leaders_info = ", ".join(leaders)
-        msg = extract.build_user_message(row, leaders_info, max_words=config.max_words)
+        msg_row = dict(row)
+        if res_pre.date:
+            msg_row["date"] = res_pre.date
+        msg = extract.build_user_message(msg_row, leaders_info, max_words=config.max_words)
         items.append({"row": row, "message": msg})
 
     api_key = llm.load_api_key(config)

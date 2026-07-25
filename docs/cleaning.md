@@ -125,6 +125,39 @@ downstream. `inclusion_tier` is backfilled for free on `--regate`, but **`is_sub
 model judgment**, so tier `4_courtesy` only appears after a fresh clean (a re-clean of existing data),
 not from `--regate` alone.
 
+## Date resolution
+
+The final `date` is not the model's estimate nor a raw parse — it is **adjudicated**. A date parsed
+straight from the text has no context: an Afghan/Persian **Solar-Hijri (Jalali)** date in the body
+(handled by `jalali.py` — zodiac + Iranian month names, Western/Persian digits) is often a *founding
+year* ("established in ۱۳۱۳ SH" → 1934), an institutional date, or a stray document date rather than
+the delivery date. So each parse is cross-checked against two independent signals before it is
+trusted:
+
+- the **Wayback capture date** (`wayback_capture`, stamped on every archived row) — a hard bound: a
+  page cannot be archived *before* the speech on it existed; and
+- the **model's own read** of the text (`date` + `date_matches_metadata`), fed the resolved
+  candidate so its yes/no verdict judges the *real* date.
+
+**Priority when the parse is consistent with the evidence:** (1) a Jalali date from the text — `day`
+(exact) or `year` (approximate); (2) the scraped CMS `date`; (3) the capture date. **On a material
+disagreement** the parsed date is set aside: the model's date wins if it offers a plausible one
+(precision `model`), else the capture date stands as an approximate upper bound
+(`wayback_capture`) — never asserted as correct, always **flagged** for review. A disagreement is
+raised when a *text-parsed* date is more than `date_flag_years` years from the capture (default
+**5**; lower = stricter), or is impossibly *after* the capture, or the model says the date is wrong,
+or the model and the parse differ by more than the window. Scraped CMS date fields are trusted
+(exempt from the capture-gap check) but still yield to a model "no".
+
+This is recorded, never silent — four columns make every decision auditable: `date_precision` (which
+source won: `day` / `year` / `model` / `scraped` / `wayback_capture`), `date_model` (the model's raw
+suggestion), `date_parsed` (the raw deterministic parse), and **`date_disagreement_flag`** (True when
+the parse was overridden — filter on it to review suspect dates). Tune the threshold in
+`clean_config.yml` (`date_flag_years`) or per run with `--date-flag-years N`. Because the guard runs
+*before* the model call too (to pick the tenure/leaders year), a misparse no longer drags in the
+wrong in-office leaders. Backfilling the new columns on already-cleaned data needs a re-clean
+(`date_model` is a model output); `--regate` alone won't repopulate them.
+
 ## The gate
 
 `accepted` requires all three: the `document_type` is in `keep_document_types` (default `speech`,
@@ -147,7 +180,9 @@ model with `--model`. The two settings that change **what is kept**:
 
 Other settings: `model` (default `gpt-4.1-mini`), `temperature`, `max_tokens`, `max_words` (how much
 text is sent), `batch_size` / `chunk_size` (concurrency + checkpoint granularity),
-`max_consecutive_failures` (circuit breaker), `tenure_file` / `tenure_window`, `compression`
+`max_consecutive_failures` (circuit breaker), `tenure_file` / `tenure_window`, `date_flag_years`
+(default `5` — max parsed-vs-capture year gap before a text date is flagged/adjudicated; lower =
+stricter; override per run with `--date-flag-years N`; see **Date resolution** above), `compression`
 (`zstd` | `snappy`), `openai_key_file`.
 
 **Changed the gate after a run?** Re-classify already-cleaned rows for **free** (no API calls) — the
@@ -193,10 +228,11 @@ tune `keep_document_types` / `require_leader_type` without re-spending or losing
 The 15 standardized scraper columns (unchanged, for mergeability) plus: corrected-in-place
 `speaker` / `position` / `date`; audit copies `speaker_scraped` / `date_scraped`; the extracted
 `speaker_type`, `audience`, `speech_type`, `venue`, `detected_language`,
-`speaker_attributed_correct`, `date_matches_metadata`; the crosscheck `tenure_match`,
-`tenure_matched_name`, `is_ceremonial`; and `clean_status`, `gate_reason`, `clean_confidence`,
-`clean_reasoning`, `clean_model`, `cleaned_at`. The final deliverable keeps the scraper schema plus a
-curated metadata subset.
+`speaker_attributed_correct`, `date_matches_metadata`; the date-audit set `date_precision`,
+`date_model`, `date_parsed`, `date_disagreement_flag` (see **Date resolution** above); the crosscheck
+`tenure_match`, `tenure_matched_name`, `is_ceremonial`; and `clean_status`, `gate_reason`,
+`clean_confidence`, `clean_reasoning`, `clean_model`, `cleaned_at`. The final deliverable keeps the
+scraper schema plus a curated metadata subset.
 
 ## Cost & tuning
 

@@ -1,0 +1,52 @@
+# Afghanistan — Office of the President ("Arg" / aop.gov.af), the OLD (pre-2020) site's Dari
+# individual-article scheme, via the Internet Archive. The current recipe `afg_aop_wayback` covers
+# only the post-2020 CMS (`/dr/news_details/<id>`), whose detail pages were first archived ~2021 —
+# so it misses the Ghani-era speeches entirely. The OLD site used `aop.gov.af/dari/<id>/<slug>`, and
+# the Archive holds ~750+ status-200 Dari article captures there, concentrated 2016–2017 (Ghani).
+# This recovers that stratum. Live origin is unreachable/geo-fenced (issue #15) → Wayback only.
+# Companion English recipe: afg_aop_english_wayback.yml. See also afg_president_gov_wayback.yml
+# (the older Karzai-era president.gov.af domain).
+source_id: afg_aop_dari_wayback
+country: Afghanistan
+source_language: Dari
+start_urls:
+  - aop.gov.af/dari
+
+listing:
+  # OLD-scheme individual Dari article pages: /dari/<numeric-id>[/<slug>]
+  link_pattern: '/dari/\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"        # keep the harvest to HTML article pages
+
+title:
+  # the OLD CMS put the headline in the <title> (and often an h1); first line drops any " - AOP" dup
+  selectors: ["h1", ".news-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # custom Afghan CMS body: the usual containers miss, so the real body comes from the engine's
+  # generic (trafilatura) fallback, which fires automatically when these selectors miss. Broad
+  # selectors (main/.content/article) are deliberately OMITTED so they can't match a nav blob.
+  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+date:
+  # no reliable date element in the archived DOM; the date is a Dari Solar-Hijri date in the body →
+  # recovered by the cleaner's Jalali pass (with the wayback_capture bound + disagreement guard).
+  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+
+position: president
+date_languages: ["fa", "ps", "en"]
+notes: >
+  PROBE-VALIDATED (2026-07-24, --spread --n 8) — Wayback-only recovery of the OLD aop.gov.af Dari
+  article scheme (Ghani era, ~2016–2017), which the post-2020 afg_aop_wayback recipe cannot reach.
+  The probe harvested 1,626 /dari/<id> snapshots; titles extract via h1 (e.g. /dari/997 = a real
+  11k-char Ghani speech 'متن سخنرانی داکتر محمد اشرف غنی…'). Coverage is PARTIAL — some ids were
+  never crawled, and some /dari/<id>?s=dari&c=<cat> category pages also match (cleaner gates them
+  out). TITLE from <title>/h1; TEXT via the engine's
+  generic (trafilatura) fallback (custom CMS body matches no standard container); DATE has no DOM
+  element → cleaner Jalali backstop + wayback_capture. No speaker_default (Office of the President;
+  cleaner assigns via tenure — Ghani 2014–2021). FULL RUN is the researcher's gate.

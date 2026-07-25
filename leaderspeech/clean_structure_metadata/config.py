@@ -50,6 +50,12 @@ class CleanConfig(BaseModel):
     tenure_file: str = "data/sources/leader_tenure_final.csv"
     tenure_window: int = 1           # +/- years when listing plausible leaders
 
+    # --- date resolution ---
+    # Max gap (years) between a date PARSED FROM TEXT and the Wayback capture date before the
+    # parsed date is treated as suspect: flagged (date_disagreement_flag) and adjudicated by the
+    # model instead of trusted. LOWER = stricter (flags more). See resolve_date + docs/cleaning.md.
+    date_flag_years: int = 5
+
     # --- storage ---
     compression: str = "zstd"        # parquet codec; "snappy" is the conservative fallback
 

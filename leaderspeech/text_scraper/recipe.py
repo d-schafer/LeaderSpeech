@@ -347,6 +347,16 @@ class Recipe(BaseModel):
     speaker: Optional[FieldSpec] = None
     context: Optional[FieldSpec] = None
 
+    # For sites whose speech "page" is only a title + a link to the actual speech PDF (a CMS that
+    # stores the body as an uploaded file). When set, after extracting the HTML page the engine
+    # finds the PDF via this FieldSpec (its selectors + `attr`, e.g. `attr: href`), fetches that PDF
+    # — the archived capture nearest the page under `pagination: wayback`, else live — and uses its
+    # extracted text as the body, overriding the HTML chrome. Any fetch/parse failure leaves the
+    # HTML body in place (never fails the row). DISTINCT from `content_type: pdf`, which is for when
+    # the HARVESTED url itself is a PDF. Make the selector SPECIFIC (e.g. a[href*='/storage/uploads/'])
+    # so it can't latch onto an unrelated sidebar PDF on a page that already has a real HTML body.
+    pdf_link: Optional[FieldSpec] = None
+
     # fixed values when a source is single-leader / single-office
     position: Optional[str] = None
     speaker_default: Optional[str] = None
