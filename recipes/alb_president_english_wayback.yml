@@ -1,0 +1,53 @@
+# Albania — President of the Republic (president.al), the OLD pre-WordPress ENGLISH site
+# (/english/pub/info.asp?id=<id>), via the Internet Archive. This is the genuinely-English,
+# UNIQUELY-covered stratum for Albania: the pre-2012 English ASP site (Moisiu/Topi era, ~2003–2011),
+# which the native-language alb_president_wayback deliberately excludes AND which no other recipe
+# reaches. English source → text lands in the English `text` column, no translation.
+#
+# WHY NOT the modern /en/ WordPress pages (2018+): probing showed they are the multilingual-plugin
+# "untranslated mirror" trap — /en/<slug> serves MIXED English/Albanian (many pages fall back to
+# Albanian, e.g. "Fjala e Presidentit Meta…") and are mostly thin decree stubs that already duplicate
+# alb_president_wayback. So this recipe targets ONLY the old ASP English site, which is reliably
+# English and adds coverage nothing else has.
+source_id: alb_president_english_wayback
+country: Albania
+source_language: English
+renderer: static
+start_urls:
+  - president.al/english
+
+listing:
+  # Old ASP English article pages only: /english/pub/info.asp?id=<id>. Excludes the /english/pub/
+  # foto.asp + album.asp photo pages and the modern /en/ WordPress tree.
+  link_pattern: 'president\.al/english/pub/info\.asp\?id=\d+'
+
+pagination:
+  type: wayback
+  wayback_match_type: domain
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+
+title:
+  # ASP pages: the headline is usually the <title> / an h1; first line trims any site suffix.
+  selectors: ["h1", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # old ASP table layout: the usual containers miss → the engine's generic (trafilatura) fallback
+  # recovers the body.
+  selectors: [".news", ".article", "#content", ".content"]
+date:
+  selectors: [".date", "time", ".data"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH companion to alb_president_wayback (which excludes /en//english/ by design).
+  Targets ONLY the old ASP English site president.al/english/pub/info.asp?id=<id> (~2003–2011,
+  Moisiu/Topi era) — genuinely English and uniquely covered (English column, no translation). The
+  modern /en/ WordPress pages were DROPPED after probing: they are mixed English/Albanian
+  (multilingual-plugin fallback) + thin decree stubs that duplicate alb_president_wayback. Multiple
+  presidents → NO speaker_default; the cleaner's tenure crosscheck assigns. TEXT via generic fallback;
+  TITLE h1/<title>; DATE best-effort → cleaner backstop. PROBE the ASP era's coverage/extraction.
+  FULL RUN is the researcher's gate.

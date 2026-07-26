@@ -32,7 +32,7 @@ def test_build_user_message_truncates_and_uses_originlanguage():
     }
     msg = extract.build_user_message(row, "Pat Leader (2019-2023)", max_words=50)
     assert "COUNTRY: Argentina" in msg
-    assert "CONFIRMED LEADERS IN OFFICE (authoritative): Pat Leader (2019-2023)" in msg
+    assert "KNOWN LEADERS IN OFFICE (may be incomplete): Pat Leader (2019-2023)" in msg
     assert "Discurso" in msg            # pulled from title_originlanguage
     assert "[...]" in msg               # truncated
     # only ~50 words of body text were included

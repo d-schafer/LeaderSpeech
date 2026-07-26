@@ -1,0 +1,56 @@
+# Croatia — Office of the President (predsjednik.hr), the ENGLISH mirror, via the Internet Archive.
+# The live hrv_predsjednik recipe scrapes the Croatian /vijesti/ listing; this recipe recovers the
+# site's own ENGLISH tree directly, so the text lands in the English `text` column with NO machine
+# translation. "yes-and" to the live recipe.
+#
+# TWO English generations under the /en prefix (CDX prefix-match catches both; ≈ 1,383 English
+# captures 2000–2026):
+#   1. MODERN   predsjednik.hr/en/speeches/<slug>  (speech transcripts) and
+#               predsjednik.hr/en/news/<slug>      (president activities/statements)  — 2014, 2020–2026
+#   2. OLD ASP  predsjednik.hr/english/speeches/<DD_MM_YYYY[_n]>.html                  — 2000–2003 (Mesić)
+# Spans Mesić → Josipović → Milanović.
+source_id: hrv_predsjednik_english_wayback
+country: Croatia
+source_language: English
+renderer: static
+start_urls:
+  # single prefix; "predsjednik.hr/en" prefix-matches BOTH /en/… and /english/… captures.
+  - predsjednik.hr/en
+
+listing:
+  # modern /en/speeches/<slug> + /en/news/<slug>; old /english/speeches/<file>.html. Non-anchored
+  # so www./:80/http(s) all match. Excludes bare /en/ and /en/news (listing) captures.
+  link_pattern: 'predsjednik\.hr/en/(news|speeches)/[a-z]|predsjednik\.hr/english/speeches/[^/]+\.html'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".p-post-single__title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # modern theme .p-post-single__content (reused from the live recipe); old ASP /english/speeches
+  # pages match none of these → the engine's generic (trafilatura) fallback recovers the body.
+  selectors: [".p-post-single__content", "article", ".content", "main"]
+date:
+  selectors: [".p-post-single__meta", "time", ".datum", ".date"]
+  # OLD ASP pages carry no date element — the delivery date is in the filename
+  # (english/speeches/17_7_2000_2.html = 17 Jul 2000); named groups assemble an unambiguous ISO date.
+  url_regex: '/english/speeches/(?P<day>\d{1,2})_(?P<month>\d{1,2})_(?P<year>\d{4})'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH companion to the live hrv_predsjednik (yes-and, genuine English → English
+  column, no translation). CDX prefix predsjednik.hr/en ≈ 1,383 English captures 2000–2026, TWO
+  generations: modern /en/(speeches|news)/<slug> (2014, 2020–2026) + old /english/speeches/<file>.html
+  (2000–2003, Mesić). Multiple presidents (Mesić→Josipović→Milanović) → NO speaker_default; the
+  cleaner's tenure crosscheck assigns the speaker. /en/news/ carries president activities/statements
+  (cleaner's document-type gate keeps the speech/official_statement subset); /en/speeches/ and old
+  /english/speeches/ are transcripts. OLD-page date via the filename url_regex; modern via
+  .p-post-single__meta / cleaner. PROBE the modern vs old selectors. FULL RUN is the researcher's gate.

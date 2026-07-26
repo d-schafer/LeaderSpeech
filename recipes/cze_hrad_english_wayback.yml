@@ -1,0 +1,51 @@
+# Czechia — President of the Republic (hrad.cz, Prague Castle), the ENGLISH mirror, via the Internet
+# Archive. ADDITIVE to the Czech cze_hrad_wayback (which recovers the /cs/ press stream): the English
+# site exposes a DEDICATED speeches section — /en/president-of-the-cr/…/selected-speeches-and-
+# interviews/<slug> — a cleaner speech-only signal than the Czech press stream, and the text lands in
+# the English `text` column with NO machine translation. Live hrad.cz is Cloudflare-blocked (see
+# cze_hrad_wayback) → Wayback only.
+#
+# CDX prefix hrad.cz/en ≈ 2,104 statuscode:200 captures 2003–2026, but MOST are Prague-Castle
+# visitor / state-decoration institutional pages — link_pattern isolates the president's speeches-and-
+# interviews subtree. Spans Klaus/Zeman era (the current president Pavel, 2023→, is not captured — the
+# live block; a residential-IP or later-archive pass would add him).
+source_id: cze_hrad_english_wayback
+country: Czechia
+source_language: English
+renderer: static
+start_urls:
+  - hrad.cz/en
+
+listing:
+  # Speech/interview articles under the president's section only; require a slug after the section so
+  # the section index itself is dropped. Excludes the /en/prague-castle-for-visitors/,
+  # /en/czech-republic/state-decorations/ etc. institutional trees.
+  link_pattern: '/en/president-of-the-cr/.+/(selected-speeches-and-interviews|speeches|articles-and-interviews)/[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # same Government-CMS containers as the Czech cze_hrad_wayback; generic fallback if they miss.
+  selectors: ["#content", ".detail-text", ".article-detail", "article", ".content"]
+date:
+  selectors: ["p.label", ".label", ".date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH companion, ADDITIVE to the Czech cze_hrad_wayback (press stream). CDX
+  prefix hrad.cz/en ≈ 2,104 captures 2003–2026, but mostly Prague-Castle visitor/decoration
+  institutional pages — link_pattern isolates the president's /selected-speeches-and-interviews/
+  subtree (English → English column, no translation). Klaus/Zeman era (Pavel not captured, live
+  block). Multiple presidents → NO speaker_default; cleaner's tenure crosscheck assigns. PROBE to
+  confirm the speech subtree count and refine the pattern (only one speech-section sample was seen at
+  triage). FULL RUN is the researcher's gate.

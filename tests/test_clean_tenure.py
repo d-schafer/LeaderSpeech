@@ -55,3 +55,16 @@ def test_no_match():
     tm, _, matched = tenure.match_speaker(df, "Nobody Atall", "Argentina", 2005)
     assert tm == tenure.NONE
     assert matched == ""
+
+
+def test_step2_requires_strong_match():
+    # issue #68 Part 4: an unknown domestic speaker sharing only ONE surname token with a foreign
+    # leader must NOT be labeled other_country (the old loose token match did). "Cristina Lopez"
+    # for Afghanistan shares just "cristina" with "Cristina Fernandez de Kirchner" (Argentina).
+    df = _tenure_df()
+    tm, _, matched = tenure.match_speaker(df, "Cristina Lopez", "Afghanistan", 2021)
+    assert tm == tenure.NONE                                   # was OTHER_COUNTRY under the loose rule
+    assert matched == ""
+    # a genuine full-name foreign match still resolves (containment), preserving wrong-country signal
+    tm2, _, matched2 = tenure.match_speaker(df, "Sebastian Pinera", "Afghanistan", 2021)
+    assert tm2 == tenure.OTHER_COUNTRY and matched2 == "Sebastián Piñera"

@@ -1,0 +1,61 @@
+# Azerbaijan — President of the Republic (president.az), the ENGLISH mirror (en.president.az), via
+# the Internet Archive. The live aze_president recipe scrapes the ORIGINAL Azerbaijani (/az/) per
+# the project's original-language convention and defers English to the translation stage; this
+# recipe instead recovers the site's own ENGLISH mirror directly, so the text lands in the English
+# `text` column with NO machine translation. "yes-and" to the live recipe, not a replacement.
+#
+# The Archive holds en.president.az richly: CDX ≈ 16,116 statuscode:200 English captures 2011–2022
+# (Ilham Aliyev, president since 2003). Article pages are en.president.az/articles/<numeric-id>;
+# each article also has /articles/<id>/images and /articles/<id>/videos media sub-pages, excluded
+# by the trailing-id anchor below.
+source_id: aze_president_english_wayback
+country: Azerbaijan
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'.
+  - en.president.az
+
+listing:
+  # Article detail pages only: /articles/<id> at the END (drops /articles/<id>/images and /videos,
+  # and the /articles listing captures).
+  link_pattern: 'en\.president\.az/articles/\d+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # span.label-title is the ARTICLE's own headline on the modern archived design (2017+); older
+  # 2011–2016 captures have no clean headline element → fall to <title> and the cleaner derives the
+  # title from the body (the aus_gg pattern).
+  selectors: ["span.label-title", "h1.news_heading", "h1", "title"]
+  regex: '^\s*(.+)'
+text:
+  # modern design body = .news-text-block/.news_paragraph-block; the OLD 2011–2016 design body =
+  # div.body; the generic (trafilatura) fallback backstops any other layout. (.news-body is the
+  # sidebar "letters" block — deliberately NOT used.)
+  selectors: [".news-text-block", ".news_paragraph-block", "div.body"]
+date:
+  # span.label-date is the ARTICLE's own date ("03 june 2021, 12:00"). Do NOT add .news_date /
+  # .category_date / .text_body-date — those are the SIDEBAR feed's dates for OTHER articles and
+  # would stamp the wrong date. Old-design captures have no label-date → date deferred to the cleaner.
+  selectors: ["span.label-date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 10): link_pattern harvests 4,599 /articles/<id>
+  detail pages; TEXT 10/10 (real bodies 380–20,000 chars via the two-design selectors + generic
+  fallback); DATE 6/10 via span.label-date (older pages → cleaner). TWO archived designs: modern
+  (2017+) uses span.label-title / span.label-date / .news-text-block; old (2011–2016) uses div.body
+  with no clean headline element → TITLE falls to a generic <title> and the cleaner derives it from
+  the body (the aus_gg pattern). Wayback ENGLISH companion to the live aze_president (which scrapes
+  Azerbaijani by convention) → English column, no translation. Harvests ALL articles (no category
+  filter in wayback) → the cleaner's document-type gate narrows to speeches/statements; no
+  speaker_default (a first-VP feed exists) → tenure crosscheck assigns Aliyev. FULL RUN is the
+  researcher's gate.

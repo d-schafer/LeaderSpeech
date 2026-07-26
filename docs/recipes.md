@@ -515,14 +515,23 @@ pdf_link:
 Notes and caveats:
 - Make the selector **specific** (a path fragment unique to the speech-PDF store), so it can't latch
   onto an unrelated sidebar/download PDF on a page that already has a real HTML body.
-- A relative href is resolved against the page URL; in wayback mode the engine pairs the **page's
-  capture timestamp** with the original PDF URL, so the Archive serves the nearest PDF capture.
-- **Fails gracefully.** A missing link, an un-archived PDF, an Archive-side **truncated** capture
-  (large files are sometimes stored partial), or an **image-only scan** (no text layer — OCR would
-  be needed) all yield no text, leaving the HTML body in place rather than failing the row. So
-  expect a recovery *rate*, not 100%. The run summary reports `bodies_from_linked_pdf`.
-- Every PDF-backed page costs one extra fetch (and, over wayback, one `wayback_delay`), incurred
-  only for pages that actually link a PDF.
+- A relative href is resolved against the page URL. In wayback mode the engine first queries the CDX
+  for the **PDF URL's own captures** and fetches the most complete `statuscode:200` one (largest
+  `length`) — this avoids an Archive-side **truncated** capture (large files are sometimes stored
+  partial, e.g. cut at exactly 1 MB → 0 chars) that the page-timestamp redirect can land on. It falls
+  back to the page-timestamp capture if CDX has none.
+- **Missing/non-PDF link → HTML body kept; real-but-unextractable PDF → row fails cleanly.** A page
+  with no matching link (or a link that fetches non-PDF bytes) is left untouched, so the same recipe
+  still handles its normal inline-HTML speeches. But once a genuine PDF is fetched and yields no text
+  (image-only scan, or a truncated capture), the HTML here is just chrome, so the body is cleared and
+  the row fails as `empty_text` rather than keeping the chrome (and its stray date). Expect a recovery
+  *rate*, not 100%; the run summary reports `bodies_from_linked_pdf`.
+- **`pdf_ocr: true`** turns on an OCR fallback for image-only PDFs that extract 0 chars (also applies
+  to `content_type: pdf` sources). Off by default — it is heavy and needs an extra install
+  (`pip install 'leaderspeech[pdf-ocr]'`) **plus a system Tesseract binary**; without them a
+  0-char scan just stays unextractable.
+- Every PDF-backed page costs one extra fetch (and, over wayback, one CDX lookup + one `wayback_delay`),
+  incurred only for pages that actually link a PDF.
 
 ### When the date (or title) is on the LISTING (`item_selector`)
 
@@ -644,6 +653,8 @@ site-specific block message.
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
 | `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
+| `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). |
+| `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs that extract 0 chars (for `pdf_link` or `content_type: pdf`). Needs `pip install 'leaderspeech[pdf-ocr]'` **and** a system Tesseract binary. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `js_settle` | no | `js`/`cdp` only. Extra seconds to wait after DOM-ready for late JS to paint. Rarely needed — the engine already loads DOM-first, waits briefly for the network to settle, and auto-waits for a CF "Just a moment" interstitial to self-clear. Set only when content still arrives later. |

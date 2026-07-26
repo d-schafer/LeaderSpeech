@@ -116,6 +116,7 @@ def test_clean_gate_outcomes_and_tenure(env):
     assert set(accepted["document_type"]) == {"speech", "official_statement"}  # statements kept
     row = accepted[accepted["doc_id"] == "TST0001"].iloc[0]
     assert row["tenure_match"] == "exact"
+    assert bool(row["speaker_review"]) is False             # a key-confirmed leader isn't flagged (issue #68)
     assert row["is_ceremonial"] in (False, 0)
     assert row["speech_type"] == "Policy Announcement"
     assert row["speaker_scraped"] == "Pat Leader"           # audit copy retained
@@ -273,6 +274,58 @@ def test_stricter_date_flag_years_config_is_honored(tmp_path, monkeypatch):
     pipeline.clean_file(in_path, out_path, config=strict, label="afg2")
     r = store.read_source(out_path).set_index("doc_id").loc["AFG9002"]
     assert bool(r["date_disagreement_flag"]) is True
+
+
+def test_regate_backfills_speaker_review(tmp_path, monkeypatch):
+    """A plausible national leader NOT in the tenure key is accepted (head_of_state passes the
+    gate) AND flagged speaker_review=True (tenure_match=none). --regate recomputes the flag from
+    stored fields with no API calls and must NOT un-accept the row (issue #68)."""
+    calls = []
+
+    async def fake_extract_one(client, config, message, sem):
+        calls.append(message)
+        return dict(document_type="speech", is_first_person="yes", speaker="Newcomer Chief",
+                    speaker_attributed_correct="yes", speaker_type="head_of_state",
+                    position="President", date="2022-01-01", date_matches_metadata="yes",
+                    language="en", audience="General Public", speech_type="Policy Announcement",
+                    venue="Capital", confidence="high", reasoning="genuine speech by an unlisted leader")
+
+    monkeypatch.setattr(extract, "extract_one", fake_extract_one)
+    monkeypatch.setattr(llm, "load_api_key", lambda config: "test-key")
+    monkeypatch.setattr(llm, "create_async_client", lambda key: object())
+
+    scraped_root = tmp_path / "scraped"
+    csv_path = scraped_root / "Testland" / "unlisted.csv"
+    csv_path.parent.mkdir(parents=True)
+    common = dict(country="Testland", ISO3N="999", source_language="English", dataset="LeaderSpeech")
+    df = pd.DataFrame([dict(doc_id="UNL0001", speaker="Newcomer Chief", position="president",
+                            date="2022-01-01", text="my fellow citizens, we chart a new course",
+                            source="http://x/1", **common)])
+    for c in store.SCRAPED_COLUMNS:
+        if c not in df.columns:
+            df[c] = ""
+    df[store.SCRAPED_COLUMNS].to_csv(csv_path, index=False)
+
+    # tenure key that does NOT contain "Newcomer Chief"
+    tenure_csv = tmp_path / "tenure.csv"
+    pd.DataFrame([dict(speaker="Pat Leader", country="Testland", year=2020, is_ceremonial=False)]).to_csv(
+        tenure_csv, index=False)
+    config = CleanConfig(tenure_file=str(tenure_csv), chunk_size=2, batch_size=2)
+
+    out_root = tmp_path / "cleaned"
+    pipeline.clean_source("unlisted", in_root=str(scraped_root), out_root=str(out_root),
+                          state_root=str(tmp_path / "clean_state"), config=config, country="Testland")
+    r = store.read_source(out_root / "Testland" / "unlisted.parquet").set_index("doc_id").loc["UNL0001"]
+    assert r["clean_status"] == "accepted"                   # head_of_state passes the gate
+    assert r["tenure_match"] == "none"                       # not in the key
+    assert bool(r["speaker_review"]) is True                 # flagged for tenure-key curation
+
+    calls_after = len(calls)
+    pipeline.regate_source("unlisted", out_root=str(out_root), config=config, country="Testland")
+    assert len(calls) == calls_after                         # regate made NO model calls
+    r2 = store.read_source(out_root / "Testland" / "unlisted.parquet").set_index("doc_id").loc["UNL0001"]
+    assert bool(r2["speaker_review"]) is True
+    assert r2["clean_status"] == "accepted"                  # NOT un-accepted by regate
 
 
 def test_merge_is_idempotent(env):

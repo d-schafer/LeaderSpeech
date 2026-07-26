@@ -33,7 +33,7 @@ DELIVERABLE_META = [
     "document_type", "is_first_person", "is_substantive", "inclusion_tier",
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language", "is_ceremonial", "tenure_match", "clean_confidence",
-    "clean_status", "gate_reason",
+    "clean_status", "gate_reason", "speaker_review",
 ]
 DELIVERABLE_COLUMNS = store.SCRAPED_COLUMNS + DELIVERABLE_META
 
@@ -132,6 +132,8 @@ def build_clean_index(out_root: str = "data/cleaned", out_name: str = INDEX_NAME
             "n_accepted": int((status == gate.ACCEPTED).sum()),
             "n_rejected": int(status.astype(str).str.startswith("rejected").sum()),
             "n_error": int(status.astype(str).str.startswith("error").sum()),
+            # unmatched-but-plausible leaders flagged for tenure-key curation (issue #68)
+            "n_review": int(df.get("speaker_review", pd.Series(dtype="boolean")).fillna(False).astype(bool).sum()),
             "n_nonenglish": n_nonenglish,
             "n_translated": n_translated,
             "is_translated": bool(n_nonenglish == 0 or n_translated >= n_nonenglish),

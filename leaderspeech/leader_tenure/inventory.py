@@ -27,7 +27,13 @@ def _year(value) -> int | None:
 
 def load_speeches(config: TenureConfig, input_path: str | None = None) -> tuple[pd.DataFrame, str]:
     """Load the speech table to inventory. Preference: explicit --input, then the final/merged
-    datasets, then the cleaned per-source Parquets (accepted rows only). Returns (df, source)."""
+    datasets, then the cleaned per-source Parquets (accepted rows, PLUS review-flagged ones).
+    Returns (df, source).
+
+    Review-flagged rows (`speaker_review`, issue #68) are a plausible national leader the tenure
+    key doesn't yet know about — exactly the addition candidate this inventory looks for — so they
+    are kept even when their gate status is a leader-type rejection (they'd otherwise be invisible
+    unless the `--keep speakers` merged dataset is present)."""
     candidates = [input_path] if input_path else list(config.dataset_candidates)
     for c in candidates:
         if c and Path(c).exists():
@@ -41,7 +47,10 @@ def load_speeches(config: TenureConfig, input_path: str | None = None) -> tuple[
         except Exception:
             continue
         if "clean_status" in d.columns:
-            d = d[d["clean_status"] == "accepted"]
+            keep = d["clean_status"].astype(str) == "accepted"
+            if "speaker_review" in d.columns:
+                keep = keep | d["speaker_review"].fillna(False).astype(bool)
+            d = d[keep]
         frames.append(d)
     if not frames:
         raise FileNotFoundError(

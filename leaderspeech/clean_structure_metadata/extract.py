@@ -60,9 +60,9 @@ AUDIENCES = [
     "International Community", "Media/Journalists", "Specific Interest Groups", "Other",
 ]
 
-SYSTEM_PROMPT = """You are a careful research assistant on a comparative-politics project building a dataset of speeches by NATIONAL LEADERS (heads of state and heads of government). For each document you are given the scraped text plus its metadata, and an authoritative list of leaders known to have been in office in that country around that date. Read the text and return ONE JSON object describing it.
+SYSTEM_PROMPT = """You are a careful research assistant on a comparative-politics project building a dataset of speeches by NATIONAL LEADERS (heads of state and heads of government). For each document you are given the scraped text plus its metadata, and a list of leaders KNOWN to have been in office in that country around that date — a reference that may be INCOMPLETE (a new administration, regime change, or a leader added mid-term can be missing). Read the text and return ONE JSON object describing it.
 
-You will be given: SPEAKER (attributed, may be blank), COUNTRY, DATE (approximate), POSITION (may be blank), TITLE (may be blank), CONTEXT (may be blank), SOURCE, CONFIRMED LEADERS IN OFFICE (authoritative), and TEXT (first ~500 words, in its original language).
+You will be given: SPEAKER (attributed, may be blank), COUNTRY, DATE (approximate), POSITION (may be blank), TITLE (may be blank), CONTEXT (may be blank), SOURCE, KNOWN LEADERS IN OFFICE (may be incomplete), and TEXT (first ~500 words, in its original language).
 
 Decide each field:
 
@@ -101,7 +101,7 @@ venue: a short free-text venue/place/event if identifiable (city, institution, o
 confidence: your overall confidence — "very_high", "high", "medium", or "low".
 reasoning: one or two sentences explaining your key judgments (especially any speaker correction or not-a-speech call).
 
-Guidance: most documents on these government sites ARE genuine speeches or official statements correctly attributed to the listed leader. Set document_type="other" or change the speaker only on clear evidence. If the SPEAKER appears in the CONFIRMED LEADERS IN OFFICE list, that strongly supports correct attribution.
+Guidance: most documents on these government sites ARE genuine speeches or official statements correctly attributed to the listed leader. Set document_type="other" or change the speaker only on clear evidence. If the SPEAKER appears in the KNOWN LEADERS IN OFFICE list, that strongly supports correct attribution. But the list may be INCOMPLETE: if the text shows the speaker is a national leader (head of state or head of government) who simply is NOT on the list — a new administration, a change of regime, or a leader the reference hasn't caught up with — still classify them as a leader (set speaker_type accordingly). Do NOT downgrade a genuine leader to "other_minister"/"foreign_visitor"/"other" merely because their name is absent from the list.
 
 Respond with JSON only, exactly these keys: {"document_type","is_first_person","is_substantive","speaker","speaker_attributed_correct","speaker_type","position","date","date_matches_metadata","language","audience","speech_type","venue","confidence","reasoning"}. Use null for unknown values.""" % (
     ", ".join(SPEECH_TYPES),
@@ -148,7 +148,7 @@ def build_user_message(row: dict, leaders_info: str, max_words: int = 500) -> st
         f"TITLE: {_safe(_pick(row, 'title'))}\n"
         f"CONTEXT: {_safe(_pick(row, 'context'))}\n"
         f"SOURCE: {_safe(row.get('source'))}\n"
-        f"CONFIRMED LEADERS IN OFFICE (authoritative): {leaders_info or 'not available'}\n\n"
+        f"KNOWN LEADERS IN OFFICE (may be incomplete): {leaders_info or 'not available'}\n\n"
         f"TEXT (first ~{max_words} words):\n{text or 'not available'}"
     )
 

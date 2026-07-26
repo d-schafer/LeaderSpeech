@@ -74,6 +74,18 @@ def _surname_match(a_norm: str, b_norm: str) -> bool:
     return bool(a_tokens & b_tokens)
 
 
+def _strong_match(a_norm: str, b_norm: str) -> bool:
+    """Equality or full containment only — NO shared-token fallback. Used for the
+    cross-country (step 2) match so a genuinely-unknown domestic speaker can't grab a
+    random foreign leader by one shared surname token (e.g. a Taliban official pulling in
+    Rouhani/Kalam/Fischer). A real foreign visitor still matches by full name/containment,
+    while a token-only collision now falls through to `none` — which is exactly what lets
+    the unmatched-leader review signal fire (issue #68)."""
+    if not a_norm or not b_norm:
+        return False
+    return a_norm == b_norm or a_norm in b_norm or b_norm in a_norm
+
+
 def match_speaker(
     df: pd.DataFrame, speaker: str, country: str, year: int | None, window: int = 1
 ) -> tuple[str, object, str]:
@@ -98,10 +110,12 @@ def match_speaker(
             if _surname_match(sp, r["_speaker_norm"]):
                 return EXACT, r.get("is_ceremonial", pd.NA), r["speaker"]
 
-    # 2) any tenure leader of a DIFFERENT country (any year)
+    # 2) any tenure leader of a DIFFERENT country (any year). Require a STRONG match here
+    #    (full name / containment, not a single shared surname token) so an unknown domestic
+    #    leader isn't mislabeled a foreign visitor by coincidence — issue #68 Part 4.
     other = df.loc[df["country"] != country] if country else df
     for _, r in other.iterrows():
-        if _surname_match(sp, r["_speaker_norm"]):
+        if _strong_match(sp, r["_speaker_norm"]):
             return OTHER_COUNTRY, pd.NA, r["speaker"]
 
     return NONE, pd.NA, ""

@@ -1,0 +1,61 @@
+# Belarus — President of the Republic (president.gov.by), the ENGLISH mirror, via the Internet
+# Archive. The live blr_president recipe is the native-language (RU/BE) site and its live runs get
+# blocked; there is no wayback companion yet. president.gov.by has run an English mirror under
+# /en/ since the early 2000s, and the Archive holds it richly: CDX ≈ 31,400 statuscode:200 English
+# captures spanning 1998–2026 — the ENTIRE Lukashenko era (in office since 1994). English source →
+# text lands directly in the English `text` column (no translation needed). This is a Wayback
+# English companion, "yes-and" to the live recipe, never a replacement.
+#
+# THREE URL generations live under the /en/ prefix (the CDX prefix-match catches all):
+#   1. OLD press releases   /en/press<digits>.html          (~2008–2012)
+#   2. Lukashenko-era news   /en/news_en/view/<slug>          (archived ~2019–2020)
+#   3. MODERN CMS            /en/events/<slug>, /en/media/details/<slug>  (2019–2026)
+# Excluded by link_pattern: /en/photo_en/, /en/official_documents_en/, /en/statebodies/, the old
+# /eng/…/foto/ galleries, and section/index shells — only the article-bearing paths are kept.
+source_id: blr_president_english_wayback
+country: Belarus
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'. "president.gov.by/en" also covers
+  # the older /eng/ captures (en is a prefix of eng), which the link_pattern then filters out.
+  - president.gov.by/en
+
+listing:
+  # Keep only the three article schemes; require a slug/id after the section so listing/index
+  # captures (/en/events, /en/news_en) and the excluded /en/photo_en//official_documents_en/ trees
+  # are dropped.
+  link_pattern: '/en/(events|news_en/view|media/details)/[a-z0-9]|/en/press\d+\.html'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # first line drops any " - Official Internet Portal…" suffix in the archived <title>
+  selectors: ["h1", ".title", ".news-detail__title", ".b-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # president.gov.by's CMS containers vary across the three generations; narrow guesses first, and
+  # the engine's generic (trafilatura) fallback recovers the body when they miss (broad main/article
+  # selectors are omitted so they can't grab a nav blob before the fallback fires).
+  selectors: [".news-detail__text", ".detail-text", ".article-text", ".news-text", ".content-text"]
+date:
+  selectors: ["time[datetime]", ".news-detail__date", ".date", ".news-date", "time", ".b-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 15): link_pattern harvests 22,030 snapshots
+  across /en/events, /en/news_en/view, /en/media/details and /en/press<id>.html; TITLE (h1) and DATE
+  (time/.date) clean on every sample; TEXT recovered by the generic (trafilatura) fallback — the raw
+  content container (div.sp_left_col) carries "Print version / See also" nav cruft, so the fallback is
+  deliberately preferred (cleaner bodies, 270–4,560 chars). Wayback English companion to the live
+  blr_president (yes-and). CDX prefix president.gov.by/en ≈ 31,400 statuscode:200 English captures
+  1998–2026 (Lukashenko, president since 1994) → English column, no translation. The /en/events stream
+  also carries non-Lukashenko official items → no speaker_default; the cleaner's document-type gate +
+  tenure crosscheck assign the speaker. FULL RUN is the researcher's gate.

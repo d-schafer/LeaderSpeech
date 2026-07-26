@@ -57,7 +57,9 @@ def list_snapshots(
     """
     if url.endswith("*"):
         url = url[:-1]
-    params = {"url": url, "output": "json", "collapse": collapse}
+    params = {"url": url, "output": "json"}
+    if collapse:  # falsy collapse ("" / None) = don't collapse — keep every capture
+        params["collapse"] = collapse
     if from_date:
         params["from"] = from_date
     if to_date:
@@ -82,6 +84,34 @@ def list_snapshots(
         return []
     header, *rows = data
     return [dict(zip(header, row)) for row in rows]
+
+
+def best_capture(url: str, timeout: float = 60.0) -> Optional[dict]:
+    """The most complete archived capture of an EXACT url: the largest-`length` HTTP-200
+    snapshot, or None if CDX has no 200 capture (or the query errors).
+
+    The Archive sometimes stores a truncated *partial* of a large file (e.g. a PDF cut at
+    exactly 1 MB). The capture nearest a given moment can be that partial even when a
+    complete capture of the same URL exists at another timestamp — so fetching by
+    page-timestamp alone loses the body. Querying the URL's own captures and taking the
+    biggest 200 recovers the complete one (issue #70). `collapse` is disabled so a
+    differing-length duplicate isn't hidden."""
+    try:
+        snaps = list_snapshots(
+            url, match_type="exact", collapse="", filters=["statuscode:200"], timeout=timeout,
+        )
+    except Exception as e:  # CDX hiccup shouldn't fail the row — caller falls back
+        log.info("cdx best_capture query failed for %s: %s", url, e)
+        return None
+
+    def _length(entry: dict) -> int:
+        try:
+            return int(entry.get("length") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    usable = [s for s in snaps if s.get("timestamp") and s.get("original")]
+    return max(usable, key=_length) if usable else None
 
 
 def create_client(timeout: float = 60.0) -> httpx.Client:
@@ -280,8 +310,15 @@ def _fetch_snapshot_resp(
                 if attempt >= retries - 1:
                     raise
                 wait = _retry_sleep(attempt, backoff)
+                # Distinguish real rate-limiting (429 -> raise wayback_delay) from a
+                # transient Archive hiccup (5xx, harmless) — the exception type alone
+                # ("HTTPStatusError") hides the one number you'd tune pacing on (issue #67).
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                    reason = f"HTTP {exc.response.status_code}"
+                else:
+                    reason = type(exc).__name__
                 log.info("wayback throttled (%s); retry %d/%d in %.0fs: %s",
-                         type(exc).__name__, attempt + 1, retries, wait, url)
+                         reason, attempt + 1, retries, wait, url)
                 time.sleep(wait)
     finally:
         if close_client:

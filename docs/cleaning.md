@@ -168,6 +168,21 @@ the speaker is not a `foreign_visitor` / minister / other. Reject statuses:
 a head-of-state/government value pass — we don't drop a real leader just because the role was
 uncertain. Both knobs live in `clean_config.yml` (see below).
 
+**`speaker_review` — surfacing a leader the tenure key doesn't know (issue #68).** The tenure key is
+curated iteratively, so a genuine leader can be missing (a new administration, a regime change, a
+deputy) — which would otherwise make the model classify the real speaker as a non-leader and the gate
+drop it, invisibly. To catch that, the extraction prompt no longer treats the injected leader list as
+exhaustive ("KNOWN LEADERS IN OFFICE (may be incomplete)" — a genuine leader not on the list is still
+classified as a leader), and every row gets an orthogonal boolean **`speaker_review`**: `True` when the
+row plausibly represents a national leader (the model typed a head of state/government, or the document
+is a first-person substantive statement) **but the tenure crosscheck found nothing** (`tenure_match ==
+none`). It is *orthogonal* to accept/reject — an accepted row stays accepted, it just carries the flag —
+so nothing is un-accepted or lost. It is derived from stored fields, so `--regate` backfills it for
+free. The `leader_tenure` curation tool (`--diagnostic`) then lists these unmatched-but-plausible
+speakers per country as tenure-key addition candidates (its per-source read now includes review-flagged
+rows, not just `accepted`). The cleaned-index `cleaned_progress_log.xlsx` shows an `n_review` count per
+source.
+
 ## Configuration reference
 
 Every field is in `configs/clean_config.yml`; override per run with `--config path.yml`, and the
@@ -194,8 +209,12 @@ python -m leaderspeech.clean_structure_metadata.run --all --regate
 ```
 
 `--regate` rewrites `clean_status` in place from the stored fields (error rows untouched), so you can
-tune `keep_document_types` / `require_leader_type` without re-spending or losing anything. (Plain
-`--retry-failed` only re-attempts rows that *errored*, not rejected ones.)
+tune `keep_document_types` / `require_leader_type` without re-spending or losing anything. It also
+re-runs the **tenure crosscheck** deterministically (from the stored `speaker`/`country`/`date`, no API
+calls) and backfills `speaker_review` — so a curated tenure key or a tightened matcher lands on
+already-cleaned data for free (e.g. after adding a missing leader, `--regate` alone re-accepts their
+speeches; only a *model* mis-type needs a paid `--reclean`). If the key file is missing, the stored
+crosscheck is left untouched. (Plain `--retry-failed` only re-attempts rows that *errored*.)
 
 ## Storage, resumability, and safety
 

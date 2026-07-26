@@ -1,0 +1,45 @@
+# Cameroon — Presidency of the Republic (prc.cm), English "speeches of the president" archive, via
+# the Internet Archive. WAYBACK COMPANION to the live cmr_prc recipe (Joomla K2, ?start pager over
+# the same section): the Archive preserves the individual speech pages, giving a resilient fallback
+# and older captures for the same /en/news/speeches-of-the-president/<id>-<slug> scheme. The site is
+# natively English (Paul Biya, president since 1982) → text lands in the English `text` column.
+source_id: cmr_prc_wayback
+country: Cameroon
+source_language: English
+renderer: static
+start_urls:
+  - prc.cm/en/news/speeches-of-the-president
+
+listing:
+  # Individual speech pages /news/speeches-of-the-president/<numeric-id>-<slug>; the numeric id
+  # excludes the bare section/listing captures (same pattern as the live recipe).
+  link_pattern: '/news/speeches-of-the-president/\d+-'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h2", ".itemTitle", "h1", "title"]
+text:
+  selectors: [".itemFullText", "article", "main"]
+date:
+  # Machine-readable date only (the detail pages carry no reliable <time>); often None at scrape
+  # → filled by the cleaner's date pass. Do NOT add a title/body text selector (would stamp TODAY).
+  selectors: ["time[datetime]", ".itemDateCreated time[datetime]", ".created[datetime]"]
+  attr: datetime
+
+position: president
+speaker_default: Paul Biya
+date_languages: ["fr"]
+notes: >
+  DRAFT — Wayback companion to the live cmr_prc (yes-and). CDX prefix
+  prc.cm/en/news/speeches-of-the-president ≈ 250 archived speech-page captures 2014–2026 (Paul Biya).
+  Natively English → English column, no translation. Title h2/.itemTitle, text .itemFullText (both
+  proven on the live site); DATE often None at scrape (no machine-readable date on detail pages) →
+  cleaner's date pass fills it; speaker_default Paul Biya (sole speaker of the section). Some French
+  in titles → date_languages ["fr"]. FULL RUN is the researcher's gate.

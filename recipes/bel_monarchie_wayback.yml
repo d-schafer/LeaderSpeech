@@ -1,0 +1,42 @@
+# Belgium — the Belgian Monarchy (monarchie.be), English speeches, via the Internet Archive.
+# WAYBACK COMPANION to the live bel_monarchie recipe: speech detail pages live under
+# /en/agenda/<slug> (with a /en/monarchy/speeches listing), and the Archive holds ≈ 642 English
+# captures 2004–2026. The site's /en/ tree is genuine English (King Philippe / Queen Mathilde) →
+# text lands in the English `text` column. "yes-and", extends the live recipe's history.
+source_id: bel_monarchie_wayback
+country: Belgium
+source_language: English
+renderer: static
+start_urls:
+  - monarchie.be/en
+
+listing:
+  # Speech detail pages under /en/agenda/<slug> (+ the /en/monarchy/speeches section); exclude the
+  # bare /en/agenda/agenda index (same guard as the live recipe) and the 2004-era institutional
+  # pages (/en/family/, /en/monarchy/what/, /en/initiatives/…) which don't match these sections.
+  link_pattern: '/en/(?:agenda|monarchy/speeches)/(?!agenda$)[a-z0-9][a-z0-9-]+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  selectors: [".field--name-body", ".field-name-body", ".field-body", "article", "main"]
+date:
+  selectors: ["time", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
+
+position: monarch
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion to the live bel_monarchie (yes-and). CDX prefix monarchie.be/en ≈ 642
+  English captures 2004–2026; speech detail pages under /en/agenda/<slug> (the 2004 captures are
+  mostly institutional /en/family//monarchy/what pages, excluded by link_pattern). Genuine English →
+  English column, no translation. Two speakers (King Philippe, Queen Mathilde) → no speaker_default;
+  the cleaner assigns per document. Selectors reused from the live recipe; PROBE and adjust for the
+  older archived Drupal layouts. FULL RUN is the researcher's gate.

@@ -35,7 +35,7 @@ class FakeFetcher:
 
 def test_live_pdf_follow_replaces_chrome_body(monkeypatch):
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d: "THE REAL SPEECH TEXT from the pdf")
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "THE REAL SPEECH TEXT from the pdf")
     rec = {"text": "menu chrome", "title": "AOP"}
     f = FakeFetcher()
     assert run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=False, fetcher=f) is True
@@ -76,15 +76,18 @@ def test_non_pdf_bytes_are_ignored():
     assert rec["text"] == "chrome"
 
 
-def test_wayback_pdf_follow_uses_nearest_capture(monkeypatch):
+def test_wayback_pdf_follow_falls_back_to_page_timestamp(monkeypatch):
+    # When CDX has no complete capture of the PDF, fall back to the synthesized entry:
+    # the PAGE's capture timestamp + the ORIGINAL pdf url (the pre-#70 behavior).
     captured = {}
 
     def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None):
         captured["entry"] = entry
         return "application/pdf", b"%PDF-..."
+    monkeypatch.setattr(run.wayback, "best_capture", lambda url, **kw: None)
     monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes", fake_fetch_snapshot_bytes)
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d: "archived pdf speech text")
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "archived pdf speech text")
 
     rec = {"text": "chrome", "title": ""}
     ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=True,
@@ -92,6 +95,58 @@ def test_wayback_pdf_follow_uses_nearest_capture(monkeypatch):
     assert ok is True
     assert rec["text"] == "archived pdf speech text"
     assert rec["title"] == "archived pdf speech text"    # title backfilled from the PDF (was empty)
-    # the synthesized CDX entry pairs the PAGE's capture timestamp with the ORIGINAL pdf url,
-    # so Wayback serves the PDF capture nearest that moment
     assert captured["entry"] == {"timestamp": "20210816003406", "original": PDF_URL}
+
+
+def test_wayback_pdf_follow_picks_complete_capture(monkeypatch):
+    # #70 Problem 1: when CDX has a complete capture of the PDF, fetch THAT one (not the
+    # page-timestamp redirect, which may resolve to a truncated 1 MB partial).
+    captured = {}
+    complete = {"timestamp": "20200101000000", "original": PDF_URL, "statuscode": "200", "length": "6000000"}
+
+    def fake_best_capture(url, **kw):
+        captured["queried"] = url
+        return complete
+
+    def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None):
+        captured["entry"] = entry
+        return "application/pdf", b"%PDF-..."
+    monkeypatch.setattr(run.wayback, "best_capture", fake_best_capture)
+    monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes", fake_fetch_snapshot_bytes)
+    monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "complete pdf text")
+
+    rec = {"text": "chrome", "title": "t"}
+    ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=True,
+                              timestamp="20210816003406", wayback_client=object(), wayback_delay=0.0)
+    assert ok is True
+    assert captured["queried"] == PDF_URL
+    assert captured["entry"] is complete                 # fetched the complete capture, not the synthesized one
+
+
+def test_unextractable_pdf_clears_body(monkeypatch):
+    # #70 Problem 3: a real PDF that yields no text (image-only scan / truncated capture) —
+    # the pdf_link page's HTML is only chrome, so clear the body to fail the row cleanly.
+    monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "")   # no text layer
+    rec = {"text": "html chrome body", "title": "t"}
+    ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=False, fetcher=FakeFetcher())
+    assert ok is False
+    assert rec["text"] == ""                             # cleared -> downstream empty_text, not chrome
+
+
+def test_pdf_ocr_flag_is_forwarded(monkeypatch):
+    # #70 Problem 2: recipe.pdf_ocr flows into pdf_bytes_to_text so the OCR fallback can fire.
+    seen = {}
+
+    def fake_extract(data, ocr=False):
+        seen["ocr"] = ocr
+        return "ocr recovered text"
+    monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
+    monkeypatch.setattr(run, "pdf_bytes_to_text", fake_extract)
+    rec = {"text": "chrome", "title": "t"}
+    ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(pdf_ocr=True),
+                              is_wayback=False, fetcher=FakeFetcher())
+    assert ok is True
+    assert seen["ocr"] is True
+    assert rec["text"] == "ocr recovered text"

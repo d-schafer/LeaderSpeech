@@ -86,3 +86,41 @@ def test_leader_type_gate_can_be_disabled():
     cfg = CleanConfig(require_leader_type=False)
     status, _ = gate.decide(_meta(speaker_type="foreign_visitor"), cfg)
     assert status == gate.ACCEPTED
+
+
+# --- needs_review: surface a plausible leader the tenure key doesn't know (issue #68) ----
+
+def test_review_flags_accepted_leader_when_unmatched():
+    # model typed a head of state, but the tenure crosscheck found nothing -> flag for key curation
+    m = _meta(speaker_type="head_of_state")
+    assert gate.needs_review(m, gate.ACCEPTED, "none") is True
+    # a tenure-confirmed leader is NOT flagged (the key already knows them)
+    assert gate.needs_review(m, gate.ACCEPTED, "exact") is False
+
+
+def test_review_rescues_mistyped_first_person_substantive():
+    # a genuine leader mis-typed 'other' (wrong leaders_info) but the doc is a first-person
+    # substantive statement -> still surfaced despite the rejected_non_leader status
+    m = _meta(document_type="official_statement", speaker_type="other",
+              is_first_person="yes", is_substantive="yes")
+    assert gate.needs_review(m, gate.REJECTED_NON_LEADER, "none") is True
+
+
+def test_review_not_flagged_for_courtesy_minister():
+    # a non-substantive minister is not a plausible national leader -> no flag
+    m = _meta(speaker_type="other_minister", is_first_person="no", is_substantive="no")
+    assert gate.needs_review(m, gate.REJECTED_NON_LEADER, "none") is False
+
+
+def test_review_requires_none_not_other_country():
+    # an other_country match (a real foreign visitor) must NOT trip the review flag
+    m = _meta(speaker_type="head_of_state")
+    assert gate.needs_review(m, gate.ACCEPTED, "other_country") is False
+
+
+def test_review_ignores_non_representative_and_no_speaker():
+    # a news item (rejected_not_representative) or a speakerless row is never a leader candidate,
+    # even if it looks first-person substantive
+    m = _meta(document_type="other", speaker_type="other", is_first_person="yes", is_substantive="yes")
+    assert gate.needs_review(m, gate.REJECTED_NOT_REPRESENTATIVE, "none") is False
+    assert gate.needs_review(m, gate.REJECTED_NO_SPEAKER, "none") is False

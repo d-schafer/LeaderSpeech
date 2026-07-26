@@ -67,6 +67,24 @@ def test_pdf_bytes_to_text_empty_when_no_text():
     assert pdf.pdf_bytes_to_text(make_minimal_pdf("")) == ""
 
 
+def test_pdf_ocr_fallback_used_only_when_enabled(monkeypatch):
+    """An image-only PDF (text backends yield "") is OCR'd only when ocr=True (issue #70).
+    OCR itself is mocked here — a real run needs the pdf-ocr extra + a system Tesseract."""
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_pypdf", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_ocr", lambda d: "OCR RECOVERED TEXT")
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 scan", ocr=False) == ""          # not requested
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 scan", ocr=True) == "OCR RECOVERED TEXT"
+
+
+def test_pdf_ocr_missing_backend_degrades_to_empty(monkeypatch):
+    """ocr=True but the OCR lib isn't installed -> behave exactly like a 0-char extract."""
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_pypdf", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_ocr", lambda d: (_ for _ in ()).throw(ImportError()))
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 scan", ocr=True) == ""
+
+
 def test_pdf_bytes_to_text_raises_without_backend(monkeypatch):
     """If no PDF library is importable, the error is explicit (install hint) rather than a
     silent empty-text failure."""
@@ -116,7 +134,7 @@ def _pdf_recipe(**over) -> Recipe:
 
 def test_extract_pdf_record_pulls_body_date_and_speaker(monkeypatch):
     monkeypatch.setattr(pdf, "pdf_bytes_to_text",
-                        lambda data: "Primeira linha do discurso.\nSegundo paragrafo.")
+                        lambda data, ocr=False: "Primeira linha do discurso.\nSegundo paragrafo.")
     recipe = _pdf_recipe()
     url = "https://x/discursos/1o-mandato/2003/18-06-2003-discurso-mercosul.pdf"
     rec = extract.extract_pdf_record(b"%PDF-1.4 fake", url, recipe)
@@ -129,7 +147,7 @@ def test_extract_pdf_record_pulls_body_date_and_speaker(monkeypatch):
 
 
 def test_extract_pdf_record_title_from_url_regex(monkeypatch):
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data: "corpo")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "corpo")
     recipe = _pdf_recipe(title={"url_regex": r"/(\d{2}-\d{2}-\d{4}-[^/]+?)\.pdf"})
     url = "https://x/discursos/1o-mandato/2003/18-06-2003-discurso-mercosul.pdf"
     rec = extract.extract_pdf_record(b"%PDF-1.4 x", url, recipe)

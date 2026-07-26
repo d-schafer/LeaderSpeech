@@ -231,10 +231,12 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
                      is_wayback: bool, timestamp: str | None = None,
                      wayback_client=None, wayback_delay: float = 5.0, fetcher=None) -> bool:
     """For a page that is just a title + a link to the speech PDF (`recipe.pdf_link`): find the
-    PDF, fetch it (the archived capture nearest the page under wayback, else live), extract its
-    text, and use that as the body — overriding the HTML chrome. Returns True if the body was
-    replaced. Any missing link / un-archived PDF / parse failure leaves `rec` untouched (fall back
-    to the HTML body) rather than failing the row, since not every page in a source is PDF-backed."""
+    PDF, fetch it (the most complete archived capture under wayback, else live), extract its text,
+    and use that as the body — overriding the HTML chrome. Returns True if the body was replaced.
+    A missing link / un-archived PDF / fetch failure leaves `rec` untouched (fall back to the HTML
+    body), since not every page in a source is PDF-backed. But once a real PDF is fetched and it
+    yields NO text (image-only scan, or a truncated capture), the HTML here is just chrome, so the
+    body is cleared to fail the row cleanly as `empty_text` rather than keep the chrome (issue #70)."""
     if recipe.pdf_link is None or not html:
         return False
     try:
@@ -243,14 +245,18 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
             return False
         pdf_url = urljoin(page_url, href.strip())
         if is_wayback:
-            entry = {"timestamp": timestamp, "original": pdf_url}
+            # Prefer the PDF's own most-complete capture over whatever the page timestamp
+            # redirects to (which can be an Archive-side 1 MB partial); fall back to the
+            # page-nearest capture if CDX has nothing (issue #70).
+            entry = wayback.best_capture(pdf_url) or {"timestamp": timestamp, "original": pdf_url}
             _, data = wayback.fetch_snapshot_bytes(entry, delay=wayback_delay, client=wayback_client)
         else:
             _, data = fetcher.get_bytes(pdf_url)
         if not looks_like_pdf(data):
-            return False
-        text = pdf_bytes_to_text(data)
+            return False                    # not actually a PDF (e.g. an HTML error page) -> keep chrome
+        text = pdf_bytes_to_text(data, ocr=recipe.pdf_ocr)
         if not (text and text.strip()):
+            rec["text"] = ""                # a real PDF with no extractable text -> fail cleanly, not chrome
             return False
         rec["text"] = text.strip()
         if not rec.get("title"):            # a chrome-only page often has no real title; use the PDF's

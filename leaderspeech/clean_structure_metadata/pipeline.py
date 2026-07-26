@@ -229,28 +229,60 @@ def regate_source(
     summary = {"source_id": source_id, "country": country, "regated": 0, "changed": 0, "output": str(p)}
     if df.empty:
         return summary
+
+    # Re-run the tenure crosscheck too (deterministic, no API) so a tightened match_speaker
+    # (issue #68 Part 4) lands on already-cleaned data during a free --regate — e.g. a spurious
+    # `other_country` becomes `none`, which is what lets the review flag fire. Skipped when the
+    # key file is absent, so a missing key never wipes the stored crosscheck.
+    tenure_df = None
+    if config.tenure_file and Path(config.tenure_file).exists():
+        try:
+            tenure_df = tenure.get_tenure(str(config.tenure_file))
+        except Exception as e:
+            log.warning("regate: could not load tenure key %s: %s", config.tenure_file, e)
+
+    cols = set(df.columns)
+
+    def cell(idx, col):
+        return df.at[idx, col] if col in cols else None
+
     changed = 0
     for i in df.index:
         status_now = str(df.at[i, "clean_status"]) if "clean_status" in df.columns else ""
         if status_now.startswith("error"):
             continue
         meta = {
-            "document_type": df.at[i, "document_type"] if "document_type" in df.columns else None,
+            "document_type": cell(i, "document_type"),
             "speaker": df.at[i, "speaker"],
-            "speaker_type": df.at[i, "speaker_type"] if "speaker_type" in df.columns else None,
+            "speaker_type": cell(i, "speaker_type"),
+            "is_first_person": cell(i, "is_first_person"),
+            "is_substantive": cell(i, "is_substantive"),
         }
         # backfill the derived inclusion tier for free (it depends only on stored fields), so an
         # old Parquet gains the column on the next --regate without any API calls.
         df.at[i, "inclusion_tier"] = _inclusion_tier(
-            meta["document_type"],
-            df.at[i, "is_first_person"] if "is_first_person" in df.columns else None,
-            df.at[i, "is_substantive"] if "is_substantive" in df.columns else None)
-        tmatch = df.at[i, "tenure_match"] if "tenure_match" in df.columns else ""
+            meta["document_type"], meta["is_first_person"], meta["is_substantive"])
+
+        if tenure_df is not None:
+            tm, ceremonial, matched = tenure.match_speaker(
+                tenure_df, df.at[i, "speaker"], cell(i, "country") or country,
+                _year_of(cell(i, "date")), window=config.tenure_window,
+            )
+            df.at[i, "tenure_match"] = tm
+            df.at[i, "tenure_matched_name"] = matched or None
+            df.at[i, "is_ceremonial"] = None if pd.isna(ceremonial) else bool(ceremonial)
+            tmatch = tm
+        else:
+            tmatch = df.at[i, "tenure_match"] if "tenure_match" in df.columns else ""
+
         new_status, new_reason = gate.decide(meta, config, tmatch)
         if new_status != status_now:
             df.at[i, "clean_status"] = new_status
             df.at[i, "gate_reason"] = new_reason
             changed += 1
+        # backfill the review flag unconditionally (like inclusion_tier) so an old Parquet gains
+        # the column on the first --regate even when the status itself doesn't change.
+        df.at[i, "speaker_review"] = gate.needs_review(meta, new_status, tmatch)
     store.write_source_atomic(df, p, config.compression)
     try:
         from .merge import build_clean_index
@@ -343,6 +375,9 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     status, reason = gate.decide(meta, config, out.get("tenure_match", ""))
     out["clean_status"] = status
     out["gate_reason"] = reason
+    # Orthogonal review flag: a plausible national leader the tenure key doesn't yet know
+    # about (issue #68). Never changes accept/reject — just surfaces a key gap for curation.
+    out["speaker_review"] = gate.needs_review(meta, status, out.get("tenure_match", ""))
     return out
 
 

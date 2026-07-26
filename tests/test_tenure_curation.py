@@ -69,6 +69,41 @@ def test_bucket_inventory(tenure_df):
     assert pat["tenure_min_year"] == 2019 and pat["tenure_max_year"] == 2020
 
 
+def test_load_speeches_surfaces_review_flagged(tmp_path):
+    # issue #68 Part 3: the per-source fallback keeps accepted rows PLUS review-flagged ones, so a
+    # gate-dropped-but-plausible leader (rejected_non_leader + speaker_review) reaches the inventory
+    # and lands in the `unmatched` addition-candidate bucket — instead of being invisible.
+    from leaderspeech.leader_tenure.config import TenureConfig
+    from leaderspeech.leader_tenure import inventory as inv_mod
+
+    cleaned = tmp_path / "cleaned" / "Testland"
+    cleaned.mkdir(parents=True)
+    pd.DataFrame([
+        dict(doc_id="A1", speaker="Pat Leader", country="Testland", date="2020-01-01",
+             position="President", clean_status="accepted", speaker_review=False),
+        dict(doc_id="A2", speaker="Newcomer Chief", country="Testland", date="2022-01-01",
+             position="President", clean_status="rejected_non_leader", speaker_review=True),
+        dict(doc_id="A3", speaker="Some Minister", country="Testland", date="2022-01-01",
+             position="Minister", clean_status="rejected_non_leader", speaker_review=False),
+    ]).to_parquet(cleaned / "src.parquet", index=False)
+
+    config = TenureConfig(cleaned_root=str(tmp_path / "cleaned"), dataset_candidates=[])
+    df, source = inv_mod.load_speeches(config)
+    speakers = set(df["speaker"])
+    assert "Pat Leader" in speakers                          # accepted
+    assert "Newcomer Chief" in speakers                      # review-flagged despite rejection
+    assert "Some Minister" not in speakers                   # plain rejection stays dropped
+
+    # and it reaches the addition-candidate (unmatched) bucket
+    csv = tmp_path / "tenure.csv"
+    pd.DataFrame([dict(speaker="Pat Leader", ISO3N=999, country="Testland", year=2020,
+                       matchDF="leader", COWcode=2, stateabb="TST", ccode=900, is_ceremonial=False)]
+                 ).to_csv(csv, index=False)
+    tdf = tenure.load_tenure(csv)
+    buckets = inv_mod.split_buckets(inv_mod.bucket_inventory(inv_mod.build_inventory(df), tdf))
+    assert "Newcomer Chief" in set(buckets["unmatched"]["speaker"])
+
+
 # --------------------------------------------------------------- classify (position + mocked GPT)
 def test_classify_unmatched_position_only():
     unmatched = pd.DataFrame([

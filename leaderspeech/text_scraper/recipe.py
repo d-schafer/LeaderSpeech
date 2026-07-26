@@ -357,6 +357,11 @@ class Recipe(BaseModel):
     # so it can't latch onto an unrelated sidebar PDF on a page that already has a real HTML body.
     pdf_link: Optional[FieldSpec] = None
 
+    # OCR fallback for image-only PDFs (a complete scan with no text layer -> 0 chars). Off by
+    # default because it's heavy and needs an extra install (`leaderspeech[pdf-ocr]` + a system
+    # Tesseract). Applies to both `pdf_link` bodies and `content_type: pdf` sources. (issue #70)
+    pdf_ocr: bool = False
+
     # fixed values when a source is single-leader / single-office
     position: Optional[str] = None
     speaker_default: Optional[str] = None

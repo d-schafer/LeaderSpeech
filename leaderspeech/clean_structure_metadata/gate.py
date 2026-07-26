@@ -23,6 +23,9 @@ REJECTED_NON_LEADER = "rejected_non_leader"
 # speaker_type values that fail the "must be a national leader" gate
 _NON_LEADER_TYPES = {"other_minister", "other"}
 
+# speaker_type values the model uses for a head of state / government
+_LEADER_TYPES = {"head_of_state", "head_of_government", "both"}
+
 
 def _norm(v) -> str:
     return (v or "").strip().lower() if isinstance(v, str) else ""
@@ -57,3 +60,27 @@ def decide(meta: dict, config, tenure_match: str = "") -> tuple[str, str]:
             return REJECTED_NON_LEADER, f"speaker_type={stype} (not a head of state/government)"
 
     return ACCEPTED, ""
+
+
+def needs_review(meta: dict, clean_status: str, tenure_match: str) -> bool:
+    """Orthogonal to the accept/reject partition: True when a row plausibly represents a
+    national leader the tenure key does NOT yet know about — the signal that the key needs
+    extending (issue #68). `decide()` stays untouched; this is a separate `speaker_review`
+    flag so a genuinely-accepted row is never un-accepted and a silently-dropped real leader
+    is surfaced for curation.
+
+    Fires only when:
+      * the row already cleared the document_type + speaker gates (status is accepted, or a
+        leader-type rejection — never a non-representative / no-speaker row), AND
+      * the tenure crosscheck found NOTHING (`none`, not `exact`/`other_country`), AND
+      * either the model typed the speaker a head of state/government, OR the document is a
+        first-person substantive statement (so a genuine leader mis-typed `other` because the
+        prompt named the wrong leader is still caught).
+    All inputs are stored columns, so the flag is `--regate`-derivable with no API calls."""
+    if clean_status not in (ACCEPTED, REJECTED_NON_LEADER, REJECTED_FOREIGN):
+        return False
+    if _norm(tenure_match) != "none":
+        return False
+    if _norm(meta.get("speaker_type")) in _LEADER_TYPES:
+        return True
+    return _norm(meta.get("is_first_person")) == "yes" and _norm(meta.get("is_substantive")) == "yes"
