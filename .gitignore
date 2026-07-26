@@ -39,6 +39,10 @@ data/sources/LeadersSpeeches_Africa.xlsx
 !data/sources/additional_master_sources.csv
 !data/sources/additional_master_sources/
 
+# personal source-merge tooling (not part of the published repo — see the outbox README)
+data/sources/append_additional_sources.R
+data/sources/_archive/
+
 # --- Large / binary data artifacts ---
 *.RData
 *.rdata
