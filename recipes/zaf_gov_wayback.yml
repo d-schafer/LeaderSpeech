@@ -1,0 +1,39 @@
+# South Africa — SA Government speeches aggregator (gov.za/news/speeches), via the Internet Archive.
+# English-native → English column. "yes-and" to the live zaf_gov: the Archive holds the same deep
+# /news/speeches/<slug> Drupal archive (President + ministers, SONA + addresses, content back to the
+# 2010s migrated into the current DB) as a frozen snapshot + any deleted articles. Distinct from
+# zaf_thepresidency_wayback (the presidency's OWN old Drupal-7 site).
+source_id: zaf_gov_wayback
+country: South Africa
+source_language: English
+renderer: static
+start_urls:
+  - gov.za/news/speeches
+
+listing:
+  # /news/speeches/<slug> article (require a slug so the ?page=N listing can't match).
+  link_pattern: '/news/speeches/[a-z0-9][a-z0-9-]{4,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".field--name-body", ".node__content", "article"]
+date:
+  selectors: ["time", ".field--name-field-start-date time", ".date-display-single"]
+
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live zaf_gov. gov.za/news/speeches is the deep official
+  aggregator of SA government speeches (President Ramaphosa etc. + ministers). Reuses the live selectors
+  (title h1 / body .field--name-body / date <time>). CDX ≈ 15.7k captures; slugs carry old speech dates
+  (…10-apr-2013) even though most captures are 2024–2026 re-crawls of the migrated DB. NO speaker_default
+  → cleaner's speaker pass + document_type gate keep the President's (and other leaders') speeches. FULL
+  RUN is the researcher's gate.

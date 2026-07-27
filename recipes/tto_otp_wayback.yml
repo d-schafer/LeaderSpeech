@@ -1,0 +1,44 @@
+# Trinidad and Tobago — Office of the President (otp.tt), via the Internet Archive.
+# English-native → English column. GREENFIELD (no live recipe). WordPress; posts are flat single-segment
+# slugs otp.tt/<slug>/. Covers Presidents Paula-Mae Weekes (2018–2023) and Christine Kangaloo (2023– );
+# the President of T&T is the ceremonial head of state (the PM is head of government) — INCLUDED per the
+# session scope (a president, not a monarchy). The office publishes messages, speeches and remarks
+# alongside ceremonial notices → the cleaner's document_type gate keeps the substantive addresses.
+source_id: tto_otp_wayback
+country: Trinidad and Tobago
+source_language: English
+renderer: static
+start_urls:
+  - otp.tt
+
+listing:
+  # single-segment WordPress post otp.tt/<slug>/ — this excludes /author/<x>/page/N/ paginators and the
+  # /<slug>/<image-attachment>/ pages (both have a second path segment).
+  link_pattern: '^https?://(?:www\.)?otp\.tt/[a-z0-9][a-z0-9-]+/$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article", ".elementor-widget-container", ".content"]
+date:
+  selectors: ["time.entry-date", "time", ".posted-on time", ".published"]
+  attr: datetime
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of otp.tt (T&T Office of the President; Presidents Paula-Mae Weekes
+  2018–2023, Christine Kangaloo 2023– ). CDX (otp.tt, domain) ≈ 1,085 captures 2014–2026. WordPress flat
+  posts; link_pattern keeps single-segment /<slug>/ (drops /author/ paginators + image-attachment
+  sub-pages). TITLE h1.entry-title; TEXT .entry-content / generic fallback; DATE <time datetime>. NO
+  speaker_default (two presidents) → cleaner's speaker pass + tenure crosscheck. Ceremonial-office notices
+  (credentials, courtesy calls) are dropped by the document_type gate; messages/speeches kept. FULL RUN is
+  the researcher's gate.

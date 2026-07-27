@@ -1,0 +1,44 @@
+# India — Prime Minister of India (pmindia.gov.in), via the Internet Archive.
+# English-native → English column. "yes-and" to the live ind_pmindia AND a WAF work-around: the live
+# site's WAF is UA-keyed (bot UA -> 403), but fetching from the Archive sidesteps it entirely (no
+# user_agent needed here). Covers PM Narendra Modi (2014– ); speech/statement detail pages live under
+# /en/news_updates/<slug>. Complements ind_pmindia_nic_wayback (the older Manmohan/Vajpayee NIC site).
+source_id: ind_pmindia_wayback
+country: India
+source_language: English
+renderer: static
+start_urls:
+  - pmindia.gov.in/en/news_updates
+
+listing:
+  # English-slug detail page /en/news_updates/<slug>. Requiring an ASCII-lowercase first char drops the
+  # %e0%a4… (Devanagari/Hindi mirror) slugs; the ?comment=/?tag_term= query variants still match on the
+  # slug and dedupe by original URL downstream.
+  link_pattern: '/en/news_updates/[a-z0-9][a-z0-9-]+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # bare <h1> is the "PMINDIA" logo; the speech title is an <h2> in .content-block (the live lesson).
+  selectors: [".content-block h2", "h2", "title"]
+text:
+  selectors: [".news-bg", ".content-block", "article"]
+date:
+  selectors: [".date"]
+
+position: prime minister
+speaker_default: Narendra Modi
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and" + WAF work-around) to the live ind_pmindia. pmindia.gov.in's WAF
+  is UA-keyed on the LIVE site, but the Archive serves the pages cleanly (no user_agent needed). CDX
+  prefix pmindia.gov.in/en/news_updates ≈ 15.9k captures 2014–2026 (Modi). Reuses the live selectors
+  (title .content-block h2 — the bare h1 is the logo; body .news-bg; date .date). speaker_default
+  Narendra Modi. Detail pages mix PM speeches/statements + press notes → document_type gate filters.
+  FULL RUN is the researcher's gate.

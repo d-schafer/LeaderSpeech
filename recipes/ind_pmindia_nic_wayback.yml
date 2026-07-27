@@ -1,0 +1,50 @@
+# India — the OLD Prime Minister's Office site pmindia.nic.in, via the Internet Archive.
+# English-native → English column. This is genuinely NEW historical depth: the pre-2014 NIC site holds
+# the speeches of PM Manmohan Singh (2004–2014) and PM Atal Bihari Vajpayee (…2004) — the pre-Modi era
+# that nothing else in the corpus covers. Two archived speech schemes:
+#   * /speech/content.asp?id=<id>       (ASP era, ~2006–2011)
+#   * /speech-details.php?nodeid=<id>   (PHP era, ~2012–2014)
+# English is the default; the Hindi copy carries ?ln=hindi, excluded by the link_pattern.
+source_id: ind_pmindia_nic_wayback
+country: India
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — catches both /speech/content.asp and /speech-details.php.
+  - pmindia.nic.in/speech
+
+listing:
+  # English speech detail pages of either scheme, anchored at the id so the ?ln=hindi and
+  # content4print.asp variants are excluded.
+  link_pattern: '/(speech/content\.asp\?id=\d+|speech-details\.php\?nodeid=\d+)$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "h2", ".pageheading", "title"]
+text:
+  # Vintage table-layout ASP/PHP pages. The speech sits in a <td> (probe: 25k–48k-char Manmohan Singh
+  # addresses); trafilatura tends to miss table-based content, so `td` leads and the cleaner's GPT pass
+  # strips any joined nav chrome. (The /speech-details.php PHP tail extracts thinly — generic backstops.)
+  selectors: ["td", "#content", ".content", "article"]
+date:
+  # These speech pages carry a dateline; refine the selector after inspecting the archived DOM at probe.
+  selectors: ["body"]
+  regex: '\d{1,2}(?:st|nd|rd|th)?\s+\w+,?\s+(?:19|20)\d\d|\w+\s+\d{1,2},?\s+(?:19|20)\d\d'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the OLD pmindia.nic.in (pre-2014), the pre-Modi PMs (Manmohan Singh
+  2004–2014, Vajpayee …2004) — NEW historical depth nothing else covers. CDX (pmindia.nic.in, domain)
+  ≈ 7.9k captures 2000–2014; the speech pages are /speech/content.asp?id= (ASP) and
+  /speech-details.php?nodeid= (PHP). English default (Hindi carries ?ln=hindi, excluded). NO
+  speaker_default — the cleaner's speaker pass + tenure crosscheck assign Vajpayee vs Manmohan Singh by
+  date. TITLE/DATE/TEXT selectors are provisional (vintage ASP DOM) → VERIFY + refine at probe;
+  body likely via generic fallback. FULL RUN is the researcher's gate.

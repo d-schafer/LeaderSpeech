@@ -1,0 +1,47 @@
+# Sierra Leone — State House (statehouse.gov.sl), the OLD/date-permalink WordPress posts, via the
+# Internet Archive. English-native → English column. Companion to the live sle_statehouse (whose WP REST
+# install only goes back to 2025-01): the Archive holds the date-path posts /YYYY/MM/DD/<slug> back to
+# 2018 — i.e. President Julius Maada Bio's 2018–2024 term (and a sliver of late Ernest Bai Koroma) that
+# the current install dropped.
+source_id: sle_statehouse_wayback
+country: Sierra Leone
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — "/20" catches every /2017…/2026/ date-path post (engine prefix-matches, normalizes www).
+  - statehouse.gov.sl/20
+
+listing:
+  # date-permalink post /<yyyy>/<mm>/<dd>/<slug> ending at the slug (drops the bare /YYYY/MM/DD/ day
+  # archives and the WordPress /feed//embed/ duplicates).
+  link_pattern: '/20\d\d/\d\d/\d\d/[a-z0-9][-a-z0-9]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.entry-title", "h1", ".entry-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # Astra+Elementor theme (no stable content container) → generic (trafilatura) fallback recovers body.
+  selectors: [".entry-content", ".elementor-widget-theme-post-content", "article"]
+date:
+  # url_regex ONLY: the permalink /YYYY/MM/DD/ is authoritative (a WP re-crawl artifact would mis-date a
+  # .published element on archived pages — the ken/aus lesson).
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the date-permalink WordPress posts on statehouse.gov.sl (President Julius
+  Maada Bio's 2018–2024 term + late Koroma), the gap the live sle_statehouse (WP REST, 2025-01→) lacks.
+  CDX prefix statehouse.gov.sl/20 ≈ 1,467 date-path captures 2017–2026. TITLE h1.entry-title; TEXT via
+  generic fallback (Elementor, no stable container); DATE from the URL permalink via url_regex. NO
+  speaker_default — Bio dominates but the window brushes Ernest Bai Koroma (president to April 2018), so
+  the cleaner's speaker pass + tenure crosscheck assign each. Posts mix speeches + presidency news →
+  document_type gate filters. FULL RUN is the researcher's gate.

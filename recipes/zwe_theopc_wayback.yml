@@ -1,0 +1,41 @@
+# Zimbabwe — Office of the President and Cabinet (theopc.gov.zw), via the Internet Archive.
+# English-native → English column. GREENFIELD (no live recipe). Joomla; articles are
+# /index.php/<id>-<slug> (and a /index.php/news/speeches-and-statements/<id>-<slug> category). Covers
+# President Emmerson Mnangagwa (2017– ) — the "Second Republic" era.
+source_id: zwe_theopc_wayback
+country: Zimbabwe
+source_language: English
+renderer: static
+start_urls:
+  - theopc.gov.zw/index.php
+
+listing:
+  # Joomla article: /index.php/<id>-<slug> or /index.php/news/speeches-and-statements/<id>-<slug>.
+  # Requiring <digits>-<letter> drops the /index.php/about-opc/, /resource-centre/ and ?start=N pages.
+  link_pattern: '/index\.php/(?:news/speeches-and-statements/)?\d+-[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: [".item-page h2", ".page-header h2", "h1", "title"]
+  regex: '^\s*(.+)'
+text:
+  selectors: [".item-page", "[itemprop='articleBody']", "article"]
+date:
+  selectors: [".item-page time", "time", ".published", ".create"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of theopc.gov.zw (Zimbabwe OPC; President Emmerson Mnangagwa,
+  2017– ). CDX (theopc.gov.zw, domain) ≈ 455 captures 2016–2025. Joomla; link_pattern keeps the
+  /index.php/<id>-<slug> articles + the speeches-and-statements category (drops about/resource/gallery/
+  ?start pages). TITLE .item-page h2 / <title>; TEXT .item-page / generic fallback; DATE .published /
+  <time>. NO speaker_default (Mnangagwa dominates but some chief-secretary statements) → cleaner's speaker
+  pass + document_type gate. Modest but genuinely new. FULL RUN is the researcher's gate.

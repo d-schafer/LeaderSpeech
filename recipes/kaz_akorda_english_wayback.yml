@@ -1,0 +1,49 @@
+# Kazakhstan — Presidential administration (akorda.kz), the ENGLISH state-of-the-nation ADDRESSES, via
+# the Internet Archive. English translation → English column (no MT). ENGLISH sibling of the native
+# (Russian) kaz_akorda_wayback. NARROWED to /en/addresses/addresses_of_president/<slug> — the annual
+# state-of-the-nation Addresses of Presidents Nursultan Nazarbayev and Kassym-Jomart Tokayev, which
+# archive as CLEAN server-rendered HTML (probe: .text = 34,036-char 2017 Nazarbayev address). The
+# /en/speeches/<category>/<slug> tree is deliberately NOT harvested here: its older captures archive as
+# shells/section-listings (recipe .text -> 0 chars, generic recovers only ~0.8-2k of chrome), and that
+# content is already covered by the native Russian kaz_akorda_wayback (+ translation stage). See notes.
+source_id: kaz_akorda_english_wayback
+country: Kazakhstan
+source_language: English
+renderer: static
+start_urls:
+  - akorda.kz/en/addresses
+
+listing:
+  # /en/addresses/addresses_of_president/<slug> article (drops the bare /en/addresses index + ?page=/
+  # ?category= facet variants, which lack the second path segment).
+  link_pattern: '/en/addresses/addresses_of_president/[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", ".title", "title"]
+text:
+  # native kaz_akorda body container (.text) — probe-proven (34k-char address) — + generic fallback.
+  selectors: [".text", "article", ".article", ".content"]
+date:
+  selectors: [".date", "time", ".article-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — ENGLISH sibling of the native (Russian) kaz_akorda_wayback. NARROWED to the state-of-the-nation
+  ADDRESSES /en/addresses/addresses_of_president/<slug> (Presidents Nazarbayev + Tokayev). Probe-validated
+  2026-07-27 (--spread --n 8): the /en/addresses/ article extracts cleanly — TITLE(h1) "State of the
+  Nation Address", TEXT(.text) 34,036 chars, DATE(.date) 2017-01-31. CDX /en/addresses ≈ 46 captures
+  2015–2024 (annual addresses are the highest-value single speeches). NO speaker_default (Nazarbayev +
+  Tokayev) → cleaner + tenure crosscheck. The broader /en/speeches/<cat>/<slug> tree (≈314 caps) was
+  probed too but its OLDER captures archive as shells/section-listings (.text -> 0 chars; generic ~0.8-2k
+  of chrome) — DEFERRED as a follow-up needing a dedicated older-layout selector pass; that content is in
+  any case covered by the native Russian kaz_akorda_wayback + the translation stage. FULL RUN is the
+  researcher's gate.

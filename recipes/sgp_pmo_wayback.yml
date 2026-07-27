@@ -1,0 +1,44 @@
+# Singapore — Prime Minister's Office (pmo.gov.sg), via the Internet Archive.
+# English-native → English column. "yes-and" to the live sgp_pmo (which enumerates the CURRENT Isomer
+# sitemap): the Archive holds the OLDER /Newsroom/<Title-Case-slug> CMS generation (2016–2023) — the PM
+# Lee Hsien Loong / SM Teo Chee Hean / DPM Heng Swee Keat era that the current sitemap no longer lists.
+# Distinct from sgp_istana (the ceremonial President) and sgp_istana_wayback.
+source_id: sgp_pmo_wayback
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — matches both the old /Newsroom/ and the modern /newsroom/ (urlkey normalizes host).
+  - pmo.gov.sg/Newsroom
+
+listing:
+  # Title-Case article slug /Newsroom/<Slug> (require a long-ish slug to skip short category words); the
+  # faceted search /Newsroom?page=…&keywords=… has no '/' after Newsroom so it can't match.
+  link_pattern: '/[Nn]ewsroom/[A-Za-z][A-Za-z0-9-]{10,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["main", "article", ".content"]
+date:
+  # publication date sits in the header before the body ("D Month YYYY"); regexed out of the article
+  # container (the dedicated label shares a class with speaker/topic labels — the live recipe's lesson).
+  selectors: ["main", "article"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+20\d\d'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live sgp_pmo. Targets the OLDER /Newsroom/<Title-Case>
+  permalink (PM Lee Hsien Loong / SM Teo / DPM Heng era, 2016–2023). CDX ≈ 17k /Newsroom captures (many
+  are faceted-search re-crawls the link_pattern excludes). NO speaker_default (multiple office-holders)
+  → cleaner's speaker pass + document_type gate. VERIFY AT PROBE the older /Newsroom/ pages archive with
+  a real body (not an Isomer/JS shell). FULL RUN is the researcher's gate.

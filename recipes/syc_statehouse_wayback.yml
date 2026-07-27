@@ -1,0 +1,43 @@
+# Seychelles — State House / Office of the President (statehouse.gov.sc), via the Internet Archive.
+# English-native → English column. "yes-and" to the live syc_statehouse (Nicepage static site): the
+# Archive holds the /speeches/<id>/<slug> permalinks back to 2014 (President James Michel era) plus any
+# deleted speeches, as depth-insurance against the live pager.
+source_id: syc_statehouse_wayback
+country: Seychelles
+source_language: English
+renderer: static
+start_urls:
+  - statehouse.gov.sc/speeches
+
+listing:
+  # /speeches/<id>/<slug> article (drops the old /speeches.php?news_id= listing and ?language=/?topic_id=
+  # facet pages, which have no /<id>/<slug>).
+  link_pattern: '/speeches/\d+/[a-z0-9][a-z0-9-]+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 first: the majority of captures are the OLD layout (clean h1 speech titles); the modern Nicepage
+  # .u-text-default.u-text-1 leaks a "State House / Speeches" breadcrumb, so it's the fallback.
+  selectors: ["h1", ".u-text-default.u-text-1", "title"]
+text:
+  selectors: [".u-sheet-1", ".container", "article"]
+date:
+  selectors: ["p.u-text-2:not(.u-subtitle):not(.u-small-text)"]
+  regex: '\d{1,2}\s+\w+\s+20\d\d'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live syc_statehouse. Nicepage-built static site; reuses
+  the live positional u-* selectors (title .u-text-default.u-text-1, body .u-sheet-1, date p.u-text-2)
+  with an h1/generic fallback for older captures. CDX ≈ 1,194 /speeches captures 2014–2026 (Michel,
+  Faure, Ramkalawan, Herminie + occasional VP remarks). NO speaker_default → cleaner's speaker pass +
+  tenure crosscheck. English (multilingual site; default /speeches is English). FULL RUN is the
+  researcher's gate.

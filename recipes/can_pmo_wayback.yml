@@ -1,0 +1,47 @@
+# Canada — Prime Minister's Office (pm.gc.ca), via the Internet Archive.
+# English-native → English column. The current site's dated permalink /en/news/speeches/<yyyy>/<mm>/<dd>/
+# <slug> archives cleanly. NOTE OVERLAP: the corpus already holds ~1,000 Canada Dean_scrape speeches
+# (2000–2022), so the additive value here is mainly PM Carney (2025– ) + the 2022–2024 tail + insurance;
+# dedupe on the full run. (The OLD /eng/news/ Harper-era scheme is ~90% Drupal asset-path junk and is
+# NOT harvested — see notes.)
+source_id: can_pmo_wayback
+country: Canada
+source_language: English
+renderer: static
+start_urls:
+  - pm.gc.ca/en/news/speeches
+
+listing:
+  # dated speech permalink /en/news/speeches/<yyyy>/<mm>/<dd>/<slug> (drops the bare /en/news/speeches
+  # listing + its /speeches251-style variants, which lack the date path).
+  link_pattern: '/en/news/speeches/20\d\d/\d\d/\d\d/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # url_regex ONLY (no selectors): the archived Drupal h1 is a nav blob ("Header / Home Page Logo / … /
+  # Navigation" + title) and selectors win over url_regex, so take the clean headline from the URL slug
+  # (after the date path); the cleaner polishes the dashes. (Mirrors sgp_istana_wayback / aus_gg.)
+  url_regex: '/speeches/\d{4}/\d{2}/\d{2}/(.+?)(?:\?|$)'
+text:
+  selectors: [".field--name-body", "main", "article", ".content"]
+date:
+  # url_regex ONLY — the permalink date is authoritative and unambiguous.
+  url_regex: '/speeches/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of pm.gc.ca current-scheme speeches (/en/news/speeches/<yyyy>/<mm>/<dd>/
+  <slug>). CDX ≈ 455 captures 2019–2026 with slugs back to 2017 (Trudeau, Carney 2025– ). DATE from the
+  URL permalink via url_regex; NO speaker_default (Trudeau/Carney) → cleaner's speaker pass + tenure
+  crosscheck. OVERLAP CHECK: ~1,000 Canada Dean_scrape speeches (2000–2022) already exist, so this is
+  mostly the 2022→ tail + Carney + snapshot-insurance; the merge dedupes. Old /eng/news Harper-era scheme
+  is ~90% Drupal CSS/JS asset paths (and likely inside Dean_scrape) → not harvested. FULL RUN is the
+  researcher's gate.

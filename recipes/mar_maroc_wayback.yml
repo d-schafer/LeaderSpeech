@@ -1,0 +1,51 @@
+# Morocco — maroc.ma royal speeches (HM King Mohammed VI, head of state), via the Internet Archive.
+# The official ENGLISH translation → text lands directly in the English `text` column (no MT). "yes-and"
+# companion to the live mar_maroc: the live recipe covers the CURRENT /en/royal-speeches-and-messages/
+# royal-speeches/<slug> scheme (2012–2025); the Archive additionally holds the OLD /en/royal-speeches/
+# <slug> permalink (2013–2024, e.g. /en/royal-speeches/full-text-hm-kings-speech-70th-session-un-general
+# -assembly) that the current portal relocated — so this recovers the older royal speeches. Companion
+# Arabic original is mar_diplomatie.
+source_id: mar_maroc_wayback
+country: Morocco
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix catches BOTH the old /en/royal-speeches/<slug> and the new
+  # /en/royal-speeches-and-messages/royal-speeches/<slug> permalinks.
+  - maroc.ma/en/royal-speeches
+
+listing:
+  # final royal-speeches article slug (both schemes end .../royal-speeches/<slug>); the mimetype filter
+  # below drops the stray /royal-speeches/sites/.../main.js asset, and the ?field_type…&page= listing
+  # pager has no '/' after royal-speeches so it can't match.
+  link_pattern: '/royal-speeches/[a-z][a-z0-9-]{4,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".c-wysiwyg", "section.wrapper--c-wysiwyg", "article"]
+date:
+  # The article page's only <time> tags are a "related actualités" sidebar (they mis-date the article —
+  # the mar_maroc / Kazakhstan trap), and there is no listing card in a wayback harvest. Deliberately
+  # DEAD selector (mirrors the live mar_maroc): never matches, so date falls to the cleaner's
+  # corrected-date pass (from the body's occasion) + the wayback_capture backstop.
+  selectors: ["nonexistent-article-date"]
+
+position: king
+speaker_default: King Mohammed VI
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live mar_maroc. Recovers the OLD maroc.ma
+  /en/royal-speeches/<slug> permalink (2013–2024) that the current portal moved under
+  /royal-speeches-and-messages/. Official English translation of the King's speeches → English column.
+  Body via .c-wysiwyg / generic fallback; speaker_default King Mohammed VI (single monarch the whole
+  span). DATE deferred to the cleaner + wayback_capture (the detail page's only <time> is a related-news
+  sidebar). CDX ≈ 279 captures 2013–2026. FULL RUN is the researcher's gate.

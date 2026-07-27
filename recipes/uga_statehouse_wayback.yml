@@ -1,0 +1,43 @@
+# Uganda — State House / Office of the President (statehouse.go.ug), via the Internet Archive.
+# English-native → English column. GREENFIELD (no live recipe): the site's dedicated speeches section
+# uses a dated permalink /media/speeches/<yyyy>/<mm>/<dd>/<slug>. Covers President Yoweri Museveni
+# (in office since 1986) across 2013–2020+ — real historical depth.
+source_id: uga_statehouse_wayback
+country: Uganda
+source_language: English
+renderer: static
+start_urls:
+  - statehouse.go.ug/media/speeches
+
+listing:
+  # dated speech article /media/speeches/<yyyy>/<mm>/<dd>/<slug> (drops the /media/speeches/<yyyy>/<mm>/
+  # <dd>?page=N day-listing pages, which have no slug — those are the 2021 crawl-storm captures).
+  link_pattern: '/media/speeches/20\d\d/\d\d/\d\d/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".entry-title", ".news-detail-content h1", "title"]
+text:
+  selectors: [".entry-content", ".news-detail-content", "article", ".content"]
+date:
+  # url_regex ONLY — the /media/speeches/YYYY/MM/DD/ permalink is authoritative.
+  url_regex: '/media/speeches/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of statehouse.go.ug speeches (President Yoweri Museveni,
+  1986– ). PROBE-VALIDATED (2026-07-27, --spread --n 8): 127 /media/speeches/<yyyy>/<mm>/<dd>/<slug>
+  snapshots; TITLE(h1) clean ("State of the Nation Address 2013"; "President Museveni's 54th Independence
+  Day Speech"), TEXT(.content) 16k–46k chars (full addresses), DATE from the URL permalink via url_regex,
+  2011–2022. (The 2021 crawl-storm of ?page=N day-listings is excluded by the link_pattern.) NO
+  speaker_default (Museveni dominates + occasional VP/official remarks) → cleaner's speaker pass + tenure
+  crosscheck. The 2023+ site uses a different flat-slug scheme (not covered here). FULL RUN is the
+  researcher's gate.

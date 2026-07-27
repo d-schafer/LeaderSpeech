@@ -1,0 +1,48 @@
+# Maldives — President's Office (presidency.gov.mv), via the Internet Archive.
+# English-native → text lands directly in the English `text` column (no translation). "yes-and"
+# companion to the LIVE mdv_presidencymaldives (which paginates /Press/Articles/12 back to ~1979): the
+# Archive holds the same /Press/Article/<id> pages captured 2019–2026, so this recipe is depth-insurance
+# — a frozen snapshot of the current DB plus any deleted/renumbered articles the live pager would miss.
+# The much older presidencymaldives.gov.mv ASP/PHP generation (Gayoom 2000s: Index.aspx?dcid=,
+# pages/eng_news.php, News.php3) is a messy multi-scheme lead, NOT harvested here (see notes).
+source_id: mdv_presidencymaldives_wayback
+country: Maldives
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  - presidency.gov.mv/Press/Article
+
+listing:
+  # individual article /Press/Article/<id>, anchored at the id so the ?term=N re-crawl variants of the
+  # same article aren't harvested twice. Excludes the /Press/Articles/<cat> listing (plural "Articles").
+  link_pattern: '/Press/Article/\d+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: [".article-body", "article", "main"]
+date:
+  # article date in .small-text under the h1 ("15 June 2026, Ref: ..."); NOT .date-text (the sidebar
+  # feed, which mis-dates the article — the live recipe's lesson).
+  selectors: [".small-text"]
+  regex: '\d{1,2}\s+\w+\s+\d{4}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live mdv_presidencymaldives. presidency.gov.mv is the
+  clean static destination of the CF-gated www.presidencymaldives.gov.mv redirect; the Archive holds its
+  /Press/Article/<id> pages 2019–2026. Reuses the live selectors (title h1, body .article-body, date
+  .small-text). NO speaker_default — the current DB spans Gayoom/Nasheed/Waheed/Yameen/Solih/Muizzu, so
+  the cleaner's speaker pass + tenure crosscheck assign each; some articles are Dhivehi (cleaner detects
+  per-doc). Value = insurance/depth against the live pager and deleted articles. FULL RUN is the
+  researcher's gate.

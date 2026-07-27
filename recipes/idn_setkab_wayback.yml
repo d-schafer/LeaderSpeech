@@ -1,0 +1,49 @@
+# Indonesia — Cabinet Secretariat (setkab.go.id) English "Speech Transcript" archive, via the Internet
+# Archive. English-native → English column. "yes-and" to the live idn_setkab: the Archive holds the
+# individual English transcript pages /en/<slug> back to ~2015, so this recovers older/deleted President
+# transcripts the current WordPress listing may no longer surface. To avoid flooding the corpus with the
+# site's general /en/ news, the link_pattern keeps only the transcript-style slugs (remarks/statement/
+# press-statement/… of the President).
+source_id: idn_setkab_wayback
+country: Indonesia
+source_language: English
+renderer: static
+start_urls:
+  - setkab.go.id/en
+
+listing:
+  # transcript-style English slug: a speech verb + "…president…" (isolates the president's transcripts
+  # from the aggregator's general /en/ news, which the site publishes under the same flat /en/<slug> path).
+  link_pattern: '/en/(?:remarks|statement|press-statement|full-text|speech|address|keynote|introductory-remarks|opening-remarks|closing-remarks)[a-z0-9-]*president'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # .detail_text is the stable body container across the site's theme eras (older posts drop
+  # .entry-content); generic fallback backstops.
+  selectors: [".detail_text", ".reading_text", ".entry-content", "article"]
+date:
+  # WordPress ISO published-time meta (the visible date is Indonesian); cleaner backstops archived pages
+  # that dropped it.
+  selectors: ["meta[property='article:published_time']", "time"]
+  attr: content
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback companion ("yes-and") to the live idn_setkab. Recovers older/deleted ENGLISH
+  presidential transcripts from setkab.go.id/en. CDX prefix setkab.go.id/en ≈ 18.6k captures 2013–2026,
+  BUT that includes the aggregator's general /en/ news; the link_pattern keeps only the transcript-style
+  slugs (remarks/statement/press-statement/… of the President — Jokowi, Prabowo) to avoid corpus flooding.
+  Reuses the live selectors (title h1.entry-title; body .detail_text/generic; date the
+  article:published_time meta). NO verify_ssl needed (fetch is from the Archive, not the broken-cert
+  origin). VERIFY at probe the pattern harvests transcripts (English, full body) not news. FULL RUN is the
+  researcher's gate.
