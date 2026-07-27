@@ -1,0 +1,44 @@
+# Denmark — Prime Minister's Office / Statsministeriet (stm.dk), the ENGLISH speech archive, via the
+# Internet Archive. This is the NON-ROYAL (head-of-government) Danish source: the PM is Denmark's
+# executive leader (the monarch is ceremonial). stm.dk is Danish-native but keeps a genuine English
+# tree under /en, and its /en/the-prime-minister/speeches/<slug> archive holds the English speeches of
+# PMs Poul Nyrup Rasmussen (1993-2001), Anders Fogh Rasmussen (2001-2009) and Lars Løkke Rasmussen
+# (2009-2011, 2015-2019). English -> English column, no MT. (The Danish "taler" live under
+# /statsministeren/taler/ — a separate native-language source, not harvested here.)
+source_id: dnk_stm_english_wayback
+country: Denmark
+source_language: English
+renderer: static
+start_urls:
+  - stm.dk/en/the-prime-minister/speeches
+
+listing:
+  # English PM speech /en/the-prime-minister/speeches/<slug> (drops the section index and the
+  # /en/press/... and /en/the-government/... trees).
+  link_pattern: '/en/the-prime-minister/speeches/[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".title", "title"]
+text:
+  selectors: [".rich-text", ".content", "main", "article"]
+date:
+  selectors: ["time", ".date", ".published"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the ENGLISH PM speeches on stm.dk (Statsministeriet), Denmark's non-royal
+  (head-of-government) source. CDX prefix stm.dk/en ≈ 460 captures (the /en tree was crawled in 2026);
+  /en/the-prime-minister/speeches/<slug> holds the English addresses of PMs Poul Nyrup Rasmussen, Anders
+  Fogh Rasmussen and Lars Løkke Rasmussen. English -> English column, no MT. The Danish-language "taler"
+  (/statsministeren/taler/) are a separate native source, not harvested here. NO speaker_default (three
+  PMs) -> cleaner + tenure crosscheck. TITLE/TEXT/DATE selectors provisional -> VERIFY + refine at probe.
+  FULL RUN is the researcher's gate.

@@ -449,6 +449,16 @@ BeautifulSoup, then maps the result into the same schema / `doc_id` / state as e
 else. This works over any pagination type, **including `wayback`** (the archived PDF bytes
 are fetched and extracted).
 
+**Word documents too.** The `content_type: pdf` path is really a *binary-document* path: each
+fetched file is dispatched by its actual type, so a source that mixes **PDF, `.docx` and `.doc`**
+speech files (e.g. Botswana's gov.bw store) is handled by one recipe. `.docx` extraction is
+**dependency-free** (a `.docx` is a zip of XML — stdlib only). Legacy binary `.doc` needs an
+optional converter — `antiword` or `catdoc` on PATH — and degrades cleanly to empty (logged, like
+an image-only PDF) when neither is installed. In `auto` mode a `.docx`/`.doc` URL is detected the
+same way a `.pdf` one is. To harvest Word files over `wayback`, widen the `wayback_filter` mimetype
+to a regex that ORs the three types (CDX filters are ANDed), e.g.
+`mimetype:application/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)`.
+
 Because a PDF has no DOM, there are no selectors to match. Two things change:
 
 1. **`content_type`** — `auto` (default) treats a page as HTML unless the URL looks like a

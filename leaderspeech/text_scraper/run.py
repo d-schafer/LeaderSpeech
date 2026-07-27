@@ -27,9 +27,11 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from .extract import apply_entry_meta, extract_pdf_record, extract_record, first_match, should_keep
+from .extract import (apply_entry_meta, extract_pdf_record, extract_record, first_match,
+                      looks_like_document, should_keep)
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
+from .msword import is_doc_url, is_docx_url
 from .paginate import harvest_links
 from .pdf import is_pdf_url, looks_like_pdf, pdf_bytes_to_text
 from .recipe import ContentType, PaginationType, Recipe, WaybackExtend, load_recipe
@@ -174,10 +176,13 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
 
 
 def wants_pdf(recipe: Recipe, url: str) -> bool:
-    """Should `url` be fetched+parsed as a PDF? Forced by `content_type: pdf`; in `auto`
-    mode, inferred from the URL (.pdf / @@download). `content_type: html` pins HTML."""
+    """Should `url` be fetched+parsed as a binary document (PDF or Word)? Forced by
+    `content_type: pdf` (which now covers PDF/.docx/.doc, dispatched by file type at extraction);
+    in `auto` mode, inferred from the URL (.pdf / @@download / .docx / .doc). `html` pins HTML."""
     ct = recipe.content_type
-    return ct == ContentType.pdf or (ct == ContentType.auto and is_pdf_url(url))
+    if ct == ContentType.pdf:
+        return True
+    return ct == ContentType.auto and (is_pdf_url(url) or is_docx_url(url) or is_doc_url(url))
 
 
 def _fetch_payload(fetcher, recipe: Recipe, url: str) -> tuple[str, object]:
@@ -198,7 +203,7 @@ def _extract_payload(kind: str, payload, url: str, recipe: Recipe,
     `fill_date=False` (used for wayback captures) suppresses the generic extractor's DATE
     guess: on archived pages trafilatura routinely latches onto a template/footer year (e.g.
     a uniform 2020), which is worse than an honest empty date + the `wayback_capture` fallback."""
-    if kind == "pdf" and looks_like_pdf(payload):
+    if kind == "pdf" and looks_like_document(payload):
         return extract_pdf_record(payload, url, recipe), False
 
     html = payload if isinstance(payload, str) else bytes(payload).decode("utf-8", "replace")

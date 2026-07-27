@@ -1,0 +1,43 @@
+# Bangladesh — the President's news/speeches on Bangladesh Sangbad Sangstha (BSS, bssnews.net), the
+# national news agency's ENGLISH wire, via the Internet Archive. English-native -> English column.
+# The LIVE bssnews.net was recorded as blocked/unviable (issue #50), but the Archive holds the pages.
+# BSS has a dedicated PRESIDENT category — bssnews.net/news/president/<id> — which cleanly isolates
+# president items from the 27k-capture general /news-flash/ wire. Presidents Abdul Hamid (2013-2023)
+# and Mohammed Shahabuddin (2023- ). It's a news wire, so it mixes verbatim speeches/statements with
+# routine third-person bulletins -> the cleaner's document_type gate keeps the substantive ones.
+source_id: bgd_bss_president_wayback
+country: Bangladesh
+source_language: English
+renderer: static
+start_urls:
+  - bssnews.net/news/president
+
+listing:
+  # president-category article /news/president/<id> (exclude the /print variants and the bare listing).
+  link_pattern: '/news/president/\d+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".title", ".news-title", "title"]
+text:
+  selectors: [".news-content", ".content", "article", ".details"]
+date:
+  selectors: [".date", "time", ".published", ".news-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the BSS (bssnews.net) ENGLISH president category (issue #50: the LIVE site
+  was blocked, but the Archive serves the pages). CDX prefix bssnews.net/news/president ≈ 82 captures
+  2021-2026 (/news/president/<id>) — the clean president subset (vs the 27k general /news-flash/ wire).
+  Presidents Abdul Hamid + Mohammed Shahabuddin. State news wire -> mixes verbatim speeches/statements
+  with third-person bulletins; the cleaner's document_type gate keeps the substantive ones. NO
+  speaker_default -> cleaner + tenure crosscheck. TITLE/TEXT/DATE selectors provisional -> VERIFY +
+  refine at probe. FULL RUN is the researcher's gate.

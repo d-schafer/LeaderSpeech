@@ -16,7 +16,7 @@ import dateparser
 from bs4 import BeautifulSoup
 from dateparser.search import search_dates
 
-from . import pdf
+from . import msword, pdf
 from .recipe import FieldSpec, KeepIf, Listing, Recipe
 
 _INLINE_WS = re.compile(r"[ \t\f\v]+")
@@ -283,11 +283,30 @@ def _first_line(text: str, limit: int = 200) -> str:
     return ""
 
 
+def looks_like_document(data) -> bool:
+    """True if these bytes are a binary speech document the engine can route to
+    :func:`document_to_text` — a PDF, a .docx, or a legacy .doc. Used to decide whether a
+    `content_type: pdf` payload is a real document (else it's parsed as HTML)."""
+    return pdf.looks_like_pdf(data) or msword.looks_like_docx(data) or msword.looks_like_doc(data)
+
+
+def document_to_text(data: bytes, recipe: Recipe) -> str:
+    """Extract text from binary document bytes, dispatching by file type: .docx and legacy
+    .doc via :mod:`msword`, everything else via :mod:`pdf` (with the recipe's OCR settings).
+    A `content_type: pdf` recipe can thus mix PDF and Word speech files (e.g. Botswana gov.bw)."""
+    if msword.looks_like_docx(data):
+        return msword.docx_bytes_to_text(data)
+    if msword.looks_like_doc(data):
+        return msword.doc_bytes_to_text(data)
+    return pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language)
+
+
 def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
-    """Build a per-speech record from PDF bytes. The body comes from the PDF text; there's
-    no DOM, so title/date/speaker are pulled from the URL via each field's `url_regex`
-    (with the usual `speaker_default`), and the title falls back to the PDF's first line."""
-    text = clean_text(pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language))
+    """Build a per-speech record from binary document bytes (PDF or Word). The body comes from
+    the document text; there's no DOM, so title/date/speaker are pulled from the URL via each
+    field's `url_regex` (with the usual `speaker_default`), and the title falls back to the
+    document's first line."""
+    text = clean_text(document_to_text(data, recipe))
 
     title = clean_text(match_url(recipe.title, url)) or _first_line(text)
     date = date_from_url(recipe.date, url, recipe.date_languages)

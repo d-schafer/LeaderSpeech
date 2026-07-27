@@ -1,0 +1,46 @@
+# Bulgaria — President of the Republic (president.bg), the ENGLISH speeches, via the Internet Archive.
+# The site has NO /en subdomain (en.president.bg = 0 captures); instead a visible "EN" button appends a
+# &lang=en suffix to each URL, and the Archive captured those English variants. Speeches live in category
+# cat49 ("Addresses and Messages"): president.bg/cat49/<id>/<slug>.html&lang=en. The &lang=en suffix is
+# what makes the page render in English (vs the default Bulgarian / &lang=bg) — so it is REQUIRED, and
+# the link_pattern keys on it to keep ONLY the English captures. Presidents Rosen Plevneliev (2012-2017)
+# and Rumen Radev (2017- ).
+source_id: bgr_president_english_wayback
+country: Bulgaria
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — the engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  - president.bg/cat49
+
+listing:
+  # English speech: /cat49/<numeric-id>/<slug>&lang=en (the &lang=en suffix = the English render;
+  # &lang=bg / no-suffix = Bulgarian, dropped). The category-index /cat49/<slug>/?lang has no numeric
+  # id and uses ?lang (not &lang), so it can't match.
+  link_pattern: '/cat49/\d+/[^/]*&lang=en'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".news-title", ".title", "title"]
+text:
+  selectors: [".news-text", ".content", "article", "#content"]
+date:
+  selectors: [".date", ".news-date", "time", ".published"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of president.bg's ENGLISH speeches (the &lang=en render of category cat49,
+  "Addresses and Messages"). CDX prefix president.bg/cat49 ≈ 148 captures 2012-2026, of which the
+  link_pattern keeps the &lang=en (English) subset — Presidents Plevneliev + Radev (e.g. "New Year's
+  address of President Rumen Radev"; "address by the head of state Plevneliev"). The site has no /en
+  subdomain, so the &lang=en URL suffix is the only English route. NO speaker_default (two presidents)
+  -> cleaner + tenure crosscheck. TITLE/TEXT/DATE selectors provisional -> VERIFY + refine at probe.
+  FULL RUN is the researcher's gate.

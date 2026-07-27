@@ -1,0 +1,60 @@
+# Botswana — Government portal (gov.bw) speech PDFs, via the Internet Archive. English-native ->
+# English column. Botswana publishes speeches as FILES (mostly PDF; some .doc/.docx the engine can't
+# read yet) scattered across the /Global/ and (post-2017 migration) /globalassets/ trees — under
+# "OP Ministry" / "op-ministry" (Office of the President: State of the Nation Addresses + President/VP
+# speeches, Khama/Masisi/Mogae), "Portal Team" / "portal-team" and the budget-speech folders. There is
+# no single clean prefix and the engine can't crawl an archived listing page, so this recipe harvests
+# ALL gov.bw PDF captures and keeps the ones whose URL names a speech (content_type: pdf).
+source_id: bwa_gov_wayback
+country: Botswana
+source_language: English
+content_type: pdf
+renderer: static
+start_urls:
+  # CDX prefixes — both the old /Global tree and the migrated /globalassets tree.
+  - gov.bw/Global
+  - gov.bw/globalassets
+
+listing:
+  # Document captures (wayback_filter below) whose URL names a speech. Keywords are matched against the
+  # URL-encoded original, so each is a single intact word (no %20-spanning): *Speech* (also matches a
+  # "/Speeches/" folder), State of the *Nation*, *Keynote*, *Remarks*, *Address*, *Statement*, *Message*
+  # (New Year / Christmas messages). The cleaner's document_type gate + speaker/tenure pass then keep the
+  # President's (and other leaders') actual speeches and drop noise (a legal "Statement of Case", a
+  # "Budget in Brief" summary, a registration form).
+  link_pattern: '(?i)(speech|nation|sona|keynote|remarks|address|statement|message)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    # PDF *and* Word (.docx / .doc) speech files — the /Global tree stores speeches in all three; the
+    # engine's content_type: pdf path dispatches each by file type (.docx = stdlib; .doc = optional
+    # antiword/catdoc, else skipped cleanly). A single mimetype regex ORs the three (CDX filters are ANDed).
+    - 'mimetype:application/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)'
+    - "statuscode:200"
+
+# PDFs have no DOM: title falls back to the PDF's first line; date is deferred to the cleaner's
+# corrected-date pass (+ wayback_capture) — the filenames carry only a fiscal year, not a full date.
+title: {}
+text: {}
+date: {}
+
+date_languages: ["en"]
+notes: >
+  DRAFT — PDF-over-wayback recovery of gov.bw speeches (content_type: pdf, like gmb_op_wayback /
+  bra_biblioteca_wayback). CDX: ~799 PDFs under gov.bw/Global + ~404 under gov.bw/globalassets; the
+  keyword link_pattern keeps the speech subset (~50-70: State of the Nation Addresses, Budget Speeches,
+  President/VP speeches & remarks — e.g. "Speech by His Excellency Lt. Gen. Seretse Khama Ian Khama,
+  President of the Republic of Botswana"; "2012 State of the Nation Address"; "Remarks by Honourable
+  Mokgweetsi E.K. Masisi"). Presidents Mogae (1998-2008), Ian Khama (2008-2018), Masisi (2018- ) + VP +
+  Finance Minister (budget speeches). NO speaker_default -> cleaner + tenure crosscheck. Speeches come as
+  PDF **and** Word (.docx/.doc) — the engine now extracts all three (content_type: pdf dispatches by file
+  type: .docx = stdlib, .doc = antiword/catdoc if on PATH else skipped cleanly). TITLE from the document's
+  first line; DATE deferred to the cleaner + wayback_capture. PROBE-VALIDATED (2026-07-27): 91 speech
+  files; PDFs 637-179,572 chars (SONA, Budget Speeches, "Speech by the Minister... Office of the
+  President"); .docx verified — "SPEECH BY HIS EXCELLENCY ... IAN KHAMA, PRESIDENT ... AT A JOINT SESSION
+  OF THE NAMIBIAN PARLIAMENT" (6.2k); .doc verified via antiword — "Statement by Minister Masisi ... UNDP"
+  (6.9k). A few keyword false positives (e.g. "Civil and National Registration" via "nation") drop at the
+  cleaner's document_type gate. FULL RUN is the researcher's gate.
