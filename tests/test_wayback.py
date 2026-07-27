@@ -196,3 +196,60 @@ def test_retry_log_shows_exception_type_for_transport_error(monkeypatch, caplog)
 
     throttle_logs = [r.getMessage() for r in caplog.records if "wayback throttled" in r.getMessage()]
     assert throttle_logs and "ConnectError" in throttle_logs[0]
+
+
+# --- adaptive pacer ------------------------------------------------------------------
+
+def test_adaptive_pacer_raises_on_throttle_bounded_by_ceiling():
+    p = wayback.AdaptivePacer(base=5.0, ceiling=12.0, step_up=1.5)
+    assert p.value == 5.0
+    p.on_throttle(); assert p.value == 6.5
+    p.on_throttle(); assert p.value == 8.0
+    for _ in range(10):
+        p.on_throttle()
+    assert p.value == 12.0            # never exceeds the ceiling
+    assert p.throttle_events == 12
+
+
+def test_adaptive_pacer_eases_down_after_clean_streak_floored_at_base():
+    p = wayback.AdaptivePacer(base=5.0, ceiling=12.0, step_up=2.0, ease_after=3, ease_step=1.0)
+    p.on_throttle(); p.on_throttle()          # -> 9.0
+    assert p.value == 9.0
+    p.on_clean(); p.on_clean()                 # streak not yet reached
+    assert p.value == 9.0
+    p.on_clean()                               # 3 clean -> ease down one step
+    assert p.value == 8.0
+    for _ in range(30):                        # a long clean streak eases to the base and stops
+        p.on_clean()
+    assert p.value == 5.0
+
+
+def test_fetch_snapshot_pacer_paces_and_records(monkeypatch):
+    entry = {"timestamp": "20080101", "original": "https://x.gov/a"}
+    request = httpx.Request("GET", wayback.snapshot_url(entry))
+    sleeps = []
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(wayback.random, "uniform", lambda a, b: 0.0)
+
+    class Clean:
+        def get(self, url): return httpx.Response(200, text="ok", request=request)
+        def close(self): pass
+
+    class ThrottleOnce:
+        def __init__(self): self.calls = 0
+        def get(self, url):
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.ConnectError("boom", request=request)
+            return httpx.Response(200, text="ok", request=request)
+        def close(self): pass
+
+    p = wayback.AdaptivePacer(base=5.0, ceiling=12.0, step_up=1.5)
+    # a clean fetch: pre-fetch pause is the pacer's value (5.0), and it counts as clean (no bump)
+    assert wayback.fetch_snapshot(entry, delay=0.0, client=Clean(), pacer=p) == "ok"
+    assert sleeps[0] == 5.0
+    assert p.value == 5.0 and p.throttle_events == 0
+    # a throttled-then-success fetch bumps the pacer exactly once (not once per retry)
+    sleeps.clear()
+    assert wayback.fetch_snapshot(entry, delay=0.0, client=ThrottleOnce(), pacer=p) == "ok"
+    assert p.value == 6.5 and p.throttle_events == 1

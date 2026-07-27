@@ -271,6 +271,47 @@ def snapshot_url(entry: dict) -> str:
     return f"https://web.archive.org/web/{entry['timestamp']}id_/{entry['original']}"
 
 
+class AdaptivePacer:
+    """Auto-tunes the inter-fetch Internet-Archive delay toward the 'sweet spot' where the Archive
+    stops refusing connections — so a long wayback run doesn't waste minutes on retry backoff.
+
+    One pacer is shared across a whole run's wayback phase. Each fetch that hit ANY throttling
+    (ConnectError / 429 / 5xx) raises the delay by `step_up` (bounded by `ceiling`); after
+    `ease_after` consecutive clean fetches the delay eases back down by `ease_step` (never below
+    `base`). It converges to just above the rate the Archive tolerates from your IP right now.
+    """
+
+    def __init__(self, base: float, ceiling: float, step_up: float = 1.5,
+                 ease_after: int = 20, ease_step: float = 0.5):
+        self.base = max(0.0, float(base))
+        self.ceiling = max(self.base, float(ceiling))
+        self.value = self.base
+        self.step_up = float(step_up)
+        self.ease_after = int(ease_after)
+        self.ease_step = float(ease_step)
+        self._clean = 0
+        self.throttle_events = 0  # total fetches that hit throttling (for the end-of-run summary)
+
+    def on_throttle(self) -> None:
+        """A fetch hit throttling — slow down (once per throttled fetch, not per retry)."""
+        self._clean = 0
+        self.throttle_events += 1
+        if self.value < self.ceiling:
+            old = self.value
+            self.value = round(min(self.ceiling, self.value + self.step_up), 2)
+            log.info("adaptive wayback pacing: %.1fs -> %.1fs (throttled)", old, self.value)
+
+    def on_clean(self) -> None:
+        """A fetch succeeded with no throttling — ease back down after a clean streak."""
+        self._clean += 1
+        if self._clean >= self.ease_after and self.value > self.base:
+            old = self.value
+            self.value = round(max(self.base, self.value - self.ease_step), 2)
+            self._clean = 0
+            log.info("adaptive wayback pacing: %.1fs -> %.1fs (%d clean fetches)",
+                     old, self.value, self.ease_after)
+
+
 def _retry_sleep(attempt: int, backoff: float) -> float:
     base = min(backoff * (2 ** attempt), MAX_FETCH_BACKOFF)
     jitter = random.uniform(0.0, min(1.0, base * 0.1))
@@ -284,30 +325,41 @@ def _fetch_snapshot_resp(
     client: Optional[httpx.Client],
     retries: int,
     backoff: float,
+    pacer: Optional[AdaptivePacer] = None,
 ) -> httpx.Response:
     """Politely fetch one archived capture, riding out transient Archive throttling —
     connection refusals (`ConnectError`) and 429/5xx — with capped exponential backoff.
     The Archive periodically refuses a burst then recovers within a minute or so, so we
     retry long enough to outlast that window instead of surfacing a one-off refusal as a
     failed speech. Non-retryable statuses (e.g. 404) raise immediately. Returns the raw
-    Response so callers can take `.text` (HTML) or `.content` (PDF)."""
-    time.sleep(delay)
+    Response so callers can take `.text` (HTML) or `.content` (PDF).
+
+    If a `pacer` is given, the pre-fetch pause is the pacer's current (auto-tuning) delay
+    instead of the fixed `delay`, and the pacer is told whether this fetch was clean or
+    throttled so it can converge on the Archive's tolerated rate."""
+    time.sleep(pacer.value if pacer is not None else delay)
     close_client = client is None
     client = client or create_client(timeout=timeout)
     url = snapshot_url(entry)
+    throttled = False  # did THIS fetch hit any retryable throttling? (drives the pacer, once)
     try:
         for attempt in range(retries):
             try:
                 resp = client.get(url)
                 resp.raise_for_status()
                 resp.read()  # materialize the body before the client may be closed
+                if pacer is not None:
+                    pacer.on_throttle() if throttled else pacer.on_clean()
                 return resp
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 if isinstance(exc, httpx.HTTPStatusError):
                     status = exc.response.status_code if exc.response is not None else None
                     if status not in RETRYABLE_STATUS_CODES:
-                        raise
+                        raise  # a real 404/403 etc. — not throttling, don't pace on it
+                throttled = True
                 if attempt >= retries - 1:
+                    if pacer is not None:
+                        pacer.on_throttle()  # gave up after full backoff — slow down for the next
                     raise
                 wait = _retry_sleep(attempt, backoff)
                 # Distinguish real rate-limiting (429 -> raise wayback_delay) from a
@@ -332,9 +384,10 @@ def fetch_snapshot(
     client: Optional[httpx.Client] = None,
     retries: int = DEFAULT_FETCH_RETRIES,
     backoff: float = DEFAULT_FETCH_BACKOFF,
+    pacer: Optional[AdaptivePacer] = None,
 ) -> str:
     """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`)."""
-    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff).text
+    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer).text
 
 
 def fetch_snapshot_bytes(
@@ -344,9 +397,10 @@ def fetch_snapshot_bytes(
     client: Optional[httpx.Client] = None,
     retries: int = DEFAULT_FETCH_RETRIES,
     backoff: float = DEFAULT_FETCH_BACKOFF,
+    pacer: Optional[AdaptivePacer] = None,
 ) -> tuple[str, bytes]:
     """Fetch one archived capture as raw bytes, returning (content_type, content) — for
     PDF captures, where the archive stored the original binary."""
-    resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff)
+    resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer)
     ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
     return ctype, resp.content

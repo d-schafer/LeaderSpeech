@@ -229,7 +229,8 @@ def _first_line(text: str, limit: int = 200) -> str:
 
 def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
                      is_wayback: bool, timestamp: str | None = None,
-                     wayback_client=None, wayback_delay: float = 5.0, fetcher=None) -> bool:
+                     wayback_client=None, wayback_delay: float = 5.0, fetcher=None,
+                     pacer=None) -> bool:
     """For a page that is just a title + a link to the speech PDF (`recipe.pdf_link`): find the
     PDF, fetch it (the most complete archived capture under wayback, else live), extract its text,
     and use that as the body — overriding the HTML chrome. Returns True if the body was replaced.
@@ -249,7 +250,8 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
             # redirects to (which can be an Archive-side 1 MB partial); fall back to the
             # page-nearest capture if CDX has nothing (issue #70).
             entry = wayback.best_capture(pdf_url) or {"timestamp": timestamp, "original": pdf_url}
-            _, data = wayback.fetch_snapshot_bytes(entry, delay=wayback_delay, client=wayback_client)
+            _, data = wayback.fetch_snapshot_bytes(entry, delay=wayback_delay, client=wayback_client,
+                                                   pacer=pacer)
         else:
             _, data = fetcher.get_bytes(pdf_url)
         if not looks_like_pdf(data):
@@ -317,6 +319,8 @@ def scrape_recipe(
     extend_wayback: bool = False,
     rescrape: bool = False,
     wayback_delay: float | None = None,
+    adaptive_wayback: bool = False,
+    wayback_max_delay: float | None = None,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
@@ -340,6 +344,18 @@ def scrape_recipe(
     if wayback_delay is not None:
         log.info("wayback_delay override: %.1fs between Internet-Archive fetches (recipe default %.1fs)",
                  wayback_delay, recipe.pagination.wayback_delay)
+
+    # Adaptive Internet-Archive pacing (opt-in): auto-tune the inter-fetch delay up toward the rate
+    # the Archive tolerates (so a long run stops wasting minutes on retry backoff) and ease it back
+    # down over clean fetches. Enabled by `--adaptive-wayback` OR the recipe's pagination.wayback_adaptive;
+    # ceiling from `--wayback-max-delay` (default the recipe's wayback_max_delay, 12s). wb_delay is the
+    # START/floor. Off by default => a fixed wb_delay, exactly as before.
+    adaptive_on = adaptive_wayback or recipe.pagination.wayback_adaptive
+    wb_ceiling = wayback_max_delay if wayback_max_delay is not None else recipe.pagination.wayback_max_delay
+    wb_pacer = wayback.AdaptivePacer(base=wb_delay, ceiling=wb_ceiling) if adaptive_on else None
+    if wb_pacer is not None:
+        log.info("adaptive wayback pacing ON: start=%.1fs, ceiling=%.1fs (auto-tunes to avoid IA throttling)",
+                 wb_delay, wb_ceiling)
 
     state = load_state(state_path)
     seen = set(state["seen_urls"])       # already scraped — never re-fetched
@@ -394,7 +410,8 @@ def scrape_recipe(
         state["filtered_urls"] = sorted(filtered)
         save_state(state_path, state)
 
-    def _scrape_phase(todo, *, is_wayback, meta_by_url, wayback_delay, phase_recipe, label) -> bool:
+    def _scrape_phase(todo, *, is_wayback, meta_by_url, wayback_delay, phase_recipe, label,
+                      pacer=None) -> bool:
         """Fetch+extract every item in `todo`, appending rows and updating shared state.
         Items are either speech URLs or (is_wayback) CDX capture dicts. `phase_recipe`
         supplies the selectors (the live recipe, or a copy with wayback_extend overrides).
@@ -414,19 +431,20 @@ def scrape_recipe(
                     # on an archived page — wayback_capture is the honest date fallback.
                     if wants_pdf(phase_recipe, url):
                         _, data = wayback.fetch_snapshot_bytes(
-                            todo_item, delay=wayback_delay, client=wayback_client,
+                            todo_item, delay=wayback_delay, client=wayback_client, pacer=pacer,
                         )
                         rec, via_generic = _extract_payload("pdf", data, url, phase_recipe, fill_date=False)
                     else:
                         html = wayback.fetch_snapshot(
-                            todo_item, delay=wayback_delay, client=wayback_client,
+                            todo_item, delay=wayback_delay, client=wayback_client, pacer=pacer,
                         )
                         rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
                         # a page that is just a title + a link to the speech PDF: pull the body
                         # from the archived PDF nearest this capture (see _follow_pdf_body).
                         if _follow_pdf_body(rec, html, url, phase_recipe, is_wayback=True,
                                             timestamp=todo_item.get("timestamp"),
-                                            wayback_client=wayback_client, wayback_delay=wayback_delay):
+                                            wayback_client=wayback_client, wayback_delay=wayback_delay,
+                                            pacer=pacer):
                             via_generic = False
                             stats["pdf_body"] += 1
                 else:
@@ -595,7 +613,7 @@ def scrape_recipe(
 
         aborted_early = _scrape_phase(
             todo, is_wayback=wayback_mode, meta_by_url=meta_by_url,
-            wayback_delay=wb_delay, phase_recipe=recipe, label="live",
+            wayback_delay=wb_delay, phase_recipe=recipe, label="live", pacer=wb_pacer,
         )
 
         # --- wayback_extend: continue a LIVE recipe into the Internet Archive -----------
@@ -649,7 +667,7 @@ def scrape_recipe(
                     aborted_early = _scrape_phase(
                         todo2, is_wayback=True, meta_by_url={},
                         wayback_delay=(ext.wayback_delay if wayback_delay is None else wayback_delay),
-                        phase_recipe=phase_recipe, label="wayback-extend",
+                        phase_recipe=phase_recipe, label="wayback-extend", pacer=wb_pacer,
                     ) or aborted_early
                     extended_scraped = stats["scraped"] - scraped_before
     except Exception:
@@ -676,6 +694,9 @@ def scrape_recipe(
                         "rows — that is almost certainly a mis-specified keep_if (a selector "
                         "that doesn't exist on these pages matches nothing, and no match means "
                         "drop). Probe it before re-running.", stats["filtered"])
+        if wb_pacer is not None:
+            log.info("adaptive wayback pacing: settled at %.1fs (ceiling %.1fs); %d fetch(es) hit "
+                     "throttling", wb_pacer.value, wb_pacer.ceiling, wb_pacer.throttle_events)
         if harvest_stats.get("stopped_early"):
             # A clean run on a truncated harvest is the dangerous case: every other counter
             # says success. Say it again at the end, where the summary is read.
@@ -762,7 +783,15 @@ def main():
                     help="override the recipe's pagination.wayback_delay (seconds paused before each "
                          "Internet-Archive fetch) for THIS run only — raise it (e.g. 12) to pace "
                          "politely when another crawler shares your IP and IA is throttling. Applies "
-                         "to a wayback recipe and to a live recipe's wayback-extend phase.")
+                         "to a wayback recipe and to a live recipe's wayback-extend phase. With "
+                         "--adaptive-wayback this is the START/floor delay.")
+    ap.add_argument("--adaptive-wayback", action="store_true",
+                    help="AUTO-TUNE the Internet-Archive fetch delay: start at --wayback-delay (or the "
+                         "recipe default), raise it whenever IA throttles (ConnectError/429/5xx) and "
+                         "ease it back down over clean fetches — converging on the tolerated rate so a "
+                         "long run stops wasting minutes on retry backoff. Bounded by --wayback-max-delay.")
+    ap.add_argument("--wayback-max-delay", type=float, default=None, metavar="SECONDS",
+                    help="ceiling for --adaptive-wayback (default the recipe's wayback_max_delay, 12s).")
     args = ap.parse_args()
 
     result = scrape_recipe(
@@ -774,6 +803,8 @@ def main():
         extend_wayback=args.extend_wayback,
         rescrape=args.rescrape,
         wayback_delay=args.wayback_delay,
+        adaptive_wayback=args.adaptive_wayback,
+        wayback_max_delay=args.wayback_max_delay,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

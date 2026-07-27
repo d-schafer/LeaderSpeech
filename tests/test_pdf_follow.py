@@ -81,7 +81,7 @@ def test_wayback_pdf_follow_falls_back_to_page_timestamp(monkeypatch):
     # the PAGE's capture timestamp + the ORIGINAL pdf url (the pre-#70 behavior).
     captured = {}
 
-    def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None):
+    def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None, pacer=None):
         captured["entry"] = entry
         return "application/pdf", b"%PDF-..."
     monkeypatch.setattr(run.wayback, "best_capture", lambda url, **kw: None)
@@ -108,7 +108,7 @@ def test_wayback_pdf_follow_picks_complete_capture(monkeypatch):
         captured["queried"] = url
         return complete
 
-    def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None):
+    def fake_fetch_snapshot_bytes(entry, delay=0.0, client=None, pacer=None):
         captured["entry"] = entry
         return "application/pdf", b"%PDF-..."
     monkeypatch.setattr(run.wayback, "best_capture", fake_best_capture)

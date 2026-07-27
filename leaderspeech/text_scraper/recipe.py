@@ -238,7 +238,14 @@ class Pagination(BaseModel):
     wayback_limit: Optional[int] = None    # cap archived captures listed per query
     wayback_match_type: str = "prefix"     # CDX `matchType`
     wayback_collapse: str = "urlkey"       # CDX `collapse`
-    wayback_delay: float = 5.0             # seconds to wait before each archived fetch
+    wayback_delay: float = 5.0             # seconds to wait before each archived fetch (or the START
+                                           # delay when wayback_adaptive is on)
+    # Adaptive pacing: auto-raise the inter-fetch delay when the Archive throttles (ConnectError/
+    # 429/5xx) and ease it back down over clean fetches, converging on the tolerated rate — so a long
+    # run doesn't waste minutes on retry backoff. Off by default (fixed wayback_delay). Also toggled
+    # per-run by `--adaptive-wayback` / capped by `--wayback-max-delay`.
+    wayback_adaptive: bool = False         # enable the auto-tuning pacer
+    wayback_max_delay: float = 12.0        # ceiling for the adaptive delay (seconds)
     wayback_from: Optional[str] = None     # CDX `from` (YYYYMMDD)
     wayback_to: Optional[str] = None       # CDX `to` (YYYYMMDD)
     # Extra CDX `filter=` expressions (field:regex), ANDed. e.g.
