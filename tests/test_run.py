@@ -530,7 +530,7 @@ def test_pdf_static_recipe_extracts_body_and_url_date(tmp_path, monkeypatch):
             "http://x/discursos/2o-mandato/2009/01-05-2009-discurso-b.pdf"]
     monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))
     monkeypatch.setattr(run, "Fetcher", PdfFetcher)
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "Corpo do discurso do presidente.")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "Corpo do discurso do presidente.")
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "test_pdf.yml"
@@ -564,7 +564,7 @@ def test_pdf_wayback_recipe_extracts_archived_pdf(tmp_path, monkeypatch):
         run.wayback, "fetch_snapshot_bytes",
         lambda entry, delay=5.0, timeout=60.0, client=None: ("application/pdf", b"%PDF-1.4 x"),
     )
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "Texto do PDF arquivado.")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "Texto do PDF arquivado.")
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "test_pdf_wb.yml"
@@ -779,7 +779,7 @@ def test_listing_date_lands_on_a_pdf_row(tmp_path, monkeypatch):
 
     monkeypatch.setattr(run, "harvest_links", fake_harvest)
     monkeypatch.setattr(run, "Fetcher", PdfFetcher)
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "የንግግር ጽሑፍ።")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "የንግግር ጽሑፍ።")
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "eth.yml"
@@ -804,7 +804,7 @@ def test_the_page_always_wins_over_listing_metadata(tmp_path, monkeypatch):
 
     monkeypatch.setattr(run, "harvest_links", fake_harvest)
     monkeypatch.setattr(run, "Fetcher", PdfFetcher)
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "PDF first line is the title\nbody")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "PDF first line is the title\nbody")
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "eth.yml"
@@ -829,7 +829,7 @@ def test_listing_metadata_never_skips_the_pdf_fetch(tmp_path, monkeypatch):
 
     monkeypatch.setattr(run, "harvest_links", fake_harvest)
     monkeypatch.setattr(run, "Fetcher", PdfFetcher)
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False: "Real PDF body text.")
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "Real PDF body text.")
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "eth.yml"

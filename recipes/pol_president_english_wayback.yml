@@ -1,0 +1,53 @@
+# Poland — President of the Republic (president.pl), the ENGLISH tree /en/, via the Internet Archive.
+# president.pl is native Polish; /en/ is the official English site, so text lands directly in the
+# English `text` column (no translation needed). No live pol_president recipe yet.
+#
+# Article permalink: /en/news/art,<id>,<slug>.html. CDX for president.pl/en ≈ 9,200 statuscode:200
+# captures spanning 2009–2022 (L. Kaczyński→Komorowski→Duda; the /en tree stops ~2022 after a
+# redesign).
+source_id: pol_president_english_wayback
+country: Poland
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - president.pl/en
+
+listing:
+  # article permalink art,<id>,<slug> anywhere under /en/ (news, president-komorowski/..., archive)
+  link_pattern: '/en/[^ ]*art,\d+,'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1/<title> are an IDENTICAL site banner ("Prezydent.pl" / "President of the Republic of Poland")
+  # on every page → no DOM title selector; the engine falls back to url_regex, taking the English
+  # headline slug from the art,<id>[,<n>],<slug> URL (some archive years carry two id numbers; the
+  # (?:,\d+)+ swallows both). The cleaner then polishes the dashes.
+  url_regex: 'art(?:,\d+)+,([^/?]+?)\.html'
+text:
+  # narrow guesses that miss → the engine's generic (trafilatura) fallback recovers the body
+  # (probe: 1,002–3,844 chars). Broad "article"/".content" omitted so they can't grab nav.
+  selectors: [".news-text", ".art-text"]
+date:
+  # .date carries a clean article date on president.pl (probe: 2000-03-28 … 2021-07-22)
+  selectors: ["time[datetime]", ".date", ".news-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread): 2,243 snapshots; DATE clean via .date (2000-03-28 …
+  2021-07-22); TEXT via the engine's generic (trafilatura) fallback (1,002–3,844 chars). TITLE trap:
+  h1/<title> are an IDENTICAL banner ("Prezydent.pl") on every page, so the title comes from the
+  English headline slug in the art,<id>[,<n>],<slug> URL via url_regex (the cleaner polishes the
+  dashes). Wayback ENGLISH tree of Poland's presidency (president.pl/en → English column, no
+  translation). CDX prefix president.pl/en ≈ 9,200 captures 2000–2022 (Kwaśniewski→L.
+  Kaczyński→Komorowski→Duda; /en tree stops ~2022 after a redesign). Multiple presidents → NO
+  speaker_default; the cleaner's tenure crosscheck assigns the speaker; the document-type gate keeps
+  the speech/statement subset. FULL RUN is the researcher's gate.

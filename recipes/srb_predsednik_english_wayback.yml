@@ -1,0 +1,53 @@
+# Serbia — President of the Republic (predsednik.rs), the ENGLISH tree /en/, via the Internet
+# Archive. predsednik.rs is native Serbian; /en/ is the official English site, so text lands directly
+# in the English `text` column (no translation needed). The srb_predsednik master source has no
+# validated recipe yet.
+#
+# Press-center: /en/press-center/news/<slug>, /en/press-center/press-releases/<slug>. CDX for
+# predsednik.rs/en ≈ 1,044 statuscode:200 captures 2012–2025 (Nikolić 2012–2017, Vučić 2017– ).
+source_id: srb_predsednik_english_wayback
+country: Serbia
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - predsednik.rs/en/press-center
+
+listing:
+  # article permalinks under press-center (news + press-releases); excludes the ?page= listings and
+  # the /gallery captures
+  link_pattern: '/en/press-center/(news|press-releases)/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".news-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # article carries the body (probe: 2,237–2,426 chars); generic fallback recovers the Nikolić-era
+  # pages where the banner layout misses
+  selectors: [".news-text", ".news-content", "article"]
+date:
+  # DATE TRAP: .date matched a concatenated feed block ("15.06.2020. - 13:55\n20:20\n23.07.2024. -")
+  # → unparseable → omitted; date deferred to the cleaner + wayback_capture backstop
+  selectors: ["time[datetime]"]
+
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH tree of Serbia's presidency (predsednik.rs/en → English column, no
+  translation). CDX prefix predsednik.rs/en ≈ 1,044 statuscode:200 captures 2012–2025 (Nikolić
+  2012–2017, Vučić 2017– ). link_pattern targets /en/press-center/news + /press-releases article
+  permalinks. Many items are third-person activity coverage ("President Vučić visits ...") → the
+  cleaner's document-type gate keeps the speech/official_statement subset (third-person statements
+  that convey the leader's position are kept). NO speaker_default; the cleaner's tenure crosscheck
+  assigns the speaker. PROBE-VALIDATED (2026-07-26, --spread --n 7): 780 snapshots; GENUINE English —
+  TITLE (h1) clean on Vučić-era pages ("President Vučić visits Novi Pazar"; the older Nikolić pages
+  show a banner h1 → cleaner derives), TEXT via article / generic fallback (1,957–2,426 chars). DATE
+  trap: .date matched a concatenated feed block → dropped, deferred to the cleaner + wayback_capture →
+  recipe_status partial. FULL RUN is the researcher's gate.

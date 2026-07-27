@@ -254,7 +254,7 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
             _, data = fetcher.get_bytes(pdf_url)
         if not looks_like_pdf(data):
             return False                    # not actually a PDF (e.g. an HTML error page) -> keep chrome
-        text = pdf_bytes_to_text(data, ocr=recipe.pdf_ocr)
+        text = pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language)
         if not (text and text.strip()):
             rec["text"] = ""                # a real PDF with no extractable text -> fail cleanly, not chrome
             return False
@@ -357,6 +357,7 @@ def scrape_recipe(
         verify_ssl=recipe.verify_ssl,
         user_agent=recipe.user_agent,
         js_settle=recipe.js_settle,
+        js_context_recycle=recipe.js_context_recycle,
         cdp_endpoint=recipe.cdp_endpoint,
         block_page=recipe.block_page,
         block_page_patterns=recipe.block_page_patterns,

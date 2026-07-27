@@ -1,0 +1,53 @@
+# Türkiye — Presidency of the Republic (tccb.gov.tr), the ENGLISH tree /en/, via the Internet
+# Archive. tccb.gov.tr is native Turkish; /en/ is the official English site, so speeches land
+# directly in the English `text` column (no translation needed). No live tur_tccb recipe yet.
+#
+# TWO categories: /en/speeches-statements/558/<id>/<slug> (speeches) and /en/news/542/<id>/<slug>
+# (presidential news, often quoted first-person remarks). CDX for tccb.gov.tr/en ≈ 1,260
+# statuscode:200 captures spanning 2015–2026 (Erdoğan, president since 2014; Gül's earlier /en/
+# captures also filtered in by id).
+source_id: tur_tccb_english_wayback
+country: Türkiye
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - tccb.gov.tr/en
+
+listing:
+  # category/<catnum>/<id>/<slug> permalinks: speeches-statements (558) + news (542)
+  link_pattern: '/en/(speeches-statements|news)/\d+/\d+/[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".news-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
+  # the body (probe: 105–5,434 chars; some tccb news items are genuine 1–2 sentence briefs the cleaner
+  # then gates out). Broad main/article omitted so they can't grab nav.
+  selectors: [".news-content", ".content-text"]
+date:
+  # no reliable machine-readable date in the archived HTML → deferred to the cleaner + wayback_capture
+  selectors: ["time[datetime]", ".news-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 989 snapshots; TITLE clean via h1 (real
+  headlines, e.g. "President Erdoğan receives U.S. Senator Graham", "'We Are Commencing a New Era
+  between Turkey and Serbia'"); TEXT via the engine's generic (trafilatura) fallback (105–5,434 chars).
+  One stray /en/news/542/<id>/videojs.* JS-artifact error page slipped past the mimetype filter →
+  fails clean. Wayback ENGLISH tree of Türkiye's presidency (tccb.gov.tr/en → English column, no
+  translation). CDX prefix tccb.gov.tr/en ≈ 1,260 captures 2015–2026. link_pattern targets
+  /en/speeches-statements/558/<id>/<slug> (speeches) + /en/news/542/<id>/<slug>. Erdoğan (president
+  since 2014) + spokesperson Kalın + Emine Erdoğan items → NO speaker_default; the cleaner's tenure
+  crosscheck + document-type gate assign/filter. DATE deferred to the cleaner + wayback_capture →
+  recipe_status partial. FULL RUN is the researcher's gate.

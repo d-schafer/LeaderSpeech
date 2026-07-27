@@ -26,6 +26,10 @@ source_language: English
 # also serves the listing to this UA.
 user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 renderer: js
+# gov.il's Cloudflare CF-1020's a REUSED browser context after its first hit — so a single
+# long-lived context blocks every page after the first (the old "1 speech + 25 blocked").
+# A fresh context per page clears it: proven 6/6 vs 1/6 reused (issue #69). Cheap (~100ms).
+js_context_recycle: 1
 start_urls:
   # PMO-filtered EN news collector JSON. OfficeId e744bba9-… = "Prime Minister's Office"
   # (~10,267 EN items, 2004→2026). limit=20 sets the page size; ?skip=N pages through it.
@@ -72,23 +76,18 @@ position: prime minister
 # parsing (["en"] mis-reads 05.07.2026 as May 7 instead of 5 July). Text is English.
 date_languages: ["he"]
 
-# gov.il's Cloudflare HARD-BLOCKS bursts on the /en/pages/ body fetch: back-to-back
-# headless fetches get "Sorry, you have been blocked" after the first page. ~15s/request
-# clears reliably. This makes a full ~10k-item run LONG (~40+ hours) — a deliberate
-# FULL-RUN pacing cost of the js BODY fetch, not the api harvest.
-#
-# BLOCK-PAGE GUARD (issue #64/#65): when Cloudflare DOES serve the "Sorry, you have been
-# blocked" page (HTTP 200), the engine now detects it and treats the fetch as a FAILURE —
-# the ~460-char block page is NOT written as a speech, the retries/backoff below fire, and
-# the URL lands in failed_urls (retryable via --retry-failed) + _errors.csv. So a throttled
-# run surfaces the block as a high failure rate instead of silently polluting the CSV with
-# thousands of identical junk rows. If a full run shows a high block rate even at this
-# pacing, that is the signal to fall back to Wayback for the bodies or switch to the Hebrew
-# section (a FULL-RUN researcher decision — see notes).
+# gov.il's Cloudflare CF-1020 ("Sorry, you have been blocked") is a per-CONTEXT flag, not a
+# per-request rate limit: the FIRST headless fetch clears, then the flagged context blocks
+# every page after — which read as a burst block but is really session-scoped. js_context_recycle: 1
+# (above) opens a fresh context per page and clears it entirely (proven 6/6 vs 1/6 reused,
+# issue #69), so heavy per-request pacing is NO LONGER needed. A modest delay stays as
+# courtesy + IP-rate-limit insurance over a ~10k-item run (was ~40h at 15s/req; ~15h here).
+# BLOCK-PAGE GUARD (#64/#65) still stands: if a CF page slips through it FAILS (not written)
+# and, on the js path, triggers a context-recycle + immediate retry before counting as failed.
 politeness:
-  delay_range: [12, 18]
+  delay_range: [4, 8]
   retries: 4
-  backoff: 20
+  backoff: 10
 
 notes: >
   Israel PMO (head of government, the national leader — NOT the ceremonial president).
@@ -106,9 +105,16 @@ notes: >
   only). Speaker deliberately LEFT BLANK: the archive spans multiple PMs
   (Netanyahu/Bennett/Lapid) — the tenure crosscheck assigns speaker from country+date.
   CAVEATS for the researcher (FULL RUN gate): (1) the api rewrite makes the HARVEST fast +
-  robust + exact-dated, but the per-speech js BODY fetch is UNCHANGED — Cloudflare hard-blocks
-  bursts so ~15s/req pacing is required and a full run still takes ~40+ hours; pace-test a
-  --limit slice first and raise politeness if throttled. (2) x-client-id is a static public
-  SPA key captured from DevTools; if the gateway rotates it or the OfficeId changes, re-capture
-  from the collector page's GetResults XHR. (3) A separate Hebrew section exists with likely
-  even deeper history if English coverage proves shallow.
+  robust + exact-dated. The per-speech js BODY fetch is now UNBLOCKED via js_context_recycle: 1
+  (a fresh browser context per page — gov.il's CF-1020 flags a REUSED context, not the IP; proven
+  6/6 vs 1/6 reused, issue #69). Both content types resolve: /en/pages/event-* = delivered
+  speeches ("PM … Remarks at …", ~9-11k chars), /en/pages/spoke-* = PMO statements/announcements
+  (shorter). A full ~10k-item run is ~15h at delay_range [4,8]; pace-test a --limit slice first
+  and only raise politeness if a large run hits IP-level rate limiting (distinct from the CF-1020,
+  which recycling already handles). (2) x-client-id is a static public SPA key captured from
+  DevTools; if the gateway rotates it or the OfficeId changes, re-capture from the collector page's
+  GetResults XHR. (3) A separate Hebrew section exists with likely even deeper history if English
+  coverage proves shallow. (4) The un-typed OfficeId collector harvests BOTH content types
+  (~4,308 events/speeches + ~5,949 media statements ≈ the ~10.3k seen); split into two recipes by
+  adding &Type=<guid> only if you want to run/prioritize speeches vs statements separately — the
+  page template + selectors are identical, so one recipe suffices and the cleaner sorts the types.

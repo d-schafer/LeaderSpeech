@@ -1,0 +1,54 @@
+# Ghana — Office of the President (presidency.gov.gh), via the Internet Archive. English-native → text
+# lands directly in the English `text` column. The live gha_presidency recipe uses the NEW WordPress
+# REST API (Mahama, 2025– ). This recipe recovers the OLD Joomla site (2010–2024) — huge additional
+# historical depth: Mills (2010–2012), Mahama (2012–2017), Akufo-Addo (2017–2024). "yes-and."
+#
+# Scheme (Joomla): presidency.gov.gh/index.php/briefing-room/<section>/<id>-<slug>. CDX ≈ 6,900
+# statuscode:200 captures spanning 2010–2026.
+source_id: gha_presidency_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80), NO trailing '*'.
+  - presidency.gov.gh/index.php/briefing-room
+
+listing:
+  # Joomla article permalink under briefing-room: <section>/<id>-<slug> (excludes ?start= listings and
+  # the /component/mailto share links)
+  link_pattern: '/index.php/briefing-room/[a-z0-9-]+/\d+-[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # strip the " - The Presidency, Republic of Ghana" site suffix the archived <h1>/<title> carry.
+  # The engine keeps the WHOLE match (re.search group(0), not group(1)), so a lookahead ends the match
+  # before the suffix; the |$ alternative keeps a suffix-less title intact. (Verified on the samples.)
+  selectors: ["h1", ".article-title", ".item-title", "title"]
+  regex: '^\s*.+?(?=\s*-\s*The Presidency, Republic of Ghana|$)'
+text:
+  selectors: [".item-page", ".article-content", ".content", "article"]
+date:
+  selectors: ["time", ".published", ".create", ".date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the OLD Joomla presidency.gov.gh (2010–2024), adding deep historical
+  coverage the live WordPress-REST gha_presidency recipe (Mahama 2025– ) lacks: Mills (2010–2012),
+  Mahama (2012–2017), Akufo-Addo (2017–2024). English-native → English column, no translation. CDX
+  (domain) ≈ 6,900 statuscode:200 captures 2010–2026; link_pattern keeps the
+  /index.php/briefing-room/<section>/<id>-<slug> permalinks. Many items are third-person presidency
+  news → the cleaner's document-type gate keeps the speech/official_statement subset. Multiple
+  presidents → NO speaker_default; the cleaner's tenure crosscheck assigns the speaker.
+  PROBE-VALIDATED (2026-07-26, --spread --n 6): 3,068 snapshots; TITLE (h1, " - The Presidency,
+  Republic of Ghana" suffix stripped via a lookahead regex); TEXT (.item-page) 1,509–5,837 chars; DATE
+  (time) working (2017–2022, Akufo-Addo era sampled). Many items are third-person presidency news →
+  the cleaner's document-type gate keeps the speech/official_statement subset. A few /speeches/…?print=1
+  print-version dups may harvest (cleaner/merge dedup). FULL RUN is the researcher's gate.

@@ -35,7 +35,7 @@ class FakeFetcher:
 
 def test_live_pdf_follow_replaces_chrome_body(monkeypatch):
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "THE REAL SPEECH TEXT from the pdf")
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "THE REAL SPEECH TEXT from the pdf")
     rec = {"text": "menu chrome", "title": "AOP"}
     f = FakeFetcher()
     assert run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=False, fetcher=f) is True
@@ -87,7 +87,7 @@ def test_wayback_pdf_follow_falls_back_to_page_timestamp(monkeypatch):
     monkeypatch.setattr(run.wayback, "best_capture", lambda url, **kw: None)
     monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes", fake_fetch_snapshot_bytes)
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "archived pdf speech text")
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "archived pdf speech text")
 
     rec = {"text": "chrome", "title": ""}
     ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=True,
@@ -114,7 +114,7 @@ def test_wayback_pdf_follow_picks_complete_capture(monkeypatch):
     monkeypatch.setattr(run.wayback, "best_capture", fake_best_capture)
     monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes", fake_fetch_snapshot_bytes)
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "complete pdf text")
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "complete pdf text")
 
     rec = {"text": "chrome", "title": "t"}
     ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=True,
@@ -128,7 +128,7 @@ def test_unextractable_pdf_clears_body(monkeypatch):
     # #70 Problem 3: a real PDF that yields no text (image-only scan / truncated capture) —
     # the pdf_link page's HTML is only chrome, so clear the body to fail the row cleanly.
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
-    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False: "")   # no text layer
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "")   # no text layer
     rec = {"text": "html chrome body", "title": "t"}
     ok = run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=False, fetcher=FakeFetcher())
     assert ok is False
@@ -139,7 +139,7 @@ def test_pdf_ocr_flag_is_forwarded(monkeypatch):
     # #70 Problem 2: recipe.pdf_ocr flows into pdf_bytes_to_text so the OCR fallback can fire.
     seen = {}
 
-    def fake_extract(data, ocr=False):
+    def fake_extract(data, ocr=False, ocr_language="eng"):
         seen["ocr"] = ocr
         return "ocr recovered text"
     monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)

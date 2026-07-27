@@ -327,6 +327,11 @@ class Recipe(BaseModel):
     # also auto-waits for a Cloudflare "Just a moment" interstitial to self-clear regardless; set
     # this only when content arrives after that (rarely needed).
     js_settle: float = 0.0
+    # (renderer: js) Recycle the headless browser context every N page fetches (0 = never).
+    # Some WAFs (gov.il's Cloudflare) hit a reused context with a CF-1020 "you have been blocked"
+    # after the first request, cascading to block every later page; a fresh context clears it.
+    # Set `1` for a new context per page on such a site (issue #69). Cheap (~100ms/recycle).
+    js_context_recycle: int = 0
     # For renderer: cdp — the DevTools endpoint of a user-launched Chrome
     # (chrome.exe --remote-debugging-port=9222). Defaults to http://localhost:9222 (or the
     # LEADERSPEECH_CDP_ENDPOINT env var) when omitted.
@@ -359,8 +364,11 @@ class Recipe(BaseModel):
 
     # OCR fallback for image-only PDFs (a complete scan with no text layer -> 0 chars). Off by
     # default because it's heavy and needs an extra install (`leaderspeech[pdf-ocr]` + a system
-    # Tesseract). Applies to both `pdf_link` bodies and `content_type: pdf` sources. (issue #70)
+    # Tesseract + Ghostscript). Applies to both `pdf_link` bodies and `content_type: pdf`. (issue #70)
     pdf_ocr: bool = False
+    # Tesseract language spec for `pdf_ocr` — 'eng', or '+'-joined for non-Latin scans, e.g.
+    # 'fas+pus+eng' for Dari/Pashto (each language needs its Tesseract language-data pack installed).
+    pdf_ocr_language: str = "eng"
 
     # fixed values when a source is single-leader / single-office
     position: Optional[str] = None

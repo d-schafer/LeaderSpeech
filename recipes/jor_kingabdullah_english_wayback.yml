@@ -1,0 +1,55 @@
+# Jordan — King Abdullah II official site (kingabdullah.jo), the ENGLISH tree /en/, via the Internet
+# Archive. The site is bilingual EN/AR; /en/ carries the King's speeches and interviews in English,
+# so text lands directly in the English `text` column (no translation needed). No live recipe yet.
+#
+# Speeches + interviews: /en/speeches/<slug>, /en/interviews/<slug>. CDX for kingabdullah.jo/en ≈
+# 3,600 statuscode:200 captures spanning 2017–2026 (all within King Abdullah II's reign, since 1999).
+source_id: jor_kingabdullah_english_wayback
+country: Jordan
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - kingabdullah.jo/en
+
+listing:
+  # the King's own words: speeches + interviews (excludes /en/news third-person items). The negative
+  # lookahead drops archived asset paths that the mimetype filter let through
+  # (/en/speeches/misc/…jquery.js, /en/speeches/sites/all/modules/…css).
+  link_pattern: '/en/(speeches|interviews)/(?!misc/|sites/|all/)[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".page-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # narrow Drupal guesses that miss the archived layout → the engine's generic (trafilatura) fallback
+  # recovers the full body (probe: 3,491 chars for an interview, 47,700 for a long one). Broad
+  # ".content"/"article" are omitted — .content grabbed only an 82-char snippet before the fallback.
+  selectors: [".field--name-body", ".node__content"]
+date:
+  # no reliable machine-readable date in the archived HTML → deferred to the cleaner's corrected-date
+  # pass + wayback_capture backstop
+  selectors: ["time[datetime]", ".date", ".submitted"]
+
+position: king
+speaker_default: Abdullah II
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 505 snapshots (speeches + interviews). TITLE
+  via h1 (clean speech titles, e.g. "At Bilkent University", "At the Opening of the 30th Ordinary
+  Session of the Council of the League of Arab States"; a few interview pages have an empty h1 → the
+  cleaner derives it). TEXT via the engine's generic (trafilatura) fallback (1,760–7,703 chars for
+  speeches, 3,491–47,700 for interviews). Asset paths (/en/speeches/misc/…js, /sites/all/…css) that
+  slipped past the mimetype filter are now excluded by a link_pattern lookahead. Wayback ENGLISH tree
+  of Jordan's King Abdullah II official site (kingabdullah.jo/en → English column, no translation).
+  CDX prefix kingabdullah.jo/en ≈ 3,600 captures 2017–2026 (all within his reign, since 1999).
+  speaker_default Abdullah II (single-monarch window). DATE has no machine-readable element → deferred
+  to the cleaner + wayback_capture backstop → recipe_status partial. FULL RUN is the researcher's gate.

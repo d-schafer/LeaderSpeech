@@ -528,8 +528,10 @@ Notes and caveats:
   *rate*, not 100%; the run summary reports `bodies_from_linked_pdf`.
 - **`pdf_ocr: true`** turns on an OCR fallback for image-only PDFs that extract 0 chars (also applies
   to `content_type: pdf` sources). Off by default — it is heavy and needs an extra install
-  (`pip install 'leaderspeech[pdf-ocr]'`) **plus a system Tesseract binary**; without them a
-  0-char scan just stays unextractable.
+  (`pip install 'leaderspeech[pdf-ocr]'`) **plus system Tesseract + Ghostscript binaries**; without
+  them a 0-char scan just stays unextractable. Set **`pdf_ocr_language`** to the Tesseract language
+  spec (default `eng`; `+`-joined for non-Latin scans, e.g. `fas+pus+eng` for Dari/Pashto — each
+  language needs its Tesseract language-data pack installed).
 - Every PDF-backed page costs one extra fetch (and, over wayback, one CDX lookup + one `wayback_delay`),
   incurred only for pages that actually link a PDF.
 
@@ -596,7 +598,13 @@ Cloudflare comes in escalating flavors; match the renderer to what the site actu
 2. **"Just a moment" JS interstitial** → still `renderer: js`. The engine loads DOM-first, then
    auto-waits for the interstitial to self-clear before reading the page (so you get the real page,
    not the challenge shell). Nothing extra to configure; bump `js_settle` only if content is still late.
-3. **CF blocks even headless Chromium** — the "Just a moment" never clears, *crashes* headless
+3. **CF-1020 that appears only *after the first page*** ("Sorry, you have been blocked" on page 2+,
+   while page 1 loaded fine, e.g. gov.il) → still `renderer: js`, plus **`js_context_recycle: 1`**.
+   This is a *per-context* flag, not the IP and not per-request rate: CF flags the reused browser
+   context after its first request, so one long-lived context blocks everything after it. A fresh
+   context per page clears it (the engine also reactively recycles + retries on a block). Symptom to
+   recognize: the first speech scrapes, then a long run of identical block failures.
+4. **CF blocks even headless Chromium** — the "Just a moment" never clears, *crashes* headless
    (`Page.goto: Page crashed`, e.g. gg.govt.nz), or detail pages hard-block with CF-1020
    ("Attention Required" / "Sorry, you have been blocked", e.g. president.gov.mt). This is
    **automation-fingerprint** detection: it flags Playwright's own Chromium (headless *and* headful)
@@ -654,10 +662,12 @@ site-specific block message.
 | `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). |
-| `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs that extract 0 chars (for `pdf_link` or `content_type: pdf`). Needs `pip install 'leaderspeech[pdf-ocr]'` **and** a system Tesseract binary. |
+| `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs that extract 0 chars (for `pdf_link` or `content_type: pdf`). Needs `pip install 'leaderspeech[pdf-ocr]'` **and** system Tesseract + Ghostscript. |
+| `pdf_ocr_language` | no | Tesseract language spec for `pdf_ocr` (default `eng`; `+`-joined for non-Latin, e.g. `fas+pus+eng` for Dari/Pashto — each needs its language-data pack). |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `js_settle` | no | `js`/`cdp` only. Extra seconds to wait after DOM-ready for late JS to paint. Rarely needed — the engine already loads DOM-first, waits briefly for the network to settle, and auto-waits for a CF "Just a moment" interstitial to self-clear. Set only when content still arrives later. |
+| `js_context_recycle` | no | `js` only. Recycle the headless browser context every N page fetches (`0` = never). Set `1` for a site whose Cloudflare CF-1020's a *reused* context after the first page (blocks page 2+ while page 1 worked, e.g. gov.il) — a fresh context per page clears it. See "Cloudflare-blocked sites". |
 | `cdp_endpoint` | no | `cdp` only. DevTools endpoint of a user-launched Chrome (default `http://localhost:9222`, or the `LEADERSPEECH_CDP_ENDPOINT` env var). See "Cloudflare-blocked sites". |
 | `block_page` | no | Default `true`. Detect WAF/block/challenge pages served with **HTTP 200** (Cloudflare "Sorry, you have been blocked" / "Just a moment", F5, Incapsula, "Access denied") and treat them as a **fetch failure** instead of writing them as a junk "speech" (issue #65). Set `false` for the rare site whose legitimate content matches a signature. See "Block-page guard". |
 | `block_page_patterns` | no | Extra case-insensitive signature phrases to add to the built-in block-page list, for a site whose block page has a distinctive message the defaults miss. |

@@ -1,0 +1,52 @@
+# Sweden — the Royal Court (kungahuset.se), the ENGLISH tree /english/, via the Internet Archive.
+# kungahuset.se is native Swedish; /english/ is the official English site with a dedicated speeches
+# archive, so speeches land directly in the English `text` column (no translation needed).
+#
+# Speeches: /english/archive/speeches/<yyyy-mm-dd>-<slug>. CDX ≈ 1,187 statuscode:200 captures; the
+# slug carries the delivery date. Spans King Carl XVI Gustaf, Crown Princess Victoria, Prince Daniel,
+# Queen Silvia — slug dates 2011–2023.
+source_id: swe_kungahuset_english_wayback
+country: Sweden
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - kungahuset.se/english/archive/speeches
+
+listing:
+  # dated speech permalink: /english/archive/speeches/<yyyy-mm-dd>-<slug>
+  link_pattern: '/english/archive/speeches/\d{4}-\d{2}-\d{2}-[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
+  # the body (probe: 1,907–6,076 chars).
+  selectors: [".article-body", ".article__content"]
+date:
+  # authoritative date is at the start of the slug (2011-03-22-...) → named groups assemble ISO
+  selectors: ["time[datetime]", ".article-date"]
+  url_regex: '/english/archive/speeches/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH tree of Sweden's Royal Court (kungahuset.se/english → English column, no
+  translation). CDX prefix kungahuset.se/english/archive/speeches ≈ 1,187 statuscode:200 captures;
+  the dedicated speeches archive uses a /english/archive/speeches/<yyyy-mm-dd>-<slug> permalink → DATE
+  from the slug via url_regex (unambiguous ISO). Multiple royals (King Carl XVI Gustaf, Crown Princess
+  Victoria, Prince Daniel, Queen Silvia; slug dates 2011–2023) → NO speaker_default; the cleaner
+  assigns the speaker. PROBE-VALIDATED (2026-07-26, --spread --n 7): 497 snapshots; TITLE (h1) clean
+  (e.g. "HM The King's Christmas speech", "HM The Queen's speech in Vatican City State"), DATE from
+  the slug via url_regex, TEXT via the generic (trafilatura) fallback (1,907–6,076 chars). NOTE: some
+  captures carry a duplicate ".printable" twin URL (kept, since some speeches were archived ONLY as
+  .printable) → a rare near-duplicate row for the researcher to dedup by date+title. FULL RUN is the
+  researcher's gate.

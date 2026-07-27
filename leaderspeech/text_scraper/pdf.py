@@ -77,17 +77,20 @@ def _extract_pypdf(data: bytes) -> str:
         return ""
 
 
-def _extract_ocr(data: bytes) -> str:
+def _extract_ocr(data: bytes, language: str = "eng") -> str:
     """OCR the text off an image-only PDF (one with no text layer) via ocrmypdf + Tesseract.
     Opt-in and lazy-imported like the other backends — needs ``pip install
-    'leaderspeech[pdf-ocr]'`` AND a system Tesseract binary. Lets ImportError propagate so a
-    missing OCR backend is treated exactly like a 0-char extract (the row falls back / fails
-    cleanly); swallows only OCR-runtime errors."""
+    'leaderspeech[pdf-ocr]'`` AND a system Tesseract binary (+ Ghostscript). `language` is a
+    Tesseract language spec ('eng', or '+'-joined e.g. 'fas+pus+eng' for Dari/Pashto scans —
+    each needs its Tesseract language-data pack installed). Lets ImportError propagate so a
+    missing OCR backend is treated exactly like a 0-char extract; swallows only OCR-runtime
+    errors."""
     import os
     import tempfile
 
     import ocrmypdf  # ImportError -> caller has no OCR backend installed
 
+    langs = [x for x in language.replace("+", " ").split() if x] or ["eng"]
     with tempfile.TemporaryDirectory() as tmp:
         src = os.path.join(tmp, "in.pdf")
         out = os.path.join(tmp, "out.pdf")
@@ -96,7 +99,7 @@ def _extract_ocr(data: bytes) -> str:
             fh.write(data)
         try:
             # force_ocr: these have no text layer to preserve; sidecar captures the OCR text.
-            ocrmypdf.ocr(src, out, sidecar=sidecar, force_ocr=True, progress_bar=False)
+            ocrmypdf.ocr(src, out, sidecar=sidecar, language=langs, force_ocr=True, progress_bar=False)
             with open(sidecar, encoding="utf-8", errors="replace") as fh:
                 return fh.read()
         except Exception as e:  # a bad scan / OCR failure shouldn't crash the run
@@ -114,15 +117,15 @@ def _any_backend_available() -> bool:
     return False
 
 
-def pdf_bytes_to_text(data: bytes, ocr: bool = False) -> str:
+def pdf_bytes_to_text(data: bytes, ocr: bool = False, ocr_language: str = "eng") -> str:
     """Extract text from PDF bytes, trying pdfminer.six then pypdf. Returns "" when the
     PDF has no extractable text (e.g. a scanned image), and raises a clear RuntimeError
     when no PDF library is installed at all.
 
     When ``ocr=True`` (opt-in per recipe) and the text backends yield nothing — an
-    image-only scan — fall back to OCR before giving up (issue #70). OCR is heavy and
-    needs a separate install (``leaderspeech[pdf-ocr]`` + Tesseract), so it is off by
-    default and a missing OCR backend degrades silently to the 0-char result."""
+    image-only scan — fall back to OCR (in `ocr_language`) before giving up (issue #70). OCR
+    is heavy and needs a separate install (``leaderspeech[pdf-ocr]`` + Tesseract), so it is off
+    by default and a missing OCR backend degrades silently to the 0-char result."""
     for extractor in (_extract_pdfminer, _extract_pypdf):
         try:
             text = extractor(data)
@@ -132,7 +135,7 @@ def pdf_bytes_to_text(data: bytes, ocr: bool = False) -> str:
             return text
     if ocr:  # no text layer — OCR the scan if the operator opted in
         try:
-            text = _extract_ocr(data)
+            text = _extract_ocr(data, ocr_language)
         except ImportError:
             log.warning("OCR requested but not installed — `pip install 'leaderspeech[pdf-ocr]'` "
                         "(also needs a system Tesseract binary).")

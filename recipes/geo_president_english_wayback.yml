@@ -1,0 +1,67 @@
+# Georgia — President of Georgia (president.gov.ge), the OLD English press scheme, via the Internet
+# Archive. The live site is geo-fenced (no TCP from outside Georgia) → pure-wayback. This is the
+# Saakashvili/Margvelashvili-era ENGLISH "Speeches and Statements" section, distinct from the modern
+# geo_president_wayback (which covers only the 2019–2023 /en/News/Article scheme — and whose body is in
+# fact GEORGIAN, a separate data-quality issue flagged to the researcher, 2026-07-26).
+#
+# Scheme: /en/PressOffice/News/SpeechesAndStatements?p=<id>&i=<n>. CDX ≈ 875 statuscode:200 captures
+# spanning 2011–2015 (Saakashvili to Nov 2013, then Margvelashvili).
+source_id: geo_president_english_wayback
+country: Georgia
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'. Deliberately the PARENT path (…/News), not
+  # …/SpeechesAndStatements: the individual speeches are …/SpeechesAndStatements?p=<id>, which share
+  # the listing's exact PATH (differing only by query) and would be dropped by the engine's
+  # listing-path filter (filter_entries_for_recipe drops URLs whose path == a start_url path, to skip
+  # the index + its ?page= variants). Using the parent path keeps the articles while the tight
+  # link_pattern isolates the SpeechesAndStatements?p= permalinks from the other /News sections.
+  - president.gov.ge/en/PressOffice/News
+
+listing:
+  # individual speech permalink: ...SpeechesAndStatements?p=<id>[&i=<n>] (excludes the bare listing and
+  # the ?a=<id> filter captures)
+  link_pattern: '/en/PressOffice/News/SpeechesAndStatements\?p=\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # the h1 elements + <title> are all nav banners ("Speeches & Statements" / "The Administration of
+  # the President of Georgia"); the real speech headline is the FIRST .Title element (e.g. "The Day
+  # After: President Mikheil Saakashvili on Post-Revolutionary Society").
+  selectors: [".Title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # old-template body container is unclassed → the generic (trafilatura) fallback is the workhorse
+  # (recovers 4.7k–20.7k chars of ENGLISH speech, nav stripped); the modern containers are kept in
+  # case a late-2013+ capture uses them.
+  selectors: [".InsideNewsBox", ".news-text", ".content", "article"]
+date:
+  # no reliable machine-readable date on the old template → deferred to the cleaner's corrected-date
+  # pass (+ wayback_capture backstop)
+  selectors: ["time", ".article-date", ".date", ".news-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — OLD English "Speeches and Statements" scheme of Georgia's presidency via the Internet Archive
+  (Saakashvili/Margvelashvili era). CDX prefix president.gov.ge/en/PressOffice/News/SpeechesAndStatements
+  ≈ 875 statuscode:200 captures 2011–2015; link_pattern keeps the ?p=<id> article permalinks. Live site
+  geo-fenced → pure-wayback. Distinct from the modern geo_president_wayback (/en/News/Article, 2019–2023)
+  — and NOTE: that merged recipe's body extracts GEORGIAN despite source_language English (flagged to
+  the researcher 2026-07-26). PROBE-VALIDATED (2026-07-26, --spread --n 6): 597 snapshots; body
+  confirmed ENGLISH (19,071 Latin / 0 Georgian chars on the checked page). TITLE via the first .Title
+  element (real headlines, e.g. "The President of Georgia Mikheil Saakashvili made a special
+  statement…", "The President of Georgia addressed Cadets"); TEXT via the generic (trafilatura)
+  fallback (4.7k–20.7k chars, nav stripped); DATE → cleaner. MOSTLY English — ~1 in 6 sampled pages is
+  an untranslated Georgian article; the cleaner's per-row language detection handles those. start_urls
+  is the PARENT /News path (not /SpeechesAndStatements) to dodge the engine's listing-path filter (the
+  ?p= articles share the listing path). Multiple presidents (Saakashvili/Margvelashvili) → NO
+  speaker_default; the cleaner's tenure crosscheck assigns the speaker. FULL RUN is the researcher's gate.

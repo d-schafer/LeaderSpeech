@@ -4,13 +4,17 @@
 # holds it deeply: the whole host has ~20,000 captures spanning 2006-2025.
 #
 # SPEECH PATH: the modern site files news/speeches under /en/News/Article/<slug> — the CDX
-# shows ~513 distinct English article captures (2020-2023, the Zourabichvili presidency).
-# English is scraped here (the site is bilingual; the /ka-GE/ Georgian tree is deeper but its
-# percent-encoded Georgian slugs are far messier to pattern — a possible second pass). The
-# pre-2013 Saakashvili-era site had a different structure and is not covered by this prefix.
+# shows ~513 distinct article captures (2020-2023, the Zourabichvili presidency).
+# LANGUAGE CORRECTION (2026-07-26): despite the /en/ URL, these archived pages serve GEORGIAN, not
+# English — a language sample of 8 captures found 0 English chars in .InsideNewsBox on every one, AND
+# no English text block anywhere on the page (so it is NOT a selector bug; the English translation
+# simply doesn't exist for this era). source_language changed English -> Georgian so map_to_schema
+# routes the body to text_originlanguage and the translation stage fills the English `text`. (The OLD
+# 2011-2015 /en/PressOffice/News/SpeechesAndStatements scheme IS genuine English — see the separate
+# geo_president_english_wayback recipe.)
 source_id: geo_president_wayback
 country: Georgia
-source_language: English
+source_language: Georgian
 start_urls:
   # CDX prefix — engine prefix-matches, so NO trailing '*'.
   - www.president.gov.ge/en/News/Article

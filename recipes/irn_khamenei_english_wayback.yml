@@ -1,0 +1,53 @@
+# Iran — Office of the Supreme Leader, the official English site english.khamenei.ir, via the
+# Internet Archive. leader.ir (the master source irn_leader) is the native Persian site; this is the
+# same leader's official English publication, so Khamenei's addresses land directly in the English
+# `text` column (no translation needed).
+#
+# The address/statement stream lives under /news/<numeric-id>/<slug>. CDX ≈ 9,000 statuscode:200
+# English captures spanning 2015–2026 (all within Khamenei's tenure, Supreme Leader since 1989).
+source_id: irn_khamenei_english_wayback
+country: Iran, Islamic Republic of
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - english.khamenei.ir/news
+
+listing:
+  # numeric news id + slug — e.g. /news/1/Leader-s-Address-to-the-Officials...
+  link_pattern: '/news/\d+/[A-Za-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the site logo ("Khamenei.ir"); the article headline is the first h2 (also present in
+  # <title> as "<headline> - Khamenei.ir"). The regex strips the " - Khamenei.ir" suffix when the
+  # <title> fallback is used.
+  selectors: ["h2", "title"]
+  regex: '^\s*(.+?)\s*(?:-\s*Khamenei\.ir)?\s*$'
+text:
+  # article body; generic (trafilatura) fallback recovers it if the class drifts
+  selectors: [".news_content", ".body", "article", ".content"]
+date:
+  selectors: ["time[datetime]", ".news_nav_date", ".date", "time"]
+
+position: Supreme Leader
+speaker_default: Ali Khamenei
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread): 9,002 snapshots; TEXT (article, 362–17,974 chars),
+  DATE (.date), speaker (default Ali Khamenei) all GREEN. TITLE trap fixed: h1 is the site logo
+  ("Khamenei.ir"), so the recipe reads the first h2 (the article headline, e.g. "Leader's Address to
+  the Officials and Executives of the Islamic Republic"), <title> as fallback with a suffix strip.
+  Official English site of Iran's Supreme Leader (english.khamenei.ir) via the Internet Archive →
+  English column, no translation. Same leader as the native master source irn_leader (leader.ir),
+  different host. CDX prefix english.khamenei.ir/news ≈ 9,000 captures 2015–2026 (all within
+  Khamenei's tenure, Supreme Leader since 1989). link_pattern keeps /news/<id>/<slug> permalinks. Many
+  items are "Leader's Address to ..." speeches; editorial/analysis pieces are rejected by the
+  cleaner's document-type gate. FULL RUN is the researcher's gate.

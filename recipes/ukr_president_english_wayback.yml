@@ -1,0 +1,50 @@
+# Ukraine — Office of the President (president.gov.ua), the ENGLISH mirror /en/, via the Internet
+# Archive. The site has run an English tree since 2002; text lands directly in the English `text`
+# column (no translation needed). Wayback English companion — no live ukr_president recipe exists yet.
+#
+# CDX for president.gov.ua/en ≈ 41,000 statuscode:200 English captures spanning 2002–2026 — the
+# whole Kuchma→Yushchenko→Yanukovych→Poroshenko→Zelensky span. TWO article generations:
+#   1. MODERN (2014–2026)  /en/news/<slug>-<numeric-id>
+#   2. OLD    (2002–2013)  /en/news/<id>.html  (and /en/news/data/<id>_<id>.html)
+# The link_pattern keeps the article permalinks and drops listing/photo/print captures.
+source_id: ukr_president_english_wayback
+country: Ukraine
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'. "president.gov.ua/en" also covers the older
+  # /eng/ captures (en is a prefix of eng); link_pattern filters those out.
+  - president.gov.ua/en
+
+listing:
+  # modern slug ending in -<id≥3 digits>, or the old numeric .html page
+  link_pattern: '/en/news/[^/?]+-\d{3,}|/en/news/\d+\.html'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article_title", ".news_title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # modern CMS body; generic (trafilatura) fallback recovers old-scheme and drifted bodies
+  selectors: [".article_content", ".news_detail", ".editor", "article", ".content"]
+date:
+  selectors: ["time[datetime]", ".article_date", ".news_date", ".date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH companion to Ukraine's presidency (yes-and; president.gov.ua/en is the
+  official English mirror → English column, no translation). CDX prefix president.gov.ua/en ≈ 41,000
+  statuscode:200 captures 2002–2026 (Kuchma→Zelensky). TWO generations: modern /en/news/<slug>-<id>
+  (2014–2026) + old /en/news/<id>.html (2002–2013). Multiple presidents → NO speaker_default; the
+  cleaner's tenure crosscheck assigns the speaker. /en/news carries speeches + meetings + statements;
+  the cleaner's document-type gate keeps the speech/official_statement subset. TITLE via h1; TEXT via
+  generic fallback; DATE via time/.article_date or cleaner. PROBE both generations. FULL RUN is the
+  researcher's gate.

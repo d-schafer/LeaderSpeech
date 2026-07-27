@@ -1,0 +1,50 @@
+# Guyana — Ministry of the Presidency (motp.gov.gy), via the Internet Archive. English-native → text
+# lands directly in the English `text` column. PURE-WAYBACK, ARCHIVE-ONLY: the live motp.gov.gy is
+# DEAD (NXDOMAIN); the live guy_motp recipe was repointed to op.gov.gy (President Ali, 2020– ). So this
+# recipe is the ONLY route to the David Granger presidency (2015–2020) — it exists nowhere else.
+#
+# Scheme (Joomla): motp.gov.gy/index.php/<date-alias-category>/<id>-<slug>. CDX ≈ 1,823 statuscode:200
+# captures spanning 2015–2022 (Granger 2015–2020, plus early Ali 2020–2022).
+source_id: guy_motp_wayback
+country: Guyana
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80), NO trailing '*'.
+  - motp.gov.gy/index.php
+
+listing:
+  # Joomla article permalink: a numeric id + slug at the end of the path (excludes the
+  # /index.php/<cat>?start=N listing captures)
+  link_pattern: '/index.php/[^?]*/\d{3,}-[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", ".item-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # Joomla article body; generic (trafilatura) fallback recovers it if the class drifts
+  selectors: [".item-page", ".article-content", ".content", "article"]
+date:
+  selectors: ["time", ".published", ".create", ".date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — ARCHIVE-ONLY recovery of Guyana's Ministry of the Presidency (motp.gov.gy is DEAD; live
+  guy_motp repointed to op.gov.gy/Ali). This is the ONLY source for the David Granger presidency
+  (2015–2020). CDX (domain) ≈ 1,823 statuscode:200 captures 2015–2022; link_pattern keeps the Joomla
+  /index.php/<cat>/<id>-<slug> article permalinks. English-native → English column, no translation.
+  Many items are third-person MOTP news → the cleaner's document-type gate keeps the speech/
+  official_statement subset; Granger + early Ali → NO speaker_default, the cleaner's tenure crosscheck
+  assigns the speaker. PROBE-VALIDATED (2026-07-26, --spread --n 6): 1,337 snapshots; TITLE (<title>)
+  clean, TEXT (.item-page) 891–9,468 chars, DATE (.published) working (2016–2019). Content is the
+  Granger-era MOTP feed — mix of substantive items ("Government in Action: Education…") and
+  third-person news the cleaner gates. FULL RUN is the researcher's gate.

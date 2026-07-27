@@ -1,0 +1,56 @@
+# Lithuania — Office of the President (lrp.lt), the ENGLISH tree /en/, via the Internet Archive.
+# lrp.lt is native Lithuanian; /en/ is the official English site with a dedicated speeches category,
+# so speeches land directly in the English `text` column (no translation needed). Wayback English
+# companion to the native ltu_lrp_wayback (yes-and).
+#
+# Speeches: /en/activities/speeches/<slug>/<id>. CDX for lrp.lt/en ≈ 29,700 statuscode:200 captures
+# spanning 2000–2024 (Adamkus→Grybauskaitė→Nausėda; the 2019 spike is a mass re-crawl).
+source_id: ltu_lrp_english_wayback
+country: Lithuania
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - lrp.lt/en
+
+listing:
+  # dedicated speeches category permalink (+ media-center/news, which carries statements)
+  link_pattern: '/en/activities/speeches/[a-z]|/en/media-center/news/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # the FIRST bare <h1> is the site banner ("President of the Republic of Lithuania"); the article
+  # headline is h1.main_title (also in <title>, suffixed " | President of the Republic of Lithuania").
+  selectors: ["h1.main_title", ".main_title", "title"]
+  regex: '^\s*(.+?)(?:\s*\|\s*President of the Republic of Lithuania)?\s*$'
+text:
+  # recipe containers miss / grab only a 195-char snippet → the engine's generic (trafilatura)
+  # fallback recovers the full body (probe: 416–4,634 chars).
+  selectors: [".article-content", ".news-content"]
+date:
+  # DATE TRAP: .date matched the sidebar "Latest speeches" feed (a block of dates), not the article
+  # date → omitted. No reliable machine-readable date in the archived HTML → deferred to the cleaner's
+  # corrected-date pass + wayback_capture backstop.
+  selectors: ["time[datetime]"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread): 1,459 snapshots in the speeches+news subset. TITLE
+  trap fixed: the first bare <h1> is the site banner, so the recipe reads h1.main_title (the article
+  headline — clean on 4/5 samples, e.g. "World War I lessons for preserving peace"; the cleaner
+  derives title from body on the rare oddly-templated page). TEXT via the engine's generic
+  (trafilatura) fallback (416–4,634 chars; recipe containers only hold a 195-char snippet). DATE trap:
+  .date matched the sidebar "Latest speeches" feed → omitted; date deferred to the cleaner +
+  wayback_capture backstop → recipe_status partial. Wayback ENGLISH companion to Lithuania's
+  presidency (yes-and to native ltu_lrp_wayback; lrp.lt/en → English column, no translation). CDX
+  prefix lrp.lt/en ≈ 29,700 captures 2000–2024 (Adamkus→Grybauskaitė→Nausėda). link_pattern targets
+  /en/activities/speeches/ + /en/media-center/news/. NO speaker_default; the cleaner's tenure
+  crosscheck assigns the speaker. FULL RUN is the researcher's gate.

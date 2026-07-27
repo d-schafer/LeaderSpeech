@@ -1,0 +1,52 @@
+# Latvia — President of Latvia (president.lv), the ENGLISH tree /en/, via the Internet Archive.
+# president.lv is native Latvian; /en/ is the official English site, so text lands directly in the
+# English `text` column (no translation needed). No live lva_president recipe yet.
+#
+# Article permalink: /en/article/<slug>. CDX for president.lv/en ≈ 5,270 statuscode:200 captures
+# spanning 2000–2026 (heaviest 2021–2026: Vējonis→Levits→Rinkēvičs).
+source_id: lva_president_english_wayback
+country: Latvia
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - president.lv/en
+
+listing:
+  # article/event permalink (excludes /en/events?view=calendar and /en?category= listings). The
+  # (?<!=) drops the cookie-consent wrapper /en/cookies?destination=/en/article/... (the /en/article
+  # there sits after "destination=", preceded by "="; a real permalink is preceded by the host).
+  link_pattern: '(?<!=)/en/(article|event)/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # .content holds the clean English body (probe: 466–18,239 chars); generic fallback backs it up
+  selectors: [".content", ".article__body", ".field--name-body"]
+date:
+  # the archived date element concatenates two DD.MM.YYYY. values (publish + update) → dateparser
+  # can't parse it, so DATE is deferred to the cleaner's corrected-date pass + wayback_capture backstop
+  selectors: ["time[datetime]"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread): 2,791 snapshots; GENUINE English — TITLE via h1
+  (clean, e.g. "President of Latvia: our country needs sustainable development-oriented policies"),
+  TEXT via .content (484–18,239 chars). The cookie-consent wrapper /en/cookies?destination=/en/article/…
+  is excluded by a lookbehind (its /en/article sits inside the query string). Wayback ENGLISH tree of
+  Latvia's presidency (president.lv/en → English column, no translation). CDX prefix president.lv/en ≈
+  5,270 captures 2000–2026 (heaviest 2021–2026: Vējonis→Levits→Rinkēvičs). Multiple presidents → NO
+  speaker_default; the cleaner's tenure crosscheck assigns the speaker; many items are third-person
+  activity news → the document-type gate keeps the speech/official_statement subset. DATE element
+  concatenates publish+update values → unparseable → deferred to the cleaner + wayback_capture →
+  recipe_status partial. FULL RUN is the researcher's gate.

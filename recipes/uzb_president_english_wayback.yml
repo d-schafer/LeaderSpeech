@@ -1,0 +1,52 @@
+# Uzbekistan — President of the Republic (president.uz), the ENGLISH mirror /en/, via the Internet
+# Archive. The native site is Uzbek/Russian; /en/ is the official English tree, so text lands
+# directly in the English `text` column (no translation needed). No live uzb_president recipe yet.
+#
+# The article stream lives under /en/lists/view/<numeric-id>. CDX for president.uz/en ≈ 8,200
+# statuscode:200 captures spanning 2011–2026 (Karimov's late years + Mirziyoyev, president 2016– ).
+source_id: uzb_president_english_wayback
+country: Uzbekistan
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - president.uz/en
+
+listing:
+  # numeric article permalink; excludes the /en/lists/news?page= and /en/site/document? listings
+  link_pattern: '/en/lists/view/\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # <title> carries the clean article headline on president.uz
+  selectors: ["h1", ".single-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # recipe containers miss on the archived layout → the engine's generic (trafilatura) fallback
+  # recovers the body (probe: 983–7,506 chars); broad main/article omitted so they can't grab nav.
+  selectors: [".single-content", ".content", ".text"]
+date:
+  # no reliable machine-readable date in the archived HTML → deferred to the cleaner's corrected-date
+  # pass (+ the scraper's wayback_capture backstop)
+  selectors: ["time[datetime]", ".single-date", ".date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 5,554 snapshots; TITLE clean from <title>
+  (real headlines, e.g. "Uzbek President Promotes Major Initiatives to Further Deepen Regional
+  Cooperation"); TEXT via the engine's generic (trafilatura) fallback (983–7,506 chars — recipe
+  containers miss the archived layout, blessed pattern). DATE has no machine-readable element →
+  deferred to the cleaner's corrected-date pass + wayback_capture backstop → recipe_status partial.
+  Wayback ENGLISH mirror of Uzbekistan's presidency (president.uz/en → English column, no
+  translation). CDX prefix president.uz/en ≈ 8,200 captures 2011–2026 (Karimov's late years +
+  Mirziyoyev, president 2016– ). link_pattern keeps /en/lists/view/<numeric-id> permalinks. Two
+  leaders → NO speaker_default; the cleaner's tenure crosscheck assigns the speaker. FULL RUN is the
+  researcher's gate.

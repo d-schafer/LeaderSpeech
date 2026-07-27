@@ -37,7 +37,7 @@ translate-hf = ["transformers>=4.40", "torch>=2.0", "sentencepiece>=0.2"]  # Opu
 audio = ["yt-dlp>=2024.1", "faster-whisper>=1.0"]       # video_audio_scraper (default backend; needs ffmpeg on PATH)
 audio-openai-whisper = ["openai-whisper>=20231117"]      # alt local backend (pulls torch)
 pdf = ["pdfminer.six>=20221105"]                         # PDF speech pages (content_type: pdf); pypdf is an optional fallback
-pdf-ocr = ["ocrmypdf>=15"]                               # OCR fallback for image-only PDFs (recipe pdf_ocr: true); ALSO needs a system Tesseract binary
+pdf-ocr = ["ocrmypdf>=15"]                               # OCR fallback for image-only PDFs (recipe pdf_ocr: true); ALSO needs system Tesseract + Ghostscript (+ language packs, e.g. fas/pus)
 
 [project.scripts]
 leaderspeech-scrape = "leaderspeech.text_scraper.run:main"

@@ -111,3 +111,108 @@ def test_block_guard_raises_block_page_error_directly():
     with pytest.raises(BlockPageError):
         f._guard_block(CLOUDFLARE_BLOCK, "https://gov.example/speech")
     f.close()
+
+
+# --- issue #69: browser-context recycling (fake browser; no real Playwright) --------------
+
+class _FakePage:
+    def __init__(self, html):
+        self.html = html
+        self.closed = False
+
+    def goto(self, url, wait_until=None, timeout=None):
+        pass
+
+    def wait_for_load_state(self, *a, **k):
+        pass
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def title(self):
+        return "ok"                       # not a challenge marker -> _settle_challenge returns at once
+
+    def content(self):
+        return self.html
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeContext:
+    def __init__(self, page):
+        self.page = page
+        self.closed = False
+
+    def new_page(self):
+        return self.page
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeBrowser:
+    def __init__(self, contexts):
+        self._q = list(contexts)
+        self.made = []
+
+    def new_context(self, **kw):
+        c = self._q.pop(0)
+        self.made.append(c)
+        return c
+
+    def close(self):
+        pass
+
+
+def _js_fetcher(**kw):
+    # build a static Fetcher (no real browser launch), then flip to js mode with fakes injected
+    f = Fetcher(renderer="static", retries=3, backoff=0.0, pause_every=0, **kw)
+    f.renderer = "js"
+    return f
+
+
+def test_js_block_recycles_context_and_recovers():
+    """A CF-1020 block on a reused context is not retried on the SAME context — the Fetcher
+    swaps in a fresh context and the retry succeeds (issue #69)."""
+    f = _js_fetcher()
+    p0, ctx0 = _FakePage(CLOUDFLARE_BLOCK), None
+    p1 = _FakePage(REAL_SPEECH)
+    ctx0 = _FakeContext(p0)
+    ctx1 = _FakeContext(p1)
+    f._browser = _FakeBrowser([ctx1])      # the fresh context handed out on recycle
+    f._context, f._page = ctx0, p0
+
+    assert f.get("https://gov.example/x") == REAL_SPEECH
+    assert ctx0.closed is True             # the flagged context was torn down
+    assert f._page is p1                   # now serving from the fresh context
+    assert f._browser.made == [ctx1]
+
+
+def test_js_context_recycle_opens_fresh_context_per_page():
+    """js_context_recycle=1 -> a new context for every page after the first (proactive)."""
+    f = _js_fetcher(js_context_recycle=1)
+    ctxs = [_FakeContext(_FakePage(REAL_SPEECH)) for _ in range(3)]
+    f._browser = _FakeBrowser(ctxs[1:])    # contexts 1 and 2 are created on recycle
+    f._context, f._page = ctxs[0], ctxs[0].page
+    f._ctx_uses = 0
+
+    f.get("https://x/1")                   # uses the initial context (no recycle)
+    f.get("https://x/2")                   # recycle -> ctx1
+    f.get("https://x/3")                   # recycle -> ctx2
+    assert f._browser.made == ctxs[1:]     # exactly two recycles
+    assert ctxs[0].closed and ctxs[1].closed and not ctxs[2].closed
+
+
+def test_recycle_is_noop_without_the_knob_and_for_non_js():
+    # default (js_context_recycle=0): no proactive recycling
+    f = _js_fetcher()
+    ctxs = [_FakeContext(_FakePage(REAL_SPEECH)) for _ in range(2)]
+    f._browser = _FakeBrowser(ctxs[1:])
+    f._context, f._page = ctxs[0], ctxs[0].page
+    f.get("https://x/1"); f.get("https://x/2")
+    assert f._browser.made == []           # never recycled
+    # _recycle_context only acts for renderer=js with a launched browser
+    stat = Fetcher(renderer="static")
+    assert stat._recycle_context() is False
+    stat.close()

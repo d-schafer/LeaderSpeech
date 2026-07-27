@@ -1,0 +1,58 @@
+# Kenya — Office of the President (president.go.ke), LIVE recipe. The speeches are published as PDFs
+# linked from a paginated HTML listing: /speeches/ + /speeches/page/<N>/ (pages 1–41, ~404 speeches
+# back to Dec 2022), each row linking /wp-content/uploads/<SLUG>.pdf. The PDF links are in the
+# server-rendered HTML (no JS needed), so a static listing crawl + content_type: pdf recovers them.
+# English-native → text lands directly in the English `text` column.
+#
+# WHY LIVE (not wayback): the modern site is WordPress/Elementor and the Wayback captures of the
+# speech pages are JS shells (body not archived); but the PDFs themselves are served live and extract
+# fine. This is President William Ruto's era (in office since Sept 2022). Older (Kenyatta) speeches
+# would need a separate historical source.
+source_id: ken_president
+country: Kenya
+source_language: English
+content_type: pdf
+renderer: static
+# The listing HTML legitimately contains the string "cloudflare" (email-obfuscation/CDN), which trips
+# the engine's block-page guard (issue #65) as a FALSE POSITIVE — the page is real (title + PDF links
+# present under every UA). Disable the guard for this site. NOT a WAF: the honest bot UA works fine.
+block_page: false
+start_urls:
+  - https://www.president.go.ke/speeches/
+
+listing:
+  # the per-speech PDF under the uploads tree (server-side <a href> on every listing page)
+  link_pattern: '/wp-content/uploads/[^?]+\.pdf$'
+
+pagination:
+  # /speeches/page/<N>/ ; start_url covers page 1, so paginate from page 2. Pages 1–41 hold PDFs,
+  # page 42 is empty → the engine's "no new links" stop fires there.
+  type: path
+  path_format: 'page/{n}'
+  start: 2
+  step: 1
+  max_pages: 50
+
+# PDFs have no DOM. The PDF's first line is a uniform "REPUBLIC OF KENYA" letterhead, so take the
+# TITLE from the descriptive filename slug via url_regex (e.g. ON-LAND-REFORMS-...-COAST-REGION); the
+# cleaner polishes the dashes/case. DATE is deferred to the cleaner (the slug/URL carries no date).
+title:
+  url_regex: '/uploads/(.+?)\.pdf$'
+text: {}
+date: {}
+
+position: president
+speaker_default: William Ruto
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, live). LIVE PDF recipe for Kenya's presidency (president.go.ke,
+  English-native → English column). The /speeches/ listing paginates /speeches/page/<N>/ (pages 1–41,
+  page 42 empty); each row links a /wp-content/uploads/<SLUG>.pdf served in the raw HTML, so a static
+  crawl harvests them and content_type: pdf extracts the text (pdfminer). PROBE: 10 links/page; TEXT
+  1,422–12,179 chars (real Ruto speeches); TITLE from the filename slug via url_regex; speaker_default
+  William Ruto. NOT a WAF — the honest bot UA works; the listing merely contains the string "cloudflare"
+  (email-obfuscation) which false-trips the #65 block-page guard, so block_page: false. Some PDFs are
+  image-heavy scans that yield little text (degrade cleanly). DATE deferred to the cleaner. Supersedes
+  the master's ken_president "blocked/JS" status (the /speeches_remarks/ HTML pages are JS shells, but
+  the PDFs are the real content). Older Kenyatta-era speeches need a separate source. FULL RUN is the
+  researcher's gate.

@@ -121,6 +121,7 @@ class Fetcher:
         verify_ssl: bool = True,
         user_agent: Optional[str] = None,
         js_settle: float = 0.0,
+        js_context_recycle: int = 0,
         cdp_endpoint: Optional[str] = None,
         block_page: bool = True,
         block_page_patterns: Optional[list[str]] = None,
@@ -141,6 +142,13 @@ class Fetcher:
         # Extra fixed wait after a js/cdp page load (rarely needed; the challenge auto-wait is
         # separate and always on).
         self.js_settle = js_settle
+        # Recycle the headless browser CONTEXT every N page fetches (0 = never). Some WAFs
+        # (gov.il's Cloudflare) flag a context with a CF-1020 'you have been blocked' after the
+        # first request, cascading to block every later fetch on that context — but a fresh
+        # context (cheap; same browser) clears it. `1` = a new context per page (issue #69).
+        self.js_context_recycle = js_context_recycle
+        self._ctx_uses = 0
+        self._context = None
         # renderer: cdp -> the DevTools endpoint of a user-launched Chrome. Recipe field wins,
         # else the env var, else localhost:9222.
         self.cdp_endpoint = cdp_endpoint or os.environ.get(
@@ -181,22 +189,52 @@ class Fetcher:
             # Playwright-launched Chromium cannot (issue #62). Reuse its existing context so we
             # inherit its cookies; don't override the UA (Chrome's own UA is what CF trusts).
             self._browser = self._pw.chromium.connect_over_cdp(self.cdp_endpoint)
-            context = (
+            self._context = (
                 self._browser.contexts[0]
                 if self._browser.contexts
                 else self._browser.new_context()
             )
-            self._page = context.new_page()
+            self._page = self._context.new_page()
             return
         self._browser = self._pw.chromium.launch(headless=True)
-        context = self._browser.new_context(
+        self._new_context_page()
+
+    def _new_context_page(self):
+        """Open a fresh headless browser context + page. Isolating requests in a new context
+        clears a CF-1020 that flags one session (issue #69) — see :attr:`js_context_recycle`."""
+        self._context = self._browser.new_context(
             user_agent=self.user_agent,
             ignore_https_errors=not self.verify_ssl,
             # chromium sets its own Accept/UA; nudge Accept-Language so WAFs that key
             # on it (the same ones the static path's DEFAULT_HEADERS placate) behave.
             extra_http_headers={"Accept-Language": DEFAULT_HEADERS["Accept-Language"]},
         )
-        self._page = context.new_page()
+        self._page = self._context.new_page()
+
+    def _recycle_context(self) -> bool:
+        """Close the current headless context+page and open a fresh one. Only for `renderer: js`
+        (a launched browser) — `cdp` reuses the user's real, CF-cleared context, which must not be
+        torn down. Returns True if it recycled. Resets the per-context fetch counter."""
+        if self.renderer != "js" or self._browser is None:
+            return False
+        for obj in (self._page, self._context):
+            try:
+                if obj is not None:
+                    obj.close()
+            except Exception:
+                pass
+        self._new_context_page()
+        self._ctx_uses = 0
+        return True
+
+    def _maybe_recycle_context(self):
+        """Proactively recycle the context every `js_context_recycle` fetches, so a long-lived
+        context never accumulates enough requests to trip a CF-1020 in the first place."""
+        if not (self.js_context_recycle and self.renderer == "js" and self._browser is not None):
+            return
+        if self._ctx_uses >= self.js_context_recycle:
+            self._recycle_context()
+        self._ctx_uses += 1
 
     def _settle_challenge(self):
         """After a js/cdp navigation, give a self-clearing CF 'Just a moment' interstitial time to
@@ -238,6 +276,7 @@ class Fetcher:
             raise PermissionError(f"Blocked by robots.txt: {url}")
 
         self._pace()
+        self._maybe_recycle_context()  # proactive per-URL context recycle (js) — issue #69
         last_err: Optional[Exception] = None
         for attempt in range(1, self.retries + 1):
             try:
@@ -257,7 +296,16 @@ class Fetcher:
                     pass
                 self._settle_challenge()
                 return self._guard_block(self._page.content(), url)
-            except Exception as e:  # network error, timeout, HTTP error, or a WAF block page
+            except BlockPageError as e:
+                # A CF-1020 ("you have been blocked") that flagged this context won't clear by
+                # retrying the SAME context — swap in a fresh one and retry at once (the recycle
+                # is the remedy, not a wait). Static/cdp can't recycle -> fall through to backoff.
+                last_err = e
+                if self._recycle_context():
+                    continue
+                if attempt < self.retries:
+                    time.sleep(self.backoff * (2 ** (attempt - 1)))
+            except Exception as e:  # network error, timeout, HTTP error
                 last_err = e
                 if attempt < self.retries:
                     time.sleep(self.backoff * (2 ** (attempt - 1)))  # exponential backoff

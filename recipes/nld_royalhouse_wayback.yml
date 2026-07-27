@@ -1,0 +1,51 @@
+# Netherlands — the Royal House official site royal-house.nl (the ENGLISH domain; the Dutch site is
+# koninklijkhuis.nl), via the Internet Archive. English-native → text lands directly in the English
+# `text` column (no translation needed). No live recipe yet.
+#
+# Speeches: /documents/speeches/<yyyy>/<mm>/<dd>/<slug>. CDX ≈ 545 statuscode:200 captures; the URL
+# path carries the delivery date. Spans King Willem-Alexander, Queen Máxima, Queen Beatrix (Speech
+# from the Throne) — content 1999–2026.
+source_id: nld_royalhouse_wayback
+country: Netherlands
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - royal-house.nl/documents/speeches
+
+listing:
+  # dated speech permalink: /documents/speeches/<yyyy>/<mm>/<dd>/<slug>
+  link_pattern: '/documents/speeches/\d{4}/\d{2}/\d{2}/[a-z]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article__title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
+  # the full speech body (probe: 5,686–19,081 chars). Broad article/.content omitted so they can't
+  # grab nav before the fallback.
+  selectors: [".article__content", ".rich-text"]
+date:
+  # authoritative date is in the URL path (/speeches/1999/09/21/...) → named groups assemble ISO
+  selectors: ["time[datetime]", ".article__date"]
+  url_regex: '/documents/speeches/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the Netherlands Royal House ENGLISH site (royal-house.nl → English
+  column, no translation; the Dutch site is koninklijkhuis.nl). CDX prefix
+  royal-house.nl/documents/speeches ≈ 545 statuscode:200 captures 1999–2026. link_pattern keeps the
+  dated /documents/speeches/<yyyy>/<mm>/<dd>/<slug> permalink; DATE comes from that URL path via
+  url_regex (unambiguous ISO). Multiple royals (King Willem-Alexander, Queen Máxima, Queen Beatrix) →
+  NO speaker_default; the cleaner assigns the speaker. PROBE-VALIDATED (2026-07-26, --spread --n 8):
+  540 snapshots; TITLE (h1) clean (e.g. "Speech from the Throne 1999", "Speech by Princess Máxima at
+  the conference..."), DATE from the URL path via url_regex (1999-09-21 …), TEXT via the generic
+  (trafilatura) fallback (5,686–19,081 chars, full speeches). FULL RUN is the researcher's gate.

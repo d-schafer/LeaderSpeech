@@ -287,7 +287,7 @@ def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
     """Build a per-speech record from PDF bytes. The body comes from the PDF text; there's
     no DOM, so title/date/speaker are pulled from the URL via each field's `url_regex`
     (with the usual `speaker_default`), and the title falls back to the PDF's first line."""
-    text = clean_text(pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr))
+    text = clean_text(pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language))
 
     title = clean_text(match_url(recipe.title, url)) or _first_line(text)
     date = date_from_url(recipe.date, url, recipe.date_languages)

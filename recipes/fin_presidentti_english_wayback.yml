@@ -1,0 +1,44 @@
+# Finland — Office of the President (presidentti.fi), the ENGLISH tree /en/, via the Internet
+# Archive. presidentti.fi is native Finnish/Swedish; /en/ is the official English site, so speeches
+# land directly in the English `text` column (no translation needed). No live fin_presidentti recipe.
+#
+# The site exposes a dedicated speeches category: /en/speeches/<slug>. CDX for presidentti.fi/en ≈
+# 4,500 statuscode:200 captures spanning 2000–2026 (Halonen→Niinistö→Stubb).
+source_id: fin_presidentti_english_wayback
+country: Finland
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - presidentti.fi/en
+
+listing:
+  # dedicated speeches category permalink (+ press-release, which carries first-person statements);
+  # the negative lookahead drops the /en/speeches/page/N/ pagination shells
+  link_pattern: '/en/(speeches|press-release)/(?!page/)[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".entry-title", ".page-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  selectors: [".entry-content", ".post-content", "article", ".content"]
+date:
+  selectors: ["time[datetime]", ".entry-date", ".date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 961 snapshots in the speeches+press-release
+  subset; TITLE (h1), TEXT (.entry-content, 471–964 chars) and DATE (time[datetime]) all GREEN. The
+  /en/speeches/page/N/ pagination shells are excluded by a negative lookahead. Wayback ENGLISH tree
+  of Finland's presidency (presidentti.fi/en → English column, no translation). Sampled content
+  2014–2022 (Niinistö). Multiple presidents overall → NO speaker_default; the cleaner's tenure
+  crosscheck assigns the speaker. FULL RUN is the researcher's gate.

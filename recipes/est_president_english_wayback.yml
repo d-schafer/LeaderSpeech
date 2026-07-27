@@ -1,0 +1,52 @@
+# Estonia — President of the Republic (president.ee), the ENGLISH tree /en/, via the Internet
+# Archive. president.ee is native Estonian; /en/ is the official English site with a dedicated
+# speeches category, so speeches land directly in the English `text` column (no translation needed).
+# No live est_president recipe yet.
+#
+# Speeches: /en/official-duties/speeches/<id>-<slug> (targeting this subtree deliberately avoids the
+# huge /en/estonia/decorations/bearer/... medal-holder pages that flood the broad /en prefix). CDX
+# for that prefix ≈ 1,415 statuscode:200 captures spanning 2010–2026 (Ilves→Kaljulaid→Karis).
+source_id: est_president_english_wayback
+country: Estonia
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - president.ee/en/official-duties/speeches
+
+listing:
+  # speech permalink under the speeches category: /en/official-duties/speeches/<id>[-<slug>]
+  link_pattern: '/en/official-duties/speeches/\d'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".article-title", ".title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
+  # the full speech body (probe: 3,310–18,604 chars).
+  selectors: [".article-body", ".article__content"]
+date:
+  # DATE TRAP: .date matched the sidebar recent-speeches feed (a block of DD.MM.YYYY values) → omitted;
+  # date deferred to the cleaner's corrected-date pass + wayback_capture backstop.
+  selectors: ["time[datetime]"]
+
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback ENGLISH tree of Estonia's presidency (president.ee/en → English column, no
+  translation). link_pattern targets the dedicated /en/official-duties/speeches/<id>-<slug> category
+  (avoiding the /en/estonia/decorations/bearer/... medal pages that dominate the broad /en prefix).
+  CDX for /en/official-duties ≈ 1,415 statuscode:200 captures 2010–2026 (Ilves→Kaljulaid→Karis).
+  Multiple presidents → NO speaker_default; the cleaner's tenure crosscheck assigns the speaker.
+  PROBE-VALIDATED (2026-07-26, --spread --n 7): 911 snapshots; TITLE (h1) clean speech titles (e.g.
+  "President Toomas Hendrik Ilves's opening speech at Tallinn Music Week", "At the e-Governance
+  Conference"); TEXT via the generic (trafilatura) fallback (3,310–18,604 chars, full speeches). DATE
+  trap: .date matched the sidebar recent-speeches feed → dropped, deferred to the cleaner +
+  wayback_capture → recipe_status partial. FULL RUN is the researcher's gate.

@@ -1,0 +1,56 @@
+# Romania — Presidency (presidency.ro), the ENGLISH tree, via the Internet Archive. ENGLISH companion
+# to the native rou_presidency_wayback (which harvests /ro/media/discursuri). Genuine English text →
+# English `text` column, no translation. "yes-and" — the live presidency.ro is JS-challenge blocked.
+#
+# TWO English generations under the /en + /eng prefixes (CDX prefix-match catches both):
+#   1. MODERN  presidency.ro/en/media/speeches/<slug>   (Iohannis-era English addresses)
+#   2. OLD ASP presidency.ro/eng/discursuri/<year>/<file>.htm  (Iliescu/Constantinescu 1998–2004)
+source_id: rou_presidency_english_wayback
+country: Romania
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'. "presidency.ro/en" prefix-matches both
+  # /en/… and /eng/… captures (en is a prefix of eng).
+  - presidency.ro/en
+
+listing:
+  # modern /en/media/speeches/<slug> + old ASP /eng/discursuri/<year>/<file>.htm
+  link_pattern: '/en/media/speeches/[^/]{8,}|/eng/discursuri/\d{4}/[^/]+\.htm'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # modern layout: h2 is the speech title (h1 is the site banner). Old ASP /eng/discursuri pages have
+  # <title>="Untitled Document" (junk) → we do NOT select <title>; those defer to the cleaner deriving
+  # the title from the body (the aus_gg pattern).
+  selectors: ["h2", ".news-title"]
+text:
+  # reuse the native recipe's containers; old ASP pages fall to the generic (trafilatura) fallback
+  selectors: [".news-details", ".inner-left", ".content", "article"]
+date:
+  # modern .link-big-date is a crawl/JS artifact (see the native recipe) — omitted. Old ASP filenames
+  # carry a 2-digit-year yymmdd (dis-030904 = 2003-09-04) and the dir year can be a range
+  # (/eng/discursuri/2000-2001/) → too ambiguous for a url_regex, so DATE is deferred to the cleaner's
+  # corrected-date pass (occasion/date stated in-text), mirroring the native rou_presidency_wayback.
+  selectors: ["time[datetime]"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 75 snapshots. MODERN /en/media/speeches/<slug>
+  (Iohannis-era English addresses) → h2 title + .news-details text (e.g. his UN General Assembly
+  intervention, 7,230 chars). OLD ASP /eng/discursuri/<year>/<file>.htm (Iliescu/Constantinescu
+  2002–2003) → text via the engine's generic (trafilatura) fallback (5,131–17,189 chars, full
+  speeches); <title>="Untitled Document" so title is left to the cleaner (aus_gg pattern). Wayback
+  ENGLISH companion to Romania's presidency (yes-and to native rou_presidency_wayback; genuine English
+  → English column, no translation). Multiple presidents → NO speaker_default; the cleaner's tenure
+  crosscheck assigns the speaker. DATE: modern element is a crawl artifact + old ASP dates are
+  ambiguous → all deferred to the cleaner + wayback_capture backstop → recipe_status partial. FULL RUN
+  is the researcher's gate.

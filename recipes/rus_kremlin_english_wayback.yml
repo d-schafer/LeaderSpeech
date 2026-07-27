@@ -1,0 +1,52 @@
+# Russia — Presidency of the Russian Federation, the ENGLISH mirror en.kremlin.ru, via the
+# Internet Archive. kremlin.ru is native Russian; en.kremlin.ru is the official English site, so
+# text lands directly in the English `text` column (no translation needed). Wayback English
+# companion, "yes-and" — no live rus_kremlin recipe exists yet.
+#
+# The speech/remarks stream lives under /events/president/transcripts/<numeric-id>. CDX for that
+# prefix ≈ 60,000+ statuscode:200 captures (IA snapshotted mostly 2015–2026), but the numeric ids
+# reach back to 2000, so the CONTENT spans Putin's first terms + Medvedev (2008–2012) + Putin again.
+# The link_pattern keeps only the numeric article permalink and drops the /videos, /photos,
+# /by-date/, /copy/ and section-listing captures.
+source_id: rus_kremlin_english_wayback
+country: Russian Federation
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - en.kremlin.ru/events/president/transcripts
+
+listing:
+  # numeric article id immediately after transcripts/, NOT followed by another digit or a slash
+  # (so /transcripts/61896/videos, /transcripts/copy/24727, /transcripts/by-date/... are excluded).
+  link_pattern: '/events/president/transcripts/\d+(?![\d/])'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".entry-title", ".read__title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # kremlin's article body container; generic (trafilatura) fallback recovers it if the class drifts
+  selectors: [".read__content", ".entry-content", "article", ".b-material-text"]
+date:
+  selectors: ["time[datetime]", ".read__published", ".date", "time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 10): 11,015 snapshots; TITLE (h1), TEXT
+  (.read__content, 1,486–20,575 chars) and DATE (time[datetime]) all GREEN on every sample. Wayback
+  ENGLISH companion to Russia's presidency (yes-and; en.kremlin.ru is the official English mirror of
+  kremlin.ru → English column, no translation). link_pattern keeps only /transcripts/<numeric-id>
+  permalinks (excludes /videos, /photos, /copy, /by-date listings). The numeric ids reach back to
+  2000, so CONTENT spans 2000–2024: Putin + Medvedev (2008–2012) — verified samples incl. the 2008
+  inauguration speech, the 2009 Ingushetia (Medvedev) meeting, the 2010 New Year address. NO
+  speaker_default (Putin+Medvedev) → the cleaner's tenure crosscheck assigns the speaker and joint
+  transcripts aren't mislabeled. FULL RUN is the researcher's gate.

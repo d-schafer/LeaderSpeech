@@ -1,0 +1,57 @@
+# Singapore — the Istana / Office of the President (istana.gov.sg), via the Internet Archive.
+# English-native → text lands directly in the English `text` column (no translation needed). No live
+# sgp_istana recipe yet.
+#
+# The dedicated speeches archive uses a dated permalink: /Newsroom/Speeches/<yyyy>/<mm>/<dd>/<slug>.
+# CDX for istana.gov.sg/Newsroom ≈ 1,064 statuscode:200 captures; the Speeches subtree spans Presidents
+# Tony Tan (2011–2017), Halimah Yacob (2017–2023) and Tharman Shanmugaratnam (2023– ). (The site's
+# modern /newsroom/<slug> permalinks drop the /Speeches/ category from the path and are NOT reliably
+# separable from press releases, so this recipe targets the cleanly-categorised dated Speeches path.)
+source_id: sgp_istana_wayback
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  - istana.gov.sg/Newsroom/Speeches
+
+listing:
+  # dated speech permalink: /Newsroom/Speeches/<yyyy>/<mm>/<dd>/<slug> (case-insensitive-ish)
+  link_pattern: '/[Nn]ewsroom/[Ss]peeches/\d{4}/\d{2}/\d{2}/[A-Za-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # <title> is inconsistent across captures (sometimes the full "Speech by President ...", sometimes
+  # just the "The Istana" banner) → take the headline from the URL slug (the segment after the date)
+  # via url_regex; the cleaner polishes the dashes.
+  url_regex: '/[Ss]peeches/\d{4}/\d{2}/\d{2}/(.+?)(?:\?|$)'
+text:
+  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
+  # the full speech body (probe: 3,326–4,952 chars)
+  selectors: [".body-content", ".field-content"]
+date:
+  # authoritative date is in the URL path (/Speeches/2025/05/27/...) → named groups assemble ISO
+  selectors: ["time[datetime]", ".date"]
+  url_regex: '/[Nn]ewsroom/[Ss]peeches/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of Singapore's presidency speeches (istana.gov.sg, English-native →
+  English column, no translation). link_pattern targets the dated /Newsroom/Speeches/<yyyy>/<mm>/<dd>/
+  <slug> permalink; DATE from that URL path via url_regex. Presidents Tony Tan (2011–2017), Halimah
+  Yacob (2017–2023), Tharman (2023– ) → NO speaker_default; the cleaner's tenure crosscheck assigns
+  the speaker. The site's modern /newsroom/<slug> permalinks drop the /Speeches/ category and aren't
+  cleanly separable from press releases, so they are NOT harvested here (a broader recipe could add
+  them later). PROBE-VALIDATED (2026-07-26, --spread --n 7): 84 snapshots in the dated Speeches
+  subtree; DATE from the URL path via url_regex (2005-12-10 = S R Nathan … 2025 = Tharman), TITLE from
+  the URL slug via url_regex (<title> is an inconsistent "The Istana" banner on some captures), TEXT
+  via the generic (trafilatura) fallback (3,326–4,952 chars, full speeches). Small but exact-dated
+  corpus. FULL RUN is the researcher's gate.

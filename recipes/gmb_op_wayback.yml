@@ -1,0 +1,52 @@
+# The Gambia — Office of the President (op.gov.gm), the speech PDFs, via the Internet Archive.
+# English-native → text lands directly in the English `text` column. The live gmb_op recipe is PARTIAL
+# (broken ?page=N pager, only ~3 of ~9 Barrow years, stale since May 2024). The presidency publishes
+# each speech as a PDF under /sites/default/files/…; the Archive holds them, so this recipe recovers
+# the full set via content_type: pdf over wayback. "yes-and" to the live recipe.
+#
+# CDX for op.gov.gm (mimetype:application/pdf) ≈ 94 PDF captures spanning 2021–2026 (President Adama
+# Barrow). Speeches, statements, remarks, addresses (+ some non-speech PDFs the cleaner gates out).
+source_id: gmb_op_wayback
+country: The Gambia
+source_language: English
+content_type: pdf
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www), NO trailing '*'.
+  - op.gov.gm/sites/default/files
+
+listing:
+  # keep the bare PDF object under the uploads tree
+  link_pattern: '/sites/default/files/.+\.pdf$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "mimetype:application/pdf"
+    - "statuscode:200"
+
+# PDFs have no DOM: title falls back to the PDF's first line; date is deferred to the cleaner's
+# corrected-date pass (+ wayback_capture) because the filename date format is inconsistent
+# (DDMMYYYY prefix vs a /YYYY-MM/ folder).
+title: {}
+text: {}
+date: {}
+
+position: president
+speaker_default: Adama Barrow
+date_languages: ["en"]
+notes: >
+  DRAFT — PDF-over-wayback recovery of Gambia's presidency speeches (op.gov.gm, English-native →
+  English column, no translation). CDX (op.gov.gm, mimetype:application/pdf) ≈ 94 PDF captures
+  2021–2026 (President Adama Barrow, in office since 2017). content_type: pdf downloads each archived
+  PDF and extracts text (pdfminer), mirroring bra_biblioteca_wayback. wayback_filter keeps only the PDF
+  binaries. speaker_default Adama Barrow (single-president window). TITLE from the PDF's first line;
+  DATE deferred to the cleaner + wayback_capture (filename date format is inconsistent). Some non-speech
+  PDFs (biodata, newsletters, communiqués) are harvested → the cleaner's document-type gate drops them.
+  Companion to the PARTIAL live gmb_op (broken pager). PROBE-VALIDATED (2026-07-26, --spread --n 6): 93
+  PDF snapshots; TEXT extracts (Barrow speeches 5,963–9,204 chars; e.g. "Statement by His Excellency
+  Adama Barrow…"); speaker_default Adama Barrow. TITLE is the PDF's first line (weak, e.g. "SPEECH BY"
+  / "STATEMENT") → the cleaner derives a better title from the body. State-House newsletters (100k+
+  chars) are among the PDFs → cleaner's document-type gate drops them. FULL RUN is the researcher's gate.

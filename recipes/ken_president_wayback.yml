@@ -1,0 +1,64 @@
+# Kenya — Office of the President (president.go.ke), the OLD WordPress site, via the Internet Archive.
+# English-native → text lands directly in the English `text` column. This is the Uhuru Kenyatta era
+# (president 2013–2022): the pre-Elementor site used date-permalink posts
+# president.go.ke/<yyyy>/<mm>/<dd>/<slug>/ (speeches listed under /category/speeches/), and those
+# archived pages are CLEAN server-rendered HTML (unlike the modern Elementor /speeches_remarks/ pages,
+# which archive as JS shells — hence the live ken_president recipe scrapes today's PDFs instead).
+# "yes-and" to the live ken_president (Ruto 2022– PDFs): this recipe is the Kenyatta 2013–2022 corpus.
+#
+# CDX for president.go.ke/20 ≈ 8,000 date-path post captures spanning 2014–2022. The posts are a mix
+# of speeches + presidency news (WordPress uses date permalinks for every post); the cleaner's
+# document-type gate keeps the speech/official_statement subset.
+source_id: ken_president_wayback
+country: Kenya
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  # "…/20" catches every /2013…/2022/ date-path post. (Deliberately the /20 prefix, not
+  # /category/speeches, because the engine harvests article URLs from the CDX, not by crawling the
+  # listing pages; the tight link_pattern + the cleaner's gate do the speech selection.)
+  - president.go.ke/20
+
+listing:
+  # date-permalink post: /<yyyy>/<mm>/<dd>/<slug>/ ending at the slug (excludes /YYYY/MM/ month
+  # archives and the /<slug>/embed/ + /feed/ WordPress duplicates)
+  link_pattern: '/20\d\d/\d\d/\d\d/[-a-z0-9%]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.entry-title", "h1", ".entry-title", ".post-title", "title"]
+  regex: '^\s*(.+)'
+text:
+  # WordPress article body; generic (trafilatura) fallback recovers it if the theme class drifts
+  selectors: [".entry-content", ".post-content", ".single-content", "article"]
+date:
+  # url_regex ONLY (no date selector), deliberately: the permalink /2017/01/27/… is authoritative and
+  # unambiguous, whereas .post-date returns a re-crawl artifact on archived pages (probe: a /2015/03/03/
+  # URL gave .post-date=2016-04-07). Mirrors aus_gg_wayback.
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback recovery of the OLD president.go.ke WordPress site (Uhuru Kenyatta era, 2013–2022),
+  English-native → English column, no translation. CDX prefix president.go.ke/20 ≈ 8,000 date-path
+  post captures 2014–2022; link_pattern keeps /<yyyy>/<mm>/<dd>/<slug>/ posts (drops /embed//feed/
+  duplicates + month archives). DATE from the URL permalink via url_regex (unambiguous ISO). The old
+  pages are clean server-rendered HTML (title h1.entry-title, body .entry-content / generic fallback)
+  — NOT the modern Elementor JS shells. Posts mix speeches + presidency news → the cleaner's
+  document-type gate keeps the speech/official_statement subset. NO speaker_default: the feed carries
+  Uhuru Kenyatta AND First Lady Margaret Kenyatta ("SPEECH BY H.E. MARGARET KENYATTA…") AND quoted
+  ministers → the cleaner's speaker pass + tenure crosscheck attribute each (Uhuru dominates the
+  window). "yes-and" to the live ken_president (Ruto 2022– PDFs). PROBE-VALIDATED (2026-07-26, --spread
+  --n 8): 4,252 date-path posts; TITLE (h1) clean ("Stop propagating tribal politics, President tells
+  opposition"); TEXT via .entry-content / generic fallback (2.7k–3.9k chars); DATE from the URL
+  permalink via url_regex (NOT .post-date, which returns a re-crawl artifact). FULL RUN is the
+  researcher's gate.
