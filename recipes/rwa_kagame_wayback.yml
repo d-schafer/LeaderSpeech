@@ -1,0 +1,87 @@
+# Rwanda — President Paul Kagame's official speech archive (paulkagame.com), via the Internet
+# Archive. English-native (Rwanda made English an official language in 2008; this site publishes
+# in English, with a minority of Kinyarwanda items the cleaner's language pass will route) →
+# text lands straight in the English column. GREENFIELD: no live Rwanda recipe exists.
+#
+# WHY paulkagame.com and not presidency.gov.rw: the presidency host holds only ~64 status-200
+# /speeches/ captures, many of them truncated slugs, and its content is a subset of the same
+# Joomla speech archive that paulkagame.com carries. paulkagame.com has ~7,666 captures.
+#
+# TWO SITE GENERATIONS, both harvested here:
+#   * WordPress (2021– ): flat single-segment posts paulkagame.com/<long-slug>/ — 3,289 captures.
+#     Body in <article>, date in div.post-date, title in a clean single <h1>.
+#   * Joomla (…2017):  paulkagame.com/index.php/speeches[/<category>]/<id>-<slug> — 284 captures.
+#     Body in article.item-page, NO h1 (the <title> tag is the clean headline), and no usable
+#     date element (see the date note).
+source_id: rwa_kagame_wayback
+country: Rwanda
+source_language: English
+renderer: static
+start_urls:
+  # Bare host: the two generations share no prefix, and the link_pattern selects precisely.
+  - paulkagame.com
+
+listing:
+  # Alternation over the two generations, anchored at the end.
+  #   index.php/(speeches|press)/…   the Joomla speech + press/interview trees
+  #   <one long slug>/               the WordPress posts. The 28-char floor keeps real speech
+  #                                  slugs ("president-kagame-opens-youth-broadband-forum-4")
+  #                                  while dropping short gallery stubs ("gender-7-2").
+  # Anchoring at $ excludes: the ?url=…%2F duplicate-render captures (2024 crawl), /?p=<id>,
+  # /?m=<yyyymm>, and the /speeches/page/<N>/ + /news/page/<N>/ paginators (multi-segment).
+  #
+  # The LEADING negative lookahead drops the KINYARWANDA items (81 of 3,571 in the probe
+  # harvest = 2.3%), whose slugs carry "ijambo" (speech), "nyakubahwa" (His Excellency) or
+  # "perezida-wa-repubulika". This recipe declares source_language: English, and map_to_schema
+  # routes the body by THAT — so a Kinyarwanda body would land in the English `text` column,
+  # which is exactly the data-quality bug found on geo_president_wayback. Slug matching only
+  # catches the obvious ones; the cleaner's language pass is the backstop. A companion
+  # rwa_kagame_kinyarwanda_wayback (source_language: Kinyarwanda -> translation stage) could
+  # harvest them properly later, the way afg_aop_english/afg_aop_dari are split.
+  link_pattern: '(?!.*(?:ijambo|nyakubahwa|perezida-wa-repubulika))paulkagame\.com(?::80)?/(?:index\.php/(?:speeches|press)/[^?]+|[a-z0-9][a-z0-9-]{28,}/?)$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # WordPress gen: one clean h1. Joomla gen: NO h1 at all, and its three h2s would be joined
+  # into "…Turkish Leaders PODCASTS ARTICLES" — but its <title> is exactly the headline.
+  selectors: ["h1", "title"]
+text:
+  # <article> covers both generations (article#post-<id> on WP, article.item-page on Joomla).
+  selectors: ["article", ".entry-content", ".item-page"]
+date:
+  # div.post-date ONLY, and deliberately so. It is WordPress-generation-specific and exact
+  # ("September 23, 2010"). A generic [class*=date] selector must NOT be used: on the Joomla
+  # pages it matches div.dateArchive — a sidebar month-archive widget whose text is ~47,500
+  # chars of other speeches' titles. Joomla captures therefore carry no scraped date and fall
+  # through to the cleaner's corrected-date pass (their body opens with "Istanbul, 21 March
+  # 2012"-style datelines) and the wayback_capture backstop.
+  selectors: ["div.post-date"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of paulkagame.com, President Paul Kagame's official speech
+  archive (Wayback Session 3, 2026-07-27). PROBE-VALIDATED: 7,666 host captures -> 3,463 kept
+  (WordPress flat-slug posts, content back to ~2009, plus the Joomla /index.php/speeches/ tree;
+  3,571 before the Kinyarwanda exclusion removed 108).
+  ⚠️ YIELD CAVEAT — about ONE IN FOUR kept URLs is a VIDEO-ONLY post with no transcript: its
+  <article> holds ~15 chars and even the generic extractor recovers only ~570 chars of page
+  chrome (sampled: 2 of 8; both had the "<Event> | Kigali, <date>" title form). Those rows will
+  be rejected by the cleaner's document_type/length gate, so budget the real speech yield at
+  roughly 2,600 rather than 3,463. The other 6 of 8 samples gave real bodies of 928–3,859 chars
+  with recipe ≈ generic length, confirming <article> is the right container.
+  TITLE h1 (WP) / <title> (Joomla, which has no h1);
+  TEXT <article> on both; DATE div.post-date on WP only — a generic date-class selector would
+  hit Joomla's 47k-char sidebar month-archive widget, so Joomla dates are left to the cleaner.
+  NO speaker_default: although this is Kagame's own site, it also carries third-person news and
+  the occasional guest speaker, so the cleaner's speaker pass + tenure crosscheck decide.
+  Kinyarwanda items ("ijambo rya perezida…") are a minority; the cleaner's language handling
+  routes them. presidency.gov.rw was triaged and NOT authored — ~64 captures, largely the same
+  Joomla speeches, so it would mostly add duplicates. FULL RUN is the researcher's gate.

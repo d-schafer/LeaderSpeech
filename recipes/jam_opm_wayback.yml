@@ -1,0 +1,73 @@
+# Jamaica — Office of the Prime Minister (opm.gov.jm), via the Internet Archive.
+# English-native → text lands straight in the English column, no machine translation.
+# GREENFIELD: no live Jamaica recipe exists.
+#
+# WHICH OFFICE: the PRIME MINISTER is Jamaica's head of GOVERNMENT and the substantive speaker;
+# the Governor-General (kingshouse.gov.jm) is the ceremonial Crown representative and is NOT
+# targeted here. Covers PMs Andrew Holness (2016– , and 2011–12), Portia Simpson Miller
+# (2012–2016) and the tail of Bruce Golding — so speaker_default is deliberately omitted.
+#
+# WHERE THE SPEECHES ARE — three shapes, all in this one harvest:
+#   * /speech/<slug>/      the current WordPress category (396 captures, 2013–2026)
+#   * /speeches/<slug>/    the older plural path (2015 era)
+#   * /<speech|address|statement|remarks>-<long-slug>/   root-level posts (Simpson Miller era
+#     and recent Holness statements), which is why start_urls is the bare host.
+# The general /news/<slug> stream (1,746 captures) is NOT harvested: it is third-person press
+# reporting rather than the leader's own words. It could be added later as a separate recipe if
+# the researcher wants official_statement coverage.
+source_id: jam_opm_wayback
+country: Jamaica
+source_language: English
+renderer: static
+start_urls:
+  # Bare host: the three speech shapes above do not share a common prefix, and the tight
+  # link_pattern below does the selection.
+  - opm.gov.jm
+
+listing:
+  # Anchored at the end so the ?utm_/?share query-string duplicates of the same post are
+  # dropped (they would otherwise be scraped twice). (?::80)? tolerates the archived
+  # http://opm.gov.jm:80/ form that the Wayback CDX records for older captures.
+  link_pattern: 'opm\.gov\.jm(?::80)?/(?:speech(?:es)?/[a-z0-9][a-z0-9-]*/?|(?:speech|address|statement|remarks)-[a-z0-9-]{15,}/?)$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # <title> + a lookahead that strips the site suffix. Two reasons not to use h1.entry-title:
+  # on the current generation it matches TWICE (a "Speech by the Prime Minister" category label
+  # plus the real headline) and first_match JOINS all matches; <title> is clean on both
+  # generations. The lookahead form is required because the engine's title `regex` keeps
+  # group(0), not group(1) — a capture group would not strip anything.
+  selectors: ["title"]
+  regex: '^\s*.+?(?=\s*[|–—-]\s*Office of the Prime Minister|$)'
+text:
+  # .entry-content on both generations (5.3k on the current, 12.6k on the 2015 one).
+  selectors: [".entry-content", "article", ".post-content"]
+date:
+  # .published is the article's own publish date on the current generation ("August 15, 2016").
+  # The 2015 generation has no .published; its <time> carries "February 11, 2015 at 9:28 am."
+  # (both verified to parse). .entry-date is a third fallback.
+  selectors: [".published", "time", ".entry-date"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of opm.gov.jm (Wayback Session 3, 2026-07-27).
+  PROBE-VALIDATED: 415 captures kept (396 under /speech(es)/<slug>, 2013–2026, plus the
+  root-level speech/address/statement/remarks posts); harvested from the bare host because the
+  three shapes share no prefix. Sampled bodies are REAL PM speeches of 8.0k–20.5k chars
+  (Simpson Miller 2012 investment-conference address; Holness 2022 ministry opening), with
+  TITLE/TEXT/DATE all green and dates spanning 2012–2024. The
+  /news/<slug> stream (1,746 captures, third-person press reporting) is deliberately EXCLUDED —
+  a possible separate recipe if official_statement coverage is wanted. TITLE from <title> with
+  a suffix-stripping lookahead (h1.entry-title matches twice on the current generation and would
+  be joined). TEXT .entry-content; DATE .published / <time>, both verified to parse. NO
+  speaker_default — Holness (2016– ), Simpson Miller (2012–2016) and Golding all appear, so the
+  tenure crosscheck assigns from country+date. The PM is the head of GOVERNMENT; the ceremonial
+  Governor-General (kingshouse.gov.jm) is out of scope here. FULL RUN is the researcher's gate.

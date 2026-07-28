@@ -1,0 +1,68 @@
+# United Kingdom — the PRIME MINISTER's speeches on GOV.UK, via the Internet Archive.
+# English-native. GREENFIELD: no UK recipe exists (the ceremonial royal household is
+# deliberately out of scope; the PM is the head of GOVERNMENT and the substantive speaker).
+#
+# THE PROBLEM GOV.UK POSES: /government/speeches is the WHOLE of government — 22,696 archived
+# captures covering ministers, ambassadors, regulators (Ofsted, CMA), UN statements and so on.
+# There is no per-organisation path segment in a speech URL, so the only lever is the SLUG.
+# GOV.UK's editorial convention prefixes the Prime Minister's items:
+#     pm-speech-… / pm-statement-… / pm-remarks-… / pm-address-… / pms-… /
+#     prime-ministers-… / prime-minister-…
+# Filtering on that yields 858 captures (2013–2026): Cameron, May, Johnson, Truss, Sunak,
+# Starmer. This is PRECISION over recall by design — a PM speech titled without the prefix
+# (e.g. "speech-to-uk-israel-business-annual-dinner") is missed, but the alternative is
+# flooding the corpus with thousands of non-leader speeches for the cleaner to reject.
+source_id: gbr_govuk_pm_wayback
+country: United Kingdom
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — also the section index, which the engine drops (article path != listing path).
+  - gov.uk/government/speeches
+
+listing:
+  # Anchored at $ so the ?utm_medium= / ?mc_cid= / ?fbclid= tracking-parameter captures of the
+  # same speech are dropped — GOV.UK newsletter links generated a lot of them, and the engine
+  # de-duplicates by exact URL, so they would each be scraped as a separate row. Dropping them
+  # takes the harvest from 1,642 captures to 858 canonical ones.
+  link_pattern: '/government/speeches/(?:pm-|pms-|prime-minister)[a-z0-9-]*$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Server-side narrowing to the PM slugs so the CDX call returns ~858 rows instead of the
+    # whole 22,696-capture government-wide speech tree. Mirrors the link_pattern above.
+    - "original:.*/government/speeches/(pm-|pms-|prime-ministers?-|prime-minister)[a-z0-9-]*$"
+
+title:
+  # GOV.UK renders the speech headline as the single h1 ("PM speech at Commonwealth leaders
+  # reception"); the template has been stable across the whole archived period.
+  selectors: ["h1", "title"]
+text:
+  # .govspeak is GOV.UK's body wrapper for the speech text itself (4.5k chars on the sample).
+  selectors: [".govspeak", "#contents", "article", "main"]
+date:
+  # GOV.UK's published-date <time> ("19 September 2017").
+  selectors: ["time", ".app-c-published-dates"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — GREENFIELD Wayback recovery of the UK Prime Minister's GOV.UK speeches (Wayback
+  Session 3, 2026-07-27). CDX: 22,696 captures under /government/speeches government-wide;
+  a PM-slug filter (applied BOTH server-side as a CDX `original:` filter and in the
+  link_pattern) narrows to 1,642, and anchoring at $ to drop tracking-parameter duplicates
+  leaves 858 canonical captures, 2013–2026 (Cameron, May, Johnson, Truss, Sunak, Starmer).
+  PRECISION OVER RECALL is deliberate and is the main thing for the researcher to weigh: PM
+  speeches whose slug lacks the pm-/prime-minister prefix are missed. TITLE h1, TEXT .govspeak,
+  DATE <time> — all verified on a sampled capture; the GOV.UK template is stable. NO
+  speaker_default (six PMs) → tenure crosscheck. The ceremonial royal household (royal.uk) is
+  deliberately NOT covered. LEADS not authored this session: number10.gov.uk holds 165 captures
+  of /news/speeches-and-transcripts/<yyyy>/<mm>/<slug>-<id> (Brown/Cameron 2009–2011) and 8,776
+  captures of the Blair-era /output/Page<N>.asp scheme — the latter is untyped (speeches, news
+  and bios share one URL shape), so it needs its own triage before it is worth harvesting.
+  FULL RUN is the researcher's gate.

@@ -1,0 +1,97 @@
+# Ireland — President of Ireland (president.ie), MODERN speech scheme via the Internet Archive.
+# English-native → text lands straight in the English column, no machine translation.
+#
+# "YES-AND" companion to the LIVE irl_president.yml (same /en/media-library/speeches tree, path
+# pagination P0..P2400). Wayback adds (a) insurance against the live pager/site changing, and
+# (b) captures of slugs the live listing has since dropped. The Archive holds ~4,451 status-200
+# captures of /en/media-library/speeches/<slug>, 2015–2026.
+#
+# WHO: Michael D. Higgins (2011– ) dominates, but the modern site also RE-PUBLISHES the speech
+# archives of Mary McAleese (1997–2011) and Mary Robinson (1990–1997) at modern slugs
+# (e.g. .../speeches/remarks-by-president-mcaleese-at-a-garden-party-for-carers-aras-an-uachtara,
+# .../speeches/address-by-president-robinson-at-the-state-banquet-...), so a single harvest
+# reaches back three presidencies. speaker_default is therefore deliberately omitted.
+source_id: irl_president_wayback
+country: Ireland
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — the engine prefix-matches, so NO trailing '*'. This path is also the listing
+  # index, which filter_entries_for_recipe drops automatically (article path != listing path).
+  - president.ie/en/media-library/speeches
+
+listing:
+  # ONE slug segment under /speeches/ and nothing after it, minus four kinds of non-speech URL
+  # that the first probe surfaced in the 4,345-capture harvest:
+  #   * /speeches/P<N>  — 188 of them. These are the LIVE site's path PAGINATOR pages
+  #     (irl_president.yml uses path_format "P{n}", P0..P2400). Each is a listing, and one
+  #     sampled page extracted 326,426 chars of concatenated speech titles. The single most
+  #     important exclusion here.
+  #   * /speeches/Microsoft.XMLHTTP, /Msxml2.XMLHTTP, /Microsoft.XMLDOM — JS crawl artifacts.
+  #   * /speeches/0.4s and similar bare numeric tokens — crawl artifacts. NOTE the lookahead is
+  #     deliberately narrow (whole-slug numeric only): real slugs DO start with digits
+  #     ("100-years-at-bolton-street-college", "1922-the-most-significant-year").
+  #   * /speeches/selected-speeches — the curated index (same exclusion as the live recipe).
+  # Requiring exactly one segment also drops the /speeches/get-size/get-size artifacts, and
+  # the [^\[\]] class drops truncated/garbled slugs like "1916-and-the-ethics-of-memory[77".
+  # /en/media-library/oraidi/<slug> — the IRISH-language rendering of the same speeches — sits
+  # on a different path and so never enters this harvest.
+  link_pattern: '/en/media-library/speeches/(?!selected-speeches$|P\d+$|Microsoft\.|Msxml2\.|\d+(?:\.\d+)?s?$)[^/?#\[\]]+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # THREE archived template generations, and the naive "h1" is WRONG on two of them:
+  #   * 2020+ redesign: the bare h1 is the section header "Media Library"; the speech title is
+  #     h2.heading (this is also what the live recipe uses).
+  #   * 2016 & 2018 generations: no h2.heading at all; there are FOUR h1s ("President of Ireland"
+  #     banner x2, the real title, then a footer h1) — so a plain "h1" selector would join all
+  #     four. Scoping to #media-speeches (the article element) picks the real one.
+  selectors: ["h2.heading", "#media-speeches h1", "title"]
+text:
+  # 2020+ gen: div.c-detail-page-content (~10k chars). 2016/2018 gens: article#media-speeches /
+  # section#content (~8.6–9.2k chars). Verified on captures from all three generations.
+  selectors:
+    - ".c-detail-page-content"
+    - "article#media-speeches"
+    - "section#content"
+    - ".detail-page-content-wrapper"
+date:
+  # The live recipe's date element. Where it is absent from a capture the field is left EMPTY on
+  # purpose — see the note below; a blank date is honest, a wrong one corrupts the time series.
+  selectors: ["h3.page-subheading"]
+
+keep_if:
+  # DROP the EMPTY-SHELL captures. Some /speeches/<slug> snapshots archived the media-library
+  # search page with no article in it (verified: h2.heading, #media-speeches h1 and
+  # .c-detail-page-content are all absent; main#content holds a 753-char year-filter widget and
+  # <body> holds 4,064 chars of site navigation). Left alone, the engine's generic trafilatura
+  # fallback would rescue ~3,064 chars of that NAVIGATION CHROME and write it as a speech.
+  # keep_if with selectors-only keeps a page only when a real article container is present, so
+  # the shells are dropped for the cost of one fetch rather than one GPT call apiece.
+  selectors: [".c-detail-page-content", "article#media-speeches", "section#content"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback "yes-and" companion to the live irl_president.yml (Wayback Session 3,
+  2026-07-27). PROBE-VALIDATED: 4,451 raw status-200 captures of /en/media-library/speeches/
+  <slug> -> 4,152 after the link_pattern exclusions (the live recipe itself harvests 2,395, so
+  this roughly doubles the reachable set).
+  TITLE spans THREE archived template generations (h2.heading on 2020+; #media-speeches h1 on the
+  2016/2018 gens — a bare h1 is the "President of Ireland" banner and would join four elements).
+  TEXT .c-detail-page-content / article#media-speeches, 8.6k–10k chars, verified English.
+  DATE: these pages carry NO reliable date element on the older generations and NO date in the
+  URL. Deliberately NOT derived from the title/body by regex — real titles like "Address ... at
+  the 1916 Commemoration ... 12th April 2009" make dateparser return 1916 (verified), so the
+  cleaner's corrected-date pass (which reads the body, where the venue+date line sits second) and
+  the wayback_capture backstop own the date here. NO speaker_default: the modern site republishes
+  McAleese (1997–2011) and Robinson (1990–1997) speeches at modern slugs alongside Higgins
+  (2011– ), so the tenure crosscheck must assign the speaker from country+date. FULL RUN is the
+  researcher's gate.

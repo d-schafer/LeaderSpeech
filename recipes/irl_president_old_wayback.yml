@@ -1,0 +1,78 @@
+# Ireland — President of Ireland, the PRE-2012 site generation (Áras an Uachtaráin), ENGLISH
+# render, via the Internet Archive. This is the temporal-depth recipe: it reaches the
+# Mary McAleese presidency (1997–2011), which the modern president.ie tree only partly
+# republishes.
+#
+# THE SCHEME — and the &lang=eng lesson (cf. bgr_president_english_wayback):
+# the old site had no /en tree. It served BOTH languages off one script, switched by a query
+# parameter:  president.ie/index.php?section=5&speech=<id>&lang=eng   (English)
+#             president.ie/index.php?section=5&speech=<id>&lang=ire   (Irish)
+# Section 5 is "Speeches". The Archive holds ~1,054 unique status-200 ENGLISH (`lang=eng`)
+# speech captures, content spanning the McAleese years (captured 2006–2015).
+#
+# TWO ENGINE CONSTRAINTS shape the start_urls / filter split below:
+#   1. filter_entries_for_recipe drops any capture whose URL *path* equals a start_url path.
+#      Every article here has the path /index.php (only the QUERY differs), so a start_url of
+#      "president.ie/index.php" would drop 100% of the harvest. The fix is the documented
+#      Georgia workaround: point start_urls at the PARENT path (the bare host).
+#   2. A bare-host CDX prefix would otherwise return the whole 60k+ site, so the harvest is
+#      narrowed SERVER-SIDE by a CDX `original:` regex filter — cheap for the IA and for us.
+source_id: irl_president_old_wayback
+country: Ireland
+source_language: English
+renderer: static
+start_urls:
+  # Bare host ON PURPOSE (see constraint 1 above) — the wayback_filter does the narrowing.
+  - president.ie
+
+listing:
+  # Tolerates the three URL encodings the Archive recorded for the same links:
+  #   ?section=5&speech=547&lang=eng      (plain)
+  #   ?section=5&amp;speech=244&amp;lang=eng   (HTML-escaped ampersands)
+  #   ?section=5&;speech=1068&;lang=eng        (malformed escape)
+  link_pattern: 'speech=\d+.*lang=eng'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Server-side narrowing: only the ENGLISH speech permalinks, not the whole host.
+    - "original:.*speech=[0-9]+.*lang=eng.*"
+
+title:
+  # h1 is the section header ("Speeches"); the speech title is the single h2 — and it usually
+  # carries the delivery date too ("… Bucharest, Romania, Monday 22nd September 2008").
+  selectors: ["h2", "title"]
+text:
+  # div.text is the article body (~5.3k chars); div#content also carries the left-nav chrome.
+  selectors: ["div.text", "div#content"]
+date:
+  # These 2005–2011 pages have NO date element — this chain is the schema-required placeholder
+  # and is EXPECTED to match nothing, leaving the date to the cleaner (see the note below).
+  # Parsing the h2 title instead would be actively harmful: a real title such as
+  # "Address … at the 1916 Commemoration … Sunday 12th April 2009" makes dateparser return
+  # 1916-07-27 (verified locally), and a wrong date corrupts the time series where a blank
+  # one merely defers to the cleaner's corrected-date pass.
+  selectors: ["time", ".date", ".published", ".newsDate"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback-only recovery of the PRE-2012 president.ie ENGLISH speech scheme
+  (Wayback Session 3, 2026-07-27). CDX: 1,054 unique status-200 `lang=eng` captures of
+  index.php?section=5&speech=<id>, captured 2006–2015, content mostly Mary McAleese
+  (1997–2011). The `lang=ire` twin of every page is EXCLUDED (Irish-language render) —
+  same lesson as Bulgaria's `&lang=en`. start_urls is the bare host by necessity (the engine
+  drops captures whose path equals a start_url path, and every article's path is /index.php);
+  the CDX `original:` filter keeps the harvest to ~1k rows instead of the whole site. A
+  handful of captures use the root form (/?section=5&speech=…, no index.php) and ARE dropped
+  by that same path rule — a known, small loss.
+  DATE deliberately has NO selector: these pages have no date element, and parsing the h2 is
+  unsafe — a real title such as "Address … at the 1916 Commemoration … Sunday 12th April 2009"
+  makes dateparser return 1916 (verified locally). The cleaner's corrected-date pass reads the
+  title/body and the wayback_capture backstop covers the rest. NO speaker_default (McAleese
+  dominates but Robinson/Higgins items appear) → tenure crosscheck. FULL RUN is the
+  researcher's gate.

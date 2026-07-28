@@ -1,0 +1,70 @@
+# Hungary — President of Hungary (Sándor Palace, sandorpalota.hu), the ENGLISH tree, via the
+# Internet Archive. ENGLISH sibling of the live Hungarian hun_sandorpalota.yml.
+#
+# ⚠️ NOT keh.hu. The session brief pointed at keh.hu/en as Hungary's English sibling, but the
+# Archive holds exactly TWO captures of that tree (keh.hu/eng/ and keh.hu/eng/index.php?, both
+# 2012-01-08) — keh.hu's English side is effectively unarchived, so no recipe is possible there.
+# The Hungarian presidency's real, archived English tree is sandorpalota.hu/en (2,470 captures,
+# 2022–2026). The native-language keh.hu depth is already covered by hun_keh_wayback.yml.
+#
+# COVERAGE: Novák Katalin (2022–2024) and Sulyok Tamás (2024– ). Drupal; the /en tree is a
+# genuine English rendering (verified on samples), so text lands directly in the English column
+# with no machine translation.
+source_id: hun_sandorpalota_english_wayback
+country: Hungary
+source_language: English
+renderer: static
+start_urls:
+  - sandorpalota.hu/en
+
+listing:
+  # One slug segment under /en/. Excluded by the lookahead:
+  #   * /en/node/<id>       Drupal's canonical node URLs — the SAME articles as the slug URLs,
+  #                         so keeping them would duplicate every row.
+  #   * /en/node?page=N     the Views paginator.
+  #   * /en/media/oembed?…  YouTube oEmbed endpoints captured as HTML.
+  #   * /en/search, /en/taxonomy  — listings.
+  # The 8-char slug floor drops short section pages.
+  link_pattern: 'sandorpalota\.hu(?::80)?/en/(?!node|media/|search|taxonomy)[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # A single clean h1 on the article pages (h1.page-title is the live recipe's first choice and
+  # is kept first for layout parity).
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  # .node__content is the article body (single match). .field--name-body matches FIVE times on
+  # these pages (body + image/caption fields) and would be joined, so it stays a fallback only.
+  selectors: [".node__content", ".field--name-body", ".post-content"]
+date:
+  # These pages have NO <time> element and no date-classed element. The date lives in two
+  # meta blocks, both verified to parse:
+  #   div.post-meta      "2026 February 21. 20:02 | News"                -> 2026-02-21
+  #   div.node__meta     "Submitted by Sándor-palota on February 21, 2026" -> 2026-02-21
+  # span.post-created is the live recipe's listing-row element, kept first for parity.
+  selectors: ["span.post-created", "div.post-meta", "div.node__meta"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — ENGLISH sibling of the live Hungarian hun_sandorpalota.yml (Wayback Session 3,
+  2026-07-27). PROBE-VALIDATED: 2,470 raw status-200 captures under sandorpalota.hu/en ->
+  693 kept once the /en/node/<id> duplicates, /en/media/oembed endpoints and paginators are
+  excluded. 2022–2026 (Novák Katalin, Sulyok Tamás). TITLE/TEXT/DATE green on all 8 samples,
+  bodies 535–18,993 chars (the long one an English interview with President Sulyok; also a
+  "Presidential opening address"). SUPERSEDES the brief's keh.hu/en target, which the Archive holds only
+  2 captures of — keh.hu's English side is unarchived; its Hungarian depth is already covered by
+  hun_keh_wayback.yml. Genuine English (verified on samples). The /en/node/<id> duplicates and
+  the /en/media/oembed endpoints are excluded by the link_pattern — without that exclusion every
+  article would be scraped twice. TITLE h1; TEXT .node__content; DATE div.post-meta /
+  div.node__meta (no <time> element exists; both strings verified to parse). Like the live
+  recipe this is the presidency's whole English feed — news, statements and speeches together —
+  so the cleaner's document_type gate does the separating. NO speaker_default (two presidents).
+  FULL RUN is the researcher's gate.

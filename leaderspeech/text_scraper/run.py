@@ -163,6 +163,44 @@ def map_to_schema(rec: dict, recipe: Recipe, doc_id: str) -> dict:
     return row
 
 
+def _ensure_csv_schema(path: Path, columns: list[str]) -> None:
+    """Migrate an existing source CSV whose header no longer matches `columns` — the schema grew
+    a column since the file was created (e.g. `wayback_capture` was added), so old rows are 15
+    fields wide while newer appends are 16, and the whole file becomes unreadable to pandas / the
+    merge index (`Expected N fields ... saw N+1`). Rewrite it to the current schema: new header,
+    every row re-mapped by name — a row already written at the new width keeps its values, an
+    older/narrower row is padded with '' for the added column(s). Keeps a `.bak`; a no-op when the
+    header already matches. Runs once per source at the start of a scrape, in that source's own
+    process, so there's no cross-process race."""
+    if not path.exists():
+        return
+    try:
+        with path.open(encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            if header is None or header == columns:
+                return
+            data = list(reader)
+    except Exception as e:
+        log.warning("could not check the schema of %s: %s", path.name, e)
+        return
+    log.info("migrating %s to the current %d-column schema (its header had %d) — old rows padded, "
+             "original kept as .bak", path.name, len(columns), len(header))
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+        for r in data:
+            # A row written at the NEW width maps positionally to `columns` (so a trailing new
+            # column like wayback_capture keeps its value); a narrower/older row maps by the old
+            # header's names and the missing columns fill with ''.
+            names = columns if len(r) == len(columns) else header
+            by_name = {names[i]: r[i] for i in range(min(len(names), len(r)))}
+            writer.writerow({c: by_name.get(c, "") for c in columns})
+    path.replace(path.with_name(path.name + ".bak"))
+    tmp.replace(path)
+
+
 def _append(path: Path, rows: list[dict], columns: list[str]):
     if not rows:
         return
@@ -341,6 +379,10 @@ def scrape_recipe(
              "respect_robots=%s",
              recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
              rescrape, respect_robots)
+
+    # Heal a CSV whose header predates a schema addition (e.g. wayback_capture) so mixed-width rows
+    # don't make it unreadable to the merge index — see _ensure_csv_schema.
+    _ensure_csv_schema(out_path, SCHEMA_COLUMNS)
 
     # Per-fetch Internet-Archive pacing: the recipe's pagination.wayback_delay, unless this run
     # overrides it (`--wayback-delay`). Raising it paces politely when another crawler shares the

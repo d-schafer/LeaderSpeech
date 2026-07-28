@@ -1,0 +1,76 @@
+# Germany — Federal President (bundespraesident.de), the ENGLISH speech tree, via the Internet
+# Archive. ENGLISH sibling of the German deu_bundespraesident_wayback.yml (which harvests the
+# ~11,785-capture /SharedDocs/Reden/DE tree). Same site, same two Government-Site-Builder
+# template generations — but /SharedDocs/Reden/EN/… are the presidency's own OFFICIAL English
+# translations, so this lands in the English column with no machine translation.
+#
+# COVERAGE: Horst Köhler (2004–2010), Christian Wulff (2010–2012), Joachim Gauck (2012–2017)
+# and Frank-Walter Steinmeier (2017– ). Note the German President is largely CEREMONIAL; the
+# executive head of government is the Chancellor (bundeskanzler.de / bundesregierung.de/breg-en),
+# which is a separate source the researcher may want in addition.
+source_id: deu_bundespraesident_english_wayback
+country: Germany
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches, so NO trailing '*'. One prefix covers all presidents.
+  - bundespraesident.de/SharedDocs/Reden/EN
+
+listing:
+  # Article shape: /SharedDocs/Reden/EN/<Name>/(Reden|Interviews)/<YYYY>[/<MM>]/<file>.html
+  # (the /MM/ segment exists up to ~2020 and was dropped from 2021 on — `.+` spans both).
+  #
+  # ANCHORING AT `\.html$` IS THE POINT: the Archive holds 780 text/html captures of this tree
+  # but only 269 END in .html — the other ~511 are the SAME pages captured with a
+  # ";jsessionid=…" tail or a "?nn=" / "?fbclid=" query string. The engine de-duplicates by
+  # exact URL, so admitting those forms would scrape many speeches two or three times. Precision
+  # over recall was chosen deliberately: a duplicated speech corrupts the corpus, a missing one
+  # merely leaves a gap the German-language sibling recipe already covers.
+  link_pattern: '/SharedDocs/Reden/EN/[^/]+/(?:Reden|Interviews)/\d{4}/.+\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    # mimetype filter matters here: the tree also contains …_Rede_Bild.jpg thumbnails.
+    - "mimetype:text/html"
+
+title:
+  # NEW template (post-2019 redesign): h1.c-article__headline. OLD GSB template: the bare <h1>
+  # is "Navigation and service" chrome and there are four of them (which first_match would
+  # join) — #content h1 is the speech title. Same chain as the German sibling recipe.
+  selectors: ["h1.c-article__headline", "#content h1", "title"]
+text:
+  # NEW: .c-article__content (16.3k chars on a sampled Köhler speech). OLD: #content wraps the
+  # body (9.1k on a sampled Steinmeier speech, plus breadcrumb chrome).
+  selectors: [".c-article__content", "#content", "article"]
+date:
+  # A DATE SELECTOR is used here, unlike the German sibling which relies on url_regex alone —
+  # because the 2021+ URLs dropped the /MM/ path segment, so a /YYYY/MM/ regex would miss every
+  # speech from 2021 on (~113 of the 269). Both templates carry a visible dateline, verified:
+  #   span.c-topline__element.is-date  "15 February 2008 15 February 2008" -> 2008-02-15
+  #   span.date                        "Warsaw/Poland, 17 June 2021"       -> 2021-06-17
+  # The url_regex stays as a backstop for the older /YYYY/MM/<YYYYMMDD>_ paths (selectors are
+  # tried first; url_regex only runs when they yield no parsable date).
+  selectors: [".c-topline__element.is-date", "span.date", "#content .date"]
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/\d{4,}(?P<day>\d{2})[-_.]'
+
+position: president
+# speaker_default omitted: four presidents span this archive and the date is reliable, so the
+# tenure crosscheck assigns from country+date (the president's name is also in the URL path).
+date_languages: ["en"]
+notes: >
+  DRAFT — ENGLISH sibling of deu_bundespraesident_wayback.yml (Wayback Session 3, 2026-07-27).
+  PROBE-VALIDATED: 780 text/html captures under /SharedDocs/Reden/EN; the `\.html$` anchor keeps
+  267 canonical ones and drops ~513 ";jsessionid=" / "?nn=" duplicate renderings of the same pages
+  (documented trade-off — duplicates would corrupt the corpus). Covers Köhler, Wulff, Gauck and
+  Steinmeier, 2005–2026, in the presidency's OWN English translations (no MT needed). Selector
+  chains span both GSB template generations; DATE uses a selector chain rather than the German
+  sibling's url_regex alone because 2021+ URLs dropped the /MM/ segment (url_regex retained as a
+  backstop) — the probe confirmed BOTH paths firing: span.date on the 2010/2018/2022 samples and
+  the url_regex backstop on the 2020/01/ one. Sampled bodies 6.2k–22.8k chars (Wulff's 2010
+  inaugural address, Steinmeier at Yad Vashem). SCOPE NOTE for the researcher: the Federal President is largely ceremonial — the
+  Chancellor (bundeskanzler.de / bundesregierung.de/breg-en) is Germany's head of GOVERNMENT and
+  is not covered by any recipe yet. FULL RUN is the researcher's gate.

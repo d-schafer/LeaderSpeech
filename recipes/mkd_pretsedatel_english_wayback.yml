@@ -1,0 +1,70 @@
+# North Macedonia — President of the Republic (pretsedatel.mk), the ENGLISH tree, via the
+# Internet Archive. ENGLISH sibling of the live Macedonian mkd_pretsedatel.yml.
+#
+# WHY THIS IS WORTH A SEPARATE RECIPE even though the live recipe exists:
+#   * the live recipe reads the WordPress REST API for the two MACEDONIAN categories only
+#     (obrakjanja + intervjua = 123 items) and is single-administration in practice;
+#   * pretsedatel.mk publishes the English versions as SEPARATE posts under /en/ — so this
+#     harvest lands genuine English in the English column with NO machine translation, which
+#     is the whole point of the English-wayback sweep;
+#   * and it reaches ~3,021 archived /en/ captures spanning 2010–2026, i.e. Gjorge Ivanov
+#     (2009–2019), Stevo Pendarovski (2019–2024) and Gordana Siljanovska-Davkova (2024– ),
+#     which is depth the live install does not hold.
+#
+# TWO GENERATIONS: the current WordPress/Divi site (/en/<slug>/) and the older Joomla site
+# (/en/media-centre/(news|speeches|press-releases)/<id>.html, 218 captures 2012–2019).
+source_id: mkd_pretsedatel_english_wayback
+country: North Macedonia
+source_language: English
+renderer: static
+start_urls:
+  - pretsedatel.mk/en
+
+listing:
+  # Two alternatives: the old Joomla article files, and one-segment WordPress slugs.
+  # Excluded by the negative lookahead: /en/category/… and /en/tag/… (taxonomy listings, often
+  # with ?et_blog), /en/author/… , /en/page/N/ paginators. The optional ?lang=en tail is KEPT —
+  # some captures of real English articles carry it (the language-switcher form).
+  # Slugs containing '_' (e.g. /en/b9_12102022-2/, /en/veligden_2025-en/) are photo-gallery
+  # posts and fall outside [a-z0-9-], so they drop out naturally.
+  link_pattern: 'pretsedatel\.mk(?::80)?/en/(?:media-centre/(?:news|speeches|press-releases)/\d+[^/]*\.html|(?!category/|author/|page/|tag/|media-centre/)[a-z0-9][a-z0-9-]*/?)(?:\?lang=en)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # WordPress gens: h1.entry-title. Joomla gen: no h1/h2 at all, but <title> is the clean
+  # headline ("Address at the panel discussion 'Dialogue among Civilizations: the road ahead'").
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # Three archived layouts: .entry-content (2019-era Divi post), .et_pb_post_content (the
+  # 2022+ Divi theme-builder body layout, where .entry-content is absent), #colmain (Joomla).
+  selectors: [".entry-content", ".et_pb_post_content", "#colmain", "article"]
+date:
+  # span.published is the article's own date. On the 2022+ theme-builder layout it matches SIX
+  # times (the article's, then five from the sidebar "recent posts" Divi blog module) and
+  # first_match joins them — but the ARTICLE's date comes first in document order, and
+  # parse_date's search_dates fallback takes the first date it finds, so the join still yields
+  # the correct value (verified: "7 May 2022\n15.08.2022\n…" -> 2022-05-07).
+  # span.createdate is the Joomla generation ("Saturday, 06 February 2016 15:14" -> 2016-02-06);
+  # note div.thumbsup-date on those pages is a social-widget date and is deliberately not used.
+  selectors: ["span.published", "span.createdate"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — ENGLISH sibling of the live Macedonian mkd_pretsedatel.yml (Wayback Session 3,
+  2026-07-27). CDX: 3,021 status-200 captures under pretsedatel.mk/en, 2010–2026, covering
+  Ivanov / Pendarovski / Siljanovska-Davkova. Verified GENUINE English (not an untranslated
+  /en/ mirror): sampled bodies are English prose. Three archived layouts handled in the
+  selector chains (2019 Divi post, 2022+ Divi theme-builder, older Joomla /en/media-centre/).
+  The date trap is documented inline: span.published matches six times on the theme-builder
+  layout, but the article's own date is first and parse_date's search_dates picks it.
+  Overlap with the live recipe is small (it harvests 123 MACEDONIAN posts via the WP REST API
+  and deliberately skips the English translations). NO speaker_default — three presidents span
+  the archive. FULL RUN is the researcher's gate.

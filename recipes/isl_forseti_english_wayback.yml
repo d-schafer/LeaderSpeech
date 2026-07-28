@@ -1,0 +1,111 @@
+# Iceland — President of Iceland, the ENGLISH speech PDFs from the old english.forseti.is
+# subdomain, via the Internet Archive. English-native → text lands straight in the English
+# column, no machine translation.
+#
+# ⚠️ HOW THIS WAS ALMOST MISSED: a CDX query for `forseti.is` with matchType=host does NOT
+# include subdomains, so english.forseti.is was invisible to the first triage pass and Iceland
+# was wrongly written off as "no archived English". matchType=DOMAIN is what surfaces it (and
+# also olafur.forseti.is / gudni.forseti.is, the per-president archive subdomains).
+#
+# WHY PDFs: english.forseti.is has only ~298 archived text/html captures and they are all
+# institutional pages (FormerPresidents, Pictures, and the /SelectedSpeeches/<year>/ indexes).
+# There are NO individual HTML speech pages — the speeches are published as PDFs. The
+# /SelectedSpeeches/<year>/ index pages are archived only patchily and the engine cannot crawl
+# an archived listing anyway, so this recipe goes straight at the PDF objects via CDX.
+#
+# WHICH PDF STORE — this distinction was verified by extracting text, not assumed:
+#   * /media/PDF/<name>.pdf   (139 captures) and /media/files/<name>.pdf (21)  -> GENUINE ENGLISH.
+#     Sampled: "A Speech by the President of Iceland Ólafur Ragnar Grímsson at the opening of The
+#     Arctic Circle Assembly" (6.5k chars); "THE NEW ARCTIC IN OUR ICE-DEPENDENT WORLD … Université
+#     Pierre et Marie Curie" (15.9k); "How to Prevent Climate Change: Roadmap to Success, United
+#     Nations Headquarters" (21.8k); "THE SIGNIFICANCE OF SUSTAINABLE HYDROPOWER" (8.5k).
+#   * /media/<numeric-id>/<name>.pdf  -> ICELANDIC, and therefore EXCLUDED. That newer Umbraco
+#     media library is SHARED across hostnames, so serving it from english.forseti.is does not
+#     make it English (verified: /media/14142/2024_08_01-innsetning-raeda-2024.pdf extracts
+#     "INNSETNINGARRÆÐA HÖLLU TÓMASDÓTTUR…", 0 English words / 213 Icelandic characters).
+#     Excluding it is what keeps Icelandic out of the English column — the geo_president bug.
+source_id: isl_forseti_english_wayback
+country: Iceland
+source_language: English
+content_type: pdf
+renderer: static
+start_urls:
+  # The two OLD English-site stores only. NOT english.forseti.is/media (that prefix would pull in
+  # the shared /media/<id>/ Icelandic library above).
+  - english.forseti.is/media/PDF
+  - english.forseti.is/media/files
+
+listing:
+  # The leading lookahead drops speeches TRANSLATED INTO A THIRD LANGUAGE, and the Icelandic
+  # originals. Icelandic filenames tag a translation's language in the last token, and this host
+  # is a MULTILINGUAL archive, not an English-only one — it even exposes
+  # /SelectedSpeeches/Czech|Danish|Estonian|Faroese|Finnish indexes.
+  # (Verified by extraction: 2013_06_25_R_Hatidarkv_thyska.pdf comes back GERMAN — "Rede des
+  # isländischen Präsidenten…".)
+  #
+  # THE TOKEN LIST IS BUILT FROM DATA, not guessed: tallying the final filename token across all
+  # 160 PDFs here (and 3,249 on the native hosts) showed the markers appear in SHORT forms too —
+  # `_dan`, `.dansk`, `_nor`, `_eng`, `_ens`, `_ensk` — so a first pass that only listed the long
+  # forms (danska/norska) leaked "2016_01_08_DanskIsl_dan.pdf" and "96.11.21…radhus.dansk.pdf"
+  # straight into the English column.
+  #
+  # TWO REGEX DETAILS THAT MATTER:
+  #  * tokens are matched EXACTLY, bracketed by separators — `[._-]nor[._\-\d(]`. A stem-plus-
+  #    wildcard form would wrongly kill "2014_10_31_Nordurslodir_Mbl.pdf" (Nordurslodir starts
+  #    with "nor"), and a bare substring test for "enska" would kill spaenska (Spanish),
+  #    islenska (Icelandic) and graenlenska (Greenlandic).
+  #  * (?i) because the filenames are mixed-case (DanskIsl, Danmark).
+  # `isl`/`islenska` are excluded here (Icelandic originals belong to isl_forseti_wayback);
+  # `eng|ens|ensk|enska|english` are deliberately KEPT.
+  link_pattern: '(?i)(?!.*[._-](?:isl|islensk|islenska|íslensk|íslenska|icelandic|dan|dansk|danska|danish|nor|norsk|norska|norwegian|sw|saensk|saenska|sænsk|sænska|swedish|thy|thysk|thyska|þýsk|þýska|german|fr|fransk|franska|french|sp|spaensk|spaenska|spænsk|spænska|spanish|eistnesk|eistneska|estonian|polsk|polska|pólsk|pólska|polish|russnesk|russneska|rússnesk|rússneska|russian|kinversk|kinverska|kínversk|kínverska|chinese|japansk|japanska|japanese|vietnamsk|vietnamska|vietnamese|faereysk|faereyska|færeysk|færeyska|faroese|finnsk|finnska|finnish|italsk|italska|ítalsk|ítalska|italian|portugalsk|portugalska|portuguese|lettnesk|lettneska|latvian|tekknesk|tekkneska|tékknesk|tékkneska|czech|ungversk|ungverska|hungarian|graenlensk|graenlenska|grænlensk|grænlenska|greenlandic)[._\-\d(])english\.forseti\.is(?::80)?/media/(?:PDF|files)/.+\.pdf$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "mimetype:application/pdf"
+    - "statuscode:200"
+
+# PDFs have no DOM. Title falls back to the document's FIRST LINE, which on these files is
+# excellent — e.g. "A Speech by the President of Iceland Ólafur Ragnar Grímsson at the opening of
+# The Arctic Circle Assembly Reykjavik 12 October 2013".
+title: {}
+text: {}
+date:
+  # From the filename. STRICT month/day alternatives on purpose: a loose \d{2} would match the
+  # real file 2017_31_05_finnlandheimsokn.pdf as month=31, and when named groups form an invalid
+  # date the engine falls back to parse_date(group(1)) — i.e. parse_date("2017") — which yields a
+  # silently WRONG date (today's month/day). Requiring 0[1-9]|1[0-2] makes that URL simply not
+  # match, so it stays honestly undated for the cleaner.
+  # Handles 2013_10_12_…, 2024_08_01-…, 2020-09-21.pdf and 20230329-… in one pattern.
+  # NOT handled (deliberately): the 2-digit-year forms 08.02.21.… / 09_05_28_… — a 2-digit year
+  # is ambiguous (YY.MM.DD here, but DD.MM.YY by Icelandic convention) and dateparser would
+  # confidently get it wrong. Those fall through to the cleaner's corrected-date pass; the PDF
+  # text itself normally states the date and place in its opening lines.
+  url_regex: '(?P<year>(?:19|20)\d{2})[_.-]?(?P<month>0[1-9]|1[0-2])[_.-]?(?P<day>0[1-9]|[12]\d|3[01])[_.-]'
+
+position: president
+# Single-president window: these two stores span ~2001–2016 captures, entirely the presidency of
+# Ólafur Ragnar Grímsson (1996–2016). With no DOM there is nothing for a speaker selector to read,
+# so a default is genuinely useful here (the gmb_op_wayback pattern); the cleaner's GPT pass still
+# confirms the speaker from the text, whose first line usually names him.
+speaker_default: Ólafur Ragnar Grímsson
+date_languages: ["en"]
+notes: >
+  DRAFT — Wayback-only recovery of Iceland's ENGLISH presidential speech PDFs (Wayback Session 3
+  follow-up, 2026-07-27). ~160 PDF captures under english.forseti.is/media/PDF (139) and
+  /media/files (21), minus the third-language translations, ≈ 148 English speeches by President
+  Ólafur Ragnar Grímsson, content ~2001–2016.
+  ⚠️ CORRECTS AN EARLIER "NOT VIABLE" VERDICT. The first triage queried `forseti.is` with
+  matchType=HOST, which excludes subdomains, so english.forseti.is (1,080 captures) never
+  appeared and Iceland was written off. matchType=DOMAIN is the fix — and it also surfaces
+  olafur.forseti.is and gudni.forseti.is, the per-president archive subdomains (see
+  isl_forseti_wayback).
+  LANGUAGE WAS VERIFIED BY EXTRACTION, NOT INFERRED: the /media/PDF and /media/files stores are
+  genuine English (6.5k–21.8k-char speeches), while /media/<numeric-id>/ on the SAME hostname is
+  Icelandic (a shared Umbraco library) and is excluded — as are *_danska/_thyska/_norska/.spanish
+  translations. TITLE from the PDF's first line (strong here); DATE from the filename via a
+  strict url_regex; 2-digit-year filenames stay undated by design rather than mis-dated.
+  Companion to the live Icelandic isl_forseti.yml and to isl_forseti_wayback (native).
+  FULL RUN is the researcher's gate.

@@ -1,0 +1,94 @@
+# Iceland — President of Iceland, the NATIVE-LANGUAGE (Icelandic) speech PDF store, via the
+# Internet Archive. Icelandic original → `text_originlanguage`; the translation stage fills the
+# English columns.
+#
+# WHY THIS EXISTS: the live isl_forseti.yml harvests the CURRENT site's /frettir/ items via
+# sitemap (511 URLs) and its own notes flag the gap — "if the site only holds the incumbent
+# (Halla, 2024->), Guðni Jóhannesson (2016-2024) needs a Wayback companion". This is that
+# companion, and it reaches further still: the PDF store carries speeches back through the
+# Ólafur Ragnar Grímsson presidency (1996–2016).
+#
+# WHY PDFs RATHER THAN THE NEWS HTML: forseti.is publishes each address as a PDF under
+# /media/…, and that is where the full speech texts live. The archived HTML news stream is
+# ALSO available but spans three incompatible URL generations — /Frettir/Ollfrettin/<id>
+# (2009–2016), the percent-encoded /fr%C3%A9ttir/<slug>/ (2019–2025), and the current
+# /frettir/<slug> — plus the live recipe already covers the current one. Harvesting the HTML
+# generations is a worthwhile follow-up, not this recipe.
+#
+# TWO HOSTS, because Iceland uses the per-president archive-subdomain pattern (like the US
+# whitehouse.archives.gov recipes):
+#   * www.forseti.is/media    — 2,540 PDF captures (all eras; /media/files, /media/PDF and the
+#                               newer /media/<numeric-id>/ Umbraco library)
+#   * olafur.forseti.is/media —   710 PDF captures, the frozen Ólafur Ragnar Grímsson archive
+#                               (crawled 2024–2026, content 1996–2016)
+# gudni.forseti.is is the third such subdomain but is HTML-only (649 captures of /fréttir/ and
+# /textar/pistlasafn/) — it belongs to the HTML follow-up above, not here.
+source_id: isl_forseti_wayback
+country: Iceland
+source_language: Icelandic
+content_type: pdf
+renderer: static
+start_urls:
+  - www.forseti.is/media
+  - olafur.forseti.is/media
+
+listing:
+  # Keep the Icelandic originals. The leading lookahead drops every file whose name tags it as a
+  # TRANSLATION — including the English ones (`_enska` is the single commonest marker here: 143
+  # files on www, 12 on olafur), which would otherwise put English text into the Icelandic column.
+  # Files tagged `_isl` (120 on www, 13 on olafur) are explicitly Icelandic and are KEPT, as is
+  # the unmarked majority — the default language on these hosts.
+  #
+  # Same data-derived token list as the English sibling (built by tallying the final filename
+  # token across all 3,249 PDFs on these two hosts), with the English/Icelandic sides swapped.
+  # The same two regex details apply: tokens are matched EXACTLY between separators (a stem
+  # wildcard would wrongly kill "2014_10_31_Nordurslodir_Mbl.pdf"), and (?i) because filenames
+  # are mixed-case. Note `íslands` is NOT a marker — it is part of the phrase "forseti Íslands"
+  # and must not be confused with the `isl` language tag.
+  link_pattern: '(?i)(?!.*[._-](?:eng|ens|ensk|enska|english|dan|dansk|danska|danish|nor|norsk|norska|norwegian|sw|saensk|saenska|sænsk|sænska|swedish|thy|thysk|thyska|þýsk|þýska|german|fr|fransk|franska|french|sp|spaensk|spaenska|spænsk|spænska|spanish|eistnesk|eistneska|estonian|polsk|polska|pólsk|pólska|polish|russnesk|russneska|rússnesk|rússneska|russian|kinversk|kinverska|kínversk|kínverska|chinese|japansk|japanska|japanese|vietnamsk|vietnamska|vietnamese|faereysk|faereyska|færeysk|færeyska|faroese|finnsk|finnska|finnish|italsk|italska|ítalsk|ítalska|italian|portugalsk|portugalska|portuguese|lettnesk|lettneska|latvian|tekknesk|tekkneska|tékknesk|tékkneska|czech|ungversk|ungverska|hungarian|graenlensk|graenlenska|grænlensk|grænlenska|greenlandic)[._\-\d(])(?:www|olafur)\.forseti\.is(?::80)?/media/.+\.pdf$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "mimetype:application/pdf"
+    - "statuscode:200"
+
+# PDFs have no DOM; title falls back to the document's first line, which on these files is the
+# Icelandic headline ("Ávarp forseta Íslands …", "INNSETNINGARRÆÐA HÖLLU TÓMASDÓTTUR …").
+title: {}
+text: {}
+date:
+  # Same strict filename pattern as the English sibling — see that recipe for why the month/day
+  # alternatives must be strict (a loose \d{2} mis-reads 2017_31_05_… and the engine then falls
+  # back to parse_date("2017"), producing a silently wrong date). 2-digit-year filenames
+  # (00.01.01.…, 09_05_28_…) are left undated for the cleaner rather than mis-parsed; on the
+  # olafur.forseti.is archive that is a large share, so expect the cleaner's corrected-date pass
+  # to carry the dating load there. Note wayback_capture is a POOR fallback for that host — it
+  # was crawled in 2024–2026 while its content is 1996–2016 — so `date_precision` matters here.
+  url_regex: '(?P<year>(?:19|20)\d{2})[_.-]?(?P<month>0[1-9]|1[0-2])[_.-]?(?P<day>0[1-9]|[12]\d|3[01])[_.-]'
+
+position: president
+# speaker_default omitted on purpose: this store spans THREE presidents — Ólafur Ragnar Grímsson
+# (1996–2016), Guðni Th. Jóhannesson (2016–2024) and Halla Tómasdóttir (2024– ) — so the tenure
+# crosscheck must assign the speaker from country+date.
+date_languages: ["is"]
+notes: >
+  DRAFT — NATIVE-language Wayback companion to the live isl_forseti.yml (Wayback Session 3
+  follow-up, 2026-07-27), answering that recipe's own documented follow-up for pre-incumbent
+  depth. ~3,250 archived PDF captures across two hosts (www.forseti.is/media 2,540 +
+  olafur.forseti.is/media 710), minus the translated files, covering Grímsson (1996–2016),
+  Guðni Th. Jóhannesson (2016–2024) and Halla Tómasdóttir (2024– ). Icelandic → the body lands
+  in text_originlanguage and the translation stage fills English.
+  Verified by extraction: www/olafur PDFs come back Icelandic ("Ávarp forseta Íslands Ólafs
+  Ragnars Grímssonar…", "Fréttatilkynning frá skrifstofu forseta Íslands…"). CAVEAT: the store
+  mixes ÁVARP/RÆÐA (addresses) with FRÉTTATILKYNNING (press releases) — the cleaner's
+  document_type gate does the separating, so the ~3,250 is an upper bound on rows, not speeches.
+  The ~155 *_enska-marked files on these native hosts are EXCLUDED here; they are not picked up by
+  the English sibling either (which reads only english.forseti.is), because a sampled one
+  (olafur …00.04.13.Ossur.enska(1).pdf) extracted ICELANDIC — the marker is unreliable on these
+  hosts. Recovering them is a small, optional follow-up that needs a per-file language check.
+  FOLLOW-UP: the archived HTML news stream is not harvested here — /Frettir/Ollfrettin/<id>
+  (2009–2016), /fr%C3%A9ttir/<slug>/ (2019–2025) and gudni.forseti.is (649 captures) would need
+  their own DOM pass. FULL RUN is the researcher's gate.

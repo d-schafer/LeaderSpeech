@@ -1,10 +1,44 @@
 """The stop -> identify -> fix -> resume workflow, exercised without network by
 faking the link harvester and the fetcher."""
 
+import csv
 import json
 from pathlib import Path
 
 from leaderspeech.text_scraper import pdf, run
+
+
+def test_ensure_csv_schema_migrates_old_header_and_mixed_rows(tmp_path):
+    """A CSV whose header predates a schema addition (15 cols, no wayback_capture) with MIXED-width
+    rows (some 15-field, some 16-field) is migrated to the current 16-col schema in place."""
+    cols = run.SCHEMA_COLUMNS
+    old_cols = cols[:-1]                       # the pre-wayback_capture 15-col schema
+    p = tmp_path / "arm.csv"
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(old_cols)                              # stale 15-col header
+        w.writerow([f"a{i}" for i in range(len(old_cols))])  # an old 15-field row
+        w.writerow([f"b{i}" for i in range(len(cols))])      # a new 16-field row (has wayback_capture)
+
+    run._ensure_csv_schema(p, cols)
+
+    with p.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == cols                                       # header migrated to 16 columns
+    assert all(len(r) == len(cols) for r in rows[1:])            # every row is now 16 fields
+    assert rows[1][-1] == ""                                     # old row: wayback_capture padded
+    assert rows[2][-1] == f"b{len(cols) - 1}"                    # new row: wayback_capture preserved
+    assert (tmp_path / "arm.csv.bak").exists()                   # original kept as .bak
+
+
+def test_ensure_csv_schema_noop_when_header_current(tmp_path):
+    p = tmp_path / "cur.csv"
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(run.SCHEMA_COLUMNS)
+        w.writerow([""] * len(run.SCHEMA_COLUMNS))
+    run._ensure_csv_schema(p, run.SCHEMA_COLUMNS)
+    assert not (tmp_path / "cur.csv.bak").exists()               # untouched -> no backup written
 
 RECIPE_YAML = r"""
 source_id: test_src
