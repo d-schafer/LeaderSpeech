@@ -30,7 +30,7 @@ from bs4 import BeautifulSoup
 from .extract import (apply_entry_meta, extract_pdf_record, extract_record, first_match,
                       looks_like_document, should_keep)
 from .fallback_generic import extract_generic
-from .fetch import Fetcher
+from .fetch import Fetcher, egress_ip
 from .msword import is_doc_url, is_docx_url
 from .paginate import harvest_links
 from .pdf import is_pdf_url, looks_like_pdf, pdf_bytes_to_text
@@ -346,6 +346,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         entries,
         recipe.listing.link_pattern,
         start_urls=recipe.start_urls,
+        dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
     )
 
 
@@ -364,6 +365,10 @@ def scrape_recipe(
     wayback_delay: float | None = None,
     adaptive_wayback: bool = False,
     wayback_max_delay: float | None = None,
+    no_index: bool = False,
+    # Off for library/test callers so importing this never costs a network round-trip;
+    # main() turns it ON, so every CLI run logs its IP unless --no-egress-check says otherwise.
+    egress_check: bool = False,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
 ) -> dict:
@@ -379,6 +384,14 @@ def scrape_recipe(
              "respect_robots=%s",
              recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
              rescrape, respect_robots)
+
+    # Which public IP is this run going out from? The Internet Archive throttles per IP, so when a
+    # long campaign is split across several machines to keep each stream polite, this line is the
+    # evidence that they really are on separate addresses — and it catches a VPN/hotspot that
+    # dropped silently, which would otherwise look like inexplicable throttling hours later.
+    if egress_check:
+        ip = egress_ip()
+        log.info("egress IP: %s", ip or "unknown (lookup failed — not fatal)")
 
     # Heal a CSV whose header predates a schema addition (e.g. wayback_capture) so mixed-width rows
     # don't make it unreadable to the merge index — see _ensure_csv_schema.
@@ -765,10 +778,14 @@ def scrape_recipe(
                  state["last_doc_num"], out_path)
         # Refresh the running scrape index (one row per source CSV; for merging). Never
         # let an index hiccup (e.g. the xlsx open in Excel) break the scrape itself.
-        try:
-            index.build_index(out_root, recipes_dir=str(Path(recipe_path).parent))
-        except Exception as e:
-            log.warning("could not update scrape index: %s", e)
+        if no_index:
+            log.info("index rebuild SKIPPED (--no-index); rebuild once when the queue finishes: "
+                     "python -m leaderspeech.text_scraper.index")
+        else:
+            try:
+                index.build_index(out_root, recipes_dir=str(Path(recipe_path).parent))
+            except Exception as e:
+                log.warning("could not update scrape index: %s", e)
         logging.getLogger("leaderspeech").removeHandler(log_handler)
         log_handler.close()
 
@@ -839,6 +856,16 @@ def main():
                          "long run stops wasting minutes on retry backoff. Bounded by --wayback-max-delay.")
     ap.add_argument("--wayback-max-delay", type=float, default=None, metavar="SECONDS",
                     help="ceiling for --adaptive-wayback (default the recipe's wayback_max_delay, 12s).")
+    ap.add_argument("--no-index", action="store_true",
+                    help="skip the end-of-run rebuild of data/scraped/scraped_progress_log.xlsx. Use "
+                         "when SEVERAL machines or queues scrape concurrently into one synced folder "
+                         "(Dropbox): every run rewriting the same workbook produces 'conflicted copy' "
+                         "files. Rebuild it once when the queues finish with "
+                         "`python -m leaderspeech.text_scraper.index`.")
+    ap.add_argument("--no-egress-check", action="store_true",
+                    help="skip the one-request public-IP lookup logged at run start. That line is how "
+                         "you verify a multi-machine campaign really is on distinct IPs (the Internet "
+                         "Archive throttles per IP); pass this to avoid the third-party ping.")
     args = ap.parse_args()
 
     result = scrape_recipe(
@@ -852,6 +879,8 @@ def main():
         wayback_delay=args.wayback_delay,
         adaptive_wayback=args.adaptive_wayback,
         wayback_max_delay=args.wayback_max_delay,
+        no_index=args.no_index,
+        egress_check=not args.no_egress_check,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

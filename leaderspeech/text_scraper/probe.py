@@ -371,6 +371,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 entries,
                 recipe.listing.link_pattern,
                 start_urls=recipe.start_urls,
+                dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
             )
             # NB the spread here is across the CDX listing, which comes back in urlkey
             # (alphabetical) order, not chronological — so unlike the live-listing branches

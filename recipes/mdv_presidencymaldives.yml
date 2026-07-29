@@ -21,6 +21,18 @@ pagination:
   step: 1
   max_pages: 55        # ~48 pages of speeches (to 1979); engine stops at the first empty page
 
+# presidency.gov.mv rate-limits RAPID listing requests: with no pacing, the pager reliably dies
+# around ?page=11 with a WAF block page served as HTTP 200 (the block-page guard catches it and
+# reports listing_fetch_failed, so the run "succeeds" on a truncated harvest — verified twice,
+# 2026-07-23 and 2026-07-28). Spacing the listing fetches clears it. 55 pages at ~4.5s is about
+# four minutes, which is nothing next to the 84 hours the Wayback alternative would cost.
+politeness:
+  delay_range: [3.0, 6.0]
+  pause_every: 10
+  pause_seconds: 20
+  retries: 4
+  backoff: 15.0
+
 title:
   selectors: ["h1"]
 text:

@@ -44,8 +44,19 @@ BLOCK_SIGNATURES = (
     # Cloudflare hard denials (CF-1020 "Attention Required", "you have been blocked")
     "you have been blocked",
     "attention required",
-    "cloudflare",
+    # NB: the bare word "cloudflare" was a signature until 2026-07-28 and was FAR too weak — it
+    # matches any page that merely loads a Cloudflare asset, e.g. the extremely common analytics
+    # beacon <script src="https://static.cloudflareinsights.com/beacon.min.js"> or a cdnjs.
+    # cloudflare.com library. Every such page then depended purely on the length gate, so any
+    # SHORT legitimate page (a listing page is ~2-3k visible chars) was flagged as a block at
+    # random. On presidency.gov.mv this silently truncated the speech pager: page 1 has 3,250
+    # visible chars and passed, page 11 has 2,885 and was rejected, so the harvest stopped dead
+    # at whatever page happened to have shorter headlines. Use phrases that only ever appear on
+    # a Cloudflare ERROR/challenge page instead.
     "cf-error-details",
+    "performance &amp; security by cloudflare",
+    "performance & security by cloudflare",
+    "cloudflare ray id",
     # JS challenge interstitials (also handled live by fetch._settle_challenge; caught here
     # when they never clear — e.g. under the static renderer, or a js fetch that timed out)
     "just a moment",

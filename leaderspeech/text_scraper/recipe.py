@@ -252,6 +252,12 @@ class Pagination(BaseModel):
     # ["mimetype:application/pdf", "statuscode:200"] to keep only real PDF captures and
     # drop the text/html listing/redirect noise a prefix query returns. None => no filter.
     wayback_filter: Optional[list[str]] = None
+    # Treat two captures as the SAME page when they differ only by a tracking/UI query
+    # parameter (?utm_source=, ?fbclid=, ?comment=disable, ?openVideo=true …) and fetch
+    # it once. On by default — it provably cannot lose a document, because only a fixed
+    # denylist of parameters is ignored and query-ADDRESSED pages (index.php?speech=204)
+    # keep their identifying params. Set False to fetch every query variant separately.
+    wayback_dedupe_noise_params: bool = True
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 

@@ -253,3 +253,66 @@ def test_fetch_snapshot_pacer_paces_and_records(monkeypatch):
     sleeps.clear()
     assert wayback.fetch_snapshot(entry, delay=0.0, client=ThrottleOnce(), pacer=p) == "ok"
     assert p.value == 6.5 and p.throttle_events == 1
+
+
+# --- query-noise dedupe: one Archive fetch per PAGE ------------------------------------
+# The Archive keeps a separate capture for every tracking/UI query string a referrer used.
+# collapse=urlkey does NOT merge them, so without this the scraper pays a fetch (and later a
+# GPT call) per variant. See wayback.NOISE_PARAMS.
+
+
+def _e(url):
+    return {"original": url, "timestamp": "20200101000000"}
+
+
+def test_dedupe_collapses_tracking_and_ui_query_variants():
+    base = "https://www.pmindia.gov.in/en/news_updates/pm-addresses-the-nation/"
+    entries = [
+        _e(base),
+        _e(base + "?comment=disable"),
+        _e(base + "?tag_term=pmspeech&comment=disable"),
+        _e(base + "?utm_source=twitter&utm_medium=social"),
+        _e(base + "?fbclid=IwAR123"),
+        _e("https://www.pmindia.gov.in/en/news_updates/pm-meets-the-president/"),
+    ]
+    kept = wayback.filter_entries_for_recipe(entries, r"/en/news_updates/[a-z0-9][a-z0-9-]+")
+    urls = [k["original"] for k in kept]
+    # ?tag_term= identifies nothing about WHICH article is served, but it is not on the
+    # denylist, so it stays a distinct page: 3 kept = bare, tag_term variant, second article.
+    assert base in urls
+    assert "https://www.pmindia.gov.in/en/news_updates/pm-meets-the-president/" in urls
+    assert not any("utm_source" in u or "fbclid" in u or u.endswith("?comment=disable") for u in urls)
+
+
+def test_dedupe_keeps_the_first_capture_and_can_be_disabled():
+    base = "https://x.gov/en/news/speech-123"
+    entries = [_e(base + "?utm_source=a"), _e(base), _e(base + "?fbclid=b")]
+
+    kept = wayback.filter_entries_for_recipe(entries, r"/en/news/")
+    assert [k["original"] for k in kept] == [base + "?utm_source=a"]   # first wins
+
+    every = wayback.filter_entries_for_recipe(entries, r"/en/news/", dedupe_noise_params=False)
+    assert len(every) == 3                                            # opt out => old behaviour
+
+
+def test_dedupe_never_collapses_query_ADDRESSED_pages():
+    """president.ie, pmindia.nic.in and president.gov.ge put the document id IN the query.
+    Dropping the whole query string would collapse 1,039 distinct speeches into one page —
+    this is the regression guard for that."""
+    ie = [_e(f"http://www.president.ie/index.php?section=5&speech={i}&lang=eng") for i in (204, 205, 206)]
+    assert len(wayback.filter_entries_for_recipe(ie, r"index\.php\?section=")) == 3
+
+    nic = [_e(f"http://pmindia.nic.in/speech-details.php?nodeid={i}") for i in (1021, 1022)]
+    assert len(wayback.filter_entries_for_recipe(nic, r"speech-details\.php")) == 2
+
+    ge = [_e(f"http://president.gov.ge/en/PressOffice/News/SpeechesAndStatements?p={i}&i=1")
+          for i in (2186, 2187)]
+    assert len(wayback.filter_entries_for_recipe(ge, r"SpeechesAndStatements")) == 2
+
+
+def test_page_identity_normalizes_scheme_www_port_and_trailing_slash():
+    a = wayback.page_identity("http://www.president.gov.by:80/en/events/speech-1/")
+    b = wayback.page_identity("https://president.gov.by/en/events/speech-1")
+    assert a == b
+    # a meaningful param still separates two pages
+    assert wayback.page_identity("http://x.gov/a?id=1") != wayback.page_identity("http://x.gov/a?id=2")

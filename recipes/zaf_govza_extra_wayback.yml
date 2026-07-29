@@ -1,0 +1,55 @@
+# South Africa — gov.za/news/speeches, the NON-head-of-state remainder, via the Internet Archive.
+#
+# This is the deliberate COMPLEMENT of zaf_gov_wayback.yml. That recipe was narrowed (2026-07-28) to
+# slugs naming a President / Deputy President / a post-1994 SA president / a State of the Nation
+# Address — ~2,514 of 14,886 harvested links. Everything else lands here: ~12,372 links, dominated by
+# ministers (40%), deputy ministers (16%), MECs (13%) and premiers (6%), plus reserve-bank governors,
+# police and revenue commissioners, public protectors and departmental budget-vote speeches.
+#
+# WHY IT EXISTS RATHER THAN BEING DISCARDED: two reasons the researcher flagged. (1) Recall — some
+# genuine presidential speeches almost certainly carry no name or title in the slug (e.g.
+# "10th-anniversary-university-kwazulu-natal-…-speech"), so the narrow filter will have missed a few.
+# (2) These are substantial speeches by senior national figures in their own right and may be worth
+# collecting for other questions, even though they fall outside LeaderSpeech's head-of-state scope.
+#
+# STATUS: DEFERRED — parked in queues/deferred/zaf_govza_extra.txt, NOT in the main q1/q2/q3 rotation.
+# It costs ~29h of Archive fetching, so run it only after the leader-level campaign is complete.
+#
+# ⚠ SAME COUNTRY as zaf_gov_wayback: both share data/state/South Africa.json, so they must NEVER run
+# at the same time or on two machines (duplicate doc_ids + clobbered seen_urls). Run this one alone.
+source_id: zaf_govza_extra_wayback
+country: South Africa
+source_language: English
+renderer: static
+start_urls:
+  - gov.za/news/speeches
+
+listing:
+  # The negative lookahead is the mirror image of zaf_gov_wayback's keep-pattern: anything whose slug
+  # does NOT name a president/deputy-president, a post-1994 SA president, a SONA, or 'sona'.
+  # Verified against the real harvest: selects 12,327 links with ZERO overlap with zaf_gov_wayback.
+  link_pattern: '/news/speeches/(?![a-z0-9-]*(?:president|ramaphosa|zuma|mbeki|motlanthe|mandela|de-klerk|state-of-the-nation|sona[-/]))[a-z0-9][a-z0-9-]{4,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".field--name-body", ".node__content", "article"]
+date:
+  selectors: ["time", ".field--name-field-start-date time", ".date-display-single"]
+
+date_languages: ["en"]
+notes: >
+  DEFERRED companion to zaf_gov_wayback (same site, same selectors, complementary link_pattern).
+  Holds the ~12.4k gov.za speeches by ministers, deputy ministers, MECs, premiers, commissioners and
+  central-bank governors that the narrowed leader-level recipe excludes. Kept so the material is not
+  lost and so any presidential speech whose slug lacks a name/title can still be recovered later. NO
+  speaker_default — the cleaner's speaker pass and tenure crosscheck sort out who is speaking. FULL
+  RUN is the researcher's gate; run alone (shares South Africa.json with zaf_gov_wayback).

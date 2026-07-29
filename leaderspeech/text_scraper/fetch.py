@@ -66,6 +66,37 @@ def build_headers(user_agent: Optional[str] = None, extra: Optional[dict] = None
     return headers
 
 
+# Where to ask "what IP do my requests come from?". Two providers so one being down
+# doesn't cost us the answer; both return the bare address as plain text.
+_EGRESS_IP_SERVICES = ("https://api.ipify.org", "https://checkip.amazonaws.com")
+
+
+def egress_ip(timeout: float = 8.0) -> Optional[str]:
+    """The public IP address this process's requests appear to come from, or None.
+
+    Worth logging at the start of a run because the Internet Archive throttles per
+    IP: when a campaign is split across several machines to keep each stream polite,
+    this is what PROVES the streams are actually on different addresses — and if a
+    tunnel or proxy silently drops mid-run, it shows up here instead of surfacing
+    six hours later as unexplained throttling.
+
+    Uses a plain httpx.get, so it honors the same HTTPS_PROXY / ALL_PROXY env vars
+    every other client in this package honors (httpx defaults to trust_env=True) and
+    therefore reports the address the remote host actually sees. Best-effort: it
+    never raises and never blocks a scrape on a slow or missing lookup.
+    """
+    for url in _EGRESS_IP_SERVICES:
+        try:
+            resp = httpx.get(url, timeout=timeout, headers={"User-Agent": USER_AGENT})
+            resp.raise_for_status()
+            ip = resp.text.strip()
+            if ip:
+                return ip
+        except Exception:
+            continue
+    return None
+
+
 class RobotsCache:
     """Per-host robots.txt lookups. Fails open: if robots can't be read, allow.
 

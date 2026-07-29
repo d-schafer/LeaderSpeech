@@ -22,10 +22,17 @@ start_urls:
   - president.gov.by/en
 
 listing:
-  # Keep only the three article schemes; require a slug/id after the section so listing/index
+  # Keep only the article schemes; require a slug/id after the section so listing/index
   # captures (/en/events, /en/news_en) and the excluded /en/photo_en//official_documents_en/ trees
   # are dropped.
-  link_pattern: '/en/(events|news_en/view|media/details)/[a-z0-9]|/en/press\d+\.html'
+  #
+  # /en/media/details/ is DELIBERATELY EXCLUDED (2026-07-28): those 1,889 captures are the photo
+  # and video GALLERY pages, not speeches — the harvest is dominated by things like
+  # "10th-christmas-amateur-ice-hockey-tournament-belarus-vs-germany". Dropping them saves ~4h of
+  # Archive fetching and a GPT call each. Courtesy messages (pozdravlenie/greetings/condolences,
+  # ~6,300 URLs) are deliberately KEPT — they are real statements by the leader, and the cleaner's
+  # inclusion_tier tiers them as 4_courtesy downstream rather than discarding them here.
+  link_pattern: '/en/(events|news_en/view)/[a-z0-9]|/en/press\d+\.html'
 
 pagination:
   type: wayback

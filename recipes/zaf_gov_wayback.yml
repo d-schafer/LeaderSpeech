@@ -11,8 +11,21 @@ start_urls:
   - gov.za/news/speeches
 
 listing:
-  # /news/speeches/<slug> article (require a slug so the ?page=N listing can't match).
-  link_pattern: '/news/speeches/[a-z0-9][a-z0-9-]{4,}'
+  # /news/speeches/<slug> article (require a slug so the ?page=N listing can't match), NARROWED
+  # 2026-07-28 to the head of state / government.
+  #
+  # WHY: gov.za/news/speeches is the WHOLE South African government's speech archive. Of 14,796
+  # distinct archived pages, only ~17% involve a President or Deputy President — the rest are
+  # ministers (40%), deputy ministers (16%), MECs (13%), premiers (6%), plus reserve-bank
+  # governors, commissioners and public protectors. Scraping all of it costs ~35h of Archive
+  # fetching and a GPT call per non-leader speech. gov.za mercifully names the speaker in the
+  # slug, so the filter is cheap and precise: keep a slug that says president/deputy-president,
+  # names a post-1994 SA president, or is a State of the Nation Address.
+  #
+  # The complement is NOT thrown away — it is harvested by the companion recipe
+  # zaf_govza_extra_wayback.yml (12,372 links), parked in queues/deferred/ for a later run.
+  # Verified against the real harvest: 2,514 kept, 12,372 deferred, ZERO overlap.
+  link_pattern: '/news/speeches/(?:[a-z0-9-]*-)?(?:deputy-)?president(?:[-/?]|$)|/news/speeches/[a-z0-9-]*(?:ramaphosa|zuma|mbeki|motlanthe|mandela|de-klerk)|/news/speeches/[a-z0-9-]*state-of-the-nation|/news/speeches/[a-z0-9-]*(?:^|-)sona(?:-|$)'
 
 pagination:
   type: wayback

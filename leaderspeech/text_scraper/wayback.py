@@ -18,7 +18,7 @@ import logging
 import random
 import re
 import time
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, unquote, urlencode, urlparse
 from typing import TYPE_CHECKING, Iterable, Optional
 
 import httpx
@@ -176,10 +176,57 @@ def _url_path(url: str) -> str:
     return urlparse(u).path.rstrip("/")
 
 
+# --- one capture per PAGE (query-noise dedupe) --------------------------------------
+# The Archive captures the same article under every tracking/UI query string a referrer
+# ever used: ?utm_source=…, ?fbclid=…, ?comment=disable, ?openVideo=true. Each is a
+# separate CDX row with its own urlkey, so `collapse=urlkey` does NOT merge them, and the
+# scrape loop's URL-keyed `seen_urls` treats them as different documents — paying a full
+# Archive fetch, a row, and later a GPT call for a page already collected. On India's
+# pmindia.gov.in that is 5,544 of 15,926 harvested links (35%).
+#
+# Stripping the query ENTIRELY would be a disaster: plenty of older government sites put
+# the document id IN the query (president.ie `index.php?section=5&speech=204&lang=eng`,
+# pmindia.nic.in `speech-details.php?nodeid=1021`, president.gov.ge `…?p=2186&i=1`), and
+# a blanket strip collapses 1,039 distinct speeches to one page. So this is a DENYLIST of
+# parameters that provably never change *which* document is served.
+NOISE_PARAMS = frozenset({
+    # analytics / referral / social click ids
+    "fbclid", "gclid", "msclkid", "yclid", "igshid", "mc_cid", "mc_eid",
+    "ref", "referrer", "source", "_hsenc", "_hsmi", "env", "rid", "clckid",
+    # on-page UI toggles that re-render the same article
+    "comment", "replytocom", "openvideo", "openphoto", "opengallery",
+    "amp", "output", "print", "sphrase_id",
+})
+# Prefix families: utm_*, Adobe at_*, Matomo/Piwik pk_*/piwik_*, F5/BIG-IP TSPD_*, __cf*
+NOISE_PARAM_PREFIXES = ("utm_", "at_", "pk_", "piwik_", "tspd_", "__cf")
+
+
+def page_identity(url: str) -> str:
+    """A key that is equal for two URLs serving the SAME document.
+
+    Normalizes scheme, `www.`, port and trailing slash, and drops only the query
+    parameters in :data:`NOISE_PARAMS` / :data:`NOISE_PARAM_PREFIXES`. Meaningful
+    parameters are kept, so query-addressed sites stay fully distinct.
+    """
+    pr = urlparse(url)
+    host = pr.netloc.split(":")[0].lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = unquote(pr.path).rstrip("/").lower()
+    # WordPress paginates a comment thread as a sub-path of the same article
+    path = re.sub(r"/comment-page-\d+$", "", path)
+    kept = [
+        (k, v) for k, v in parse_qsl(pr.query, keep_blank_values=True)
+        if k.lower() not in NOISE_PARAMS and not k.lower().startswith(NOISE_PARAM_PREFIXES)
+    ]
+    return host + path + ("?" + urlencode(sorted(kept)) if kept else "")
+
+
 def filter_entries_for_recipe(
     entries: Iterable[dict],
     link_pattern: Optional[str] = None,
     start_urls: Iterable[str] = (),
+    dedupe_noise_params: bool = True,
 ) -> list[dict]:
     """Filter CDX captures down to speech pages — country-agnostic.
 
@@ -191,23 +238,36 @@ def filter_entries_for_recipe(
         variants, which share the index's path — is dropped by matching the
         recipe's own `start_urls` paths. No site-specific paths are hardcoded here;
         a new country needs only a new recipe, not a change to this module.
+      * `dedupe_noise_params` (on by default) keeps only the FIRST capture of each
+        distinct page, ignoring tracking/UI query parameters — see :func:`page_identity`.
+        Set it False to fetch every query variant as its own document.
     """
     pattern = re.compile(link_pattern) if link_pattern else None
     listing_paths = {_url_path(u) for u in start_urls}
     out: list[dict] = []
     seen: set[str] = set()
+    deduped = 0
 
     for entry in entries:
         original = entry.get("original")
-        if not original or original in seen:
+        if not original:
+            continue
+        key = page_identity(original) if dedupe_noise_params else original
+        if key in seen:
+            # A second capture of a page we already have (usually the same article with a
+            # ?utm_source= / ?comment= suffix). Count it so the run log can show the saving.
+            deduped += 1
             continue
         if _url_path(original) in listing_paths:
             continue
         if pattern and not pattern.search(original):
             continue
-        seen.add(original)
+        seen.add(key)
         out.append(entry)
 
+    if deduped:
+        log.info("wayback: skipped %d duplicate capture(s) of pages already harvested "
+                 "(same page, different tracking/UI query string)", deduped)
     return out
 
 
@@ -261,8 +321,10 @@ def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
         collapse=ext.wayback_collapse,
         filters=ext.wayback_filter,
     )
-    return filter_entries_for_recipe(entries, extend_link_pattern(recipe, ext),
-                                     start_urls=[prefix])
+    return filter_entries_for_recipe(
+        entries, extend_link_pattern(recipe, ext), start_urls=[prefix],
+        dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
+    )
 
 
 def snapshot_url(entry: dict) -> str:

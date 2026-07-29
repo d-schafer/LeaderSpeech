@@ -785,6 +785,44 @@ count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. A 
 `csv_file` column and concatenates every file it lists. It is a **regenerable, machine-owned** artifact —
 distinct from the researcher-curated `data/sources/master_sources.xlsx`, which agents must never touch.
 
+## Running several machines at once
+
+The Internet Archive throttles **per IP**, and the engine is single-threaded by design, so one
+machine does roughly **420 archived pages/hour** at the ~8s floor. A large Wayback campaign is
+therefore split across machines on *separate networks* — each stream stays exactly as polite as a
+single one, but the campaign finishes in days rather than weeks. Two things make that safe:
+
+**1. Partition the work by COUNTRY, never split one across machines.** `data/state/<Country>.json`
+is shared by every source in that country: it is loaded once at run start, rewritten wholesale on
+each checkpoint, and holds the `doc_id` counter. Two processes on the same country will clobber
+each other's `seen_urls` and mint duplicate `doc_id`s. Several sources of one country on the *same*
+machine are fine — a queue is sequential. (The `queues/` lists and `scrape_queue_wayback.ps1` in the
+project workspace enforce this with a preflight check.)
+
+**2. Pass `--no-index`.** Every run normally rebuilds `scraped_progress_log.xlsx`; several machines
+rebuilding one file in a synced folder (Dropbox) produces "conflicted copy" workbooks. Suppress it
+per run and rebuild once when every machine has finished:
+
+```bash
+python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --adaptive-wayback --no-index
+# ... after all machines finish:
+python -m leaderspeech.text_scraper.index
+```
+
+**Verifying the streams really are independent.** Every CLI run logs an `egress IP:` line at
+startup (one lookup; `--no-egress-check` skips it). If two machines report the same address they
+are not parallel at all — a laptop on the same wifi, or a workstation VPN'd back to the same
+network, collapses into one IP and just splits that IP's budget. Check this line after any
+tunnel or hotspot reconnect, not only at the start.
+
+If you need distinct IPs from *one* machine, note that every HTTP client in this package is built
+without `trust_env=False`, so httpx honors `HTTPS_PROXY` / `ALL_PROXY` per process — setting one in
+a shell routes that scrape through it with no code change (SOCKS needs `pip install httpx[socks]`).
+A system-wide VPN client cannot do this: it moves the whole machine to one IP.
+
+Before scaling up a long campaign, tell the Archive what you're doing — they ask large projects to
+get in touch, and disclosed pacing is a better position than inferred limits.
+
 ## Good-citizen reminders
 
 - Pacing is light by default (a breather every 50 requests). If a host starts erroring or rate-limiting,

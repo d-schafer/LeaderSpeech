@@ -873,3 +873,84 @@ def test_listing_metadata_never_skips_the_pdf_fetch(tmp_path, monkeypatch):
     assert res["scraped_this_run"] == 1
     csv = (out / "Ethiopia" / "eth_pmo_test.csv").read_text(encoding="utf-8")
     assert "Real PDF body text." in csv          # the PDF really was fetched + extracted
+
+
+# --- concurrent-campaign safety: --no-index and the egress-IP lookup -------------------
+# Both exist so one Wayback campaign can be split across several machines (the Internet
+# Archive throttles per IP). See docs/recipes.md -> "Running several machines at once".
+
+
+def test_no_index_skips_the_shared_workbook_rebuild(tmp_path, monkeypatch):
+    """Every run normally rebuilds data/scraped/scraped_progress_log.xlsx. With several
+    machines scraping into one synced (Dropbox) folder that produces 'conflicted copy'
+    files, so --no-index suppresses it and the index is rebuilt once at the end."""
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a-good"])
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    calls = []
+    monkeypatch.setattr(run.index, "build_index", lambda *a, **k: calls.append(a))
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    recipe = _recipe(tmp_path)
+
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+    assert len(calls) == 1                        # default: index refreshed as before
+
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir), no_index=True)
+    assert len(calls) == 1                        # --no-index: no second rebuild
+
+
+def test_egress_check_is_off_for_library_callers_and_never_fatal(tmp_path, monkeypatch):
+    """The IP lookup must cost nothing when the package is imported (tests, merge steps):
+    it is opt-in at the function level and main() turns it on. When it IS on, a lookup
+    failure is logged, not raised — a scrape must never die because ipify is down."""
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: ["http://x/a-good"])
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    looked_up = []
+    monkeypatch.setattr(run, "egress_ip", lambda *a, **k: looked_up.append(1) or "203.0.113.7")
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    recipe = _recipe(tmp_path)
+
+    run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir))
+    assert looked_up == []                        # default off => no network round-trip
+
+    monkeypatch.setattr(run, "egress_ip", lambda *a, **k: None)   # lookup failed
+    res = run.scrape_recipe(recipe, out_root=str(out), state_root=str(state_dir),
+                            egress_check=True)
+    assert res["source_id"] == "test_src"          # still completed normally
+
+
+def test_egress_ip_falls_through_to_the_second_service(monkeypatch):
+    """One provider being down must not cost us the answer."""
+    from leaderspeech.text_scraper import fetch
+
+    seen = []
+
+    def fake_get(url, **kwargs):
+        seen.append(url)
+        if "ipify" in url:
+            raise RuntimeError("provider down")
+
+        class R:
+            text = " 198.51.100.4\n"
+
+            def raise_for_status(self):
+                pass
+
+        return R()
+
+    monkeypatch.setattr(fetch.httpx, "get", fake_get)
+    assert fetch.egress_ip() == "198.51.100.4"     # stripped, from the fallback service
+    assert len(seen) == 2
+
+
+def test_egress_ip_returns_none_when_every_service_fails(monkeypatch):
+    from leaderspeech.text_scraper import fetch
+
+    def boom(url, **kwargs):
+        raise RuntimeError("no network")
+
+    monkeypatch.setattr(fetch.httpx, "get", boom)
+    assert fetch.egress_ip() is None               # best-effort: no exception escapes

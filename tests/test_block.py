@@ -68,3 +68,41 @@ def test_extra_patterns_add_site_specific_signatures():
 def test_block_page_error_is_an_exception():
     # so the Fetcher retry loop (except Exception) catches it
     assert issubclass(BlockPageError, Exception)
+
+
+# --- regression: the Cloudflare ANALYTICS BEACON is not a block page --------------------
+# Until 2026-07-28 the bare word "cloudflare" was a block signature, so any page merely
+# loading a Cloudflare asset fell through to the length gate alone. Short legitimate pages
+# (listing pages run 2-3k visible chars) were then rejected at random, silently truncating
+# harvests: presidency.gov.mv's speech pager died at whichever page had shorter headlines.
+
+CF_BEACON = (
+    '<html><head><script type="module" '
+    'src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746"></script>'
+    "</head><body><h1>President's Speeches</h1>"
+    "<a href='/Press/Article/36811'>Address at the opening ceremony</a>"
+    "<a href='/Press/Article/36602'>Remarks at the national day event</a>"
+    "</body></html>"
+)
+
+
+def test_cloudflare_analytics_beacon_is_not_a_block_page():
+    """A short listing page that loads Cloudflare's RUM beacon must pass, however short."""
+    assert not looks_like_block_page(CF_BEACON)
+
+
+def test_cloudflare_cdn_asset_is_not_a_block_page():
+    html = ("<html><head><link rel='stylesheet' "
+            "href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'>"
+            "</head><body><p>Short page.</p></body></html>")
+    assert not looks_like_block_page(html)
+
+
+def test_real_cloudflare_block_pages_are_still_caught():
+    for html in (
+        "<html><body><h1>Attention Required!</h1><p>Sorry, you have been blocked</p></body></html>",
+        "<html><body><div class='cf-error-details'>Error 1020</div></body></html>",
+        "<html><body><p>Cloudflare Ray ID: 8f2b1c</p><p>Access denied</p></body></html>",
+        "<html><body><p>Performance &amp; security by Cloudflare</p></body></html>",
+    ):
+        assert looks_like_block_page(html), html[:60]
