@@ -1,11 +1,6 @@
-# The agent "outbox" is now ONE FILE PER SOURCE under
-# data/sources/additional_master_sources/ (<source_id>.csv). Distinct filenames can't
-# collide, so parallel recipe PRs never merge-conflict on the outbox — no union driver
-# needed. (GitHub's web merge ignores merge=union, which is why the single shared file
-# below conflicted on every concurrent PR.) Pin the fragments to LF.
-# See data/sources/additional_master_sources/README.md and
-# scripts/merge_additional_sources.py.
-data/sources/additional_master_sources/*.csv text eol=lf
-# The old shared flat file is FROZEN (legacy rows only; new sources go in the folder).
-# Keep it LF + union as a belt-and-suspenders in case anything still appends to it.
-data/sources/additional_master_sources.csv text eol=lf merge=union
+# Recipes and the generated source list are text; pin them to LF so a Windows checkout
+# doesn't produce CRLF-only diffs.
+# (The old data/sources/additional_master_sources/ rules went with the agent pipeline —
+# that folder is local-only now; see _archive/README.md.)
+recipes/*.yml text eol=lf
+data/sources/sources.csv text eol=lf

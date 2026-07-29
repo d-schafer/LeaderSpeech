@@ -1,0 +1,230 @@
+source_id,country,region,iso3n,source_name,source_url,source_type,renderer,leaders_covered,date_start,date_end,language,content_format,recipe_status
+afg_aop,Afghanistan,,4.0,aop.gov.af,https://aop.gov.af/,official_gov,unknown,,,,Dari/Pashto,fulltext,blocked
+afg_aop_wayback,Afghanistan,,4.0,aop.gov.af (Wayback),https://aop.gov.af/,official_gov,static,Ashraf Ghani,2015,2026,Dari/Pashto,fulltext,draft
+afg_aop_dari_wayback,Afghanistan,Asia,4.0,aop.gov.af (old Dari /dari/ scheme; Wayback),https://aop.gov.af/,official_gov,static,Ashraf Ghani,2016,2021,Dari,fulltext,partial
+afg_aop_english_wayback,Afghanistan,Asia,4.0,aop.gov.af (old English /english/ scheme; Wayback),https://aop.gov.af/,official_gov,static,Ashraf Ghani,2016,2021,English,fulltext,partial
+afg_president_gov_wayback,Afghanistan,Asia,4.0,president.gov.af (Karzai-era; Wayback),https://president.gov.af/,official_gov,static,Hamid Karzai; Ashraf Ghani,2006,2021,Dari/Pashto/English,fulltext,partial
+alb_president,Albania,,8.0,president.al,https://president.al/,official_gov,cdp,,,2026,Albanian,fulltext,draft
+alb_kryeministria,Albania,,8.0,kryeministria.al,https://kryeministria.al,official_gov,js,Edi Rama,,2026,Albanian,fulltext,draft
+alb_president_wayback,Albania,,8.0,president.al (Wayback),https://president.al/,official_gov,static,Nishani; Meta; Begaj,2018,2025,Albanian,fulltext,partial
+alb_president_english_wayback,Albania,Europe,8.0,president.al (old English /english/ ASP; Wayback),https://president.al/ (Wayback/CDX),official_gov,static,Moisiu; Topi,2003,2011,English,fulltext,partial
+dza_presidency,Algeria,Africa,12.0,el-mouradia.dz,https://www.el-mouradia.dz/,official_gov,static,President (Tebboune),,,Arabic/French,fulltext,none
+ago_angop,Angola,Africa,24.0,ANGOP (state news agency),https://www.angop.ao/pt/angola/politica/discursos-do-presidente/,state_news_agency,static,President (Joao Lourenco),,,Portuguese,fulltext,none
+arg_casarosada,Argentina,South America,32.0,casarosada.gob.ar,https://www.casarosada.gob.ar/,official_gov,static,"Milei, Fernández, Macri, Kirchner",,,Spanish,fulltext,validated
+arg_casarosada_wayback,Argentina,South America,32.0,casarosada.gob.ar (Wayback),https://www.casarosada.gob.ar/informacion/discursos (Wayback/CDX),official_gov (archived),static,"Kirchner-era (CFK, N. Kirchner)",2007,1905-07-07 00:00:00,Spanish,fulltext,draft
+arm_president,Armenia,,51.0,president.am,https://www.president.am/,official_gov,js,,,,,,draft
+arm_president_wayback,Armenia,Asia,51.0,president.am (Wayback),president.am/en/press-release/item (Wayback/CDX),official_gov (archived),static,Sargsyan/Sarkissian/Khachaturyan,2008,2022,English,fulltext,draft
+aus_gg,Australia,,36.0,gg.gov.au,https://www.gg.gov.au/,official_gov,unknown,,,,,,blocked
+aus_gg_wayback,Australia,Oceania,36.0,gg.gov.au,http://www.gg.gov.au/speeches/html/speeches (via Internet Archive),official_gov,static,governor-general. FULL RUN pending (researcher gate).,1996,2006,English,fulltext,draft
+aut_bundespraesident,Austria,,40.0,bundespraesident.at,https://www.bundespraesident.at/,official_gov,unknown,,,,,,draft
+aze_president,Azerbaijan,,31.0,president.az,https://president.az/,official_gov,unknown,,,,,,draft
+aze_president_english_wayback,Azerbaijan,Asia,31.0,president.az (English mirror en.president.az; Wayback),https://en.president.az/ (Wayback/CDX),official_gov,static,Ilham Aliyev,2011,2022,English,fulltext,draft
+bgd_bangabhaban,Bangladesh,,50.0,bangabhaban.gov.bd,http://www.bangabhaban.gov.bd/,official_gov,static,,,,,,none
+bgd_bss_president,Bangladesh,Asia,50.0,bssnews.net (BSS state news),https://www.bssnews.net/news/president,state_news_agency,static,President Mohammed Shahabuddin,2026,2026,English,fulltext,draft
+bgd_bss_president_wayback,Bangladesh,Asia,50.0,bssnews.net (via Internet Archive),https://www.bssnews.net/news/president,official_gov,,,,,English,fulltext.,blocked
+blr_president,Belarus,,112.0,president.gov.by,https://president.gov.by/,official_gov,unknown,,,,,,draft
+blr_president_english_wayback,Belarus,Europe,112.0,president.gov.by (English mirror; Wayback),https://president.gov.by/en/ (Wayback/CDX),official_gov,static,Alexander Lukashenko,1998,2026,English,fulltext,draft
+bel_monarchie,Belgium,,56.0,monarchie.be,https://www.monarchie.be/,official_gov,static,,,,,,draft
+bel_monarchie_wayback,Belgium,Europe,56.0,monarchie.be (English speeches; Wayback),https://www.monarchie.be/en (Wayback/CDX),official_gov,static,King Philippe; Queen Mathilde,2016,2026,English,fulltext,draft
+btn_royalkidu_wayback,Bhutan,,64.0,royalkidu.bt,https://royalkidu.bt/,official_gov,static,,,,,,draft
+bra_planalto,Brazil,South America,76.0,gov.br/planalto (Presidencia),https://www.gov.br/planalto/pt-br/acompanhe-o-planalto/discursos-e-pronunciamentos,official_gov,js,President (Lula),,,Portuguese,fulltext,blocked
+bra_planalto_wayback,Brazil,South America,76.0,gov.br/planalto (Wayback),gov.br/planalto discursos (Wayback/CDX),official_gov (archived),static,Lula,2023,2024,Portuguese,fulltext,draft
+bra_biblioteca,Brazil,Latin America,76.0,Biblioteca da Presidencia da Republica (ex-presidentes),https://www.biblioteca.presidencia.gov.br/presidencia/ex-presidentes/luiz-inacio-lula-da-silva/discursos,official_gov,static,,2003,2010,Portuguese,pdf,blocked
+bra_biblioteca_wayback,Brazil,Latin America,76.0,"Biblioteca da Presidencia da Republica (ex-presidentes), via Wayback",https://www.biblioteca.presidencia.gov.br/presidencia/ex-presidentes/luiz-inacio-lula-da-silva/discursos,official_gov,static,,2003,2010,Portuguese,pdf,draft
+bra_planalto_old_wayback,Brazil,Latin America,76.0,"Presidencia da Republica (Planalto, old host, via Wayback)",http://www2.planalto.gov.br/acompanhe-o-planalto/discursos,official_gov,static,,2011,2022,Portuguese,fulltext,draft
+bgr_president,Bulgaria,,100.0,president.bg,https://www.president.bg/,official_gov,static,,,,,,draft
+bdi_presidence,Burundi,,108.0,presidence.gov.bi,https://www.presidence.gov.bi/,official_gov,static,,,,,,draft
+cmr_prc,Cameroon,,120.0,prc.cm,https://www.prc.cm/en/news/speeches-of-the-president,official_gov,static,,,,,,draft
+cmr_prc_wayback,Cameroon,Africa,120.0,prc.cm (speeches-of-the-president; Wayback),https://www.prc.cm/en/news/speeches-of-the-president (Wayback/CDX),official_gov,static,Paul Biya,2014,2026,English,fulltext,draft
+can_pmo,Canada,North America,124.0,pm.gc.ca,https://www.pm.gc.ca/en/news/speeches,official_gov,static,Prime Minister,,,English/French,fulltext,none
+can_pmo_wayback,Canada,Americas,124.0,Prime Minister's Office pm.gc.ca speeches (Wayback/CDX),https://pm.gc.ca/en/news/speeches,official_gov_wayback,static,Justin Trudeau; Mark Carney,2015,2026,English,fulltext,draft
+chl_presidencia,Chile,South America,152.0,prensa.presidencia.cl,https://prensa.presidencia.cl/,official_gov,static,"Bachelet, Piñera, Boric",2014-03-11,,Spanish,fulltext,validated
+chn_statecouncil,China,Asia,156.0,english.www.gov.cn (State Council),https://english.www.gov.cn/,official_gov,static,Premier / State Council,,,Chinese/English,fulltext,none
+col_presidencia,Colombia,,,,https://www.presidencia.gov.co/prensa/Paginas/discursos.aspx,,js,,,,Spanish,,draft
+cod_presidence,"Congo, The Democratic Republic of the",Africa,180.0,presidence.cd,https://www.presidence.cd/,official_gov,static,President (Tshisekedi),,,French,fulltext,none
+cri_presidencia,Costa Rica,,188.0,presidencia.go.cr,https://www.presidencia.go.cr/,official_gov,static,,,,,,draft
+hrv_predsjednik,Croatia,,191.0,predsjednik.hr,https://www.predsjednik.hr/,official_gov,static,,,,,,draft
+hrv_predsjednik_english_wayback,Croatia,Europe,191.0,predsjednik.hr (English mirror; Wayback),https://www.predsjednik.hr/en (Wayback/CDX),official_gov,static,Mesić; Josipović; Milanović,2000,2026,English,fulltext,draft
+cub_presidencia,Cuba,,192.0,presidencia.gob.cu,https://www.presidencia.gob.cu/,official_gov,static,,2018,2025,,,draft
+cyp_presidency,Cyprus,,196.0,presidency.gov.cy,https://www.presidency.gov.cy/,official_gov,static,,2024,2026,,,draft
+cze_hrad,Czechia,,203.0,hrad.cz,hrad.cz/,official_gov,unknown,,,,,,blocked
+cze_hrad_wayback,Czechia,Europe,203.0,,hrad.cz/cs/pro-media/tiskove-zpravy,official_gov_wayback,static,,2009,2020,Czech,fulltext,draft
+cze_hrad_english_wayback,Czechia,Europe,203.0,hrad.cz (English selected-speeches; Wayback),https://www.hrad.cz/en (Wayback/CDX),official_gov,static,Klaus; Zeman,2003,2020,English,fulltext,draft
+dnk_kongehuset,Denmark,,208.0,kongehuset.dk,https://www.kongehuset.dk/,official_gov,static,,2011,2026,,,draft
+,Denmark,,,,,,,,,,,,
+egy_atlanticcouncil,Egypt,Africa,,atlanticcouncil.org,http://atlanticcouncil.org,Atlantic Council,unknown,Mohamed Morsi,,,,,none
+egy_bbc,Egypt,Africa,,bbc.com,http://bbc.com,BBC,unknown,Hosni Mubarak,,,,,none
+egy_c-span,Egypt,Africa,,c-span.org,http://c-span.org,C-Spain,unknown,Mohamed Morsi,,,,,none
+egy_cdm15795,Egypt,Africa,,cdm15795.contentdm.oclc.org,http://cdm15795.contentdm.oclc.org,The American Univ in Cairo,unknown,Hosni Mubarak,,,,,none
+egy_ilsoncenter,Egypt,Africa,,ilsoncenter.org,http://ilsoncenter.org,"Wilson Center, DC",unknown,Mohamed Morsi,,,,,none
+egy_leftvoice,Egypt,Africa,,leftvoice.org,http://leftvoice.org,Left Voice (International Network),unknown,Hosni Mubarak,,,,,none
+egy_sadat,Egypt,Africa,,sadat.umd.edu,http://sadat.umd.edu,Univ of Maryland website,unknown,Sadat (old speeches),,,,,none
+egy_sis,Egypt,Africa,,sis.gov.eg,http://sis.gov.eg,,unknown,Pres Sisi,,,,,blocked
+egy_theguardian,Egypt,Africa,,theguardian.com,http://theguardian.com,The Gaurdian,unknown,Hosni Mubarak,,,,,none
+egy_youtube,Egypt,Africa,,youtube.com,http://youtube.com,Al-jazeera Youtube,unknown,Amadou Toumani Touré; Dioncounda Traoré ; Hosni Mubarak; Mahamadou Issoufou; Mohamed Morsi; Moncef Marzouki,,,,,none
+egy_presidency,Egypt,Africa,818.0,,https://www.presidency.eg/,official_gov,js,,2020,2026,Arabic,mixed,draft
+est_president,Estonia,,233.0,president.ee,https://president.ee/,official_gov,js,,2021,2026,,,draft
+est_president_english_wayback,Estonia,Europe,233.0,president.ee/en (English tree; Wayback/CDX),https://www.president.ee/en,official_gov,static,Ilves; Kaljulaid; Karis,2010,2026,English,fulltext,partial
+eth_thepresidency,Ethiopia,,231.0,thepresidency.gov.et,https://www.thepresidency.gov.et/,official_gov,unknown,,,,,,blocked
+eth_pmo,Ethiopia,Africa,,pmo.gov.et,http://pmo.gov.et,PM Website,static (pdf),Prime Minister Abiy Ahmed,2018,2023,,,partial
+eth_thepresidency_wayback,Ethiopia,Africa,231.0,,www.thepresidency.gov.et/eng/index.php/news/item,official_gov_wayback,static,,2015,2021,English,fulltext,draft
+fji_presidentsoffice,Fiji,,242.0,presidentsoffice.gov.fj,https://www.presidentsoffice.gov.fj/,official_gov,unknown,,,,,,blocked
+fji_presidentsoffice_wayback,Fiji,Oceania,242.0,,presidentsoffice.gov.fj/speechdetail,official_gov_wayback,static,,2017,2020,English,fulltext,draft
+fin_presidentti,Finland,,246.0,presidentti.fi,https://www.presidentti.fi/,official_gov,static (api),,2024,2026,,,draft
+fin_presidentti_english_wayback,Finland,Europe,246.0,presidentti.fi/en (English tree; Wayback/CDX),https://www.presidentti.fi/en,official_gov,static,Halonen; Niinistö; Stubb,2000,2026,English,fulltext,draft
+fra_elysee,France,Europe,250.0,elysee.fr,https://www.elysee.fr/,official_gov,static,Macron,,,French,fulltext,validated
+gmb_op,Gambia,,270.0,op.gov.gm,https://op.gov.gm/,official_gov,static (pdf),,2021,2024,,,partial
+geo_president,Georgia,,268.0,president.gov.ge,http://president.gov.ge/,official_gov,unknown,,,,,,blocked
+geo_president_wayback,Georgia,Asia,268.0,,www.president.gov.ge/en/News/Article,official_gov_wayback,static,,2019,2023,Georgian?,fulltext,draft
+geo_president_english_wayback,Georgia,Asia,268.0,president.gov.ge old English 'Speeches & Statements' (Wayback/CDX),http://president.gov.ge/en/PressOffice/News/SpeechesAndStatements,official_gov_wayback,static,Mikheil Saakashvili; Giorgi Margvelashvili,2011,2015,English,fulltext,draft
+deu_bundespraesident,Germany,,276.0,bundespraesident.de,https://www.bundespraesident.de/,official_gov,static,,,,,,draft
+deu_bundespraesident_wayback,Germany,Europe,276.0,,bundespraesident.de/SharedDocs/Reden/DE,official_gov_wayback,static,,1985,2026,German,fulltext,draft
+gha_ghana,Ghana,,288.0,ghana.gov.gh,https://www.ghana.gov.gh/,official_gov,unknown,,,,,,blocked
+gha_presidency,Ghana,Africa,288.0,,https://presidency.gov.gh/wp-json/wp/v2/posts,official_gov,static,,2025,2026,English,mixed,draft
+gha_presidency_wayback,Ghana,Africa,288.0,presidency.gov.gh old Joomla site (Wayback/CDX),https://presidency.gov.gh/,official_gov_wayback,static,John Atta Mills; John Mahama; Nana Akufo-Addo,2010,2024,English,fulltext,draft
+grc_presidency,Greece,,300.0,presidency.gr,https://www.presidency.gr/,official_gov,unknown,,,,,,blocked
+grc_presidency_wayback,Greece,Europe,300.0,,presidency.gr/omil_content,official_gov_wayback,static,,2003,2008,Greek,fulltext,partial
+guy_motp,Guyana,,328.0,motp.gov.gy,https://motp.gov.gy/,official_gov,static,,2020,2026,,,draft
+guy_motp_wayback,Guyana,Americas,328.0,Ministry of the Presidency motp.gov.gy (dead site; Wayback/CDX),http://www.motp.gov.gy/,official_gov_wayback,static,David Granger; Irfaan Ali,2015,2022,English,fulltext,draft
+hun_sandorpalota,Hungary,,348.0,sandorpalota.hu,https://www.sandorpalota.hu/,official_gov,static,,2022,2026,Hungarian,fulltext,draft
+hun_keh_wayback,Hungary,Europe,348.0,keh.hu (Wayback),keh.hu/beszedek (Wayback/CDX),official_gov (archived),static,Ader Janos,2012,2022,Hungarian,fulltext,draft
+isl_forseti,Iceland,,352.0,forseti.is,https://www.forseti.is/,official_gov,static,,2025,2026,,,draft
+ind_presidentofindia,India,,356.0,presidentofindia.nic.in,https://presidentofindia.nic.in/,official_gov,unknown,,,,,,partial
+ind_pmindia,India,,,,https://www.pmindia.gov.in/en/,,static,,,,English/Hindi,,draft
+ind_presidentofindia_wayback,India,Asia,356.0,presidentofindia.nic.in,https://presidentofindia.nic.in/speeches (via Internet Archive),official_gov,static,,2014,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+ind_pmindia_nic_wayback,India,Asia,356.0,Old PMO pmindia.nic.in speeches (Wayback/CDX),http://pmindia.nic.in/speech,official_gov_wayback,static,Manmohan Singh; Atal Bihari Vajpayee,2000,2014,English,fulltext,draft
+ind_pmindia_wayback,India,Asia,356.0,PM of India pmindia.gov.in/en/news_updates (Wayback/CDX),https://www.pmindia.gov.in/en/news_updates,official_gov_wayback,static,Narendra Modi,2014,2026,English,fulltext,draft
+idn_setkab,Indonesia,,,,https://setkab.go.id/en/category/speech-transcript/,,static,,,,English (+Indonesian),,draft
+idn_setkab_wayback,Indonesia,Asia,360.0,Cabinet Secretariat setkab.go.id/en transcripts (Wayback/CDX),https://setkab.go.id/en/category/speech-transcript/,official_gov_wayback,static,Joko Widodo; Prabowo Subianto,2015,2026,English,fulltext,draft
+irn_leader,"Iran, Islamic Republic of",,364.0,leader.ir,https://www.leader.ir/,official_gov,static,,2026,2026,,,partial
+irn_khamenei_english_wayback,"Iran, Islamic Republic of",Asia,364.0,english.khamenei.ir (official English site of the Supreme Leader; Wayback/CDX),https://english.khamenei.ir/,official_gov,static,Ali Khamenei,2015,2026,English,fulltext,draft
+irl_president,Ireland,,372.0,president.ie,https://president.ie/,official_gov,static,,,,,,validated
+isr_president,Israel,,376.0,president.gov.il,http://www.president.gov.il/,official_gov,unknown,,,,,,dropped
+isr_pmo,Israel,,376.0,"gov.il (PMO, EN)",https://www.gov.il/en/collectors/news?OfficeId=e744bba9-d17e-429f-abc3-50f7a8a55667,official_gov,api+js,Prime Minister (head of govt),2004,2026,English/Hebrew,fulltext,draft
+ita_quirinale,Italy,,380.0,quirinale.it,quirinale.it/,official_gov,unknown,,,,,,blocked
+jpn_kunaicho,Japan,,392.0,kunaicho.go.jp,https://www.kunaicho.go.jp/,official_gov,unknown,,,,,,partial
+jpn_kantei,Japan,Asia,392.0,,https://www.kantei.go.jp/jp/105/statement/index.html,official_gov,static,,2026,2026,Japanese,fulltext,draft
+jor_kingabdullah,Jordan,,400.0,kingabdullah.jo,https://kingabdullah.jo/,official_gov,static,,1999,2026,English,fulltext,draft
+jor_kingabdullah_english_wayback,Jordan,Asia,400.0,"kingabdullah.jo/en (King Abdullah II official site, English tree; Wayback/CDX)",https://kingabdullah.jo/en,official_gov,static,Abdullah II,2017,2026,English,fulltext,partial
+kaz_akorda,Kazakhstan,,398.0,akorda.kz,https://akorda.kz/,official_gov,static,,2021,2026,Russian,fulltext,draft
+kaz_akorda_wayback,Kazakhstan,Asia,398.0,akorda.kz (Wayback),"akorda.kz/ru/speeches (Wayback/CDX, pre-2021)",official_gov (archived),static,Nazarbayev; early Tokayev,2005,2020,Russian,fulltext,draft
+kaz_akorda_english_wayback,Kazakhstan,Asia,398.0,akorda.kz English state-of-nation addresses (Wayback/CDX),https://akorda.kz/en/addresses,official_gov_wayback,static,Nursultan Nazarbayev; Kassym-Jomart Tokayev,2015,2024,English,fulltext,draft
+ken_president,Kenya,Africa,404.0,Office of the President (president.go.ke) â€” speech PDFs,https://www.president.go.ke/speeches/,official_gov,static,William Ruto,2022,2026,English,fulltext,draft
+ken_president_wayback,Kenya,Africa,404.0,president.go.ke old WordPress date-path posts (Kenyatta era; Wayback/CDX),http://www.president.go.ke/category/speeches/,official_gov_wayback,static,Uhuru Kenyatta; Margaret Kenyatta,2014,2022,English,fulltext,draft
+kor_president,"Korea, Republic of",Asia,410.0,president.go.kr,https://www.president.go.kr/,official_gov,js,President,2025,2026,Korean/English,fulltext,draft
+kor_president_moon,"Korea, Republic of",Asia,410.0,"Presidential Archives web-archive - Moon Jae-in (19th, english.president.go.kr)",http://webarchives.pa.go.kr/19th/english.president.go.kr/BriefingSpeeches/Speeches,official_gov,static,,2017-05,2022-04,English,fulltext. Dedicated ARCHIVE HOST for a past administration (better than Wayback,draft
+kwt_e,Kuwait,,414.0,e.gov.kw,https://e.gov.kw/,official_gov,static,,,,,,blocked
+kwt_diwan,Kuwait,Middle East,414.0,da.gov.kw (Amiri Diwan),https://www.da.gov.kw/ar/news/,official_gov,static,Amir (Mishal),2023,2026,Arabic,fulltext,draft
+kgz_president,Kyrgyzstan,,417.0,president.kg,http://president.kg/,official_gov,static (api),,2021,2025,,,draft
+kgz_president_wayback,Kyrgyzstan,,417.0,president.kg (Wayback),president.kg/ru/news (Wayback/CDX),official_gov (archived),static,Atambayev; Jeenbekov; Japarov,2014,2021,Russian,fulltext,draft
+lva_president,Latvia,,428.0,president.lv,http://www.president.lv/,official_gov,static,,2015,2026,English,fulltext,draft
+lva_president_english_wayback,Latvia,Europe,428.0,president.lv/en (English tree; Wayback/CDX),https://www.president.lv/en,official_gov,static,Vējonis; Levits; Rinkēvičs,2000,2026,English,fulltext,partial
+lbn_presidency,Lebanon,,422.0,presidency.gov.lb,http://www.presidency.gov.lb/,official_gov,js,,,,,,blocked
+lbn_presidency_wayback,Lebanon,,422.0,presidency.gov.lb (Wayback),presidency.gov.lb/posts (Wayback/CDX),official_gov (archived),static,J.Aoun (2025+),2025,2026,Arabic,fulltext,partial
+lso_theking,Lesotho,,426.0,theking.parliament.ls,https://theking.parliament.ls/,official_gov,static,,,,English,,blocked
+ltu_lrp,Lithuania,,440.0,lrp.lt,http://www.lrp.lt/,official_gov,js,,,,English,,blocked
+ltu_lrp_wayback,Lithuania,Europe,440.0,lrp.lt (Wayback),lrp.lt/en/media-center/news (Wayback/CDX),official_gov (archived),static,Grybauskaite; Nauseda,2012,2024,English,fulltext,draft
+ltu_lrp_english_wayback,Lithuania,Europe,440.0,lrp.lt/en (English tree; Wayback/CDX),https://www.lrp.lt/en,official_gov,static,Adamkus; Grybauskaitė; Nausėda,2000,2024,English,fulltext,partial
+lux_monarchie,Luxembourg,,442.0,monarchie.lu,https://monarchie.lu/,official_gov,static,,2003,2026,French,fulltext,draft
+mdg_presidence,Madagascar,,450.0,presidence.gov.mg,https://www.presidence.gov.mg/,official_gov,static,,,,French,,blocked
+mdg_presidence_wayback,Madagascar,Africa,450.0,presidence.gov.mg (Wayback),presidence.gov.mg/actualites (Wayback/CDX),official_gov (archived),static,Rajaonarimampianina; Rajoelina,2014,2026,French,fulltext,partial
+mys_pmo,Malaysia,Asia,458.0,pmo.gov.my,https://www.pmo.gov.my/en/category/speeches-en/,official_gov,static,Prime Minister (Anwar Ibrahim),2024,2026,Malay/English,fulltext,draft
+mdv_presidencymaldives,Maldives,,462.0,presidencymaldives.gov.mv,https://presidency.gov.mv/Press/Articles/12,official_gov,static,Gayoom; Nasheed; Waheed; Yameen; Solih; Muizzu,1979,2026,English,,draft
+mdv_presidencymaldives_wayback,Maldives,Asia,462.0,President's Office presidency.gov.mv (Wayback/CDX),https://presidency.gov.mv/Press/Article/12,official_gov_wayback,static,Maumoon Abdul Gayoom; Mohamed Nasheed; Mohammed Waheed; Abdulla Yameen; Ibrahim Mohamed Solih; Mohamed Muizzu,2008,2026,English,fulltext,draft
+mlt_president,Malta,,470.0,president.gov.mt,https://president.gov.mt/,official_gov,cdp,,2024,2026,,,draft
+mlt_president_wayback,Malta,Europe,470.0,president.gov.mt (Wayback),https://web.archive.org/web/2/https://president.gov.mt/diskors,official_gov,static,George Vella (2019-2024); earlier presidents; early Spiteri Debono,2019,2024,English,fulltext,draft
+mlt_gov,Malta,Europe,470.0,gov.mt / opm.gov.mt (Malta Government / OPM),https://www.gov.mt/,official_gov,js,Malta Prime Minister (Robert Abela),,,English,fulltext,blocked
+mex_gob,Mexico,,484.0,gob.mx,https://www.gob.mx/,official_gov,unknown,,,,,,none
+mex_presidencia,Mexico,North America,484.0,gob.mx/presidencia,https://www.gob.mx/presidencia/es/archivo/articulos,official_gov,static,"Sheinbaum, López Obrador (paging back)",2024-10,2026,Spanish,fulltext,draft
+mex_presidencia_wayback,Mexico,North America,484.0,"gob.mx/presidencia (Wayback, AMLO)",https://web.archive.org/web/2/https://www.gob.mx/presidencia/articulos/version-estenografica,official_gov,static,Andres Manuel Lopez Obrador,2018-12,2024-09,Spanish,fulltext,draft
+mda_presedinte,"Moldova, Republic of",,498.0,presedinte.md,https://presedinte.md/,official_gov,static,,2013,2026,Romanian,,draft
+mng_president,Mongolia,Asia,496.0,president.mn,https://president.mn/khelsen-ug/,official_gov,js,President (Khurelsukh),,,Mongolian,fulltext,blocked
+mng_president_wayback,Mongolia,Asia,496.0,president.mn (Wayback),"president.mn (Wayback/CDX, matchType=domain)",official_gov (archived),static,Khurelsukh; Battulga,2019,2025,Mongolian,fulltext,draft
+mar_diplomatie,Morocco,,504.0,diplomatie.ma,https://www.diplomatie.ma/,official_gov,static,,,,Arabic,,draft
+mar_maroc,Morocco,Africa,504.0,"maroc.ma (Royal Speeches, EN)",https://maroc.ma/en/royal-speeches-and-messages/royal-speeches,official_gov,static,King Mohammed VI,2012,2026,English,fulltext,draft
+mar_maroc_wayback,Morocco,Africa,504.0,maroc.ma royal speeches EN (Wayback/CDX),https://maroc.ma/en/royal-speeches,official_gov_wayback,static,King Mohammed VI,2013,2026,English,fulltext,draft
+mmr_gnlm,Myanmar,Asia,104.0,Global New Light of Myanmar (state paper),https://www.gnlm.com.mm/,state_news,static,SAC Chairman / State (Min Aung Hlaing),2025,2025,English/Burmese,fulltext,partial
+nld_royalhouse,Netherlands,,528.0,royal-house.nl,http://www.royal-house.nl/,official_gov,js,,2004,2026,,,draft
+nld_rijksoverheid,Netherlands,Europe,528.0,rijksoverheid.nl (toespraken),https://www.rijksoverheid.nl/documenten?type=toespraak,official_gov,js,Dutch PM + ministers,,,Dutch,fulltext,blocked
+nld_royalhouse_wayback,Netherlands,Europe,528.0,royal-house.nl (English site of the Royal House; Wayback/CDX),https://www.royal-house.nl/,official_gov,static,Willem-Alexander; Máxima; Beatrix,1999,2026,English,fulltext,draft
+nzl_gg,New Zealand,,554.0,gg.govt.nz,www.gg.govt.nz,official_gov,cdp,,,2026,,,draft
+nzl_beehive,New Zealand,Oceania,554.0,beehive.govt.nz (Speeches),https://www.beehive.govt.nz/speeches,official_gov,js,NZ Prime Minister + ministers,2008,2026,English,fulltext,draft
+nga_books,Nigeria,Africa,,books.google.com,http://books.google.com,Google book,unknown,Olusegun Obasanjo,,,,,blocked
+nga_statehouse,Nigeria,Africa,,statehouse.gov.ng,http://statehouse.gov.ng,Presidential website,static,Bola Ahmed Tinubu,2019,2026,,,draft
+nga_statehouse_wayback,Nigeria,Africa,566.0,"statehouse.gov.ng (Wayback, old Joomla)",https://web.archive.org/web/2/http://www.statehouse.gov.ng/index.php/news,official_gov,static,Muhammadu Buhari (2015-2019),2015,2019,English,fulltext,draft
+mkd_pretsedatel,North Macedonia,,807.0,pretsedatel.mk,http://pretsedatel.mk/,official_gov,static,,2024-05,2026,Macedonian,,draft
+nor_kongehuset,Norway,,578.0,kongehuset.no,http://www.kongehuset.no/,official_gov,static,,2005,2026,Norwegian,,draft
+nor_regjeringen,Norway,Europe,578.0,regjeringen.no (Taler og innlegg),https://www.regjeringen.no/no/aktuelt/taler_artikler/id1334/,official_gov,js,Norwegian PM + ministers,,,Norwegian,fulltext,blocked
+pak_pmo,Pakistan,Asia,586.0,pmo.gov.pk,https://pmo.gov.pk/,official_gov,static,Prime Minister (Shehbaz Sharif),,,English/Urdu,fulltext,blocked
+pak_pmo_wayback,Pakistan,Asia,586.0,pmo.gov.pk (Wayback),pmo.gov.pk/news_details (Wayback/CDX),official_gov (archived),static,N.Sharif; Abbasi; Imran Khan; Shehbaz,2013,2026,English,fulltext,draft
+phl_pco,Philippines,,,,officialgazette.gov.ph (Wayback/CDX),,static (wayback),,,,,,draft
+pol_president,Poland,,616.0,president.pl,https://www.president.pl/,official_gov,cdp,,2010,2026,English,fulltext. FULL RUN pending (researcher gate,draft
+pol_premier,Poland,Europe,616.0,"Chancellery of the Prime Minister (KPRM, gov.pl/web/premier)",https://www.gov.pl/web/premier/wydarzenia,official_gov,static,,2018,2026,Polish,fulltext. FULL RUN pending (researcher gate).,draft
+pol_president_english_wayback,Poland,Europe,616.0,president.pl/en (English tree; Wayback/CDX),https://www.president.pl/en,official_gov,static,Kwaśniewski; L. Kaczyński; Komorowski; Duda,2000,2022,English,fulltext,draft
+rou_presidency,Romania,,642.0,presidency.ro,http://www.presidency.ro/,official_gov,cdp,,,,Romanian,,blocked
+rou_guvern,Romania,Europe,642.0,Government of Romania / Prime Minister (gov.ro),https://gov.ro/ro/stiri,official_gov,static,,2023,2026,Romanian,fulltext. FULL RUN pending (researcher gate).,draft
+rou_presidency_wayback,Romania,Europe,642.0,"presidency.ro (Iohannis, via Internet Archive)",http://www.presidency.ro/ro/media/discursuri,official_gov,static,,2016,2023,Romanian,fulltext. FULL RUN pending (researcher gate).,partial
+rou_presidency_english_wayback,Romania,Europe,642.0,presidency.ro /en + /eng (English tree; Wayback/CDX),https://www.presidency.ro/en,official_gov,static,Iliescu; Constantinescu; Iohannis,2002,2023,English,fulltext,partial
+rus_kremlin,Russian Federation,Europe,643.0,kremlin.ru,http://en.kremlin.ru/events/president/transcripts,official_gov,static,President (Putin),,,Russian/English,fulltext,none
+rus_kremlin_english_wayback,Russian Federation,Europe,643.0,en.kremlin.ru (official English mirror of kremlin.ru; Wayback/CDX),https://en.kremlin.ru/,official_gov,static,Vladimir Putin; Dmitry Medvedev,2000,2024,English,fulltext,draft
+sau_spa,Saudi Arabia,Middle East,682.0,spa.gov.sa (Saudi Press Agency),https://www.spa.gov.sa/en,state_news_agency,static,King / Crown Prince,,,Arabic/English,fulltext,none
+srb_predsednik,Serbia,,688.0,predsednik.rs,http://www.predsednik.rs/,official_gov,static,,2014,2026,,,draft
+srb_predsednik_english_wayback,Serbia,Europe,688.0,predsednik.rs/en (English tree; Wayback/CDX),https://www.predsednik.rs/en,official_gov,static,Nikolić; Vučić,2012,2025,English,fulltext,partial
+syc_statehouse,Seychelles,,690.0,statehouse.gov.sc,http://www.statehouse.gov.sc/,official_gov,static,,2010,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+syc_statehouse_wayback,Seychelles,Africa,690.0,State House statehouse.gov.sc/speeches (Wayback/CDX),https://www.statehouse.gov.sc/speeches,official_gov_wayback,static,James Michel; Danny Faure; Wavel Ramkalawan,2012,2026,English,fulltext,draft
+sle_statehouse,Sierra Leone,,694.0,statehouse.gov.sl,http://www.statehouse.gov.sl/,official_gov,static,,2025,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+sle_statehouse_wayback,Sierra Leone,Africa,694.0,State House statehouse.gov.sl date-path posts (Wayback/CDX),https://statehouse.gov.sl/,official_gov_wayback,static,Julius Maada Bio,2025,2026,English,fulltext,draft
+sgp_istana,Singapore,,702.0,istana.gov.sg,http://istana.gov.sg/,official_gov,static,,2014,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+sgp_pmo,Singapore,Asia,702.0,Prime Minister's Office Singapore (pmo.gov.sg),https://www.pmo.gov.sg/newsroom,official_gov,static,,2012,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+sgp_istana_wayback,Singapore,Asia,702.0,istana.gov.sg /Newsroom/Speeches (Wayback/CDX),https://www.istana.gov.sg/,official_gov,static,S R Nathan; Tony Tan; Halimah Yacob; Tharman Shanmugaratnam,2005,2025,English,fulltext,draft
+sgp_pmo_wayback,Singapore,Asia,702.0,Prime Minister's Office pmo.gov.sg (Wayback/CDX),https://www.pmo.gov.sg/newsroom,official_gov_wayback,static,Lee Hsien Loong; Heng Swee Keat; Teo Chee Hean; Lawrence Wong,2011,2026,English,fulltext,draft
+svk_prezident,Slovakia,,703.0,prezident.sk,http://www.prezident.sk/,official_gov,js,,,,,,blocked
+svk_vlada,Slovakia,Europe,703.0,Government Office of the Slovak Republic / PM (vlada.gov.sk),https://www.vlada.gov.sk/tlacove-spravy/,official_gov,static,,2023,2026,Slovak,fulltext. FULL RUN pending (researcher gate).,draft
+svk_prezident_wayback,Slovakia,Europe,703.0,"prezident.sk (President, via Internet Archive)",https://www.prezident.sk/page/prejavy,official_gov,static,,2015,2026,Slovak,fulltext. FULL RUN pending (researcher gate).,draft
+svn_up-rs,Slovenia,,705.0,up-rs.si,http://www.up-rs.si/,official_gov,unknown,,,,,,covered_elsewhere
+svn_predsednica,Slovenia,Europe,705.0,predsednica-slo.si (President,https://www.predsednica-slo.si/sl/objave/govori,official_gov,static,,2022,2026,Slovenian,fulltext. FULL RUN pending (researcher gate).,draft
+svn_gov,Slovenia,Europe,705.0,Government of Slovenia / PM (gov.si),https://www.gov.si/novice/,official_gov,static,,2001,2026,Slovenian,fulltext. FULL RUN pending (researcher gate).,draft
+svn_up_rs_wayback,Slovenia,Europe,705.0,"up-rs.si (President predecessors, via Internet Archive, English edition)",http://www.up-rs.si/up-rs/uprs-eng.nsf/dokumentiweb,official_gov,static,,2001,2022,English,fulltext. FULL RUN pending (researcher gate).,draft
+som_villasomalia,Somalia,,706.0,villasomalia.gov.so,http://villasomalia.gov.so/,official_gov,static,,2018,2026,Somali,fulltext. FULL RUN pending (researcher gate).,draft
+zaf_thepresidency,South Africa,,710.0,thepresidency.gov.za,http://www.thepresidency.gov.za/,official_gov,static,,2024,2026,English,,covered_elsewhere
+zaf_gov,South Africa,Africa,710.0,gov.za (SA Government speeches aggregator),https://www.gov.za/news/speeches,official_gov,static,,,2026,English,fulltext. FULL RUN pending (researcher gate).,draft
+zaf_thepresidency_wayback,South Africa,Africa,710.0,"thepresidency.gov.za (old Presidency site, via Internet Archive)",http://www.thepresidency.gov.za/speeches,official_gov,static,,2014,2024,English,fulltext. FULL RUN pending (researcher gate).,draft
+zaf_gov_wayback,South Africa,Africa,710.0,SA Government speeches gov.za/news/speeches (Wayback/CDX),https://www.gov.za/news/speeches,official_gov_wayback,static,Cyril Ramaphosa; Jacob Zuma; + ministers/premiers,2009,2026,English,fulltext,draft
+esp_casareal,Spain,,724.0,casareal.es,http://www.casareal.es/,official_gov,static,,2021,2026,Spanish,fulltext. FULL RUN pending (researcher gate).,draft
+esp_lamoncloa_wayback,Spain,Europe,724.0,La Moncloa / President of the Government (via Internet Archive),https://www.lamoncloa.gob.es/presidente/intervenciones/,official_gov,static,,2014,2026,Spanish,fulltext. FULL RUN pending (researcher gate).,draft
+esp_lamoncloa_english_wayback,Spain,Europe,724.0,La Moncloa English intervenciones /lang/en/ (Wayback/CDX),https://www.lamoncloa.gob.es/lang/en/presidente/intervenciones/,official_gov_wayback,static,José Luis Rodríguez Zapatero; Mariano Rajoy; Pedro Sánchez,2008,2026,English,fulltext,draft
+lka_president,Sri Lanka,,144.0,president.gov.lk,http://president.gov.lk/,official_gov,cdp,,,,English,,blocked
+lka_president_wayback,Sri Lanka,Asia,144.0,president.gov.lk (via Internet Archive),https://president.gov.lk/,official_gov,static,,2016,2022,English,fulltext. FULL RUN pending (researcher gate).,partial
+sdn_presidency,Sudan,,729.0,presidency.gov.sd,http://www.presidency.gov.sd,official_gov,unknown,,,,,,blocked
+sdn_presidency_wayback,Sudan,Africa,729.0,"presidency.gov.sd (dead, via Internet Archive)",http://www.presidency.gov.sd/ara/news,official_gov,static,,2015,2019,Arabic,fulltext. FULL RUN pending (researcher gate).,draft
+swe_kungahuset,Sweden,,752.0,kungahuset.se,https://www.kungahuset.se/,official_gov,static,,,2026,Swedish,,blocked
+swe_regeringen,Sweden,Europe,752.0,Government Offices of Sweden / PM (regeringen.se),https://www.regeringen.se/tal/,official_gov,static,,1996,2026,Swedish,fulltext. FULL RUN pending (researcher gate).,draft
+swe_kungahuset_english_wayback,Sweden,Europe,752.0,kungahuset.se/english (Royal Court English tree; Wayback/CDX),https://www.kungahuset.se/english,official_gov,static,Carl XVI Gustaf; Crown Princess Victoria; Prince Daniel; Queen Silvia,2006,2026,English,fulltext,draft
+tza_ikulu,"Tanzania, United Republic of",,834.0,ikulu.go.tz,http://www.ikulu.go.tz/,official_gov,unknown,,,,,,none
+tha_royaloffice,Thailand,,764.0,royaloffice.th,https://www.royaloffice.th/,official_gov,unknown,,,,,,blocked
+tha_thaigov,Thailand,,,,https://www.thaigov.go.th/en/news,,static,,,,Thai/English,,blocked
+tha_royaloffice_wayback,Thailand,Asia,764.0,royaloffice.th,https://www.royaloffice.th/ (via Internet Archive),official_gov,static,monarch. FULL RUN pending (researcher gate).,2017,2024,Thai,fulltext,draft
+gmb_op_wayback,The Gambia,Africa,270.0,Office of the President op.gov.gm speech PDFs (Wayback/CDX),https://op.gov.gm/,official_gov_wayback,static,Adama Barrow,2021,2026,English,fulltext,draft
+tls_presidenciarepublica,Timor-Leste,,626.0,presidenciarepublica.tl,https://presidenciarepublica.tl/,official_gov,unknown,,,,,,none
+tto_otp,Trinidad and Tobago,,780.0,otp.tt,http://www.otp.tt/,official_gov,unknown,,,,,,none
+tto_otp_wayback,Trinidad and Tobago,Americas,780.0,Office of the President otp.tt (Wayback/CDX),https://otp.tt/,official_gov_wayback,static,Paula-Mae Weekes; Christine Kangaloo,2014,2026,English,fulltext,draft
+tur_tccb,Türkiye,,792.0,tccb.gov.tr,https://www.tccb.gov.tr/,official_gov,unknown,,,,,,none
+tur_tccb_english_wayback,Türkiye,Asia,792.0,tccb.gov.tr/en (Presidency English tree; Wayback/CDX),https://www.tccb.gov.tr/en,official_gov,static,Recep Tayyip Erdoğan; Abdullah Gül,2015,2026,English,fulltext,partial
+tkm_turkmenistan,Turkmenistan,,795.0,turkmenistan.gov.tm,https://turkmenistan.gov.tm/,official_gov,unknown,,,,,,none
+uga_statehouse,Uganda,,800.0,statehouse.go.ug,http://statehouse.go.ug/,official_gov,unknown,,,,,,none
+uga_statehouse_wayback,Uganda,Africa,800.0,State House statehouse.go.ug/media/speeches (Wayback/CDX),http://statehouse.go.ug/media/speeches,official_gov_wayback,static,Yoweri Museveni,2011,2022,English,fulltext,draft
+ukr_president,Ukraine,,804.0,president.gov.ua,http://president.gov.ua/,official_gov,unknown,,,,,,none
+ukr_president_english_wayback,Ukraine,Europe,804.0,president.gov.ua/en (English mirror; Wayback/CDX),https://www.president.gov.ua/en,official_gov,static,Kuchma; Yushchenko; Yanukovych; Poroshenko; Zelensky,2002,2026,English,fulltext,draft
+are_u,United Arab Emirates,,784.0,u.ae,https://u.ae/,official_gov,unknown,,,,,,none
+gbr_royal,United Kingdom,,826.0,royal.uk,http://royal.uk/,official_gov,unknown,,,,,,none
+usa_whitehouse,United States,,840.0,hitehouse.gov,https://www.whitehouse.gov/,official_gov,static,,2025,2026,,,draft
+usa_whitehouse_biden,United States,North America,840.0,Biden White House (NARA archive),https://bidenwhitehouse.archives.gov/briefing-room/speeches-remarks/,official_gov,static,,2021-03,2025-01,English,fulltext,draft
+usa_whitehouse_obama,United States,North America,840.0,Obama White House (NARA archive),https://obamawhitehouse.archives.gov/briefing-room/speeches-and-remarks,official_gov,static,,2009-05,2017-01,English,fulltext. NARA frozen Drupal archive SUBDOMAIN (dedicated archive host -> better than Wayback,draft
+usa_whitehouse_trump,United States,North America,840.0,Trump White House 45 (NARA archive),https://trumpwhitehouse.archives.gov/briefings-statements/,official_gov,static,,2017-03,2021-01,English,fulltext,draft
+ury_presidencia,Uruguay,,858.0,presidencia.gub.uy,http://www.presidencia.gub.uy/,official_gov,unknown,,,,,,none
+uzb_president,Uzbekistan,,860.0,president.uz,https://president.uz/,official_gov,unknown,,,,,,none
+uzb_president_english_wayback,Uzbekistan,Asia,860.0,president.uz/en (English mirror; Wayback/CDX),https://president.uz/en,official_gov,static,Islam Karimov; Shavkat Mirziyoyev,2011,2026,English,fulltext,partial
+ven_alopresidente,"Venezuela, Bolivarian Republic of",South America,862.0,Alo Presidente (Internet Archive),https://archive.org/search?query=Alo+Presidente+Chavez,tv_program (archived),static,Hugo Chavez (Alo Presidente),,,Spanish,video/audio,none
+vnm_vpctn,Viet Nam,,704.0,vpctn.gov.vn,http://vpctn.gov.vn/,official_gov,unknown,,,,,,none
+zwe_theopc,Zimbabwe,,716.0,theopc.gov.zw,http://www.theopc.gov.zw/,official_gov,unknown,,,,,,none
+zwe_theopc_wayback,Zimbabwe,Africa,716.0,Office of the President and Cabinet theopc.gov.zw (Wayback/CDX),http://www.theopc.gov.zw/,official_gov_wayback,static,Emmerson Mnangagwa,2016,2020,English,fulltext,draft

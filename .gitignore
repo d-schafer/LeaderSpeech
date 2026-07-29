@@ -27,17 +27,20 @@ data/_build/
 data/audio_video/
 _data_outside_unorganized/
 
-# --- Raw source sub-lists: the curated master list IS committed (researcher-owned); its raw inputs are not ---
+# --- Source lists ---
+# Policy (2026-07-29): the repo publishes WHICH sources exist, not our working notes about
+# them. The curated master list and the agent outbox both carry a free-text `notes` column
+# holding operational commentary — what is blocked, why, and what to try next — which is
+# internal working material, not a research deliverable. So:
+#   * data/sources/master_sources.xlsx        -> LOCAL ONLY (researcher-owned, has `notes`)
+#   * data/sources/additional_master_sources* -> LOCAL ONLY (agent outbox, has `notes`)
+#   * data/sources/sources.csv                -> COMMITTED, GENERATED, notes stripped
+# Regenerate the public view with:  python data/sources/export_public_sources.py
 data/sources/*.txt
 data/sources/*.csv
-data/sources/LeadersSpeeches_Africa.xlsx
-# agent outbox: committed. One file per source under additional_master_sources/
-# (see that folder's README + .gitattributes); the legacy flat file is kept frozen.
-# The non-recursive data/sources/*.csv rule above does not match the subfolder, but
-# keep an explicit allow so a future recursive rule can't hide the fragments.
-!data/sources/master_sources.xlsx
-!data/sources/additional_master_sources.csv
-!data/sources/additional_master_sources/
+data/sources/*.xlsx
+data/sources/additional_master_sources/
+!data/sources/sources.csv
 
 # personal source-merge tooling (not part of the published repo — see the outbox README)
 data/sources/append_additional_sources.R
@@ -53,6 +56,9 @@ data/sources/_archive/
 .Rproj.user/
 .Rhistory
 .RData
+
+# --- Retired material, kept locally for reference only (see _archive/README.md) ---
+_archive/
 
 # --- OS / editor ---
 .DS_Store

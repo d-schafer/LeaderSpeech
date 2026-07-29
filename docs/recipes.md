@@ -663,7 +663,7 @@ site-specific block message.
 
 | Key | Required | Notes |
 |-----|----------|-------|
-| `source_id` | yes | Short slug, e.g. `arg_casarosada`. Names the output CSV and links to `master_sources.xlsx`. |
+| `source_id` | yes | Short slug, e.g. `arg_casarosada`. Names the output CSV and links to the row in `data/sources/sources.csv`. |
 | `country` | yes | Country name as in `pycountry` (e.g. `United States` — used to derive ISO codes and the `doc_id` prefix). |
 | `iso3n` | no | Auto-filled from `country` if omitted. |
 | `source_language` | no | Default `English`. Non-English text routes to the `*_originlanguage` columns. |
@@ -783,7 +783,8 @@ and to merge. Every `run` rebuilds **`data/scraped/scraped_progress_log.xlsx`** 
 with its country, website, file path, pagination type, date coverage, doc_id range, and a bad/missing-date
 count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. A merge step reads the index's
 `csv_file` column and concatenates every file it lists. It is a **regenerable, machine-owned** artifact —
-distinct from the researcher-curated `data/sources/master_sources.xlsx`, which agents must never touch.
+distinct from `data/sources/sources.csv`, the published source list (itself generated, from the
+maintainer's local working file — see `data/sources/export_public_sources.py`).
 
 ## Running several machines at once
 
@@ -815,13 +816,10 @@ are not parallel at all — a laptop on the same wifi, or a workstation VPN'd ba
 network, collapses into one IP and just splits that IP's budget. Check this line after any
 tunnel or hotspot reconnect, not only at the start.
 
-If you need distinct IPs from *one* machine, note that every HTTP client in this package is built
-without `trust_env=False`, so httpx honors `HTTPS_PROXY` / `ALL_PROXY` per process — setting one in
-a shell routes that scrape through it with no code change (SOCKS needs `pip install httpx[socks]`).
-A system-wide VPN client cannot do this: it moves the whole machine to one IP.
-
 Before scaling up a long campaign, tell the Archive what you're doing — they ask large projects to
-get in touch, and disclosed pacing is a better position than inferred limits.
+get in touch, and disclosed pacing is a better position than inferred limits. Splitting work across
+machines is about finishing a long crawl at a courteous rate, not about getting more requests past a
+limit; if the Archive asks for a single slower stream, that's the answer.
 
 ## Good-citizen reminders
 

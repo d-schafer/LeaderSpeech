@@ -20,30 +20,22 @@ pytest                                                # should pass before you s
    ```bash
    python -m leaderspeech.text_scraper.run --recipe recipes/<source_id>.yml --max-pages 1 --limit 5
    ```
-4. Record the source in the **outbox** by adding your own file
-   `data/sources/additional_master_sources/<source_id>.csv` (header + your row with the `recipe_status`
-   you believe applies — see that folder's `README.md`). One file per source means PRs never conflict on
-   the outbox. **Do not edit the legacy flat `additional_master_sources.csv`, and never edit
-   `master_sources.xlsx`** — it is researcher-owned; the maintainer (or Claude) folds your row in and sets
-   `recipe_status: validated` when the PR merges.
-5. Open a pull request. Do **not** commit scraped output (`data/scraped/` is gitignored) — only the
-   recipe and, if you added one, your `additional_master_sources/<source_id>.csv` outbox file.
+4. Describe the source **in the pull request**: country, URL, which leaders and years it covers, and
+   the `recipe_status` you believe applies. The maintainer folds that into the source list.
+   `data/sources/sources.csv` is **generated** from a local working file, so don't edit it directly.
+5. Open a pull request with **only the recipe**. Do not commit scraped output (`data/scraped/` is
+   gitignored).
+
+When you describe a source, observations are the useful part: "returns HTTP 403 to the bot
+user-agent; the Internet Archive holds 1,200 captures back to 2009" is exactly right.
 
 CI validates every `recipes/*.yml` against the schema, so a malformed recipe fails fast.
 
 ## Working an issue with a coding agent
 
-Issues are scoped to one source so they can be handed to an automated agent. **Step-by-step instructions
-(opening issues, assigning to each agent, the review flow) are in [`docs/agents.md`](docs/agents.md);** the
-backlog strategy is in [`docs/backlog.md`](docs/backlog.md). In brief:
-
-- **GitHub Copilot coding agent** — assign the issue to Copilot in the GitHub UI; it opens a PR.
-- **Claude** — mention `@claude` in an issue or PR comment; the workflow in
-  `.github/workflows/claude.yml` runs it (needs an `ANTHROPIC_API_KEY` repository secret).
-- **Codex / others** — point the agent at the issue and `docs/recipes.md`.
-
-However the recipe gets written, a human reviews and merges the PR. Treat agent output as a draft until the
-small live run looks right.
+Issues are scoped to one source, so they suit an automated assistant if you use one — point it at
+[`docs/recipes.md`](docs/recipes.md) and the issue. However the recipe gets written, a human reviews
+and merges the PR, and agent output is a draft until a small live run looks right.
 
 ## Style
 

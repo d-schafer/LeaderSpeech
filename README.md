@@ -209,8 +209,9 @@ configs/clean_config.yml     global config for the cleaner (model, gate, tenure 
 configs/translate_config.yml global config for the translator (backend, fields, pacing)
 configs/tenure_config.yml    global config for tenure curation (models, paths)
 configs/audio_config.yml     global config for transcription (backend, model, retention, pacing)
-data/sources/                master_sources.xlsx — curated source list, researcher-owned (committed; agents never edit it)
-                             additional_master_sources/ — agents' proposed rows, ONE FILE PER SOURCE (<source_id>.csv) so PRs never conflict; researcher folds them in by hand (scripts/merge_additional_sources.py aggregates). additional_master_sources.csv is the frozen legacy flat file.
+data/sources/                sources.csv — the published source list (country, URL, coverage, recipe_status). GENERATED from the
+                             maintainer's local master_sources.xlsx by export_public_sources.py; don't hand-edit it. The master
+                             list itself stays local: its free-text notes are working material, not a research deliverable.
                              leader_tenure_proposed_additions.xlsx — the tenure tool's outbox; researcher approves by hand
 data/scraped/                per-country CSV output (gitignored; shared via Zenodo/Dataverse)
 data/cleaned/                per-country cleaned Parquet (gitignored)
@@ -243,12 +244,18 @@ final `data/LeaderSpeech.parquet` / `.RData` / `.csv.gz`.
 
 ## Contributing
 
-The most useful contribution is a new, validated recipe. See [`CONTRIBUTING.md`](CONTRIBUTING.md). Issues
-are scoped so they can be picked up one source at a time — including by coding agents (Claude, Codex,
-Copilot) that open a pull request for you to review. The backlog of ~100 sources and how to work it is in
-[`docs/backlog.md`](docs/backlog.md); the step-by-step for tasking agents is in
-[`docs/agents.md`](docs/agents.md); and the cheap-agent → frontier-reviewer pipeline (with the gates the
-researcher keeps) is in [`docs/review_workflow.md`](docs/review_workflow.md).
+The most useful contribution is a new, validated recipe. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Issues are scoped so they can be picked up one source at a time. [`docs/recipes.md`](docs/recipes.md)
+is the authoring guide — schema, selectors, pagination types, and the site-blocking patterns worth
+recognising early — and [`docs/debugging.md`](docs/debugging.md) covers the stop → fix →
+`--retry-failed` loop when a recipe drifts.
+
+`data/sources/sources.csv` lists every source in the backlog with its country, URL and current
+`recipe_status`, so you can see what still needs a recipe. It is generated from the maintainer's
+working list; please don't edit it directly.
+
+When documenting a source, observations are the useful part: "returns HTTP 403 to the bot
+user-agent; the Internet Archive holds 1,200 captures back to 2009" is exactly right.
 
 ## License & citation
 
