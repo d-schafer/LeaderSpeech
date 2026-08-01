@@ -37,6 +37,46 @@ DEFAULT_FETCH_BACKOFF = 5.0
 MAX_FETCH_BACKOFF = 60.0
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
+# A speech page is a few hundred KB of HTML at most (the largest body text extracted
+# across the corpus so far is ~50 KB). Some captures, though, are stored as a REDIRECT
+# into a large media asset: several english.khamenei.ir speech pages 302/301 their way to
+# a 1.78 GB .mp4 on the site's CDN, and `follow_redirects=True` means we dutifully start
+# downloading the video. An httpx timeout bounds each individual read, not the response as
+# a whole, so a body arriving at a few KB/s never trips it — the fetch just runs for hours
+# while the decoded bytes pile up in memory (one such capture stalled an Iran run ~3h and
+# grew the process to 7 GB). These two budgets bound the whole body instead.
+MAX_SNAPSHOT_BYTES = 10 * 1024 * 1024   # 10 MB decoded — ~200x the largest real page
+SNAPSHOT_BODY_TIMEOUT = 120.0           # seconds to read one body start-to-finish
+
+# PDF captures (content_type: pdf) are legitimately far bigger than an HTML page — a
+# scanned speech from Brazil's Biblioteca da Presidência runs to several MB — so the
+# binary path gets its own, roomier budget. Same purpose, different order of magnitude.
+MAX_SNAPSHOT_PDF_BYTES = 50 * 1024 * 1024   # 50 MB
+SNAPSHOT_PDF_BODY_TIMEOUT = 300.0           # seconds
+
+# Headers that describe the *encoded* bytes on the wire. `_read_capped` returns bytes
+# httpx has already decoded, so replaying these onto the rebuilt response makes httpx
+# try to gunzip the plain text a second time (DecodingError) or report a stale length.
+_ENCODING_HEADERS = ("content-encoding", "content-length")
+
+
+class SnapshotRejected(Exception):
+    """An archived capture that could not be read within its size/time budget.
+
+    Deliberately *not* an `httpx.TransportError`, so `_fetch_snapshot_resp` does not
+    retry it: what the capture redirects to is a fixed property of that capture, not a
+    transient hiccup, and re-fetching only burns the budget again. `run` catches it with
+    every other failure, so the URL lands in the `_errors.csv` and the state file's
+    `failed_urls` — `--retry-failed` revisits it if the Archive re-crawls the page."""
+
+
+class SnapshotTooLarge(SnapshotRejected):
+    """Capture body exceeds `MAX_SNAPSHOT_BYTES` (declared or actual)."""
+
+
+class SnapshotReadTimeout(SnapshotRejected):
+    """Capture body was still arriving after `SNAPSHOT_BODY_TIMEOUT` seconds."""
+
 
 def list_snapshots(
     url: str,
@@ -115,10 +155,15 @@ def best_capture(url: str, timeout: float = 60.0) -> Optional[dict]:
 
 
 def create_client(timeout: float = 60.0) -> httpx.Client:
+    # Spelled out per phase rather than as a bare float so it's clear what `timeout`
+    # does and does not cover: `read` is the longest allowed WAIT BETWEEN CHUNKS, so on
+    # its own it cannot stop a body that trickles in forever. `_read_capped` bounds the
+    # response as a whole; connect is capped tighter since the Archive either answers
+    # promptly or refuses outright.
     return httpx.Client(
         headers={"User-Agent": USER_AGENT},
         follow_redirects=True,
-        timeout=timeout,
+        timeout=httpx.Timeout(timeout, connect=min(timeout, 30.0)),
     )
 
 
@@ -380,6 +425,53 @@ def _retry_sleep(attempt: int, backoff: float) -> float:
     return base + jitter
 
 
+def _read_capped(
+    resp: httpx.Response,
+    url: str,
+    max_bytes: int = MAX_SNAPSHOT_BYTES,
+    body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
+) -> bytes:
+    """Stream one response body, aborting past `max_bytes` decoded or `body_timeout` seconds.
+
+    The client's read timeout only bounds the wait for the NEXT chunk, so a capture the
+    Archive dribbles out indefinitely never trips it. This bounds the body as a whole.
+    A `Content-Length` over the cap is refused before reading a single byte."""
+    declared = resp.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > max_bytes:
+        raise SnapshotTooLarge(
+            f"declared Content-Length {int(declared)} bytes exceeds the "
+            f"{max_bytes}-byte cap: {url}"
+        )
+    started = time.monotonic()
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in resp.iter_bytes():
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > max_bytes:
+            raise SnapshotTooLarge(
+                f"body exceeded the {max_bytes}-byte cap after {total} bytes: {url}"
+            )
+        elapsed = time.monotonic() - started
+        if elapsed > body_timeout:
+            raise SnapshotReadTimeout(
+                f"body still arriving after {elapsed:.0f}s ({total} bytes read, "
+                f"budget {body_timeout:.0f}s): {url}"
+            )
+    return b"".join(chunks)
+
+
+def _rebuild_response(resp: httpx.Response, body: bytes) -> httpx.Response:
+    """Re-wrap an already-decoded body as a normal (read) Response, so callers keep
+    httpx's own charset handling for `.text` — archived pages carry all sorts of legacy
+    encodings and re-implementing that decode would quietly change existing recipes."""
+    headers = [(k, v) for k, v in resp.headers.multi_items()
+               if k.lower() not in _ENCODING_HEADERS]
+    return httpx.Response(
+        resp.status_code, headers=headers, content=body, request=resp.request,
+    )
+
+
 def _fetch_snapshot_resp(
     entry: dict,
     delay: float,
@@ -388,6 +480,8 @@ def _fetch_snapshot_resp(
     retries: int,
     backoff: float,
     pacer: Optional[AdaptivePacer] = None,
+    max_bytes: int = MAX_SNAPSHOT_BYTES,
+    body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
 ) -> httpx.Response:
     """Politely fetch one archived capture, riding out transient Archive throttling —
     connection refusals (`ConnectError`) and 429/5xx — with capped exponential backoff.
@@ -395,6 +489,11 @@ def _fetch_snapshot_resp(
     retry long enough to outlast that window instead of surfacing a one-off refusal as a
     failed speech. Non-retryable statuses (e.g. 404) raise immediately. Returns the raw
     Response so callers can take `.text` (HTML) or `.content` (PDF).
+
+    The body is streamed under a size + wall-clock budget (`_read_capped`) rather than
+    buffered whole, so one capture with a corrupt record length can't stall the run;
+    such a capture raises `SnapshotRejected`, which is NOT retried and surfaces to the
+    caller as an ordinary per-URL failure.
 
     If a `pacer` is given, the pre-fetch pause is the pacer's current (auto-tuning) delay
     instead of the fixed `delay`, and the pacer is told whether this fetch was clean or
@@ -407,12 +506,13 @@ def _fetch_snapshot_resp(
     try:
         for attempt in range(retries):
             try:
-                resp = client.get(url)
-                resp.raise_for_status()
-                resp.read()  # materialize the body before the client may be closed
+                with client.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    body = _read_capped(resp, url, max_bytes, body_timeout)
+                    out = _rebuild_response(resp, body)
                 if pacer is not None:
                     pacer.on_throttle() if throttled else pacer.on_clean()
-                return resp
+                return out
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 if isinstance(exc, httpx.HTTPStatusError):
                     status = exc.response.status_code if exc.response is not None else None
@@ -447,9 +547,12 @@ def fetch_snapshot(
     retries: int = DEFAULT_FETCH_RETRIES,
     backoff: float = DEFAULT_FETCH_BACKOFF,
     pacer: Optional[AdaptivePacer] = None,
+    max_bytes: int = MAX_SNAPSHOT_BYTES,
+    body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
 ) -> str:
     """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`)."""
-    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer).text
+    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer,
+                                max_bytes, body_timeout).text
 
 
 def fetch_snapshot_bytes(
@@ -460,9 +563,12 @@ def fetch_snapshot_bytes(
     retries: int = DEFAULT_FETCH_RETRIES,
     backoff: float = DEFAULT_FETCH_BACKOFF,
     pacer: Optional[AdaptivePacer] = None,
+    max_bytes: int = MAX_SNAPSHOT_PDF_BYTES,
+    body_timeout: float = SNAPSHOT_PDF_BODY_TIMEOUT,
 ) -> tuple[str, bytes]:
     """Fetch one archived capture as raw bytes, returning (content_type, content) — for
     PDF captures, where the archive stored the original binary."""
-    resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer)
+    resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer,
+                                max_bytes, body_timeout)
     ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
     return ctype, resp.content

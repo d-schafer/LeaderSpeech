@@ -1,8 +1,47 @@
 import logging
 
 import httpx
+import pytest
 
 from leaderspeech.text_scraper import wayback
+
+
+class _Stream:
+    """Stands in for `httpx.Client.stream()` — a context manager yielding the response
+    (or raising, for the transport-error fakes). Bodies are read via `iter_bytes()`,
+    which pre-built `httpx.Response` objects support."""
+
+    def __init__(self, result):
+        self._result = result
+
+    def __enter__(self):
+        if isinstance(self._result, Exception):
+            raise self._result
+        return self._result
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+class _FakeResp:
+    """Duck-typed stand-in for an UNREAD streaming response.
+
+    `httpx.Response` can't be subclassed for this: its constructor calls `.read()`,
+    which drains `iter_bytes()` eagerly — so an override modelling an endless body
+    hangs at construction rather than in the code under test. Only the attributes
+    `_read_capped`/`_rebuild_response` actually touch are provided."""
+
+    def __init__(self, chunks, headers=None, status_code=200, request=None):
+        self._chunks = chunks          # iterable (may be an endless generator)
+        self.headers = httpx.Headers(headers or {})
+        self.status_code = status_code
+        self.request = request
+
+    def raise_for_status(self):
+        return self
+
+    def iter_bytes(self, chunk_size=None):
+        return iter(self._chunks)
 
 
 def test_list_snapshots_strips_trailing_star(monkeypatch):
@@ -122,11 +161,11 @@ def test_fetch_snapshot_retries_transient_connect_error(monkeypatch):
         def __init__(self):
             self.calls = 0
 
-        def get(self, url):
+        def stream(self, method, url):
             self.calls += 1
             if self.calls == 1:
-                raise httpx.ConnectError("boom", request=request)
-            return httpx.Response(200, text="ok", request=request)
+                return _Stream(httpx.ConnectError("boom", request=request))
+            return _Stream(httpx.Response(200, text="ok", request=request))
 
         def close(self):
             pass
@@ -151,11 +190,12 @@ def test_retry_log_shows_http_status_for_429(monkeypatch, caplog):
         def __init__(self):
             self.calls = 0
 
-        def get(self, url):
+        def stream(self, method, url):
             self.calls += 1
             if self.calls == 1:
-                return httpx.Response(429, request=request)  # .raise_for_status() -> HTTPStatusError
-            return httpx.Response(200, text="ok", request=request)
+                # .raise_for_status() -> HTTPStatusError
+                return _Stream(httpx.Response(429, request=request))
+            return _Stream(httpx.Response(200, text="ok", request=request))
 
         def close(self):
             pass
@@ -179,11 +219,11 @@ def test_retry_log_shows_exception_type_for_transport_error(monkeypatch, caplog)
         def __init__(self):
             self.calls = 0
 
-        def get(self, url):
+        def stream(self, method, url):
             self.calls += 1
             if self.calls == 1:
-                raise httpx.ConnectError("boom", request=request)
-            return httpx.Response(200, text="ok", request=request)
+                return _Stream(httpx.ConnectError("boom", request=request))
+            return _Stream(httpx.Response(200, text="ok", request=request))
 
         def close(self):
             pass
@@ -196,6 +236,136 @@ def test_retry_log_shows_exception_type_for_transport_error(monkeypatch, caplog)
 
     throttle_logs = [r.getMessage() for r in caplog.records if "wayback throttled" in r.getMessage()]
     assert throttle_logs and "ConnectError" in throttle_logs[0]
+
+
+# --- runaway-body guards --------------------------------------------------------------
+# Real case: several english.khamenei.ir speech captures are stored as a redirect chain
+# ending at a 1,783,951,360-byte .mp4 on the site's CDN, so following redirects starts
+# downloading a 1.78 GB video at Archive speeds. An httpx timeout only bounds the wait for
+# the NEXT chunk, so it never fires; one such capture stalled an Iran run for ~3 hours and
+# grew the process to 7 GB. Both guards must abort WITHOUT retrying — the redirect target
+# is a fixed property of the capture, so retrying just burns the budget six more times.
+
+def _entry():
+    return {"timestamp": "20250823", "original": "https://english.khamenei.ir/news/11867/x"}
+
+
+def test_absurd_content_length_is_refused_before_reading_the_body(monkeypatch):
+    entry = _entry()
+    request = httpx.Request("GET", wayback.snapshot_url(entry))
+    read = []
+
+    def body():
+        read.append(1)              # must never run — the header check comes first
+        yield b"x"
+
+    class Client:
+        def __init__(self): self.calls = 0
+        def stream(self, method, url):
+            self.calls += 1
+            return _Stream(_FakeResp(body(), headers={"content-length": "1783951360"},
+                                     request=request))
+        def close(self): pass
+
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+    client = Client()
+
+    with pytest.raises(wayback.SnapshotTooLarge) as exc:
+        wayback.fetch_snapshot(entry, delay=0.0, client=client)
+
+    assert "1783951360" in str(exc.value)
+    assert not read, "body was streamed despite an over-cap Content-Length"
+    assert client.calls == 1, "an over-cap capture must not be retried"
+
+
+def test_body_over_cap_aborts_mid_stream(monkeypatch):
+    entry = _entry()
+    request = httpx.Request("GET", wayback.snapshot_url(entry))
+    yielded = []
+
+    def body():
+        # no content-length header, so the cap has to bite while streaming
+        while True:
+            yielded.append(1)
+            yield b"x" * 1024
+
+    class Client:
+        def __init__(self): self.calls = 0
+        def stream(self, method, url):
+            self.calls += 1
+            return _Stream(_FakeResp(body(), request=request))
+        def close(self): pass
+
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+    client = Client()
+
+    with pytest.raises(wayback.SnapshotTooLarge):
+        wayback.fetch_snapshot(entry, delay=0.0, client=client, max_bytes=4096)
+
+    assert len(yielded) == 5, "streaming should stop as soon as the cap is passed"
+    assert client.calls == 1
+
+
+def test_slow_trickle_aborts_on_the_body_deadline(monkeypatch):
+    # The real failure mode: bytes keep arriving, so no read timeout ever fires.
+    entry = _entry()
+    request = httpx.Request("GET", wayback.snapshot_url(entry))
+    clock = {"t": 0.0}
+
+    def body():
+        while True:
+            clock["t"] += 10.0      # 10s per chunk, forever
+            yield b"x"
+
+    class Client:
+        def __init__(self): self.calls = 0
+        def stream(self, method, url):
+            self.calls += 1
+            return _Stream(_FakeResp(body(), request=request))
+        def close(self): pass
+
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+    monkeypatch.setattr(wayback.time, "monotonic", lambda: clock["t"])
+    client = Client()
+
+    with pytest.raises(wayback.SnapshotReadTimeout) as exc:
+        wayback.fetch_snapshot(entry, delay=0.0, client=client, body_timeout=60.0)
+
+    assert "budget 60s" in str(exc.value)
+    assert client.calls == 1, "a stalled capture must not be retried"
+
+
+def test_rejections_share_a_base_so_run_records_them_as_failures():
+    # run.py catches bare Exception, but a caller wanting to single these out should be
+    # able to; they must NOT be httpx.TransportError or the retry loop would swallow them.
+    for cls in (wayback.SnapshotTooLarge, wayback.SnapshotReadTimeout):
+        assert issubclass(cls, wayback.SnapshotRejected)
+        assert not issubclass(cls, httpx.TransportError)
+
+
+def test_decoded_body_is_rewrapped_without_stale_encoding_headers(monkeypatch):
+    # httpx hands back DECODED bytes, so replaying content-encoding onto the rebuilt
+    # response makes it try to gunzip plain text a second time (DecodingError).
+    entry = _entry()
+    request = httpx.Request("GET", wayback.snapshot_url(entry))
+    body = "سلام".encode("windows-1256")
+
+    class Client:
+        def stream(self, method, url):
+            # headers advertise gzip (as the wire response did); iter_bytes yields the
+            # bytes httpx has ALREADY decoded — exactly what the real streaming API gives
+            return _Stream(_FakeResp(
+                [body],
+                headers={"content-type": "text/html; charset=windows-1256",
+                         "content-encoding": "gzip", "content-length": "999999"},
+                request=request,
+            ))
+        def close(self): pass
+
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+
+    # charset from the header still drives decoding, and no re-gunzip is attempted
+    assert wayback.fetch_snapshot(entry, delay=0.0, client=Client()) == "سلام"
 
 
 # --- adaptive pacer ------------------------------------------------------------------
@@ -232,16 +402,17 @@ def test_fetch_snapshot_pacer_paces_and_records(monkeypatch):
     monkeypatch.setattr(wayback.random, "uniform", lambda a, b: 0.0)
 
     class Clean:
-        def get(self, url): return httpx.Response(200, text="ok", request=request)
+        def stream(self, method, url):
+            return _Stream(httpx.Response(200, text="ok", request=request))
         def close(self): pass
 
     class ThrottleOnce:
         def __init__(self): self.calls = 0
-        def get(self, url):
+        def stream(self, method, url):
             self.calls += 1
             if self.calls == 1:
-                raise httpx.ConnectError("boom", request=request)
-            return httpx.Response(200, text="ok", request=request)
+                return _Stream(httpx.ConnectError("boom", request=request))
+            return _Stream(httpx.Response(200, text="ok", request=request))
         def close(self): pass
 
     p = wayback.AdaptivePacer(base=5.0, ceiling=12.0, step_up=1.5)

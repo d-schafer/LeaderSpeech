@@ -108,6 +108,27 @@ re-cleaning, so the metadata step doesn't skip the fresh rows as already-done: d
 | `served N link(s) but NONE were new` | the site ignores the page parameter and re-serves page 1 | open the built page URL in a browser and check the pager really advances; the param name/`start`/`step` are probably wrong |
 | `keep_if FILTERED OUT ALL n fetched page(s)` | the `keep_if` selector doesn't exist on these pages (no match = no evidence = drop), or the pattern is wrong | probe the recipe and read the `KEEP_IF` line; check the selector against a page you expect to **keep** |
 | `0 links` in **both** `static` and `js` / the page is empty chrome | the speech list loads from a JSON/search API (often SharePoint behind a WAF); the served HTML has no links | capture the JSON endpoint in DevTools → Network → Fetch/XHR and use `pagination.type: api` (see [recipes.md](recipes.md)); the engine now sends browser-like `Accept`/`Accept-Language` headers by default to clear such WAFs |
+| `SnapshotTooLarge` / `SnapshotReadTimeout` on a wayback run | that capture redirects into a large media file (video/audio) rather than a speech page, so following it downloads the asset | nothing to fix — the guard already aborts it and records the URL as a normal failure. See "A wayback run that goes quiet" below |
+
+## A wayback run that goes quiet
+
+A wayback run that logs nothing for hours is usually **not** hung and usually **not** rate-limiting — it is
+one capture whose body never ends. Some archived speech pages are stored as a redirect chain ending at a
+large media asset (real case: several `english.khamenei.ir` pages 302/301 to a **1.78 GB `.mp4`** on the
+site's CDN), and the fetcher follows the redirect and starts downloading the video.
+
+An HTTP timeout does not save you here: it bounds the wait for the *next chunk*, not the response as a
+whole, so a body arriving at a few KB/s never trips it. Before this was guarded, one such capture stalled an
+Iran run for ~3 hours and grew the process to 7 GB RSS.
+
+Two budgets now bound every archived body (`wayback.py`): `MAX_SNAPSHOT_BYTES` (10 MB; 50 MB for
+`content_type: pdf` captures, which are legitimately larger) and `SNAPSHOT_BODY_TIMEOUT` (120s; 300s for
+PDFs). An over-cap `Content-Length` is refused before a single byte is read. Breaching either raises
+`SnapshotRejected`, which is **not** retried — the redirect target is a fixed property of that capture — and
+lands in `_errors.csv` + `failed_urls` like any other failure, so `--retry-failed` can revisit it later.
+
+To confirm this is what you're seeing rather than a genuine hang, check the process: near-zero CPU with a
+steadily growing memory footprint and an open connection to the Archive is the signature.
 
 ## Guarantees
 
