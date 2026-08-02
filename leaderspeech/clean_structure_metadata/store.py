@@ -50,7 +50,14 @@ CLEAN_COLUMNS = [
     "speaker_type", "audience", "speech_type", "venue",
     "detected_language",
     "speaker_attributed_correct", "date_matches_metadata", "date_precision",
-    "date_model", "date_parsed", "date_disagreement_flag",  # date audit + adjudication (see resolve_date)
+    # Date audit + adjudication (see resolve_date). Every CANDIDATE is kept side by side, win or
+    # lose, so a consumer can re-adjudicate without re-running anything: date_scraped (the site's
+    # own field, above), date_regex_recovered (head-line pattern match), date_model (the model's
+    # answer), wayback_capture (the crawl bound, in SCRAPED_COLUMNS). date_precision says which won;
+    # date_is_fallback marks a row whose date is ONLY the capture bound (the model could do no
+    # better) so it is trivially excludable from date-sensitive analysis.
+    "date_model", "date_parsed", "date_regex_recovered", "date_confidence",
+    "date_disagreement_flag", "date_is_fallback",
     "tenure_match", "tenure_matched_name", "is_ceremonial",
     "clean_status", "gate_reason", "speaker_review",
     "clean_confidence", "clean_reasoning", "clean_model", "cleaned_at",

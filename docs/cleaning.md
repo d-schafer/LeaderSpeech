@@ -139,24 +139,117 @@ trusted:
 - the **model's own read** of the text (`date` + `date_matches_metadata`), fed the resolved
   candidate so its yes/no verdict judges the *real* date.
 
-**Priority when the parse is consistent with the evidence:** (1) a Jalali date from the text — `day`
-(exact) or `year` (approximate); (2) the scraped CMS `date`; (3) the capture date. **On a material
-disagreement** the parsed date is set aside: the model's date wins if it offers a plausible one
-(precision `model`), else the capture date stands as an approximate upper bound
-(`wayback_capture`) — never asserted as correct, always **flagged** for review. A disagreement is
-raised when a *text-parsed* date is more than `date_flag_years` years from the capture (default
-**5**; lower = stricter), or is impossibly *after* the capture, or the model says the date is wrong,
-or the model and the parse differ by more than the window. Scraped CMS date fields are trusted
-(exempt from the capture-gap check) but still yield to a model "no".
+### The date is settled FIRST, in its own pass
 
-This is recorded, never silent — four columns make every decision auditable: `date_precision` (which
-source won: `day` / `year` / `model` / `scraped` / `wayback_capture`), `date_model` (the model's raw
-suggestion), `date_parsed` (the raw deterministic parse), and **`date_disagreement_flag`** (True when
-the parse was overridden — filter on it to review suspect dates). Tune the threshold in
-`clean_config.yml` (`date_flag_years`) or per run with `--date-flag-years N`. Because the guard runs
-*before* the model call too (to pick the tenure/leaders year), a misparse no longer drags in the
-wrong in-office leaders. Backfilling the new columns on already-cleaned data needs a re-clean
-(`date_model` is a model output); `--regate` alone won't repopulate them.
+The date must be established **before** the tenure key supplies leader candidates. Otherwise the key
+is applied to a bad year and *propagates* error into speaker attribution instead of correcting it — a
+2016 Uzbek speech captured in 2024 would be matched against the 2024 roster. So a row with **no
+trusted date selector** gets a cheap **date-only call first** (`date_pass_enabled`, ~200 words of the
+head, and deliberately **no leader roster** — the roster is chosen *from* its answer). The confirmed
+date then picks the roster for the full extraction call. Rows that already carry a selector date skip
+the pre-pass entirely, so the common path costs nothing extra.
+
+The pre-pass returns `date`, `date_confidence` (`high`/`medium`/`low` — "read a dateline" vs
+"guessed"), and a `date_basis` sentence naming the evidence (logged for review, not stored).
+
+### What the model is shown — and why it used to be wrong
+
+The capture date is **never** rendered as the document's date. It used to be: the resolved date was
+written straight into `DATE:`, so for a dateless archived row the model was handed a crawl timestamp
+presented as fact and agreed with it **83–99%** of the time. It is now labelled for what it is:
+
+```
+DATE: not available
+CANDIDATE DATE FROM TEXT (crude pattern match on the first lines -- UNVERIFIED; confirm
+  against the text or correct it): 2016-12-05
+ARCHIVE CAPTURE DATE: 2024-05-27 -- the date the Internet Archive CRAWLED this page. The
+  document was published on or BEFORE it, usually not more than a few years earlier.
+  A BOUND, NOT the answer.
+```
+
+### Two tiers of trust
+
+**Tier 1 — a recipe's own date selector is authoritative.** It is the site's machine-readable field.
+The model still checks it and agreement is expected, but **on disagreement the selector value stays**
+and the row is flagged: a systematic mismatch means the *recipe* is broken (this is how a
+DD.MM-vs-MM.DD selector misparse surfaces), and silently overwriting would hide the bug. Override per
+source with `--date-text-first` when a selector is known bad.
+
+**Tier 2 — everything else is a proposal, and the model outranks all of it.** Order:
+
+1. a **Jalali** date from the text (`day` / `year`) — an exact calendar conversion, kept top;
+2. the **selector** date (`scraped`);
+3. the **model** (`model`) — beats the regex *and* the capture date, always;
+4. the **head-line regex** (`regex_text`);
+5. the **capture date** (`wayback_capture`) — an upper bound, marked `date_is_fallback`.
+
+Every candidate must clear the capture bound (nothing can post-date its own archival). The
+`date_flag_years` gap check (default **5**) applies to a *Jalali* parse only — a Jalali date is found
+anywhere in the body, so one decades from the capture is almost certainly a stray institutional date.
+It deliberately does **not** apply to the head-line regex, which is structurally confined to a
+dateline: an archived page crawled years after publication is the normal case, not a suspicious one.
+
+**The echo is recorded honestly.** If the model returns exactly the capture date it is telling us it
+could do no better, so the row stays `wayback_capture` with `date_is_fallback=True` rather than being
+relabelled `model`.
+
+### The head-line date parser (`leaderspeech/datetext.py`)
+
+Recovers a date sitting in plain sight at the top of a generic-extracted body. It accepts a date only
+when a whole **head line IS a date** (modulo punctuation, a weekday, or a `Published:` label) and is
+short. That strictness is the point: a naive "first date in the first 400 chars" scan was measured
+getting the **year wrong 45–64%** of the time, grabbing prose like *"20 January 1990 went down in the
+history of modern Azerbaijan…"*. Under the strict rule it recovers **99.1%** of Uzbekistan's dateless
+rows with **zero** post-capture violations corpus-wide. Ambiguous `05/12/2016` slashes are refused
+outright (`source_language` is a language, not a locale, so DD/MM vs MM/DD cannot be settled). Knobs:
+`date_text_enabled`, `date_text_lines`, `date_text_max_line_chars`, `date_text_min_year`,
+`date_text_dateparser`, `date_text_first`.
+
+### The audit columns
+
+Every candidate is kept **side by side, win or lose**, so a consumer can re-adjudicate without
+re-running anything: `date_scraped` (the site's field), `date_regex_recovered` (the head-line parse —
+also written by the *scraper* on every row), `date_model`, `wayback_capture`. Plus `date_precision`
+(which won: `day` / `year` / `scraped` / `model` / `regex_text` / `wayback_capture`), `date_parsed`,
+`date_confidence`, **`date_is_fallback`** (the date is only the crawl bound — exclude these from
+date-sensitive analysis), and **`date_disagreement_flag`** (the candidates conflicted; a human should
+look — above all a selector contradicted by the model).
+
+### Backfilling for free — `--redate`
+
+`--redate` recomputes the date on already-cleaned rows from **stored columns with no API calls**, and
+is idempotent. It runs *before* the tenure crosscheck, so that is re-keyed on the corrected year too.
+
+It reads **`date_scraped`**, not `date`: `date` in a cleaned Parquet is the *resolved* value, so
+feeding it back would re-launder a capture date as a trusted `scraped` date.
+
+It **cannot** re-run the date pre-pass (that needs the API), so rows whose stored `date_model` is
+merely the capture date stay `date_is_fallback` — repair those with a `--reclean` under the corrected
+prompt.
+
+## Duplicate rows
+
+`python -m leaderspeech.clean_structure_metadata.duplicates --all` writes
+`data/_build/duplicate_clusters.csv`, one row per cluster of rows sharing identical text. **It reports
+only — nothing is ever deleted or filtered.**
+
+Measured across the scraped corpus: duplicates are always **byte-identical text on different URLs
+with different `doc_id`s** — the same URL is never scraped twice (0 cases). **Never dedupe on
+`title`**: 93.4% of title-duplicates have genuinely different text (a generic site `<title>` bleeding
+in, or a recurring headline like "tender announcement"). Causes reported:
+
+| cause | meaning | what it implies |
+|---|---|---|
+| `url_variant` | same URL modulo query / scheme / `:80` / `www` | one document — safe to collapse |
+| `mirror` | same path, different host (`arkiva.president.al`) | one document — safe to collapse |
+| `id_variant` | same article id, different slug/section | one document — safe to collapse |
+| `slug_variant` | CMS duplicate slug `-2` / `-4` | one document — safe to collapse |
+| `junk_stub` | short placeholder ("under construction") | not a document — drop the cluster |
+| `shared_text_suspect` | identical **long** text on unrelated URLs | **not duplication** — an extraction failure |
+
+`shared_text_suspect` is the one that matters: the text does not belong to the URL (107 Belarus
+article URLs all carrying the same press-release index; 51 Armenian 2008 URLs all carrying a 2018
+page). Keeping one representative would attach the wrong speech to a real URL.
 
 ## The gate
 
@@ -196,9 +289,22 @@ model with `--model`. The two settings that change **what is kept**:
 Other settings: `model` (default `gpt-4.1-mini`), `temperature`, `max_tokens`, `max_words` (how much
 text is sent), `batch_size` / `chunk_size` (concurrency + checkpoint granularity),
 `max_consecutive_failures` (circuit breaker), `tenure_file` / `tenure_window`, `date_flag_years`
-(default `5` — max parsed-vs-capture year gap before a text date is flagged/adjudicated; lower =
+(default `5` — max Jalali-parse-vs-capture year gap before a text date is flagged/adjudicated; lower =
 stricter; override per run with `--date-flag-years N`; see **Date resolution** above), `compression`
 (`zstd` | `snappy`), `openai_key_file`.
+
+Date-specific knobs (all under **Date resolution** above):
+
+| setting | default | effect |
+|---|---|---|
+| `date_pass_enabled` | `true` | Run the cheap **date-only pre-pass** on rows with no site date, so the date is settled before the tenure key names candidate leaders. Turn off to revert to a single call per row. |
+| `date_pass_max_words` | `200` | How much of the head is sent to the pre-pass (the dateline lives there). |
+| `date_text_enabled` | `true` | Use the head-line date parser to supply a candidate. |
+| `date_text_lines` | `4` | Leading non-empty lines considered. |
+| `date_text_max_line_chars` | `60` | A date *line* is short; longer means prose and is ignored. |
+| `date_text_min_year` | `1990` | Hard floor. Not redundant with the capture check — ~30 wayback CSVs have no `wayback_capture` column, so that check no-ops for them. |
+| `date_text_dateparser` | `true` | Tier 2: non-English month names ("12 Janar 2006") via `dateparser`. |
+| `date_text_first` | `false` | Let the head-line date outrank the recipe's **own** date selector. Only for sources whose selector is known bad. `--date-text-first`. |
 
 **Changed the gate after a run?** Re-classify already-cleaned rows for **free** (no API calls) — the
 gate reads the stored `document_type` / `speaker` / `speaker_type`:
@@ -215,6 +321,15 @@ calls) and backfills `speaker_review` — so a curated tenure key or a tightened
 already-cleaned data for free (e.g. after adding a missing leader, `--regate` alone re-accepts their
 speeches; only a *model* mis-type needs a paid `--reclean`). If the key file is missing, the stored
 crosscheck is left untouched. (Plain `--retry-failed` only re-attempts rows that *errored*.)
+
+**Changed a `date_text_*` setting?** `--redate` does the same for dates — free, no API calls, and it
+implies `--regate`:
+
+```bash
+python -m leaderspeech.clean_structure_metadata.run --all --redate
+```
+
+See **Backfilling for free — `--redate`** above for what it can and cannot repair.
 
 ## Storage, resumability, and safety
 

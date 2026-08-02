@@ -73,18 +73,31 @@ def main():
     ap.add_argument("--regate", action="store_true",
                     help="re-apply the gate to already-cleaned rows from stored fields; no API calls "
                          "(use after changing keep_document_types / require_leader_type)")
+    ap.add_argument("--redate", action="store_true",
+                    help="recompute every already-cleaned row's date from STORED columns "
+                         "(text + date_scraped + wayback_capture + date_model); no API calls. "
+                         "Implies --regate, and the tenure crosscheck is re-keyed on the corrected "
+                         "year. Use after changing the date_text_* settings. Idempotent. It cannot "
+                         "re-run the date PRE-PASS, so rows whose stored model date is merely the "
+                         "capture date stay flagged date_is_fallback -- repair those with --reclean.")
+    ap.add_argument("--date-text-first", action="store_true", dest="date_text_first",
+                    help="let a date parsed off the HEAD of the body outrank the recipe's own date "
+                         "selector (default: used only when the selector found nothing). For sources "
+                         "whose selector is known bad, e.g. irn_khamenei_english_wayback.")
     args = ap.parse_args()
 
     config = load_config(args.config)
     if args.date_flag_years is not None:
         config = config.model_copy(update={"date_flag_years": args.date_flag_years})
-    if args.reclean and args.regate:
-        ap.error("--reclean re-runs the model; --regate is no-API. Use one or the other.")
+    if args.date_text_first:
+        config = config.model_copy(update={"date_text_first": True})
+    if args.reclean and (args.regate or args.redate):
+        ap.error("--reclean re-runs the model; --regate/--redate are no-API. Use one or the other.")
 
     # --input: clean one arbitrary table into a single output Parquet (non-destructive by default).
     if args.input:
-        if args.regate:
-            ap.error("--regate operates on the cleaned store (per-source Parquet), not an --input table")
+        if args.regate or args.redate:
+            ap.error("--regate/--redate operate on the cleaned store (per-source Parquet), not an --input table")
         in_path = Path(args.input)
         out_path = Path(args.output) if args.output else in_path.with_name(in_path.stem + ".cleaned.parquet")
         summary = clean_file(
@@ -97,7 +110,7 @@ def main():
 
     if args.source:
         targets = [(args.source, args.country)]
-    elif args.regate or args.reclean:
+    elif args.regate or args.redate or args.reclean:
         # regate/reclean operate on ALREADY-CLEANED sources, so enumerate the cleaned store
         # (Parquet), NOT everything scraped -- otherwise `--all` would (re)clean never-cleaned
         # sources like the big full scrapes. Skip 0-row artifacts from any interrupted run.
@@ -110,13 +123,14 @@ def main():
         targets = [(sid, c) for sid, c, _ in iter_sources(args.in_root, country)]
 
     if not targets:
-        print(f"no sources found under {args.out_root if (args.regate or args.reclean) else args.in_root}")
+        print(f"no sources found under {args.out_root if (args.regate or args.redate or args.reclean) else args.in_root}")
         return
 
     summaries = []
     for source_id, country in targets:
-        if args.regate:
-            result = regate_source(source_id, out_root=args.out_root, config=config, country=country)
+        if args.regate or args.redate:
+            result = regate_source(source_id, out_root=args.out_root, config=config,
+                                   country=country, redate=args.redate)
         else:
             result = clean_source(
                 source_id, in_root=args.in_root, out_root=args.out_root,

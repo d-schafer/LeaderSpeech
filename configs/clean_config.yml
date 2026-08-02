@@ -41,6 +41,36 @@ tenure_window: 1           # +/- years when listing plausible leaders
 #   Override per-run with --date-flag-years N.
 date_flag_years: 5
 
+# The head-line date parser (leaderspeech/datetext.py). Many archived pages carry no
+# machine-readable date, yet the date sits in plain sight as the first line of the body
+# ("05.12.2016\nThe following congratulatory message..."). This parser recovers it -- but only
+# when a whole HEAD LINE *is* a date (modulo punctuation, a weekday name, or a "Published:"
+# label). That strictness is the point: a naive "first date in the first 400 chars" scan was
+# measured getting the YEAR WRONG 45-64% of the time, grabbing prose like "20 January 1990 went
+# down in the history of modern Azerbaijan...". The result is always a CANDIDATE shown to the
+# model to confirm or correct, and is recorded in date_regex_recovered win or lose.
+date_text_enabled: true
+date_text_lines: 4            # leading non-empty lines considered
+date_text_max_line_chars: 60  # a date LINE is short; longer means prose, so ignore it
+date_text_min_year: 1990      # hard floor. NOT redundant with the capture cross-check: ~30 wayback
+                              # CSVs have no wayback_capture column, so that check no-ops for them.
+date_text_dateparser: true    # tier 2: non-English month names ("12 Janar 2006") via dateparser
+# date_text_first: let the head-line date outrank the recipe's OWN date selector. Off by default --
+#   a selector date is the site's own field and is authoritative. Turn on only for sources whose
+#   selector is known bad (irn_khamenei_english_wayback, geo_president_wayback). --date-text-first.
+date_text_first: false
+
+# --- date pre-pass (PASS 1) ---
+# The date must be settled BEFORE the tenure key supplies leader candidates. Otherwise the key is
+# keyed on a bad year and PROPAGATES error into speaker attribution instead of correcting it: a
+# 2016 Uzbek speech captured in 2024 would be matched against the 2024 roster. So a row with no
+# trusted selector date gets a cheap date-only call first (no leader roster in the prompt), and the
+# confirmed date then picks the roster for the full extraction call. Rows that already carry a
+# selector date skip this entirely -- the common path costs nothing extra.
+date_pass_enabled: true
+date_pass_max_words: 200      # the dateline lives at the head; no need to send more
+date_pass_max_tokens: 200
+
 # --- storage ---
 compression: zstd          # parquet codec ("snappy" is the conservative fallback)
 

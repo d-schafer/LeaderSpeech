@@ -27,6 +27,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
+from .. import datetext
 from .extract import (apply_entry_meta, extract_pdf_record, extract_record, first_match,
                       looks_like_document, should_keep)
 from .fallback_generic import extract_generic
@@ -59,6 +60,12 @@ SCHEMA_COLUMNS = [
     # scraped — an approximate publication date (a "no-later-than" bound), used downstream
     # only as a last-resort date fallback when no date is recoverable from the page/text.
     "wayback_capture",
+    # A date found on a DATE LINE at the head of the extracted body (leaderspeech/datetext.py).
+    # NEVER written into `date`: `date` means "what the site's own date field said", and the
+    # cleaner trusts it as such. This is an unverified CANDIDATE, shown to the model to confirm
+    # or correct. On a live recipe whose date selector DID match, a mismatch between the two is a
+    # drift signal — it is how a DD.MM-vs-MM.DD selector misparse becomes visible without a re-scrape.
+    "date_regex_recovered",
 ]
 ERROR_COLUMNS = ["timestamp", "url", "error"]
 
@@ -160,6 +167,15 @@ def map_to_schema(rec: dict, recipe: Recipe, doc_id: str) -> dict:
         row["title_originlanguage"] = rec["title"]
         row["text_originlanguage"] = rec["text"]
         row["context_originlanguage"] = rec["context"]
+    # An unverified CANDIDATE date off the head of the body -- recorded on EVERY row, including
+    # rows whose date selector matched, so a selector-vs-body mismatch is queryable. Never merged
+    # into `date`; see SCHEMA_COLUMNS.
+    try:
+        regex_date, _ = datetext.parse_text_head(
+            rec["text"], languages=datetext.lang_hint({"source_language": recipe.source_language}))
+        row["date_regex_recovered"] = regex_date or ""
+    except Exception:
+        row["date_regex_recovered"] = ""
     return row
 
 
@@ -202,9 +218,27 @@ def _ensure_csv_schema(path: Path, columns: list[str]) -> None:
 
 
 def _append(path: Path, rows: list[dict], columns: list[str]):
+    """Append rows, migrating the file first if its header is narrower than `columns`.
+
+    `_ensure_csv_schema` normally runs once per source at scrape start, which is enough when the
+    schema is stable. But the package is installed editable from a SHARED (Dropbox) checkout, so a
+    schema change can land while a long queue is mid-source on another machine: that process
+    migrated to the OLD width at start and would then append rows at the NEW width under the old
+    header — reintroducing the very "Expected N fields, saw N+1" corruption the migration exists to
+    prevent. Re-checking here makes that self-healing. The header read only happens on append
+    batches (every `save_every` rows), so the cost is negligible.
+    """
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            with path.open(encoding="utf-8", newline="") as f:
+                header = next(csv.reader(f), [])
+            if header and header != columns:
+                _ensure_csv_schema(path, columns)
+        except Exception as e:
+            log.warning("could not re-check the schema of %s before appending: %s", path.name, e)
     write_header = not path.exists()
     with path.open("a", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns)

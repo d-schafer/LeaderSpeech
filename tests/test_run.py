@@ -954,3 +954,43 @@ def test_egress_ip_returns_none_when_every_service_fails(monkeypatch):
 
     monkeypatch.setattr(fetch.httpx, "get", boom)
     assert fetch.egress_ip() is None               # best-effort: no exception escapes
+
+
+def test_append_migrates_a_narrower_csv_mid_run(tmp_path):
+    """A schema change can land while a long queue is mid-source on another machine (the package is
+    installed editable from a shared Dropbox checkout). The file was migrated to the OLD width at
+    scrape start, so appending at the NEW width must migrate it again rather than write rows the
+    header cannot describe -- the 'Expected N fields, saw N+1' corruption."""
+    import csv as _csv
+    from leaderspeech.text_scraper.run import SCHEMA_COLUMNS, _append
+
+    old_cols = [c for c in SCHEMA_COLUMNS if c != "date_regex_recovered"]
+    p = tmp_path / "src.csv"
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=old_cols)
+        w.writeheader()
+        w.writerow({c: "" for c in old_cols} | {"doc_id": "OLD1", "date": "2020-01-01"})
+
+    _append(p, [{c: "" for c in SCHEMA_COLUMNS}
+                | {"doc_id": "NEW1", "date_regex_recovered": "2016-12-05"}], SCHEMA_COLUMNS)
+
+    rows = list(_csv.DictReader(p.open(encoding="utf-8", newline="")))
+    assert [r["doc_id"] for r in rows] == ["OLD1", "NEW1"]
+    assert rows[0]["date"] == "2020-01-01"                    # old row's values preserved
+    assert rows[0]["date_regex_recovered"] == ""              # padded
+    assert rows[1]["date_regex_recovered"] == "2016-12-05"    # new column actually written
+    # every line is the same width -- the whole point
+    widths = {len(r) for r in _csv.reader(p.open(encoding="utf-8", newline=""))}
+    assert widths == {len(SCHEMA_COLUMNS)}
+
+
+def test_append_is_a_noop_check_when_the_header_already_matches(tmp_path):
+    import csv as _csv
+    from leaderspeech.text_scraper.run import SCHEMA_COLUMNS, _append
+
+    p = tmp_path / "src.csv"
+    _append(p, [{c: "" for c in SCHEMA_COLUMNS} | {"doc_id": "A"}], SCHEMA_COLUMNS)
+    _append(p, [{c: "" for c in SCHEMA_COLUMNS} | {"doc_id": "B"}], SCHEMA_COLUMNS)
+    rows = list(_csv.DictReader(p.open(encoding="utf-8", newline="")))
+    assert [r["doc_id"] for r in rows] == ["A", "B"]
+    assert not p.with_name(p.name + ".bak").exists()      # no needless migration

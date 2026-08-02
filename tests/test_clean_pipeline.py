@@ -346,3 +346,236 @@ def test_merge_is_idempotent(env):
 
     merge.build_dataset(out_root, build_path)                # re-run default -> unchanged (idempotent)
     assert len(pd.read_parquet(p)) == 3
+
+
+# --- the date pre-pass (PASS 1): the date must be settled BEFORE the tenure key is consulted ----
+
+# the real UZB0001 shape: delivered 05.12.2016, crawled 2024-05-27, no site date.
+UZB_TEXT = ("05.12.2016\nThe following congratulatory message has come from President of the "
+            "Russian Federation, addressed to the President-elect of Uzbekistan:")
+
+
+def _uzb_env(tmp_path, monkeypatch, *, tenure_years=(2016, 2024)):
+    """A one-row source with NO site date and a capture date years later, plus a tenure key that
+    names a DIFFERENT leader in the capture year than in the true year -- so a wrong date is
+    visible in the speaker attribution, not just the date column."""
+    scraped_root = tmp_path / "scraped"
+    csv_path = scraped_root / "Uzbek" / "uzb_src.csv"
+    csv_path.parent.mkdir(parents=True)
+    row = dict(doc_id="UZB0001", country="Uzbek", ISO3N="860", speaker="", position="",
+               date="", wayback_capture="2024-05-27", text=UZB_TEXT,
+               source="http://president.uz/en/lists/view/10",
+               source_language="English", dataset="LeaderSpeech")
+    df = pd.DataFrame([row])
+    for c in store.SCRAPED_COLUMNS:
+        if c not in df.columns:
+            df[c] = ""
+    df[store.SCRAPED_COLUMNS].to_csv(csv_path, index=False)
+
+    tenure_csv = tmp_path / "tenure.csv"
+    pd.DataFrame([
+        dict(speaker="Old Leader", country="Uzbek", year=tenure_years[0], is_ceremonial=False),
+        dict(speaker="New Leader", country="Uzbek", year=tenure_years[1], is_ceremonial=False),
+    ]).to_csv(tenure_csv, index=False)
+
+    events = []          # ordered log of what happened, so we can assert on SEQUENCE
+
+    async def fake_extract_date_one(client, config, message, sem):
+        events.append(("date_pass", message))
+        return dict(date="2016-12-05", date_confidence="high",
+                    date_basis="dateline '05.12.2016' on the first line")
+
+    async def fake_extract_one(client, config, message, sem):
+        events.append(("full_pass", message))
+        return dict(document_type="speech", is_first_person="yes", speaker="Old Leader",
+                    speaker_attributed_correct="unsure", speaker_type="head_of_state",
+                    position="President", date="2016-12-05", date_matches_metadata="yes",
+                    language="en", audience="General Public", speech_type="Other",
+                    venue=None, confidence="high", reasoning="congratulatory message")
+
+    monkeypatch.setattr(extract, "extract_date_one", fake_extract_date_one)
+    monkeypatch.setattr(extract, "extract_one", fake_extract_one)
+    monkeypatch.setattr(llm, "load_api_key", lambda config: "test-key")
+    monkeypatch.setattr(llm, "create_async_client", lambda key: object())
+
+    config = CleanConfig(tenure_file=str(tenure_csv), chunk_size=2, batch_size=2)
+    return dict(tmp=tmp_path, scraped_root=scraped_root, config=config, events=events)
+
+
+def _run_uzb(e, **kw):
+    return pipeline.clean_source(
+        "uzb_src", in_root=str(e["scraped_root"]), out_root=str(e["tmp"] / "cleaned"),
+        state_root=str(e["tmp"] / "clean_state"), config=e["config"], country="Uzbek", **kw)
+
+
+def _uzb_out(e):
+    return pd.read_parquet(Path(e["tmp"]) / "cleaned" / "Uzbek" / "uzb_src.parquet")
+
+
+def test_date_pass_runs_before_the_full_call(tmp_path, monkeypatch):
+    """The ordering requirement itself: the date is settled first, so the tenure key is keyed on
+    the right year instead of propagating a crawl-date year into speaker attribution."""
+    e = _uzb_env(tmp_path, monkeypatch)
+    _run_uzb(e)
+    kinds = [k for k, _ in e["events"]]
+    assert kinds == ["date_pass", "full_pass"]
+
+
+def test_date_pass_message_carries_no_leader_roster(tmp_path, monkeypatch):
+    """PASS 1 must not see the roster -- the roster is chosen FROM its answer, so including it
+    would reintroduce the circularity the pre-pass exists to break."""
+    e = _uzb_env(tmp_path, monkeypatch)
+    _run_uzb(e)
+    date_msg = next(m for k, m in e["events"] if k == "date_pass")
+    assert "KNOWN LEADERS IN OFFICE" not in date_msg
+    assert "ARCHIVE CAPTURE DATE: 2024-05-27" in date_msg
+    assert "CANDIDATE DATE FROM TEXT" in date_msg
+
+
+def test_capture_date_is_never_presented_as_the_documents_date(tmp_path, monkeypatch):
+    """THE regression test for the original bug: the crawl timestamp used to be written straight
+    into `DATE:`, which is what made the model echo it 83-99% of the time. It may appear ONLY on
+    the labelled ARCHIVE CAPTURE DATE line -- so match the `DATE:` line exactly, not a substring
+    (which would also hit "ARCHIVE CAPTURE DATE: ...")."""
+    e = _uzb_env(tmp_path, monkeypatch)
+    _run_uzb(e)
+    for _, msg in e["events"]:
+        date_lines = [ln for ln in msg.splitlines() if ln.startswith("DATE:")]
+        assert "2024-05-27" not in " ".join(date_lines)
+        assert any(ln.startswith("ARCHIVE CAPTURE DATE: 2024-05-27") for ln in msg.splitlines())
+
+
+def test_confirmed_date_picks_the_leader_roster(tmp_path, monkeypatch):
+    e = _uzb_env(tmp_path, monkeypatch)
+    _run_uzb(e)
+    full_msg = next(m for k, m in e["events"] if k == "full_pass")
+    assert "DATE: 2016-12-05" in full_msg
+    assert "Old Leader" in full_msg          # the 2016 roster...
+    assert "New Leader" not in full_msg      # ...not the 2024 capture-year one
+
+
+def test_date_pass_result_is_stored_with_its_provenance(tmp_path, monkeypatch):
+    e = _uzb_env(tmp_path, monkeypatch)
+    _run_uzb(e)
+    out = _uzb_out(e).iloc[0]
+    assert out["date"] == "2016-12-05"
+    assert out["date_precision"] == "model"          # GPT decided it, not the regex or the capture
+    assert out["date_regex_recovered"] == "2016-12-05"   # the candidate is kept win or lose
+    assert out["date_confidence"] == "high"
+    assert bool(out["date_is_fallback"]) is False
+    assert out["date_scraped"] == ""                 # the audit copy keeps the original (empty)
+    assert out["wayback_capture"] == "2024-05-27"    # the bound is retained
+    assert out["tenure_match"] == "exact"            # matched against 2016, not 2024
+
+
+def test_rows_with_a_site_date_skip_the_date_pass(env):
+    """The cost guarantee: the common path still makes exactly ONE call per row."""
+    _run(env)
+    assert len(env["calls"]) == 5                    # 5 rows, 5 full calls, no pre-pass
+
+
+def test_date_pass_failure_is_not_fatal(tmp_path, monkeypatch):
+    """A dead pre-pass must degrade, not sink the run. With the full pass also offering no date,
+    the row falls back to the deterministic head-line candidate -- exactly the behaviour that
+    existed before the pre-pass was added."""
+    e = _uzb_env(tmp_path, monkeypatch)
+
+    async def boom(client, config, message, sem):
+        raise RuntimeError("api down")
+
+    async def no_date(client, config, message, sem):
+        return dict(document_type="speech", is_first_person="yes", speaker="Old Leader",
+                    speaker_type="head_of_state", date=None, date_matches_metadata="unsure",
+                    confidence="high", reasoning="date unclear")
+
+    monkeypatch.setattr(extract, "extract_date_one", boom)
+    monkeypatch.setattr(extract, "extract_one", no_date)
+    _run_uzb(e)
+    out = _uzb_out(e).iloc[0]
+    assert out["date"] == "2016-12-05"
+    assert out["date_precision"] == "regex_text"
+
+
+# --- --redate: free retroactive backfill from stored columns ------------------------------------
+
+def _redate_env(tmp_path, monkeypatch):
+    """Reproduce the state every already-cleaned wayback row is in TODAY: no pre-pass, no text
+    parser, and a model that supplied no usable date -- so the row landed on the capture date.
+    Then --redate repairs it for free."""
+    e = _uzb_env(tmp_path, monkeypatch)
+
+    async def no_date(client, config, message, sem):
+        e["events"].append(("full_pass", message))
+        return dict(document_type="speech", is_first_person="yes", speaker="Old Leader",
+                    speaker_type="head_of_state", date=None, date_matches_metadata="unsure",
+                    confidence="high", reasoning="date unclear")
+
+    monkeypatch.setattr(extract, "extract_one", no_date)
+    e["config"] = e["config"].model_copy(
+        update={"date_text_enabled": False, "date_pass_enabled": False})
+    _run_uzb(e)
+    return e
+
+
+def test_redate_repairs_a_capture_dated_row_with_no_api_calls(tmp_path, monkeypatch):
+    e = _redate_env(tmp_path, monkeypatch)
+    before = _uzb_out(e).iloc[0]
+    assert before["date_precision"] == "wayback_capture"
+    assert bool(before["date_is_fallback"]) is True
+
+    calls_before = len(e["events"])
+    cfg = e["config"].model_copy(update={"date_text_enabled": True})
+    res = pipeline.regate_source("uzb_src", out_root=str(e["tmp"] / "cleaned"),
+                                 config=cfg, country="Uzbek", redate=True)
+
+    assert len(e["events"]) == calls_before          # no API calls at all
+    assert res["redated"] == 1
+    after = _uzb_out(e).iloc[0]
+    assert after["date"] == "2016-12-05"
+    assert after["date_precision"] == "regex_text"
+    assert bool(after["date_is_fallback"]) is False
+
+
+def test_redate_is_idempotent(tmp_path, monkeypatch):
+    e = _redate_env(tmp_path, monkeypatch)
+    cfg = e["config"].model_copy(update={"date_text_enabled": True})
+    kw = dict(out_root=str(e["tmp"] / "cleaned"), config=cfg, country="Uzbek", redate=True)
+    pipeline.regate_source("uzb_src", **kw)
+    first = _uzb_out(e).iloc[0]["date"]
+    res2 = pipeline.regate_source("uzb_src", **kw)
+    assert res2["redated"] == 0                      # second pass changes nothing
+    assert _uzb_out(e).iloc[0]["date"] == first
+
+
+def test_redate_reads_date_scraped_not_the_resolved_date(tmp_path, monkeypatch):
+    """THE trap: `date` in a cleaned Parquet is the RESOLVED value. Feeding it back in would
+    re-launder the capture date as a trusted `scraped` date, permanently."""
+    e = _redate_env(tmp_path, monkeypatch)
+    stored = _uzb_out(e).iloc[0]
+    assert stored["date"] == "2024-05-27"            # the resolved value IS the capture date
+    assert stored["date_scraped"] == ""              # ...but the site never supplied one
+
+    cfg = e["config"].model_copy(update={"date_text_enabled": True})
+    pipeline.regate_source("uzb_src", out_root=str(e["tmp"] / "cleaned"),
+                           config=cfg, country="Uzbek", redate=True)
+    after = _uzb_out(e).iloc[0]
+    assert after["date_precision"] != "scraped"      # must NOT have been laundered
+    assert after["date_scraped"] == ""               # and the audit copy is untouched
+
+
+def test_redate_rekeys_the_tenure_crosscheck_on_the_corrected_year(tmp_path, monkeypatch):
+    e = _redate_env(tmp_path, monkeypatch)
+    cfg = e["config"].model_copy(update={"date_text_enabled": True})
+    pipeline.regate_source("uzb_src", out_root=str(e["tmp"] / "cleaned"),
+                           config=cfg, country="Uzbek", redate=True)
+    after = _uzb_out(e).iloc[0]
+    assert after["date"].startswith("2016")
+    assert after["tenure_matched_name"] == "Old Leader"   # the 2016 leader, not the 2024 one
+
+
+def test_plain_regate_does_not_touch_the_date(tmp_path, monkeypatch):
+    e = _redate_env(tmp_path, monkeypatch)
+    cfg = e["config"].model_copy(update={"date_text_enabled": True})
+    pipeline.regate_source("uzb_src", out_root=str(e["tmp"] / "cleaned"),
+                           config=cfg, country="Uzbek")     # redate=False
+    assert _uzb_out(e).iloc[0]["date"] == "2024-05-27"

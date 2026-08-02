@@ -18,10 +18,15 @@ from typing import NamedTuple
 
 import pandas as pd
 
+from .. import datetext
 from . import extract, gate, jalali, llm, store, tenure
 from .config import CleanConfig
 
 log = logging.getLogger("leaderspeech.clean_structure_metadata.pipeline")
+
+# Defaults for resolve_date when no config is passed (tests and legacy callers). Built once:
+# CleanConfig() reads nothing from disk, so this is just the default knob values.
+_CONFIG_FOR_DATES = CleanConfig()
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -96,82 +101,134 @@ def _year_of(date_str) -> int | None:
 
 class DateResolution(NamedTuple):
     """Result of `resolve_date`: the chosen `date`, a `precision`/source label, the model's raw
-    suggested date (`model_date`, for audit), a `disagreement` flag (the deterministic parse
-    conflicted with the evidence and was adjudicated), and the raw deterministic `parsed` value.
+    suggested date (`model_date`, for audit), a `disagreement` flag (the candidates conflicted and
+    the row wants a human), the raw deterministic `parsed` value, the raw head-line regex parse
+    (`regex`, recorded win or lose), and `is_fallback` (the date is ONLY the capture bound).
     Field order keeps `[0]`/`[1]` == (date, precision) for legacy positional use."""
     date: str
     precision: str | None
     model_date: str | None = None
     disagreement: bool = False
     parsed: str | None = None
+    regex: str | None = None
+    is_fallback: bool = False
 
 
-def resolve_date(row: dict, meta: dict | None = None, *, flag_years: int = 5) -> DateResolution:
-    """Best available date for a row, with the GPT check as adjudicator instead of a blind fallback.
+def resolve_date(
+    row: dict, meta: dict | None = None, *, flag_years: int = 5, config=None,
+) -> DateResolution:
+    """Best available date for a row. TWO TIERS OF TRUST.
 
-    A naive date PARSED FROM TEXT (a Solar-Hijri date in the body) has no context — it can grab a
-    founding year, an institutional date, or a stray document date. So we cross-check it against the
-    Internet-Archive capture date (a hard bound: a page cannot be archived before its speech existed)
-    and the model's own read of the text. On a material conflict the parsed date is FLAGGED and the
-    model adjudicates; the capture date is only ever an approximate bound, never asserted correct.
+    TIER 1 — the recipe's own date SELECTOR (`row["date"]`) is authoritative. It is the site's own
+    machine-readable date field. The model still checks it and agreement is the expected case, but on
+    disagreement the SELECTOR VALUE STAYS and the row is flagged for a human: a systematic mismatch
+    means the RECIPE is broken (this is how `geo_president_wayback`'s DD.MM-vs-MM.DD misparse
+    surfaces), and silently overwriting it would hide the bug instead of fixing it.
 
-    Priority when there is NO disagreement:
-      1. a Solar-Hijri (Jalali) date parsed from the text — "day" (exact) or "year" (approximate);
-      2. the scraped CMS date ("scraped"); 3. the capture date ("wayback_capture").
-    On disagreement: the model's date ("model") if present and itself plausible vs the capture; else
-    the capture date; else the flagged parse. `meta` (the model reply) is only consulted at enrich
-    time; pass None pre-LLM (used to pick the tenure/leaders year — the guard keeps a misparse from
-    choosing wrong leaders there too). `flag_years`: max parsed-vs-capture year gap tolerated."""
+    TIER 2 — everything else is a proposal, and the MODEL OUTRANKS ALL OF IT. A head-line regex date
+    and a Wayback capture date are both weak evidence:
+      * the regex can only ever see the top of the document (see leaderspeech/datetext.py);
+      * the capture date is when the Internet Archive CRAWLED the page — a hard upper bound, never
+        the answer, and often years late.
+    So: jalali(text) > model > regex > capture. When nothing beats the capture bound, `is_fallback`
+    is set, which is the honest record that this row's date is only an upper bound.
+
+    `meta` (the model reply) is consulted at enrich time; pass None pre-LLM. `flag_years` is the max
+    tolerated year gap before a text-derived date is treated as suspect. Every candidate is returned
+    for audit whether or not it won.
+    """
+    cfg = config if config is not None else _CONFIG_FOR_DATES
     text = row.get("text_originlanguage") or row.get("text") or ""
     jiso, jprec = jalali.parse_jalali(text)
-    scraped = (row.get("date") or "").strip()
+
+    riso = None
+    if getattr(cfg, "date_text_enabled", True):
+        riso, _ = datetext.parse_text_head(
+            text,
+            lines=getattr(cfg, "date_text_lines", 4),
+            max_line_chars=getattr(cfg, "date_text_max_line_chars", 60),
+            min_year=getattr(cfg, "date_text_min_year", 1990),
+            languages=datetext.lang_hint(row),
+            use_dateparser=getattr(cfg, "date_text_dateparser", True),
+        )
+
+    selector = (row.get("date") or "").strip()
     wb = (row.get("wayback_capture") or "").strip()
-
-    # the deterministic candidate: a text-parsed Jalali date (preferred) else the scraped CMS date.
-    if jiso:
-        det, detprec, det_from_text = jiso, jprec, True
-    elif scraped:
-        det, detprec, det_from_text = scraped, "scraped", False
-    else:
-        det, detprec, det_from_text = "", None, False
-
     model_date = (meta.get("date") or "").strip() if meta is not None else ""
     model_says_no = (_norm(meta.get("date_matches_metadata")) == "no") if meta is not None else False
 
-    cap_y, det_y, model_y = _year_of(wb), _year_of(det), _year_of(model_date)
-
-    # --- disagreement detection (only text-parsed dates get the capture-gap/impossibility checks;
-    #     a scraped CMS date field is trusted and exempt, though it still gets the model override) ---
-    disagreement = False
-    if det_from_text and det_y is not None and cap_y is not None:
-        if abs(det_y - cap_y) > flag_years:   # parsed date implausibly far from the capture
-            disagreement = True
-        if det_y > cap_y:                     # parsed date AFTER capture — logically impossible
-            disagreement = True
-    if model_says_no:                         # the model read the text and says the date is wrong
-        disagreement = True
-    if model_y is not None and det_y is not None and abs(model_y - det_y) > flag_years:
-        disagreement = True
-
-    # --- choose the final date ---
-    if not disagreement:
-        if det:
-            final, prec = det, detprec
-        elif wb:
-            final, prec = wb, "wayback_capture"
-        else:
-            final, prec = "", None
+    # the deterministic TEXT candidate: a Jalali date (preferred -- exact calendar conversion)
+    # else the head-line regex parse.
+    if jiso:
+        text_cand, text_prec = jiso, jprec
+    elif riso:
+        text_cand, text_prec = riso, "regex_text"
     else:
-        # a model date is plausible unless it is itself impossible (after the capture year)
-        model_ok = bool(model_date) and model_y is not None and (cap_y is None or model_y <= cap_y)
-        if model_ok:
-            final, prec = model_date, "model"
-        elif wb:
-            final, prec = wb, "wayback_capture"   # approximate upper bound; stays flagged
-        else:
-            final, prec = (det, detprec) if det else ("", None)
+        text_cand, text_prec = "", None
 
-    return DateResolution(final, prec, model_date or None, disagreement, det or None)
+    cap_y = _year_of(wb)
+    sel_y, cand_y, model_y = _year_of(selector), _year_of(text_cand), _year_of(model_date)
+
+    def _bounded(y: int | None) -> bool:
+        """A candidate cannot be dated AFTER the capture: a page cannot be archived before the
+        speech existed. With no capture column (~30 older wayback CSVs) there is nothing to check."""
+        return y is not None and (cap_y is None or y <= cap_y)
+
+    # A text-derived date has no context of its own, so it must clear the capture bound.
+    #
+    # The `flag_years` GAP check applies to a JALALI parse only, NOT to the head-line regex. A
+    # Jalali date is found anywhere in the body, so one sitting decades from the capture is almost
+    # certainly a stray institutional/founding date. The regex, by contrast, is structurally
+    # constrained to a dateline at the top of the document -- and an archived page crawled years
+    # after it was published is the NORMAL case, not a suspicious one: uzb_president_english_wayback
+    # is 2016 speeches captured in 2024. Applying the gap check to it would reject every one of the
+    # ~5,000 rows this exists to recover.
+    text_credible = bool(text_cand) and _bounded(cand_y)
+    if jiso and text_credible and cap_y is not None and cand_y is not None:
+        text_credible = abs(cand_y - cap_y) <= flag_years
+
+    # The model merely ECHOING the capture date is not an answer -- it is the model telling us it
+    # could do no better. Promoting it would launder a crawl timestamp into a "model" date. It is
+    # NOT a disagreement either, so the two conditions are kept apart.
+    model_bounded = bool(model_date) and _bounded(model_y)
+    model_ok = model_bounded and model_date != wb
+    text_first = bool(getattr(cfg, "date_text_first", False))
+
+    # --- what wants a human's attention ---------------------------------------------------------
+    disagreement = False
+    if model_says_no:                              # the model read the text and says the date is wrong
+        disagreement = True
+    if text_cand and not text_credible:            # impossible or implausibly far from the capture
+        disagreement = True
+    if model_date and not model_bounded:           # the model proposed a post-capture date
+        disagreement = True
+    if model_y is not None and sel_y is not None and abs(model_y - sel_y) > flag_years:
+        disagreement = True                        # recipe bug or model error -- a human decides
+
+    # --- choose, in order of trust --------------------------------------------------------------
+    is_fallback = False
+    if jiso and text_credible and not model_says_no:
+        # Jalali keeps the top slot it has always had: it is an exact calendar conversion of an
+        # explicit date, and it exists because Persian/Dari CMS dates were the untrustworthy ones.
+        final, prec = jiso, jprec
+    elif selector and not text_first:
+        # TIER 1: the site's own field. Kept even when the model disagrees -- the row is flagged
+        # instead, because a systematic mismatch is a RECIPE bug and overwriting would hide it.
+        final, prec = selector, "scraped"
+    elif model_ok:
+        final, prec = model_date, "model"          # TIER 2: beats the regex AND the capture, always
+    elif text_credible:
+        final, prec = text_cand, text_prec
+    elif selector:
+        final, prec = selector, "scraped"          # date_text_first was set, but nothing beat it
+    elif wb:
+        final, prec = wb, "wayback_capture"        # an upper bound, never asserted as correct
+        is_fallback = True
+    else:
+        final, prec = "", None
+
+    return DateResolution(final, prec, model_date or None, disagreement,
+                          text_cand or None, riso or None, is_fallback)
 
 
 def _inclusion_tier(document_type, is_first_person, is_substantive=None) -> str | None:
@@ -214,19 +271,71 @@ def _locate_parquet(out_root: str, source_id: str, country: str | None) -> tuple
     return matches[0], matches[0].parent.name
 
 
+def _stored_date_row(df, i, cols, country) -> dict:
+    """Rebuild `resolve_date`'s INPUT from an already-cleaned row.
+
+    THE TRAP: `date` in a cleaned Parquet is the RESOLVED value, not the site's field. Feeding it
+    back in would re-launder a capture date as a trusted `scraped` date. The site's own value lives
+    in the audit copy `date_scraped`, so that is what we read -- falling back to `date` only when
+    `date_precision` says the two are the same value anyway.
+    """
+    def cell(col):
+        v = df.at[i, col] if col in cols else None
+        return "" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+
+    scraped = cell("date_scraped")
+    if not scraped and cell("date_precision") == "scraped":
+        scraped = cell("date")
+    return {
+        "date": scraped,
+        "text": cell("text"),
+        "text_originlanguage": cell("text_originlanguage"),
+        "wayback_capture": cell("wayback_capture"),
+        "detected_language": cell("detected_language"),
+        "source_language": cell("source_language"),
+        "country": cell("country") or country,
+    }
+
+
+def _stored_meta(df, i, cols) -> dict | None:
+    """The model's stored reply, replayed with NO API call."""
+    def cell(col):
+        v = df.at[i, col] if col in cols else None
+        return "" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+
+    model_date = cell("date_model")
+    matches = cell("date_matches_metadata")
+    if not model_date and not matches:
+        return None
+    return {"date": model_date, "date_matches_metadata": matches}
+
+
 def regate_source(
     source_id: str, *, out_root: str = "data/cleaned",
     config: CleanConfig | None = None, country: str | None = None,
+    redate: bool = False,
 ) -> dict:
     """Re-apply the gate to an already-cleaned source using the STORED extraction fields
     (document_type / speaker / speaker_type) — no API calls. Lets you change
     `keep_document_types` / `require_leader_type` and re-classify for free, without
-    re-spending or losing anything. Error rows are left untouched (retry those instead)."""
+    re-spending or losing anything. Error rows are left untouched (retry those instead).
+
+    With `redate=True`, also re-run `resolve_date` from stored columns first, so a changed
+    date_text_* setting lands on already-cleaned data for free. The corrected date is computed
+    BEFORE the tenure crosscheck below, so the crosscheck is re-keyed on the right year too.
+    Idempotent: nothing it reads (date_scraped / date_model / text / wayback_capture) is ever
+    written, so running it twice changes nothing.
+
+    NOTE it cannot re-run the date PRE-PASS (that needs the API). Rows whose stored `date_model`
+    is merely the capture date stay on `wayback_capture` with `date_is_fallback` set — a re-clean
+    with the corrected prompt is what repairs those.
+    """
     config = config or CleanConfig()
     _ensure_console()
     p, country = _locate_parquet(out_root, source_id, country)
     df = store.read_source(p)
-    summary = {"source_id": source_id, "country": country, "regated": 0, "changed": 0, "output": str(p)}
+    summary = {"source_id": source_id, "country": country, "regated": 0, "changed": 0,
+               "redated": 0, "output": str(p)}
     if df.empty:
         return summary
 
@@ -247,10 +356,27 @@ def regate_source(
         return df.at[idx, col] if col in cols else None
 
     changed = 0
+    redated = 0
     for i in df.index:
         status_now = str(df.at[i, "clean_status"]) if "clean_status" in df.columns else ""
         if status_now.startswith("error"):
             continue
+
+        # Recompute the date FIRST, so the tenure crosscheck below is re-keyed on the corrected
+        # year -- a row wrongly dated to its capture year currently matches the wrong roster.
+        if redate:
+            dr = resolve_date(_stored_date_row(df, i, cols, country), _stored_meta(df, i, cols),
+                              flag_years=config.date_flag_years, config=config)
+            before = df.at[i, "date"] if "date" in cols else None
+            if dr.date != ("" if before is None or pd.isna(before) else str(before)):
+                redated += 1
+            df.at[i, "date"] = dr.date
+            df.at[i, "date_precision"] = dr.precision
+            df.at[i, "date_parsed"] = dr.parsed
+            df.at[i, "date_regex_recovered"] = dr.regex
+            df.at[i, "date_disagreement_flag"] = dr.disagreement
+            df.at[i, "date_is_fallback"] = dr.is_fallback
+
         meta = {
             "document_type": cell(i, "document_type"),
             "speaker": df.at[i, "speaker"],
@@ -289,8 +415,9 @@ def regate_source(
         build_clean_index(out_root)
     except Exception:
         pass
-    summary.update(regated=len(df), changed=changed)
-    log.info("REGATE %s | rows=%d changed=%d -> %s", source_id, len(df), changed, p)
+    summary.update(regated=len(df), changed=changed, redated=redated)
+    log.info("REGATE %s | rows=%d changed=%d%s -> %s", source_id, len(df), changed,
+             f" redated={redated}" if redate else "", p)
     return summary
 
 
@@ -333,16 +460,23 @@ def enrich(row: dict, meta: dict, tenure_df, config: CleanConfig) -> dict:
     if not (row.get("position") or "").strip() and (meta.get("position") or "").strip():
         out["position"] = meta["position"].strip()
 
-    # date: adjudicated by resolve_date (parsed date cross-checked against the capture date + the
-    # model; see resolve_date). The precision label records which source won; date_model is the
-    # model's raw suggestion, date_parsed the raw deterministic parse, and date_disagreement_flag
-    # marks rows where the parse conflicted with the evidence and was overridden -- for review.
-    _dr = resolve_date(row, meta, flag_years=config.date_flag_years)
+    # date: adjudicated by resolve_date (see its docstring for the two tiers of trust). Every
+    # candidate is stored side by side, win or lose -- date_scraped (the site's own field),
+    # date_regex_recovered (the head-line pattern match), date_model (the model's answer),
+    # wayback_capture (the crawl bound) -- so a consumer can re-adjudicate without re-running
+    # anything. date_precision says which won; date_is_fallback marks a date that is ONLY the crawl
+    # bound; date_disagreement_flag marks a row where the candidates conflicted and a human should
+    # look (above all: the recipe's own date selector contradicted by the model).
+    _dr = resolve_date(row, meta, flag_years=config.date_flag_years, config=config)
     out["date"] = _dr.date
     out["date_precision"] = _dr.precision
     out["date_model"] = _dr.model_date
     out["date_parsed"] = _dr.parsed
+    out["date_regex_recovered"] = _dr.regex
     out["date_disagreement_flag"] = _dr.disagreement
+    out["date_is_fallback"] = _dr.is_fallback
+    if meta.get("date_confidence") is not None:
+        out["date_confidence"] = meta.get("date_confidence")
 
     # tenure crosscheck on the (possibly corrected) speaker + date
     if tenure_df is not None:
@@ -498,28 +632,75 @@ def clean_file(
     log.info("scraped=%d | already_done=%d known_failed=%d | to_clean=%d",
              len(scraped), len(done), len(failed), len(todo))
 
-    # build items
+    api_key = llm.load_api_key(config)
+    client = llm.create_async_client(api_key)
+
+    rows = [r.to_dict() for _, r in todo.iterrows()]
+    for row in rows:
+        # record the head-line candidate on the row so BOTH prompts can show it (labelled
+        # UNVERIFIED) and so it is stored win or lose.
+        row["date_regex_recovered"] = resolve_date(
+            row, flag_years=config.date_flag_years, config=config).regex
+
+    # ---------------------------------------------------------------- PASS 1: settle the date
+    # The date must be established BEFORE the tenure key names candidate leaders. Otherwise the key
+    # is applied to a bad year and PROPAGATES error into speaker attribution instead of correcting
+    # it: a 2016 Uzbek speech captured in 2024 would be matched against the 2024 roster. Only rows
+    # WITHOUT a trusted date selector need this -- the rest keep the single call they always had.
+    date_meta: dict[int, dict] = {}
+    need_date = [
+        i for i, row in enumerate(rows)
+        if getattr(config, "date_pass_enabled", True) and not (row.get("date") or "").strip()
+    ]
+    if need_date:
+        log.info("date pre-pass: %d of %d rows have no site date -- resolving the date first "
+                 "so the tenure key is keyed on the right year", len(need_date), len(rows))
+        date_items = [
+            {"idx": i,
+             "message": extract.build_date_message(
+                 rows[i], max_words=getattr(config, "date_pass_max_words", 200))}
+            for i in need_date
+        ]
+
+        async def date_worker(item, sem):
+            return await extract.extract_date_one(client, config, item["message"], sem)
+
+        def on_date_chunk(chunk, results):
+            for item, res in zip(chunk, results):
+                if not isinstance(res, Exception) and isinstance(res, dict):
+                    date_meta[item["idx"]] = res
+
+        try:
+            asyncio.run(llm.run_async_batches(
+                date_items, date_worker, batch_size=config.batch_size,
+                chunk_size=config.chunk_size, on_chunk=on_date_chunk,
+            ))
+        except Exception:
+            # A failed pre-pass must never sink the run: those rows simply fall back to the
+            # deterministic candidates, exactly as before this stage existed.
+            log.exception("date pre-pass failed -- continuing without it")
+        resolved = sum(1 for m in date_meta.values() if (m or {}).get("date"))
+        log.info("date pre-pass: %d/%d dates resolved from the text", resolved, len(need_date))
+
+    # ---------------------------------------------------------------- PASS 2: full extraction
     items = []
-    for _, r in todo.iterrows():
-        row = r.to_dict()
-        # Resolve the date BEFORE the leaders lookup so a Jalali/wayback-corrected year (not a
-        # bogus parsed one) picks which leaders are named to the model. Feed that same resolved
-        # candidate to the model as DATE (on a message-only copy -- the stored row is untouched so
-        # date_scraped keeps the original) so date_matches_metadata judges the REAL candidate.
-        res_pre = resolve_date(row, flag_years=config.date_flag_years)
-        year = _year_of(res_pre.date)
+    for i, row in enumerate(rows):
+        dmeta = date_meta.get(i) or {}
+        # feed PASS 1's answer into resolve_date as the model's date, so the confirmed date -- not
+        # the crawl timestamp -- picks the leader roster and is what the model sees as DATE.
+        res_pre = resolve_date(row, {"date": dmeta.get("date")} if dmeta.get("date") else None,
+                               flag_years=config.date_flag_years, config=config)
         leaders_info = ""
         if tenure_df is not None:
-            leaders = tenure.leaders_for(tenure_df, row.get("country", ""), year, config.tenure_window)
+            leaders = tenure.leaders_for(tenure_df, row.get("country", ""),
+                                         _year_of(res_pre.date), config.tenure_window)
             leaders_info = ", ".join(leaders)
+        # message-only copy: the stored row is untouched, so date_scraped keeps the original
         msg_row = dict(row)
         if res_pre.date:
             msg_row["date"] = res_pre.date
         msg = extract.build_user_message(msg_row, leaders_info, max_words=config.max_words)
-        items.append({"row": row, "message": msg})
-
-    api_key = llm.load_api_key(config)
-    client = llm.create_async_client(api_key)
+        items.append({"row": row, "message": msg, "date_meta": dmeta})
 
     new_rows: list[dict] = []
     counters = {"accepted": 0, "rejected": 0, "errors": 0, "chunks": 0, "consecutive_fail": 0}
@@ -559,6 +740,15 @@ def clean_file(
                 counters["errors"] += 1
                 chunk_fail += 1
             else:
+                # PASS 1 is the dedicated date call, with the prompt that explains what an archive
+                # capture is; its answer outranks the date PASS 2 mentions in passing.
+                dmeta = item.get("date_meta") or {}
+                if dmeta.get("date"):
+                    res = dict(res)
+                    res["date"] = dmeta["date"]
+                    res["date_confidence"] = dmeta.get("date_confidence")
+                    if dmeta.get("date_basis"):
+                        log.debug("date basis %s: %s", item["row"].get("doc_id"), dmeta["date_basis"])
                 cleaned = enrich(item["row"], res, tenure_df, config)
                 new_rows.append(cleaned)
                 if cleaned["clean_status"] == gate.ACCEPTED:

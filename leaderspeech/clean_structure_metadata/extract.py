@@ -62,7 +62,11 @@ AUDIENCES = [
 
 SYSTEM_PROMPT = """You are a careful research assistant on a comparative-politics project building a dataset of speeches by NATIONAL LEADERS (heads of state and heads of government). For each document you are given the scraped text plus its metadata, and a list of leaders KNOWN to have been in office in that country around that date — a reference that may be INCOMPLETE (a new administration, regime change, or a leader added mid-term can be missing). Read the text and return ONE JSON object describing it.
 
-You will be given: SPEAKER (attributed, may be blank), COUNTRY, DATE (approximate), POSITION (may be blank), TITLE (may be blank), CONTEXT (may be blank), SOURCE, KNOWN LEADERS IN OFFICE (may be incomplete), and TEXT (first ~500 words, in its original language).
+You will be given: SPEAKER (attributed, may be blank), COUNTRY, DATE (approximate, and sometimes "not available"), POSITION (may be blank), TITLE (may be blank), CONTEXT (may be blank), SOURCE, KNOWN LEADERS IN OFFICE (may be incomplete), and TEXT (first ~500 words, in its original language).
+
+Some documents come from ARCHIVED copies of a government website (the Internet Archive), and those often carry NO date of their own. For them you may also be given:
+  - CANDIDATE DATE FROM TEXT: a date found by a crude pattern match on the first lines of the body. It is UNVERIFIED and is sometimes a date mentioned in passing rather than the date of the document. Confirm it against the text, or correct it.
+  - ARCHIVE CAPTURE DATE: the date the Internet Archive CRAWLED the page. The document was published on or BEFORE this date, and usually not more than a few years earlier. It is a BOUND, never the answer. Do NOT return it as the date unless the text itself independently supports that date.
 
 Decide each field:
 
@@ -89,8 +93,8 @@ speaker_type: the actual speaker's role AT THE TIME — one of: "head_of_state",
 
 position: the actual speaker's short official title (e.g. "President", "Prime Minister", "King", "Foreign Minister"), or null.
 
-date: your best estimate of the delivery date as YYYY-MM-DD from clues in the text (events, anniversaries, named conferences such as COP26=2021, the pandemic=2020+, elections). If only a year is known, use YYYY-01-01. If you cannot tell, null.
-date_matches_metadata: "yes" if the given DATE is consistent with the text, "no" if the text clearly indicates a different date, "unsure" otherwise.
+date: your best estimate of the delivery date as YYYY-MM-DD, derived FROM THE DOCUMENT ITSELF. Look first for an explicit dateline at the top of the text, then for a date stated in the body, then infer from what is described (events, anniversaries, named conferences such as COP26=2021, the pandemic=2020+, elections, named officeholders). If only a year is known, use YYYY-01-01. If you genuinely cannot tell, null — do NOT fall back to the ARCHIVE CAPTURE DATE, and do not simply repeat a given DATE you cannot corroborate.
+date_matches_metadata: judge the given DATE (not the capture date) — "yes" if it is consistent with the text, "no" if the text clearly indicates a different date, "unsure" otherwise. If DATE is "not available", answer "unsure".
 
 language: ISO 639-1 two-letter code of the TEXT (e.g. "es", "fr", "en").
 
@@ -133,17 +137,43 @@ def _pick(row: dict, base: str) -> str:
     return ""
 
 
+def _truncate(text: str, max_words: int) -> str:
+    words = text.split()
+    return " ".join(words[:max_words]) + " [...]" if len(words) > max_words else text
+
+
+def _date_evidence_lines(row: dict) -> str:
+    """The candidate/bound lines, each stated WITH its provenance.
+
+    This is the fix for the bug that made the model's date check ornamental: the capture date used
+    to be written straight into `DATE:`, so the model was handed a crawl timestamp presented as the
+    document's own date and agreed with it 83-99% of the time. It is now labelled for what it is.
+    """
+    out = ""
+    regex_date = (row.get("date_regex_recovered") or "").strip()
+    if regex_date:
+        out += (f"CANDIDATE DATE FROM TEXT (crude pattern match on the first lines -- UNVERIFIED; "
+                f"confirm against the text or correct it): {regex_date}\n")
+    capture = (row.get("wayback_capture") or "").strip()
+    if capture:
+        out += (f"ARCHIVE CAPTURE DATE: {capture} -- the date the Internet Archive CRAWLED this "
+                f"page. The document was published on or BEFORE it, usually not more than a few "
+                f"years earlier. A BOUND, NOT the answer.\n")
+    return out
+
+
 def build_user_message(row: dict, leaders_info: str, max_words: int = 500) -> str:
-    """Assemble the per-speech prompt: scraped metadata + known leaders + truncated text."""
-    text = _pick_text(row)
-    if text:
-        words = text.split()
-        if len(words) > max_words:
-            text = " ".join(words[:max_words]) + " [...]"
+    """Assemble the per-speech prompt: scraped metadata + known leaders + truncated text.
+
+    `DATE:` carries only a date we actually trust (the site's own field, or one confirmed by the
+    date pre-pass). The archive capture date is NEVER rendered there -- see `_date_evidence_lines`.
+    """
+    text = _truncate(_pick_text(row), max_words)
     return (
         f"SPEAKER: {_safe(row.get('speaker'))}\n"
         f"COUNTRY: {_safe(row.get('country'))}\n"
         f"DATE: {_safe(row.get('date'))}\n"
+        f"{_date_evidence_lines(row)}"
         f"POSITION: {_safe(row.get('position'))}\n"
         f"TITLE: {_safe(_pick(row, 'title'))}\n"
         f"CONTEXT: {_safe(_pick(row, 'context'))}\n"
@@ -151,6 +181,71 @@ def build_user_message(row: dict, leaders_info: str, max_words: int = 500) -> st
         f"KNOWN LEADERS IN OFFICE (may be incomplete): {leaders_info or 'not available'}\n\n"
         f"TEXT (first ~{max_words} words):\n{text or 'not available'}"
     )
+
+
+# --------------------------------------------------------------------- PASS 1: date only
+DATE_META_FIELDS = ["date", "date_confidence", "date_basis"]
+
+DATE_SYSTEM_PROMPT = """You are a careful research assistant dating documents from national-leader websites, many of them recovered from ARCHIVED copies of those sites. Your ONLY job is to determine when the document was delivered or issued.
+
+You will be given COUNTRY, TITLE, SOURCE (the URL), the start of the TEXT, and sometimes:
+  - CANDIDATE DATE FROM TEXT: a date found by a crude pattern match on the first lines. It is UNVERIFIED -- it may be the document's dateline, or it may be a date merely mentioned in passing, or a date belonging to an unrelated item in a sidebar. Confirm it against the text, or correct it.
+  - ARCHIVE CAPTURE DATE: when the Internet Archive CRAWLED the page. The document was published on or BEFORE this date, and usually not more than a few years earlier. It is a BOUND, NOT the answer. NEVER return it as the date unless the text independently supports that exact date.
+
+How to decide, in order:
+  1. An explicit DATELINE at the top of the text (very often the first or second line) -- the strongest evidence.
+  2. A date stated in the body ("today, 5 December 2016", "on this 20th anniversary of...").
+  3. A date embedded in the SOURCE url (e.g. /2017/05/28/).
+  4. Inference from what is described: named events and summits (COP26=2021), the pandemic (2020+), an election, a named officeholder and when they held office, a stated anniversary plus a known founding year.
+Beware of dates that belong to something OTHER than this document: a historical event being commemorated, a law or decree being cited, a person's biography, or a list of other articles.
+
+Return ONE JSON object, exactly these keys:
+  date: "YYYY-MM-DD", or "YYYY-01-01" if only the year is known, or null if you genuinely cannot tell. Do not guess the capture date.
+  date_confidence: "high" if an explicit dateline or clearly stated date fixes it; "medium" if inferred from described events; "low" if it is little more than a guess.
+  date_basis: one short sentence naming the evidence you used (e.g. "dateline '05.12.2016' on the first line", "refers to COP26"), or null.
+
+JSON only."""
+
+
+def build_date_message(row: dict, max_words: int = 200) -> str:
+    """PASS 1's prompt. Deliberately carries NO leader roster: the roster is chosen from the year
+    this call establishes, so including it here would reintroduce the circularity the pre-pass
+    exists to break (a wrong year hands the model the wrong leaders, which then corrupts speaker
+    attribution). Only the head of the text is sent -- the dateline lives there."""
+    text = _truncate(_pick_text(row), max_words)
+    return (
+        f"COUNTRY: {_safe(row.get('country'))}\n"
+        f"TITLE: {_safe(_pick(row, 'title'))}\n"
+        f"SOURCE: {_safe(row.get('source'))}\n"
+        f"{_date_evidence_lines(row)}"
+        f"\nTEXT (first ~{max_words} words):\n{text or 'not available'}"
+    )
+
+
+def empty_date_meta() -> dict:
+    return {k: None for k in DATE_META_FIELDS}
+
+
+def parse_date_meta(content: Optional[str]) -> dict:
+    """Parse PASS 1's reply into {date, date_confidence, date_basis}. Mirrors `parse_meta`:
+    an unparseable reply degrades to all-None (the row then simply has no model date) rather
+    than raising."""
+    if not content:
+        return empty_date_meta()
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return empty_date_meta()
+    out = {}
+    for k in DATE_META_FIELDS:
+        v = data.get(k) if isinstance(data, dict) else None
+        if v is None:
+            out[k] = None
+        elif isinstance(v, str):
+            out[k] = v.strip() or None
+        else:
+            out[k] = str(v)
+    return out
 
 
 def empty_meta() -> dict:
@@ -178,20 +273,33 @@ def parse_meta(content: Optional[str]) -> dict:
     return out
 
 
-async def extract_one(client, config, user_message: str, semaphore) -> dict:
-    """One async, rate-limited, JSON-mode extraction call. Returns a parsed meta dict.
-    Raises on API error (caught by the batch runner's return_exceptions)."""
+async def _call(client, config, system_prompt: str, user_message: str, semaphore, max_tokens: int):
+    """One async, rate-limited, JSON-mode call. Raises on API error (caught by the batch runner's
+    return_exceptions)."""
     import asyncio
     async with semaphore:
         await asyncio.sleep(config.rate_limit_delay)
         resp = await client.chat.completions.create(
             model=config.model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
             temperature=config.temperature,
-            max_tokens=config.max_tokens,
+            max_tokens=max_tokens,
             response_format={"type": "json_object"},
         )
-        return parse_meta(resp.choices[0].message.content)
+        return resp.choices[0].message.content
+
+
+async def extract_one(client, config, user_message: str, semaphore) -> dict:
+    """One async, rate-limited, JSON-mode extraction call. Returns a parsed meta dict."""
+    content = await _call(client, config, SYSTEM_PROMPT, user_message, semaphore, config.max_tokens)
+    return parse_meta(content)
+
+
+async def extract_date_one(client, config, user_message: str, semaphore) -> dict:
+    """PASS 1: one date-only call. Returns {date, date_confidence, date_basis}."""
+    content = await _call(client, config, DATE_SYSTEM_PROMPT, user_message, semaphore,
+                          getattr(config, "date_pass_max_tokens", 200))
+    return parse_date_meta(content)

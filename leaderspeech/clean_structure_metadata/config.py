@@ -56,6 +56,28 @@ class CleanConfig(BaseModel):
     # model instead of trusted. LOWER = stricter (flags more). See resolve_date + docs/cleaning.md.
     date_flag_years: int = 5
 
+    # The head-line date parser (leaderspeech/datetext.py). It supplies a CANDIDATE date for rows
+    # whose recipe date selector missed — always subordinate to the model, always recorded in
+    # date_regex_recovered win or lose.
+    date_text_enabled: bool = True
+    date_text_lines: int = 4              # leading non-empty lines considered
+    date_text_max_line_chars: int = 60    # a date LINE is short; longer means prose, so ignore it
+    date_text_min_year: int = 1990        # hard floor; older head-line dates are treated as junk
+    date_text_dateparser: bool = True     # tier 2: non-English month names via dateparser
+    # OPT-IN: let the head-line date outrank the recipe's own date selector. Off by default because
+    # a selector date is the site's own field and is authoritative; turn it on only for sources whose
+    # selector is KNOWN bad (e.g. irn_khamenei_english_wayback, geo_president_wayback).
+    date_text_first: bool = False
+
+    # --- date pre-pass (PASS 1) ---
+    # The date must be settled BEFORE the tenure key supplies leader candidates, or the key is
+    # applied to a bad year and PROPAGATES error into speaker attribution instead of correcting it.
+    # So rows with no trusted selector date get a cheap date-only call first. Rows that already have
+    # a selector date skip it entirely, so the common path costs nothing extra.
+    date_pass_enabled: bool = True
+    date_pass_max_words: int = 200        # the dateline lives at the head; no need to send more
+    date_pass_max_tokens: int = 200
+
     # --- storage ---
     compression: str = "zstd"        # parquet codec; "snappy" is the conservative fallback
 
