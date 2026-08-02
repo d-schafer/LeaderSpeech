@@ -487,3 +487,120 @@ def test_page_identity_normalizes_scheme_www_port_and_trailing_slash():
     assert a == b
     # a meaningful param still separates two pages
     assert wayback.page_identity("http://x.gov/a?id=1") != wayback.page_identity("http://x.gov/a?id=2")
+
+
+# --- CDX harvest retry (a refused harvest used to kill a whole source) ------------------
+
+class _CdxResp:
+    def __init__(self, payload=None, status_code=200, bad_json=False):
+        self._payload = payload if payload is not None else [
+            ["timestamp", "original"], ["20080101", "https://example.org/a"],
+        ]
+        self.status_code = status_code
+        self._bad_json = bad_json
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"HTTP {self.status_code}", request=None, response=self,
+            )
+
+    def json(self):
+        if self._bad_json:
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
+        return self._payload
+
+
+def _no_sleep(monkeypatch):
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+
+
+def test_list_snapshots_retries_transient_connect_error(monkeypatch):
+    # The real failure: two refusals then success. Before the retry this raised out of
+    # run._harvest_wayback_entries and ended the source with scraped=0.
+    _no_sleep(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_get(url, params, headers, timeout):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise httpx.ConnectError("[WinError 10061] target machine actively refused it")
+        return _CdxResp()
+
+    monkeypatch.setattr(wayback.httpx, "get", fake_get)
+
+    assert wayback.list_snapshots("https://example.org/*") == [
+        {"timestamp": "20080101", "original": "https://example.org/a"}
+    ]
+    assert calls["n"] == 3
+
+
+@pytest.mark.parametrize("status", sorted(wayback.RETRYABLE_STATUS_CODES))
+def test_list_snapshots_retries_throttling_statuses(monkeypatch, status):
+    _no_sleep(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_get(url, params, headers, timeout):
+        calls["n"] += 1
+        return _CdxResp(status_code=status) if calls["n"] == 1 else _CdxResp()
+
+    monkeypatch.setattr(wayback.httpx, "get", fake_get)
+
+    assert len(wayback.list_snapshots("https://example.org/*")) == 1
+    assert calls["n"] == 2
+
+
+def test_list_snapshots_retries_unparseable_body(monkeypatch):
+    # CDX answers overload with an HTML error page under a 200 — a decode error, not a status.
+    _no_sleep(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_get(url, params, headers, timeout):
+        calls["n"] += 1
+        return _CdxResp(bad_json=True) if calls["n"] == 1 else _CdxResp()
+
+    monkeypatch.setattr(wayback.httpx, "get", fake_get)
+
+    assert len(wayback.list_snapshots("https://example.org/*")) == 1
+    assert calls["n"] == 2
+
+
+def test_list_snapshots_does_not_retry_client_error(monkeypatch):
+    # A 400 is a malformed query — a recipe bug. Retrying only delays the report.
+    _no_sleep(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_get(url, params, headers, timeout):
+        calls["n"] += 1
+        return _CdxResp(status_code=400)
+
+    monkeypatch.setattr(wayback.httpx, "get", fake_get)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        wayback.list_snapshots("https://example.org/*")
+    assert calls["n"] == 1
+
+
+def test_list_snapshots_gives_up_after_the_retry_budget(monkeypatch):
+    # Bounded: a genuinely-down Archive must fail the run, not hang a multi-day queue.
+    _no_sleep(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_get(url, params, headers, timeout):
+        calls["n"] += 1
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(wayback.httpx, "get", fake_get)
+
+    with pytest.raises(httpx.ConnectError):
+        wayback.list_snapshots("https://example.org/*")
+    assert calls["n"] == wayback.DEFAULT_CDX_RETRIES
+
+
+def test_cdx_retry_backoff_is_capped_and_increasing():
+    waits = [wayback._retry_sleep(i, wayback.DEFAULT_CDX_BACKOFF)
+             for i in range(wayback.DEFAULT_CDX_RETRIES)]
+    assert waits == sorted(waits)
+    assert all(w <= wayback.MAX_FETCH_BACKOFF * 1.1 for w in waits)
+    # rides out well over a minute of refusal — the observed blips cleared in seconds
+    assert sum(waits[:-1]) > 60.0

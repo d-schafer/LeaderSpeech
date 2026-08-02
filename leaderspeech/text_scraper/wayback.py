@@ -37,6 +37,13 @@ DEFAULT_FETCH_BACKOFF = 5.0
 MAX_FETCH_BACKOFF = 60.0
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
+# The CDX harvest is one request that gates an ENTIRE source, so it gets its own budget
+# (see `_cdx_get`). 5 attempts at 5s doubling to the 60s cap rides out ~2.5 minutes of
+# Archive refusal — far longer than the seconds-long blips that have actually bitten us,
+# and still bounded so a genuinely-down Archive fails the run rather than hanging a queue.
+DEFAULT_CDX_RETRIES = 5
+DEFAULT_CDX_BACKOFF = 5.0
+
 # A speech page is a few hundred KB of HTML at most (the largest body text extracted
 # across the corpus so far is ~50 KB). Some captures, though, are stored as a REDIRECT
 # into a large media asset: several english.khamenei.ir speech pages 302/301 their way to
@@ -114,16 +121,61 @@ def list_snapshots(
         # to be a list of pairs rather than a dict (which can't hold duplicate keys).
         query = list(params.items()) + [("filter", f) for f in filters]
 
-    resp = httpx.get(
-        CDX_ENDPOINT, params=query,
-        headers={"User-Agent": USER_AGENT}, timeout=timeout,
-    )
-    resp.raise_for_status()
-    data = resp.json()
+    data = _cdx_get(query, timeout=timeout)
     if not data:
         return []
     header, *rows = data
     return [dict(zip(header, row)) for row in rows]
+
+
+def _cdx_get(
+    query,
+    timeout: float = 60.0,
+    retries: int = DEFAULT_CDX_RETRIES,
+    backoff: float = DEFAULT_CDX_BACKOFF,
+) -> list:
+    """One CDX query, riding out a transient Archive hiccup with capped exponential backoff.
+
+    This retry is not a nicety. The harvest is a SINGLE request that gates a whole source:
+    unlike a per-capture fetch — where one failure costs one speech and lands in the
+    `_errors.csv` for `--retry-failed` — a refused CDX call raises out of
+    `run._harvest_wayback_entries`, ends the run with `scraped=0`, and a queue moves on to
+    the next recipe. Three sources were lost that way on 2026-07-31/08-02 (Kenya 4,252
+    captures, Singapore/PMO 3,217, Bangladesh 61) to blips that cleared within seconds —
+    Bangladesh failed at 08:31:12 and the next source succeeded from the same IP at
+    08:31:13, and two machines on different IPs failed three minutes apart, so it was the
+    Archive, not a per-IP block.
+
+    Retries the same conditions as `_fetch_snapshot_resp` (`ConnectError`/transport errors
+    and 429/5xx) plus a body that will not parse as JSON — the CDX server answers overload
+    with an HTML error page under a 200, which `.json()` surfaces as a decode error rather
+    than a status. Anything else (a 400 from a malformed query) raises immediately: that is
+    a recipe bug, and retrying only delays the report."""
+    for attempt in range(retries):
+        try:
+            resp = httpx.get(
+                CDX_ENDPOINT, params=query,
+                headers={"User-Agent": USER_AGENT}, timeout=timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except (httpx.TransportError, httpx.HTTPStatusError, ValueError) as exc:
+            if isinstance(exc, httpx.HTTPStatusError):
+                status = exc.response.status_code if exc.response is not None else None
+                if status not in RETRYABLE_STATUS_CODES:
+                    raise
+                reason = f"HTTP {status}"
+            elif isinstance(exc, ValueError):  # incl. json.JSONDecodeError
+                reason = "unparseable CDX response"
+            else:
+                reason = type(exc).__name__
+            if attempt >= retries - 1:
+                raise
+            wait = _retry_sleep(attempt, backoff)
+            log.info("cdx query failed (%s); retry %d/%d in %.0fs",
+                     reason, attempt + 1, retries, wait)
+            time.sleep(wait)
+    return []  # unreachable: the last attempt either returns or raises
 
 
 def best_capture(url: str, timeout: float = 60.0) -> Optional[dict]:
