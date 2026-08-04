@@ -101,9 +101,23 @@ def _audio_marker(csv_path: Path) -> Optional[tuple[str, str]]:
     return (renderer, kind)
 
 
+def docid_sort_key(doc_id: str) -> tuple[str, int]:
+    """Sort `UKR0001`-style ids by their NUMBER, not as text.
+
+    A plain string sort is wrong the moment a country passes 9,999, because the counter
+    is `f"{alpha3}{n:04d}"` and `:04d` is a *minimum* width — so it widens to 5 digits
+    rather than wrapping. Lexically that puts `UKR9999` after `UKR18996`, and the index
+    then reports Ukraine's last doc_id as UKR9999 when it is really UKR18996. Only the
+    reported range was ever wrong (the ids themselves stay unique), but it reads exactly
+    like a counter that wrapped and silently collided — so it is worth not saying."""
+    m = re.search(r"(\d+)$", doc_id)
+    return (doc_id[: m.start()], int(m.group(1))) if m else (doc_id, -1)
+
+
 def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optional[Path]) -> dict:
     date_min, date_max, n_bad = _coverage(df)
-    doc_ids = sorted(str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna() if str(x).strip())
+    doc_ids = sorted((str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna()
+                      if str(x).strip()), key=docid_sort_key)
     doc_first = doc_ids[0] if doc_ids else ""
     doc_last = doc_ids[-1] if doc_ids else ""
     iso3_prefix = re.sub(r"\d+$", "", doc_first) if doc_first else ""

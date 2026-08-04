@@ -781,10 +781,26 @@ If something looks wrong, the run's summary, log, and `_errors.csv` tell you wha
 Output CSVs are named after the *site* (`arg_casarosada.csv`), which makes a folder of them hard to read
 and to merge. Every `run` rebuilds **`data/scraped/scraped_progress_log.xlsx`** — one row per source CSV
 with its country, website, file path, pagination type, date coverage, doc_id range, and a bad/missing-date
-count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. A merge step reads the index's
-`csv_file` column and concatenates every file it lists. It is a **regenerable, machine-owned** artifact —
-distinct from `data/sources/sources.csv`, the published source list (itself generated, from the
-maintainer's local working file — see `data/sources/export_public_sources.py`).
+count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. It is a **regenerable,
+machine-owned** artifact — distinct from `data/sources/sources.csv`, the published source list (itself
+generated, from the maintainer's local working file — see `data/sources/export_public_sources.py`).
+
+**`python -m leaderspeech.text_scraper.merge`** is the merge step that reads the index's `csv_file` column
+and concatenates every file it lists (text-scraper and audio sources alike) into
+**`data/scraped/LeaderSpeech_scraped.parquet`** — beside the index, so the catalogue and the data it
+describes stay together; `--out-root` moves both. Add `--csv` for a gzipped CSV too. (Not to be confused
+with `data/_build/`, which is the *cleaner's* staging area for `scripts/export_leaderspeech.R`.) Nothing is
+deduplicated or dropped; it asserts **doc_id uniqueness** and reports blanks, duplicates, and any country whose counter has
+passed 9,999 (`doc_id` is `f"{alpha3}{n:04d}"`, a *minimum* width, so it widens to `UKR18996` rather than
+wrapping — the ids stay unique).
+
+Rebuild the index **before** merging. If the index is stale the merge warns which on-disk sources it does
+not list, but a merge driven by a stale index would otherwise leave whole countries out in silence; pass
+`--no-index` to glob the tree instead.
+
+This is the raw scraped view, for inspection — **not** the deliverable. It has had no speaker confirmation,
+no document-type gate, no date resolution and no translation; the published dataset comes from
+`clean_structure_metadata.merge` + `scripts/export_leaderspeech.R` after the cleaning pass.
 
 ## Running several machines at once
 
