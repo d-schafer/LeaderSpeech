@@ -1,0 +1,66 @@
+# Moldova — Presidency (presedinte.md) via the Internet Archive. ARCHIVE COMPANION to the live
+# mda_presedinte, and for this source the archive is the PRIMARY route, not a last resort.
+#
+# WHY THIS EXISTS. presedinte.md rate-limits by IP with a CUMULATIVE quota, not a rate: it serves
+# roughly 225-250 requests, then blackholes the client (packets dropped -> WinError 10060 connect
+# timeouts) regardless of how slowly those requests were paced. Measured on 2026-08-08: a run at
+# 2.0-3.5s spacing scraped 225 consecutively without a single failure, then blocked anyway; a
+# separate 240-request probe at a flat 3.0s passed clean for the same reason — it stopped just
+# under the cap. Pacing cannot fix this, only postpone it. That run needed 8.3 hours to land 247
+# speeches, and its listing harvest was itself truncated (924 links vs the 1,378 the site really
+# has) when the quota ran out mid-pagination.
+#
+# COVERAGE (measured 2026-08-08 against the full CDX index, comparing distinct speech slugs):
+#   live site          1,378
+#   Internet Archive   1,327   -> 96% of the live site
+#   archive-only          38   (speeches the live site has since dropped)
+#   live-only             89   (recent Maia Sandu 2025-2026, not yet captured)
+# So the archive carries the bulk with no quota problem, and the ~89 recent items are a cheap
+# top-up for the live recipe — which now only needs the first few listing pages, well under the
+# cap. Run this for the history; run mda_presedinte for the tail.
+#
+# NOTE the CDX prefix must be filtered hard: a raw presedinte.md/rom/discursuri prefix query
+# returns 14,810 urlkeys, but ~13,000 of those are PAGER pages carrying a tracking query string
+# (/rom/discursuri/index/2018/page:10?url=...). link_pattern below keeps only real speech slugs.
+source_id: mda_presedinte_wayback
+country: Moldova
+source_language: Romanian
+verify_ssl: false
+renderer: static
+start_urls:
+  - presedinte.md/rom/discursuri
+
+listing:
+  # Real speech pages only: /rom/discursuri/<slug>. Excludes the section root, the CakePHP
+  # /index/<year>/page:N pagers (with or without their ?url= tracking suffix), and anything
+  # carrying a query string.
+  link_pattern: '/rom/discursuri/(?!index($|[/?]))[a-z0-9][a-z0-9-]{15,}$'
+
+pagination:
+  type: wayback
+  wayback_collapse: urlkey
+  wayback_adaptive: true
+  wayback_delay: 5.0
+  wayback_max_delay: 12.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["article", ".content", "main"]
+date:
+  selectors: ["time", ".date"]
+  attr: datetime
+
+position: president
+date_languages: ["ro"]
+notes: >
+  Internet-Archive companion to mda_presedinte, and the PRIMARY route for Moldova's history —
+  the live origin enforces a cumulative per-IP request quota (~225-250 requests, then a packet
+  blackhole) that no amount of pacing avoids. Archive holds 1,327 distinct speech slugs vs the
+  live site's 1,378 (96%), plus 38 the live site has dropped; the 89 live-only slugs are recent
+  Maia Sandu items best picked up by a short live top-up run. Covers Timofti, Dodon and Sandu.
+  Same selectors as the live recipe (same site markup): h1 title, <article> body, <time datetime>.
+  Romanian; the translate stage fills the English columns. FULL RUN is the researcher's gate.

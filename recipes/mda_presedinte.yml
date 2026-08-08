@@ -38,15 +38,30 @@ politeness:
   # temporary, not a permanent ban — the same URLs served 200 the next day, and 240 consecutive
   # fetches at 3s spacing completed with zero failures.
   #
-  # Budget the whole run, not just the scrape phase: harvest (~216 listing pages) and scrape
-  # (~1,350 speeches) draw on the same limit. retries/backoff are raised too so a request that
-  # does hit the block waits it out (30+60+120+240 = 450s across 5 attempts) instead of spending
-  # a consecutive-failure slot.
+  # CORRECTED 2026-08-08 (same day, after the run proved the first fix wrong). The quota is
+  # CUMULATIVE, not a rate — pacing postpones it, it does not avoid it. The 2.0-3.5s run scraped
+  # 225 items consecutively with ZERO failures and then blocked anyway, at ~250 total requests;
+  # the 240-request probe that "passed clean" had simply stopped just under the same cap.
+  #
+  # `retries: 5, backoff: 30` was actively HARMFUL here. Once blocked, every URL burned 5
+  # attempts across 9m18s (measured: consecutive errors exactly 9m18s apart) while still hitting
+  # a host that was dropping packets, so the run took 8.3 hours to land 247 speeches and 2.3
+  # hours just to accumulate the 25 consecutive failures that abort it. Fail fast instead:
+  # 3 attempts / 20s base = 140s, and let --retry-failed pick them up on a later run.
+  # (Contrast rou_guvern, where the ban is a ~6-minute TLS reject and riding it out DOES work —
+  # same-looking symptom, opposite remedy.)
+  #
+  # THIS RECIPE IS NOW A TOP-UP, NOT THE MAIN HARVEST. mda_presedinte_wayback carries the
+  # history (1,327 of the live site's 1,378 slugs, no quota). Run the wayback recipe FIRST; the
+  # shared state then leaves this one only the ~89 recent live-only items. Cap the listing crawl
+  # so the harvest itself does not eat the quota — new items sit on the first pages of each year:
+  #     ... text_scraper.run --recipe recipes/mda_presedinte.yml --max-pages 3
+  # 14 start_urls x 3 pages = 42 listing requests + ~89 details, comfortably under the cap.
   delay_range: [2.0, 3.5]
   pause_every: 50
   pause_seconds: 30
-  retries: 5
-  backoff: 30
+  retries: 3
+  backoff: 20
 
 pagination:
   # CakePHP page:N pager appended to each year-index base; each year self-terminates when a page
