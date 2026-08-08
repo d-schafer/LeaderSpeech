@@ -17,6 +17,25 @@ listing:
   link_selector: "h2 a"
   link_pattern: '/ro/stiri/[a-z0-9-]+'
 
+politeness:
+  # gov.ro rate-limits by IP and enforces it at the TLS layer: past its burst threshold the
+  # server rejects the handshake outright ("EOF occurred in violation of protocol"), for the
+  # whole host — homepage included, and a browser User-Agent makes no difference. The
+  # 2026-08-06 run had NO politeness block, so it crawled at the engine default of zero
+  # per-request delay; it sustained 1,525 fetches that way and then tripped the limit at
+  # page 306, and the 25-consecutive-failure breaker aborted it.
+  #
+  # Measured 2026-08-08: the ban lifts after ~6 MINUTES. That is why `retries`/`backoff` are
+  # raised here as much as the delay — 5 attempts at a 30s base back off 30+60+120+240 = 450s,
+  # which outlasts the ban, so a URL that hits it recovers on a later attempt instead of
+  # spending a consecutive-failure slot. Default 3x5s (=15s) could not: the run burned its
+  # 25 slots in ~7 min, aborting at almost exactly the moment the site would have relented.
+  delay_range: [2.0, 4.0]
+  pause_every: 50
+  pause_seconds: 30
+  retries: 5
+  backoff: 30
+
 pagination:
   type: query_param
   param: page

@@ -30,10 +30,23 @@ start_urls:
   - https://presedinte.md/rom/discursuri/index/2026
 
 politeness:
-  # presedinte.md throttles rapid bursts (WinError 10060 after ~50 requests), so pace the crawl.
-  delay_range: [0.5, 1.2]
-  pause_every: 25
-  pause_seconds: 5
+  # presedinte.md rate-limits by IP and enforces it by DROPPING packets, so a blocked request
+  # shows up as a connect timeout (WinError 10060) rather than an HTTP status. RAISED 2026-08-08
+  # from [0.5, 1.2] / 25 / 5s, which was not enough: on 2026-08-07 the ~216-request HARVEST alone
+  # tripped the limit at ~1.6s spacing, and every detail fetch that followed timed out until the
+  # 25-consecutive-failure breaker aborted the run with 2 speeches scraped. The block is
+  # temporary, not a permanent ban — the same URLs served 200 the next day, and 240 consecutive
+  # fetches at 3s spacing completed with zero failures.
+  #
+  # Budget the whole run, not just the scrape phase: harvest (~216 listing pages) and scrape
+  # (~1,350 speeches) draw on the same limit. retries/backoff are raised too so a request that
+  # does hit the block waits it out (30+60+120+240 = 450s across 5 attempts) instead of spending
+  # a consecutive-failure slot.
+  delay_range: [2.0, 3.5]
+  pause_every: 50
+  pause_seconds: 30
+  retries: 5
+  backoff: 30
 
 pagination:
   # CakePHP page:N pager appended to each year-index base; each year self-terminates when a page

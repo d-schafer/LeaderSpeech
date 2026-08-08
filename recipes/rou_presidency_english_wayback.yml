@@ -15,8 +15,57 @@ start_urls:
   - presidency.ro/en
 
 listing:
-  # modern /en/media/speeches/<slug> + old ASP /eng/discursuri/<year>/<file>.htm
-  link_pattern: '/en/media/speeches/[^/]{8,}|/eng/discursuri/\d{4}/[^/]+\.htm'
+  # WIDENED 2026-08-08. The previous pattern
+  #     '/en/media/speeches/[^/]{8,}|/eng/discursuri/\d{4}/[^/]+\.htm'
+  # matched only 75 of the 549 URLs the Archive holds under the presidency.ro/en prefix, and
+  # the 474 it dropped included 168 with speech-like slugs. Three separate causes:
+  #   1. `\d{4}/` cannot match the RANGE directory /eng/discursuri/2000-2001/ — which the old
+  #      date comment below already knew existed. That alone cost 50 of the 108 /eng/discursuri
+  #      captures.
+  #   2. Whole sections were unlisted: /en/media/{messages,press-statements,press-releases},
+  #      /eng/{interviuri,politica-externa,politica-intena}, and the oldest /engleza/ tree.
+  #   3. Many real Iohannis addresses carry NO section segment at all — they sit at
+  #      /en/media/<slug> or bare /en/<slug> (joint press statements, congratulation messages).
+  # Now matches 386/549 with zero leakage from the non-speech sections (verified by diffing the
+  # pattern against the full CDX list). Deliberately INCLUSIVE: **anything under /en/media/ is
+  # fair game** — the first branch takes ANY /en/media/<section>/<slug>, not an enumerated
+  # section list, so a section added later is picked up automatically. press-releases and the
+  # politica-* communiques are kept too; the cleaner's document_type gate is the right place to
+  # sift, not the harvest. All 108 real /en/media/ content pages match.
+  #
+  # TWO SUBTLE BUGS were caught by enumerating the dropped URLs rather than trusting the count
+  # (both cost real speeches, both are why the branches look the way they do):
+  #   a. The /en/<slug> exclusion list must anchor each alternative with `(/|$)`. Bare words
+  #      also killed slugs that merely START with them — `president` ate 13 real pages
+  #      (/en/president-of-romania-mr-klaus-iohannis-took-part-in-...) and `romania` ate 4
+  #      (/en/romania-recognises-juan-guaido-...).
+  #   b. The oldest /engleza/ tree cannot be keyword-matched. Its speeches are spelled the
+  #      FRENCH way (discours16mar.html), or as adress23apr.html, or purely topically
+  #      (nato.html, onu_sesiune.html, caspian.html, pakistan.html, usvisit.html,
+  #      PapaCotroceniEngl.html). So that branch is INVERTED: take every /engleza/*.htm(l)
+  #      except an explicit site-chrome list. Recovered 34 Iliescu/Constantinescu-era pages.
+  #
+  # Excluded by construction (never matched): presidential-administration, president/ except
+  # core-documents, commitments, ajax, albumfoto, departamente, atributii, biografie, romania/,
+  # search/contact/cookie-policy/accreditation-form, the /eng|/engleza site chrome (nav frames
+  # stanga/dreapta/sus, imn, stema, drapel, romaniamap, ...), the section INDEX pages
+  # (/en/media/speeches, /eng/discursuri/index.htm), the photo/video galleries, and a handful of
+  # malformed captures the crawler recorded from unrendered JS (/en/'+value+', /en/media/press-).
+  link_pattern: '(?i)/en/+media/+[a-z0-9-]+/+[^/]{8,}|/en/+media/+[a-z0-9-]{25,}|/en/president/core-documents/[^/]{8,}|/en/+(?!(?:media|president|presidential-administration|commitments|ajax|romania|search|contact|cookie-policy|accreditation-form|the)(?:/|$))[a-z0-9-]{25,}|/eng(?:leza)?/(?:discursuri|interviuri|politica-externa|politica-intena)/(?!index\.html?)|/engleza/(?!(?:main|constitutie|cronologia|fotocronica|institutiaprez|legaturi|revista_presei_engleza|presedinte|ip_aa|ip_pe|ip_pi|ip_sn)\.html?$)[a-z0-9_]+\.html?$'
+
+keep_if:
+  # The Archive stored presidency.ro's OWN "not found" page under HTTP 200 for a number of
+  # captures — a ~312-char body reading "This page does not exist or is not available at this
+  # time". The 2026-08-03 run wrote 6 of them into the CSV as speeches, and the widened harvest
+  # would pull in more. Drop them here.
+  #
+  # NOTE: `block_page_patterns` is the obvious-looking knob and does NOT work for this — the
+  # block-page guard lives in Fetcher.get, and a `pagination: wayback` recipe never goes through
+  # it (captures are fetched by the wayback client). `keep_if` is evaluated per page after fetch,
+  # explicitly including the wayback path, so it is the mechanism that applies here. Rejected
+  # pages are recorded in the state file's filtered_urls and never re-fetched.
+  pattern: '(?i)This page does not exist or is not available at this time'
+  negate: true
 
 pagination:
   type: wayback
