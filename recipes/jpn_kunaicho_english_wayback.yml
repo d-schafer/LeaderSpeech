@@ -1,0 +1,115 @@
+# Japan — the Emperor, via the Imperial Household Agency's OFFICIAL ENGLISH tree
+# kunaicho.go.jp/e-okotoba, through the Internet Archive.
+#
+# WHY THIS EXISTS. Japan's audit gap is 514 unmatched rows at 0.0% matched, and the
+# reference corpus took them from kunaicho.go.jp — the head of state. The project had
+# only jpn_kantei (the PM, Japanese, incumbent cabinet only), so Japan's head-of-state
+# coverage was zero. "okotoba" (お言葉) is the Agency's own word for the Emperor's
+# addresses.
+#
+# ⚠️ CORRECTING AN EARLIER VERDICT. master_sources recorded jpn_kunaicho as PARTIAL with
+# the reasoning that "EACH okotoba page BUNDLES a whole YEAR of addresses per URL …
+# unfit for the one-URL-one-row engine". That is wrong, and it was repeated without
+# checking. Fetching the archived pages shows ordinary one-document articles:
+#   /e-okotoba/01/address/okotoba-h12e.html  = "Address by His Majesty the Emperor
+#                                              (2000)", 4,162 chars, ONE address
+#   /e-okotoba/01/press/kaiken-h10e.html     = a 13,024-char press conference
+#   /e-okotoba/01/press/gokaito-h16sk.html   = 15,703 chars of written answers
+# What IS bundled is the handful of INDEX pages (okotoba01e.html, kaiken01.html), and
+# those are excluded by the link_pattern below — see "ARTICLE vs INDEX".
+#
+# ARTICLE vs INDEX — the discriminator is a Japanese ERA-YEAR token. An article carries
+# "-h<NN>" (Heisei) or "-r<N>" (Reiwa) before the extension: okotoba-h12e.html,
+# kaiken-h18.html, gyosei-h14.html, koen-h10sk-newdelhi.html. An index has a bare
+# section number and no era token: okotoba01e.html, kaiken01.html. The pattern also
+# drops the -mov.html (video) and -ph.html / photo-*.html (photo) siblings, and the
+# /img/*.jpg assets that a naive era-token regex otherwise matches.
+#
+# SCOPE: /e-okotoba/01/ ONLY = Their Majesties the Emperor and Empress, i.e. the head of
+# state. /02/ (Crown Prince) and /03/ (Prince and Princess Akishino) are archived too and
+# deliberately excluded — they are royal family members, not national leaders.
+#
+# ⚠️ DATES ARE DEFERRED TO THE CLEANER, ON PURPOSE. These pages carry no date element and
+# no meta date, and the URL's era-year (h12 = Heisei 12) is a calendar the engine cannot
+# parse. Taking the Gregorian year from the heading was tried and REJECTED because it
+# fabricates a day — see the long note on the `date` field. The bodies do print full
+# dates ("December 11, 2000") and the title keeps the year, so the cleaner's date pass
+# has what it needs to split Akihito (to 2019-04-30) from Naruhito (from 2019-05-01).
+source_id: jpn_kunaicho_english_wayback
+country: Japan
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'.
+  - kunaicho.go.jp/e-okotoba
+
+listing:
+  # <section>/<name>-<era><year>[<suffix>].html, era token required (article vs index),
+  # (?!photo-) drops the photo pages, and the explicit (?<!-mov)(?<!-ph) tail plus the
+  # .html anchor drop the video/photo siblings and the /img/ JPEG assets.
+  link_pattern: '/e-okotoba/01/(?:address|press|gokanso|waka)/(?!photo-)[a-z]+-[hr]\d+[a-z0-9-]*(?<!-mov)(?<!-ph)\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the clean document title and already carries the Gregorian year:
+  # "Press Conference on the occasion of Her Majesty's Birthday (Written Answers) (2004)".
+  selectors: ["h1", "title"]
+text:
+  # This 2000s layout has no semantic body container — only <body>, which would add ~700
+  # chars of identical navigation to every row. These narrow selectors are expected to
+  # MISS so the engine's generic (trafilatura) extractor recovers the address; same
+  # choice as pol_president_english_wayback and gen A of aus_pm_wayback.
+  selectors: ["#contents", ".contents", "#main-contents", ".article"]
+date:
+  # DELIBERATELY NO SELECTORS — the date is deferred to the cleaner. This is a reversal
+  # after measurement, and the measurement is worth keeping:
+  #
+  # The obvious move is to pull the Gregorian year out of the heading
+  # ("Address by His Majesty the Emperor (2000)") with selectors ["h1","h2","title"] +
+  # regex '(?:19|20)\d{2}'. It was tried and it FABRICATES A DAY. dateparser given the
+  # bare string "1998" fills the missing month and day from TODAY, so the probe returned
+  # 1998-08-05, 2013-08-05, 2011-08-05, 2015-08-05 — every row stamped with the
+  # run date's 08-05. One page was worse: shinnen-h26.html (Heisei 26 = 2014) resolved to
+  # 2026-08-05, i.e. the wrong year as well.
+  #
+  # A plausible-but-wrong date is the failure mode this project has already paid for
+  # once: the resolved date picks the tenure roster, so a fabricated date propagates into
+  # speaker attribution instead of being caught. A blank date is strictly better.
+  # Nothing is actually lost — the bodies print full dates ("December 11, 2000"), the
+  # title keeps the year, and the cleaner's date pass reads both, with wayback_capture as
+  # an upper bound.
+  #
+  # Declared with a url_regex that cannot match rather than omitted, because the schema
+  # requires date to carry selectors or url_regex.
+  url_regex: '(?P<year>19|20)(?P<month>\d{2})(?P<day>\d{2})-never-matches'
+
+position: emperor
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED 2026-08-05 (--n 6): 135 snapshots under /e-okotoba/01/;
+  TITLE 6/6 via h1 (clean, and carries the Gregorian year); TEXT via the engine's generic
+  extractor on every page (1,115-36,193 chars) because this 2000s layout has no semantic
+  container at all — the narrow selectors are there to miss; DATE deliberately blank, see
+  the `date` field note (the year-from-heading approach was measured fabricating today's
+  month and day onto every row).
+  Japan's head of STATE in official English, closing a country that had zero
+  head-of-state coverage against a 514-row audit gap at 0.0% matched. English tree ->
+  English column, no translation. CORRECTS the earlier master_sources verdict that these
+  pages bundle a year of addresses per URL: they do not — verified by fetching four
+  archived pages (4,162 / 13,024 / 15,703 / 25,698 chars, one document each). The bundled
+  pages are the section INDEXES, which the era-year token in the link_pattern excludes.
+  Scoped to /e-okotoba/01/ (Their Majesties) — /02/ Crown Prince and /03/ Akishino are
+  archived but are not national leaders. Dates are YEAR-PRECISION: no date element
+  exists, the URL carries only a Heisei/Reiwa era-year the engine cannot parse, and the
+  Gregorian year is taken from the heading — enough for the tenure crosscheck to split
+  Akihito from Naruhito (2019-05-01), and the cleaner's date pass can refine from the
+  body, which does print full dates. No speaker_default (two emperors, plus the Empress's
+  own addresses in the same tree). FULL RUN is the researcher's gate.

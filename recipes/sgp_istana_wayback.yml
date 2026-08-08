@@ -1,23 +1,53 @@
 # Singapore — the Istana / Office of the President (istana.gov.sg), via the Internet Archive.
-# English-native → text lands directly in the English `text` column (no translation needed). No live
-# sgp_istana recipe yet.
+# English-native → text lands directly in the English `text` column (no translation needed).
 #
-# The dedicated speeches archive uses a dated permalink: /Newsroom/Speeches/<yyyy>/<mm>/<dd>/<slug>.
-# CDX for istana.gov.sg/Newsroom ≈ 1,064 statuscode:200 captures; the Speeches subtree spans Presidents
-# Tony Tan (2011–2017), Halimah Yacob (2017–2023) and Tharman Shanmugaratnam (2023– ). (The site's
-# modern /newsroom/<slug> permalinks drop the /Speeches/ category from the path and are NOT reliably
-# separable from press releases, so this recipe targets the cleanly-categorised dated Speeches path.)
+# EXTENDED 2026-08-05 from ONE URL generation to FOUR. Singapore's audit gap is 702
+# unmatched rows at 4.2% matched, concentrated in 2007-2015, and this recipe was reaching
+# only 84 captures because it required the dated /Newsroom/Speeches/<yyyy>/<mm>/<dd>/
+# category path — a scheme the site used for only part of its life. The earlier header
+# said the modern /newsroom/<slug> permalinks "aren't reliably separable from press
+# releases" and left them out; that gave up ~1,000 captures to avoid some false
+# positives, which is the wrong trade when the cleaner has a document_type gate. They are
+# now harvested and the gate does the separating.
+#
+# FOUR GENERATIONS:
+#   1. /sp-<ddmmyy>.html                                  2001-2006, S R Nathan
+#      Table-layout. <title> is the "Istana - Presidential Speeches" banner, the real
+#      headline and the delivery date are in the body ("SPEECH BY PRESIDENT S R NATHAN …
+#      ON 28 OCTOBER 2004 AT 7.30 PM").
+#   2. /content/istana/news/speeches/<yyyy>/<slug>.html   2012-2015, Tony Tan
+#      <title> is the clean headline; body in #content.
+#   3. /Newsroom/Speeches/<yyyy>/<mm>/<dd>/<slug>         the dated category path
+#      The only generation the recipe previously covered. Exact date in the URL.
+#   4. /newsroom/<slug>/                                  modern, Halimah / Tharman
+#      h1 is the clean headline; body in main.
+#
+# ⚠️ DATES ARE PARTIAL AND THAT IS DELIBERATE. Only generation 3 carries a machine-readable
+# date (in its URL). Generation 1's filename is <ddmmyy> with a TWO-digit year, which the
+# engine cannot assemble into an ISO date (a 2-digit year fails the >=1900 check), and
+# generations 2 and 4 have no date element at all — verified across the sample. Rather
+# than fabricate, the date arm is left to resolve where it can and the rest is deferred to
+# the cleaner's date pass, which reads the delivery date printed in the body. The
+# alternative — a body-text date regex — was rejected on evidence from
+# jpn_kantei_foreign_english_wayback, where exactly that approach dated Koizumi's
+# 2003-03-20 Iraq press conference to 2001-09-11 because the transcript mentioned 9/11
+# before stating its own date.
 source_id: sgp_istana_wayback
 country: Singapore
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, NO trailing '*'.
-  - istana.gov.sg/Newsroom/Speeches
+  # CDX prefixes — engine prefix-matches, NO trailing '*'. The bare host is needed for
+  # generation 1, whose articles sit at the root (/sp-281004.html).
+  - istana.gov.sg
+  - istana.gov.sg/Newsroom
+  - istana.gov.sg/content/istana/news/speeches
 
 listing:
-  # dated speech permalink: /Newsroom/Speeches/<yyyy>/<mm>/<dd>/<slug> (case-insensitive-ish)
-  link_pattern: '/[Nn]ewsroom/[Ss]peeches/\d{4}/\d{2}/\d{2}/[A-Za-z0-9]'
+  # One alternation branch per generation. Generation 4 requires a {10,} slug so the
+  # /newsroom index and its pager captures are excluded.
+  link_pattern: >-
+    (?:/sp-\d{6}\.html$)|(?:/content/istana/news/speeches/\d{4}/[a-z0-9_]+\.html$)|(?:/[Nn]ewsroom/[Ss]peeches/\d{4}/\d{2}/\d{2}/[A-Za-z0-9])|(?:/newsroom/[a-z0-9][a-z0-9-]{10,}/?$)
 
 pagination:
   type: wayback
@@ -28,30 +58,61 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  # <title> is inconsistent across captures (sometimes the full "Speech by President ...", sometimes
-  # just the "The Istana" banner) → take the headline from the URL slug (the segment after the date)
-  # via url_regex; the cleaner polishes the dashes.
+  # h1 is the clean headline on generation 4 ("Speech by President Halimah Yacob at the
+  # Boys' Town Family Fiesta 2023") and <title> is clean on generation 2. Generations 1
+  # and 3 have a banner <title>, so they fall through to the url_regex, which takes the
+  # slug after the date. Selectors are listed BEFORE the url_regex deliberately: on the
+  # two generations that have a real headline element it is better than a slug.
+  selectors: ["h1", "title"]
   url_regex: '/[Ss]peeches/\d{4}/\d{2}/\d{2}/(.+?)(?:\?|$)'
 text:
-  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
-  # the full speech body (probe: 3,326–4,952 chars)
-  selectors: [".body-content", ".field-content"]
+  # #content  generation 2 (5,751 chars)
+  # main      generation 4 (3,298-4,548 chars; `article` is a 214-char shell on this
+  #           theme, so it is NOT listed — it would shadow the real body)
+  # td        generation 1 (5,706 chars, table layout with no navigation to strip)
+  # Generation 3 has none of these and falls through to the engine's generic
+  # (trafilatura) extractor, which recovered 3,326-4,952 chars at the previous probe.
+  selectors: ["#content", "main", "td"]
 date:
-  # authoritative date is in the URL path (/Speeches/2025/05/27/...) → named groups assemble ISO
-  selectors: ["time[datetime]", ".date"]
+  # Generation 3 has an authoritative date in its URL. The others have no date ELEMENT
+  # and no meta/JSON-LD date either — checked directly in the raw archived HTML of a
+  # modern /newsroom/ page: no <meta …date…>, no "datePublished", no class containing
+  # "date". What they do have is the delivery date printed as a label just above the
+  # body, and it is the FIRST date in <main> ("10 June 2023" on the Boys' Town Family
+  # Fiesta 2023 speech; the "12 January 2026" occurrences after it are the sidebar's
+  # latest-items list, which sits outside main's article block).
+  #
+  # A first-date-in-body regex is the approach that mis-dated Koizumi's Iraq press
+  # conference in jpn_kantei_foreign_english_wayback, so it is used here only because it
+  # was CROSS-CHECKED: most Istana slugs embed the year (…-eurocham-europe-business-
+  # summit-2021, …-pssa-award-2009), and the probe's parsed dates agree with them.
+  # `main` is scoped deliberately — `body` would start at the government masthead and
+  # `td` would pick up generation 1's nav.
+  selectors: ["time[datetime]", ".date", "main"]
+  regex: '\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:19|20)\d{2}'
   url_regex: '/[Nn]ewsroom/[Ss]peeches/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback recovery of Singapore's presidency speeches (istana.gov.sg, English-native →
-  English column, no translation). link_pattern targets the dated /Newsroom/Speeches/<yyyy>/<mm>/<dd>/
-  <slug> permalink; DATE from that URL path via url_regex. Presidents Tony Tan (2011–2017), Halimah
-  Yacob (2017–2023), Tharman (2023– ) → NO speaker_default; the cleaner's tenure crosscheck assigns
-  the speaker. The site's modern /newsroom/<slug> permalinks drop the /Speeches/ category and aren't
-  cleanly separable from press releases, so they are NOT harvested here (a broader recipe could add
-  them later). PROBE-VALIDATED (2026-07-26, --spread --n 7): 84 snapshots in the dated Speeches
-  subtree; DATE from the URL path via url_regex (2005-12-10 = S R Nathan … 2025 = Tharman), TITLE from
-  the URL slug via url_regex (<title> is an inconsistent "The Istana" banner on some captures), TEXT
-  via the generic (trafilatura) fallback (3,326–4,952 chars, full speeches). Small but exact-dated
-  corpus. FULL RUN is the researcher's gate.
+  DRAFT — PROBE-VALIDATED 2026-08-05 (--n 8): 1,115 snapshots, up from 84 — a 13x
+  increase. TITLE 8/8; TEXT 7/8 via a recipe selector (the 8th is a dated-path capture
+  where the generic extractor recovers 8,185 chars); DATE 6/8, and the six were
+  CROSS-CHECKED against the year embedded in each slug — …-pssa-award-2009 -> 2009-10-22,
+  …-eurocham-europe-business-summit-2021 -> 2021-03-05, and the Nathan/Tony Tan/Tharman
+  rows all land inside the right presidency. The two misses are the two oldest
+  generations (see the date note).
+  EXTENDED 2026-08-05 from 84 captures (one URL generation) to four generations,
+  because Singapore's audit gap is 702 unmatched rows at 4.2% matched concentrated in
+  2007-2015 — the years the old single-generation pattern could not reach. Presidents
+  S R Nathan (1999-2011), Tony Tan (2011-2017), Halimah Yacob (2017-2023) and Tharman
+  (2023- ) → NO speaker_default; the cleaner's tenure crosscheck assigns the speaker.
+  The modern /newsroom/<slug> permalinks are now harvested rather than skipped: they mix
+  speeches with press releases, and the cleaner's document_type gate is the right place to
+  separate them. DATES are partial by design — only the dated /Newsroom/Speeches/ path
+  carries one; generation 1's <ddmmyy> filename has a two-digit year the engine cannot use
+  and generations 2 and 4 have no date element, so those rows are deferred to the cleaner's
+  date pass rather than being given a fabricated day. Singapore also has sgp_pmo_wayback
+  (3,217 captures, currently 0 rows after the 2026-08-03 CDX-retry bug) and the live
+  sgp_istana / sgp_pmo, all three of which are completion runs rather than recipe work.
+  FULL RUN is the researcher's gate.

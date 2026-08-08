@@ -15,8 +15,29 @@ renderer: static
 # title h2, date div.newsDate ("2012. május 10."), body p.text. Speaker is left to
 # the tenure crosscheck (the id-slug era is almost all Áder, but overlaps Novák's
 # 2022 start). FOLLOW-UP: the older keh.hu schemes (/beszedek.YYYYMM.html indexes +
-# /beszedekYYYYMMDD_slug.html articles, and index2.php?... — Sólyom/Mádl 2000–2010)
-# use different URL shapes and are not covered here.
+# /beszedekYYYYMMDD_slug.html articles — Sólyom/Mádl 2000–2010) use different URL
+# shapes and are not covered here.
+#
+# ⚠️ TWO keh.hu LEADS INVESTIGATED AND CLOSED 2026-08-05 — do not re-open them:
+#
+#  1. AN ENGLISH keh.hu TREE IS NOT HARVESTABLE. index2.php?fm=N&am=N&l=e&hir=N (the
+#     "l=e" language flag, ~264 captures 2002–2006) looks like an English mirror but
+#     every capture is a <frameset> STUB: 613–756 bytes, 27 characters of extracted
+#     text, <title> "Köztársasági Elnöki Hivatal". The content lived in a frame that
+#     was not archived. Sampled 5 across the range; all identical. So there is no
+#     hun_keh_english_wayback to write.
+#
+#  2. keh.hu/naplo* IS THE PARLIAMENTARY RECORD, NOT PRESIDENTIAL SPEECH. The ~5,700
+#     /naplo/ and /naploNN/ captures (5,503 of them from a single 2001 crawl) are the
+#     Országgyűlési Napló — verbatim floor speeches by ORDINARY MPs, e.g.
+#     /naplo34/085/0850084.html = "DR. TARJÁN LÁSZLÓNÉ (FKgP): Tisztelt Elnök Úr!…".
+#     Harvesting it would flood the corpus with hundreds of backbenchers, the same
+#     mistake the zaf_gov and svn_gov audits caught. A third /naplo/ family,
+#     herczeghanita.keh.hu/naplo/<slug>, is the First Lady's blog — also not in scope.
+#
+# Hungary's measured audit gap (421 unmatched rows) is 100% VIKTOR ORBÁN, i.e. the head
+# of GOVERNMENT, and is addressed by hun_miniszterelnok_english_wayback and
+# hun_kormany_english_wayback — not by this presidential source.
 listing:
   link_pattern: '/beszedek/\d+-'
 

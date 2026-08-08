@@ -1,0 +1,150 @@
+# Australia — PRIME MINISTER (pm.gov.au), via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit against the reference corpus leaves Australia
+# 2,533 rows unmatched — the single largest country gap — and the unmatched rows are
+# almost entirely HEADS OF GOVERNMENT: John Howard 1,465, Turnbull 274, Morrison 249,
+# Gillard 240, Rudd 165, Abbott 109. The existing aus_gg_wayback covers the
+# Governor-General (ceremonial head of state) and cannot close that gap. pm.gov.au had
+# no recipe at all.
+#
+# ⚠️ THE 2014 CRAWLER TRAP — read before re-querying CDX. A 2014 crawl fell into a
+# Drupal recursion and produced ~57,000 junk captures of the form
+# .../sites/all/modules/contrib/<x>/sites/all/modules/contrib/<y>/... A plain CDX query
+# for pm.gov.au returns 60,000 rows that are ~95% this junk, which is why earlier looks
+# concluded the site was unarchived. The wayback_filter below excludes it SERVER-SIDE;
+# keep that filter on any manual cdx.py query too.
+#
+# FOUR URL GENERATIONS, each live in a different window (all four are in start_urls):
+#   A. 1998-2007 Howard   /news/speeches/<yyyy>/speech<N>.htm , /news/speeches/speech<N>.html
+#                         /news/interviews/interview<N>.html  (see INTERVIEWS below)
+#   B. 2007-2010 Rudd     /media/Speech/<yyyy>/speech_<N>.cfm , /media/Interview/<yyyy>/...
+#   C. 2013-2017 Abbott   /media/<yyyy>-<mm>-<dd>/<slug>        (Drupal 7)
+#      /Turnbull
+#   D. 2017-2026 Turnbull /media/<slug>                          (Drupal 8/9)
+#      ..Albanese
+#
+# INTERVIEWS ARE INCLUDED ON PURPOSE. Gen A holds ~811 speech captures but ~1,856
+# interview captures, and the corpus attributes 1,465 unmatched rows to Howard alone —
+# speeches by themselves cannot account for that. Press-conference and radio/TV
+# transcripts are first-person leader speech; `interview` is a document_type the
+# cleaner's gate keeps. Media releases (/news/media_releases/, /media/Release/) are NOT
+# harvested: they are third-person office copy.
+#
+# ⚠️ STALE-CAPTURE CAVEAT (gen B). A handful of .cfm URLs were first captured only AFTER
+# the 2013 redesign, so their earliest capture is the new site's Drupal search shell
+# (~3k chars of nav, h1 "Media", no date) rather than the speech — verified on
+# /media/Speech/1997/enid.cfm. collapse=urlkey keeps the EARLIEST capture per URL, so
+# this only affects URLs that were never captured while their generation was live; the
+# large majority of gen-B URLs resolve to their 2007-2009 captures. These shells carry no
+# speaker and no date and are dropped by the cleaner's document_type gate. Do NOT try to
+# filter them with a keep_if on "Search media centre" — that string is in the nav of
+# every Drupal page including the real ones (verified).
+source_id: aus_pm_wayback
+country: Australia
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefixes — the engine prefix-matches, so NO scheme and NO trailing '*'.
+  # None of these paths equals an article path, so the engine's
+  # "drop captures whose path == a start_url path" rule only removes the section
+  # indexes (/news/speeches/ etc.), which is what we want.
+  - pm.gov.au/news/speeches
+  - pm.gov.au/news/interviews
+  - pm.gov.au/media
+
+listing:
+  # One alternation branch per generation. Every branch is end-anchored: that is what
+  # drops the Drupal facet junk such as
+  #   /media/2015-01-23/<slug>%3E?field_start_date[value]&...&page=7
+  # which is a search-result page, not an article (verified: h1 "Media", no date).
+  link_pattern: >-
+    (?:/news/speeches/(?:\d{4}/)?speech\d+\.html?$)|(?:/news/interviews/(?:\d{4}/)?[Ii]nterview\d+\.html?$)|(?:/media/[Ss]peech/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/[Ii]nterview/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/\d{4}-\d{2}-\d{2}/[a-z0-9][a-z0-9-]+$)|(?:/media/[a-z0-9][a-z0-9-]{10,}$)
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # The 2014 Drupal recursion — see the header. Without this the harvest is ~95% junk
+    # and the 60,000-row CDX ceiling hides the real articles entirely.
+    - "!original:.*(sites/all|/modules/|/themes/|/misc/).*"
+
+title:
+  # h1 is the real headline on gens C and D (~10,000 of the captures). On gen B the h1 is
+  # the site banner ("Prime Minister of Australia") and <title> carries the headline
+  # ("... - Speech - A Strategy for a Sustainable Economic Recovery"); on gen A both are
+  # unreliable ("Speeches", "Prime Minister of Australia: News Room"). Accepted: the
+  # cleaner's GPT pass derives a better title from the body for the older generations.
+  selectors: ["h1", ".title", "title"]
+text:
+  # Ordered so each generation is caught by ITS OWN container before a wider one:
+  #   .field-name-body   gen D 2017-2023   (12.6k-15.3k chars)
+  #   .field--name-body  gen D 2024+       (Drupal 9 renamed the class)
+  #   #content           gen B .cfm        (29.5k chars)
+  #   .content           gen C             (2.7k-4.7k chars)
+  # ⚠️ .content must stay AFTER the field-body selectors: on gen D two elements match it,
+  # so the engine joins them and returns the body TWICE (25,361 chars vs a true 12,630).
+  # Gen A (1998-2007 table-layout HTML) has no semantic container at all — it falls
+  # through to the engine's generic (trafilatura) extractor, which recovers the ~9-11k
+  # char transcript. `td` is deliberately NOT listed: on gen A it returns 65k chars of
+  # duplicated navigation.
+  selectors:
+    - ".field-name-body"
+    - ".field--name-body"
+    - ".node__content"
+    - "#content"
+    - ".content"
+    - "article"
+date:
+  # Chain covers every generation; the single `regex` is safe across all of them because
+  # a non-match leaves the selector's value untouched:
+  #   time[datetime]         gen D 2024+  -> 2024-12-11T02:22:41Z  (regex misses, ISO kept)
+  #   .date-display-single   gens C + D   -> "07 September 2013" / "06 Aug 2022" (regex hits)
+  #   .date                  gen B .cfm   -> "07 July 2009"
+  #   body                   gen A ONLY   -> first "D Month YYYY" on the page
+  # The body arm is the documented risk (a speech quoting an older date could mis-stamp),
+  # but it is only ever reached on gen A, where the delivery date is literally the first
+  # line of the document ("23 June 2000" / "27 August 2004", both verified) and the gen-A
+  # navigation contains no dates at all. The cleaner's datetext.py + date pass
+  # cross-check it, and `date_regex_recovered` is written alongside on every row.
+  selectors:
+    - "time[datetime]"
+    - ".date-display-single"
+    - ".field--name-field-date"
+    - ".date"
+    - "body"
+  regex: '\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(?:19|20)\d{2}'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED 2026-08-05 (--n 12): 11,301 snapshots; DATE parsed 12/12 across
+  every generation (1999-08-20 and 2001-09-12 via the gen-A body regex, 2007-04-22 and
+  2008-05-14 on gen B, 2014/2016 via .date-display-single, 2019-2023 on gen D); TITLE
+  12/12 (h1 clean on gens C/D — "Zionist Federation of Australia", "Radio Interview -
+  96FM Perth"); TEXT 9/12 via a recipe selector (661-15,156 chars) and the remaining 3 are
+  gen A, where the generic extractor recovers 20,750-25,931 chars — deliberate, see the
+  `text` comment. Shape check: 255 URL families, all four expected generations present
+  (/media/<slug> 5,715, /media/<date>/<slug> 1,735, /news/interviews 1,859,
+  /news/speeches 812, /media/{Speech,Interview}/*.cfm 851), no noise family.
+  Australia's head of GOVERNMENT, authored to close the largest measured country
+  gap in the coverage audit (2,533 unmatched rows, 1.2% matched; unmatched speakers are
+  Howard 1,465, Turnbull 274, Morrison 249, Gillard 240, Rudd 165, Abbott 109).
+  Complements aus_gg_wayback (Governor-General, ceremonial head of state, 535 rows).
+  pm.gov.au spans 1998-2026 across FOUR URL generations, all four in start_urls:
+  /news/speeches + /news/interviews (Howard, 5,186 caps 2000-2007), /media/Speech|Interview/
+  <yyyy>/*.cfm (Rudd era), /media/<yyyy>-<mm>-<dd>/<slug> (Abbott/Turnbull, 4,001 caps) and
+  /media/<slug> (Turnbull-Albanese, 5,769 caps). CDX after the recursion filter = 15,440
+  caps under /media plus 5,186 under /news. A 2014 crawl produced ~57,000 junk captures of
+  a Drupal module recursion; the wayback_filter excludes them server-side and MUST be kept
+  on any manual CDX query. Interviews included deliberately (first-person leader speech;
+  gen A has 1,856 interview vs 811 speech captures and Howard alone is 1,465 unmatched);
+  media releases excluded as third-person office copy. NO speaker_default — eight PMs in
+  the window, so the cleaner's tenure crosscheck assigns the speaker. Text: gen-specific
+  containers chained narrow-to-wide (.content deliberately AFTER the field-body selectors
+  because it double-counts on gen D); gen A has no container and uses the generic
+  extractor. Date: selector chain + one shared regex; the `body` arm is reached only on
+  gen A, where the delivery date is the first line. FULL RUN is the researcher's gate.

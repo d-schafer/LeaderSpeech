@@ -1,0 +1,97 @@
+# Japan — PRIME MINISTER, the Cabinet Office's OFFICIAL ENGLISH tree
+# kantei.go.jp/foreign, via the Internet Archive.
+#
+# WHY THIS SOURCE. Japan's audit gap is 514 unmatched rows at 0.0% matched. The project's
+# only Japanese recipe, jpn_kantei, covers the INCUMBENT cabinet in Japanese
+# (/jp/105/, ~55 links) and nothing else. kantei.go.jp/foreign is the Cabinet's own
+# English site and holds 11,835 captures spanning 1998-2014 — Obuchi, Mori, Koizumi,
+# Abe (1st), Fukuda, Aso, Hatoyama, Kan, Noda, Abe (2nd). English -> English column,
+# no translation.
+#
+# ⚠️ /actions/ IS A PHOTO DIARY, NOT SPEECH — this is the main trap in this tree and it
+# is where most of the captures are. /foreign/<pm>/actions/<YYYYMM>/<slug>_e.html reads
+# "Ministerial Council on Monthly Economic Report … Photograph of the Prime Minister
+# attending the meeting (1) … (2)" — a caption log of engagements, the same shape as
+# Australia's governor-generals-program. Likewise /foreign/<pm>photo/ (koizumiphoto
+# alone is 1,837 captures), /foreign/video-e/ and /foreign/m-magazine/ (a mailing list).
+# The link_pattern below admits ONLY the three real transcript trees:
+#   /foreign/<pm>speech/<yyyy>/<mm>/<dd><slug>_e.html   Koizumi, Fukuda, Aso
+#   /foreign/<pm>/statement/<yyyymm>/<dd><slug>_e.html  Noda, Kan, Hatoyama
+#   /foreign/<pm>/decisions/<yyyy>/<mmdd><slug>_e.html  Abe (2nd), PM statements
+# Verified content: 5,495-16,608 char press conferences and statements, e.g.
+# "Prime Minister Junichiro Koizumi's Interview on the Issue of Iraq" (2003-03-18) and
+# "Press Conference by Prime Minister Yoshihiko Noda on the occasion of the 66th Session
+# of the United Nations General Assembly" (2011-09-23).
+source_id: jpn_kantei_foreign_english_wayback
+country: Japan
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'.
+  - kantei.go.jp/foreign
+
+listing:
+  # Every real transcript ends in _e.html and sits under a per-PM tree followed by a
+  # year. The [a-z0-9_]+ segment deliberately excludes "video-e" (it contains a hyphen)
+  # and the /\d{4} requirement excludes the section index pages.
+  link_pattern: '/foreign/[a-z0-9_]+(?:speech|/statement|/decisions)/\d{4}.*_e\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h2 is the real headline where the page has one ("Press Conference by Prime Minister
+  # Yasuo Fukuda on the Road-related Bill and the Taxation System"). On the older Koizumi
+  # pages there is no h2 and <title> is the section banner ("Speeches and Statements by
+  # Prime Minister Junichiro Koizumi") — weak, but the headline is the first body line
+  # and the cleaner's GPT pass recovers it.
+  selectors: ["h2", "h1", "title"]
+text:
+  # Table-layout pages: #main on the newest (2013 Abe) generation, otherwise the content
+  # sits in one big <td>. Measured td 5,485-16,503 chars against a whole-page 5,495-16,608,
+  # i.e. these pages are essentially all content with no navigation to strip.
+  selectors: ["#main", "td"]
+date:
+  # .date is a dedicated date element ("Tuesday, February 12, 2013") on the /decisions/
+  # generation and is safe to trust. Everything else comes from the URL.
+  #
+  # ⚠️ A BODY-TEXT DATE REGEX WAS TRIED HERE AND IT DRIFTED — keep this warning. Adding
+  # "#main"/"td" to the selector chain with a "Month D, YYYY" regex passed 8/8 at first
+  # glance, but /foreign/koizumispeech/2003/03/20kaiken_e.html — Koizumi's press
+  # conference on the start of the Iraq war — resolved to 2001-09-11, because the
+  # transcript refers to September 11, 2001 before it states its own date. That is
+  # precisely the drift aus_gg_wayback documents: a body regex takes the FIRST
+  # date-looking string on the page, and a wrong year then selects the wrong tenure
+  # roster and corrupts the speaker too.
+  #
+  # The URL carries the delivery date in three different shapes across the generations,
+  # and one pattern covers all of them because the separators are optional:
+  #   /2003/03/20kaiken_e.html      -> 2003-03-20   (yyyy/mm/dd)
+  #   /2001/1025dai_leagu_e.html    -> 2001-10-25   (yyyy/mmdd)
+  #   /201007/30kaiken_e.html       -> 2010-07-30   (yyyymm/dd)
+  #   /2012/1226kihonhousin_e.html  -> 2012-12-26   (yyyy/mmdd)
+  # Named groups assemble an unambiguous ISO date, so it cannot drift.
+  selectors: [".date"]
+  url_regex: '/(?P<year>\d{4})/?(?P<month>\d{2})/?(?P<day>\d{2})'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  DRAFT — Japan's head of GOVERNMENT in official English, 1998-2014, closing half of a
+  514-row audit gap at 0.0% matched (the head-of-state half is
+  jpn_kunaicho_english_wayback). CDX kantei.go.jp/foreign = 11,835 captures; the
+  link_pattern keeps only the three transcript trees and drops the much larger
+  /actions/ photo diary, /<pm>photo/, /video-e/ and /m-magazine/ — see the header, this
+  is the main trap here. Ten prime ministers in the window (Obuchi -> Abe 2nd), so NO
+  speaker_default; the cleaner's tenure crosscheck assigns the speaker, which is why the
+  date arm matters. FOLLOW-UP, not done here: jpn_kantei (the live Japanese recipe) still
+  covers only the incumbent cabinet /jp/105/ — prior cabinets are separate numbered trees
+  (/jp/104/ is 339 captures with real /statement/<yyyy>/<n>kaiken.html and
+  /discourse/<n>message.html shapes) and would extend the Japanese-language side.
+  FULL RUN is the researcher's gate.

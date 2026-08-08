@@ -1,20 +1,46 @@
 # Canada — Prime Minister's Office (pm.gc.ca), via the Internet Archive.
-# English-native → English column. The current site's dated permalink /en/news/speeches/<yyyy>/<mm>/<dd>/
-# <slug> archives cleanly. NOTE OVERLAP: the corpus already holds ~1,000 Canada Dean_scrape speeches
-# (2000–2022), so the additive value here is mainly PM Carney (2025– ) + the 2022–2024 tail + insurance;
-# dedupe on the full run. (The OLD /eng/news/ Harper-era scheme is ~90% Drupal asset-path junk and is
-# NOT harvested — see notes.)
+# English-native → English column.
+#
+# EXTENDED 2026-08-05 from /en/news/speeches only to four /en/news/ sections. Canada's
+# audit gap is 494 unmatched rows at 39% matched, and profiling the unmatched rows shows
+# they are ALL Justin Trudeau, 2015-2022 — i.e. squarely inside the window this recipe
+# already claimed to cover. The reason it missed them is scope, not depth: the PMO files
+# the Prime Minister's first-person material across several sections, and only
+# /en/news/speeches was harvested (417 captures). Adding /statements and /readouts takes
+# the harvest to several thousand captures over the same years.
+#
+# SECTIONS, and why each is in or out:
+#   speeches   IN  — prepared addresses. The original scope.
+#   statements IN  — the PM's own position on an event, first person. Clearly leader speech.
+#   readouts   IN  — summaries of the PM's calls and meetings. Third person, but they
+#                    convey the leader's position, which is what the cleaner's
+#                    `official_statement` document_type is for.
+#   news-releases  OUT — office announcements ("PM announces a change in the senior ranks
+#                    of the Public Service"). Highest volume, lowest leader-speech
+#                    content. Available under the same date-path shape if wanted later.
+#
+# ⚠️ DO NOT ADD time[datetime] TO THE DATE CHAIN. These archived Drupal pages carry a
+# <time> element, but it holds the WAYBACK CAPTURE timestamp, not the publication date —
+# on /en/news/statements/2026/08/01/statement-prime-minister-carney-passing-honourable-
+# todd-lewis it reads 2026-08-02T00:59:44Z, a day after the article's own date path.
+# Selectors win over url_regex, so adding it would silently replace every authoritative
+# permalink date with a crawl date. The URL path is the only trustworthy date here.
+#
+# The OLD Harper-era scheme /eng/media.asp?id=<N> is NOT harvested — see notes.
 source_id: can_pmo_wayback
 country: Canada
 source_language: English
 renderer: static
 start_urls:
-  - pm.gc.ca/en/news/speeches
+  # CDX prefix — no scheme, no trailing '*'. One prefix covers all four sections; the
+  # link_pattern selects among them.
+  - pm.gc.ca/en/news
 
 listing:
-  # dated speech permalink /en/news/speeches/<yyyy>/<mm>/<dd>/<slug> (drops the bare /en/news/speeches
-  # listing + its /speeches251-style variants, which lack the date path).
-  link_pattern: '/en/news/speeches/20\d\d/\d\d/\d\d/[a-z]'
+  # dated permalink /en/news/<section>/<yyyy>/<mm>/<dd>/<slug>. The date path is what
+  # separates articles from the bare section listings and their /speeches251-style
+  # variants.
+  link_pattern: '/en/news/(?:speeches|statements|readouts)/20\d\d/\d\d/\d\d/[a-z]'
 
 pagination:
   type: wayback
@@ -25,23 +51,43 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  # url_regex ONLY (no selectors): the archived Drupal h1 is a nav blob ("Header / Home Page Logo / … /
-  # Navigation" + title) and selectors win over url_regex, so take the clean headline from the URL slug
-  # (after the date path); the cleaner polishes the dashes. (Mirrors sgp_istana_wayback / aus_gg.)
-  url_regex: '/speeches/\d{4}/\d{2}/\d{2}/(.+?)(?:\?|$)'
+  # url_regex ONLY (no selectors): the archived Drupal h1 is a nav blob — measured as
+  # "Header", "Main Container" and "Language switcher" on the three sampled sections —
+  # and selectors win over url_regex, so listing any would reinstate the blob. Takes the
+  # clean headline from the URL slug after the date path; the cleaner polishes the
+  # dashes. (Mirrors sgp_istana_wayback / pol_president_english_wayback.)
+  url_regex: '/(?:speeches|statements|readouts)/\d{4}/\d{2}/\d{2}/(.+?)(?:\?|$)'
 text:
-  selectors: [".field--name-body", "main", "article", ".content"]
+  # .field--name-body is the article body across all four sections (454-1,249 chars
+  # measured on statements/readouts/news-releases, 4.2k-16k on speeches). `article` and
+  # `.content` resolve to the same node and are kept as fallbacks for layout drift;
+  # `body` is deliberately absent — it would add ~1,300 chars of identical navigation.
+  selectors: [".field--name-body", "article", ".content", "main"]
 date:
-  # url_regex ONLY — the permalink date is authoritative and unambiguous.
-  url_regex: '/speeches/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+  # url_regex ONLY — the permalink date is authoritative and unambiguous, and the page's
+  # <time> element is the capture timestamp (see the warning in the header).
+  url_regex: '/(?:speeches|statements|readouts)/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
 
 position: prime minister
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback recovery of pm.gc.ca current-scheme speeches (/en/news/speeches/<yyyy>/<mm>/<dd>/
-  <slug>). CDX ≈ 455 captures 2019–2026 with slugs back to 2017 (Trudeau, Carney 2025– ). DATE from the
-  URL permalink via url_regex; NO speaker_default (Trudeau/Carney) → cleaner's speaker pass + tenure
-  crosscheck. OVERLAP CHECK: ~1,000 Canada Dean_scrape speeches (2000–2022) already exist, so this is
-  mostly the 2022→ tail + Carney + snapshot-insurance; the merge dedupes. Old /eng/news Harper-era scheme
-  is ~90% Drupal CSS/JS asset paths (and likely inside Dean_scrape) → not harvested. FULL RUN is the
-  researcher's gate.
+  DRAFT — PROBE-VALIDATED 2026-08-05 (--n 6): 4,305 snapshots, up from 417 — a 10x
+  increase, and 6/6 green on TITLE, TEXT and DATE. Sampled rows span 2015-11-15 (Trudeau
+  meets Peña Nieto) to 2026-08-01 (Carney), i.e. exactly the 2015-2022 window the audit
+  says is missing.
+  EXTENDED 2026-08-05 from one section to three, because Canada's audit gap (494
+  unmatched rows, 39% matched) profiles as 100% Justin Trudeau 2015-2022 — inside the
+  window the recipe already covered, so the miss was one of SCOPE: only /en/news/speeches
+  (417 captures) was harvested while the PM's statements and readouts were not. CDX
+  pm.gc.ca/en/news = 14,909 captures, 6,528 of them under the dated
+  statements/readouts/news-releases paths. news-releases deliberately excluded as office
+  announcements. DATE strictly from the URL permalink — the page's <time> element holds
+  the WAYBACK CAPTURE time, not the publication date, and would silently overwrite every
+  date if added to the chain (verified: a 2026/08/01 article carries
+  time=2026-08-02T00:59:44Z). NO speaker_default (Trudeau, Carney 2025- ) → tenure
+  crosscheck. FOLLOW-UP, deliberately NOT done here: the Harper-era scheme
+  pm.gc.ca/eng/media.asp?id=<N> is 15,722 captures spanning 2006-2013 and is genuinely
+  scrapable (it needs the truncated-prefix idiom, since the article path /eng/media.asp
+  would otherwise be dropped for equalling a start_url path). It is out of scope for THIS
+  push because the measured gap is Trudeau-era, not Harper-era — it belongs to the later
+  corpus-expansion pass. FULL RUN is the researcher's gate.

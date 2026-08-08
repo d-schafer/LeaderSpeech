@@ -22,7 +22,17 @@ pagination:
   param: page
   start: 1
   step: 1
-  max_pages: 800   # 5 items/page; ~2023-06 at page 300, so raised to reach the site's real floor
+  # 5 items/page. RAISED 2026-08-05 from 800 to 3000 because 800 was SILENTLY TRUNCATING
+  # the harvest: the on-disk gov.ro link list holds exactly 4,000 URLs = 800 pages x 5,
+  # i.e. the pager stopped at the cap, not at the site's floor. Exhausting max_pages is in
+  # the engine's NORMAL_STOPS, so it sets no `stopped_early` flag and logs no warning — a
+  # capped harvest is byte-identical to a complete one and the only way to detect it is
+  # this arithmetic. Romania is a gap country in the coverage audit (184 unmatched rows,
+  # 0% matched, all of them PRIME MINISTERS — Ponta, Ciucă, Dăncilă, Cîțu — i.e. gov.ro
+  # rather than presidency.ro), so the truncated years are exactly the ones that matter.
+  # Re-check |links| against 3000 x 5 = 15,000 after the next harvest; if it lands on
+  # 15,000 again the cap is still binding.
+  max_pages: 3000
 
 title:
   selectors: [".page.w635 h2", "h2", "title"]

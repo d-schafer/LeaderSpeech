@@ -1,0 +1,109 @@
+# Hungary — PRIME MINISTER Viktor Orbán, the official English site miniszterelnok.hu/en,
+# via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves Hungary 421 rows unmatched at 0.5% matched,
+# and every single unmatched row is VIKTOR ORBÁN — the head of GOVERNMENT. The project's
+# Hungarian recipes (hun_sandorpalota, hun_keh_wayback) both cover the ceremonial
+# PRESIDENT and cannot close that gap. miniszterelnok.hu had no recipe at all.
+# This is the English tree, so text lands in the English column with no translation.
+#
+# ⚠️ THE "/en" PREFIX TRAP. A CDX prefix query for miniszterelnok.hu/en also returns
+# root-level articles whose slug merely STARTS with "en" —
+# /ensuring-hungarys-energy-supply-and-bringing-sanctions-energy-surcharges-to-heel/ is
+# a real 2022 capture that matches the prefix and is NOT under /en/. The link_pattern
+# therefore requires a literal "/en/" segment. (Same shape as the note in
+# ukr_president_english_wayback about /en also covering /eng.)
+#
+# ⚠️ DATE FORMAT IS HUNGARIAN EVEN THOUGH THE TEXT IS ENGLISH — this is why
+# date_languages is ["hu"] and not ["en"], and it is not cosmetic. The <time> element
+# renders "06/03/2025" for an article whose own URL slug ends "-2025-03-06", i.e. the
+# order is DD/MM/YYYY. Measured against the engine's parse_date:
+#     date_languages ["en"] -> 2025-06-03   WRONG (three months out)
+#     date_languages ["hu"] -> 2025-03-06   correct, matches the slug
+# The older layout writes " 24. 11. 2022. ", which parses correctly either way.
+#
+# ⚠️ ?nocache=<epoch> QUERY VARIANTS. The big 2026 crawl (18,414 of the 24,244 captures)
+# requested every article with a cache-buster, e.g. /en/<slug>/?nocache=1775732190.
+# `nocache` is not in the engine's NOISE_PARAMS denylist, so page_identity would treat
+# each variant as a DISTINCT page and the run would fetch and store the same speech many
+# times over. The link_pattern is end-anchored to a trailing slash, which keeps only the
+# canonical form.
+source_id: hun_miniszterelnok_english_wayback
+country: Hungary
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'.
+  - miniszterelnok.hu/en
+
+listing:
+  # Requires a literal /en/ segment (the prefix trap) and ends at the slash (the
+  # ?nocache= trap). The {8,} floor drops short section paths such as /en/news,
+  # /en/career, /en/contact while keeping real article slugs.
+  link_pattern: 'miniszterelnok\.hu/en/[a-z0-9][a-z0-9-]{8,}/$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the clean headline on the current layout ("Prime Minister Viktor Orbán's New
+  # Year international press conference"); the 2022-era pages carry it only in <title>,
+  # with a " - The official website of Prime Minister Viktor Orbán." suffix the cleaner
+  # trims.
+  selectors: ["h1", "title"]
+text:
+  # Elementor theme. .elementor-widget-theme-post-content is the post-body widget and is
+  # tried first; .elementor-widget-container is the generic widget wrapper, which the
+  # engine joins across EVERY matching widget on the page — it does recover the
+  # transcript (2.5k-31k chars measured) but can also pull in sidebar widgets, so it is
+  # the fallback rather than the first choice. Broad "article"/"main"/"body" are omitted
+  # so they cannot grab the navigation instead; where both widget selectors miss, the
+  # engine's generic (trafilatura) extractor recovers the article.
+  selectors: [".elementor-widget-theme-post-content", ".entry-content", ".post-content", ".elementor-widget-container"]
+date:
+  # ⚠️ <time> MATCHES MULTIPLE ELEMENTS: the article's own date plus every "related
+  # article" date in the sidebar. The engine joins all matches of the first selector that
+  # hits, producing "06/12/2024\n21/01/2025\n21/01/2025\n20/01/2..." which parses as
+  # nothing at all (verified — 6 of 8 sampled pages returned no date without this regex).
+  # The regex takes the FIRST match, which is the article's own date: on
+  # /...-2024-12-06/ the first <time> is "06/12/2024", i.e. DD/MM, confirmed against the
+  # slug. Combined with date_languages ["hu"] that resolves to 2024-12-06.
+  selectors: ["time[datetime]", "time", ".date"]
+  regex: '\d{1,2}[/.]\s?\d{1,2}[/.]\s?\d{4}'
+  # Fallback for the captures whose slug ends in an ISO date
+  # (/en/interview-with-prime-minister-viktor-orban-2025-03-06/): unambiguous, and it is
+  # what the DD/MM reading above was verified against.
+  url_regex: '(?P<year>20\d{2})-(?P<month>\d{2})-(?P<day>\d{2})/?$'
+
+position: prime minister
+speaker_default: Viktor Orbán
+date_languages: ["hu"]
+notes: >
+  DRAFT — PROBE-VALIDATED 2026-08-05 (--n 8): 2,407 snapshots after the link_pattern
+  (from 24,244 raw — the trailing-slash anchor stripped the ?nocache= duplicates as
+  intended); TITLE 8/8 via h1; TEXT 8/8 via .elementor-widget-container (344-31,290
+  chars); DATE 6/8 — the two misses are thin captures with no <time> element at all
+  (344 and 2,526 chars) and are left to the cleaner's date pass. The DD/MM reading is
+  CONFIRMED, not assumed: /...-good-morning-hungary-2024-12-06/ carries <time>06/12/2024
+  and resolves to 2024-12-06, matching its own ISO slug exactly.
+  Hungary's head of GOVERNMENT, authored to close an audit gap that is 100%
+  Viktor Orbán (421 unmatched rows, 0.5% matched). English tree -> English column, no
+  translation — EXCEPT that the /en/ tree also hosts Orbán's German and French interviews
+  ("Exklusivinterview von Viktor Orbán für tv2", "Interview de Viktor Orbán dans
+  l'émission Bonjour la Hongrie"), so a minority of rows are not English; the cleaner's
+  per-row language detection handles them. Three traps handled and documented in
+  the header: the /en prefix also matching root slugs beginning "en", the ?nocache=
+  variants (nocache is NOT in the engine's NOISE_PARAMS, so dedupe would not merge them),
+  and the Hungarian DD/MM date order inside English text (date_languages ["hu"]; ["en"]
+  mis-parses 06/03/2025 as 3 June, verified against the article's own ISO slug).
+  speaker_default Viktor Orbán — this is his personal official site and he is the sole
+  speaker across the whole capture window. NOTE ON COVERAGE: the /en tree is only crawled
+  in quantity from 2023, so the audit's 2016-2022 Orbán rows are better served by
+  hun_kormany_english_wayback (kormany.hu/en, 2011-2020). FULL RUN is the researcher's
+  gate.

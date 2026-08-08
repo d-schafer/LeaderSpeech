@@ -1,0 +1,78 @@
+# Australia — Governor-General's PROGRAM (the engagement diary), via the Internet Archive.
+#
+# ⚠️ READ THE MEASUREMENT BEFORE QUEUEING THIS. Harvested at the researcher's explicit
+# request (2026-08-05) so the cleaner's document_type gate can decide rather than a
+# recipe author. But the sample is unambiguous about what these pages are:
+#
+#   /governor-generals-program/abc-brisbane-official-opening                 492 chars
+#   /governor-generals-program/governor-general-receives-callers-admiralty…  426 chars
+#   /governor-generals-program/zurich-switzerland-abu-dhabi-united-arab-em…  581 chars
+#
+# They are DIARY ENTRIES — "Governor-General receives callers at Admiralty House,
+# Sydney" — a title, a date and a one-or-two-sentence description of an engagement.
+# They contain no speech text. There is no type label on the page to filter on (unlike
+# pm.gov.au, whose article pages carry a literal "Speech"/"Transcript" label), and the
+# slugs are place names, so a keep_if cannot separate the handful of genuine addresses
+# that do sit in this tree (address-reply, first-voice-power-speech) from the diary.
+#
+# Consequences the researcher should weigh: ~6,171 captures, each of which becomes a row
+# and therefore one GPT call in the cleaning stage, with almost all of them expected to
+# be rejected as document_type=other. It is kept as its OWN source_id precisely so it can
+# be dropped from the queue without touching aus_gg_wayback's clean speech rows.
+#
+# The GG's actual speeches are aus_gg_wayback (2,131 snapshots, 1996-2026, three URL
+# generations). Australia's head-of-government speech gap is aus_pm_wayback.
+source_id: aus_gg_program_wayback
+country: Australia
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'. The prefix path is the section index and
+  # differs from every article path, so nothing legitimate is dropped by the engine's
+  # "path == a start_url path" rule.
+  - gg.gov.au/about-governor-general/governor-generals-program
+
+listing:
+  # End-anchored slug: drops the ?page=N pager captures and the /archive?page=N listings,
+  # which together are ~500 of the 6,759 raw captures.
+  link_pattern: '/governor-generals-program/[a-z0-9][a-z0-9-]+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Akamai bot-management interstitials + Drupal module recursion swamp this domain's
+    # CDX ceiling (~32,000 /akam/ captures) — see aus_gg_wayback's header.
+    - "!original:.*(akam|sites/all|/modules/|/themes/|/misc/).*"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # .field--name-body is the entry text where it exists; some entries have no body field
+  # at all and only the article wrapper carries the description, hence the second arm.
+  # Nothing wider: `body` would add ~700 chars of identical navigation to every row and
+  # make short diary entries look like substantive documents.
+  selectors: [".field--name-body", "article"]
+date:
+  # time[datetime] is the ENGAGEMENT date, not the capture date — verified: a 2021
+  # capture of /abc-brisbane-official-opening carries 2012-04-19, and one of
+  # /zurich-switzerland… carries 2018-02-28. So the diary reaches back further than the
+  # capture years suggest.
+  selectors: ["time[datetime]", ".field--name-field-date"]
+
+position: governor-general
+date_languages: ["en"]
+notes: >
+  DRAFT — PROBE-VALIDATED 2026-08-05: 6,171 captures after link_pattern (from 6,759 raw),
+  engagement dates reaching back to ~2012 even though captures cluster 2019-2026. TITLE
+  (h1) and DATE (time[datetime]) are clean; TEXT (.field--name-body) is 426-581 chars.
+  ⚠️ THESE ARE DIARY ENTRIES, NOT SPEECHES — see the header. Harvested at the
+  researcher's explicit request so the cleaner's document_type gate makes the call, and
+  deliberately given its own source_id so it can be dropped from the queue without
+  touching aus_gg_wayback. Expect a very low keeper rate and ~6,171 GPT calls at the
+  cleaning stage. No speaker_default (Bryce, Cosgrove, Hurley, Mostyn) — the tenure
+  crosscheck assigns the speaker. FULL RUN is the researcher's gate.
