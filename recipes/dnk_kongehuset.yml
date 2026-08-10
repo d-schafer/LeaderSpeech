@@ -23,10 +23,27 @@ start_urls:
 renderer: static
 
 listing:
-  # Anchored to the DANISH tree: `kongehuset.dk/taler/<slug>` with no further path segment.
-  # The site also has an /en/ mirror; scraping both would duplicate every row, and the
-  # convention is to take the original language and let the translation stage do English.
-  link_pattern: 'kongehuset\.dk/taler/[^/]+$'
+  # 2026-08-10 WIDENED (CLAUDE.md RULE 1). /taler/ was 568 of the sitemap's 17,956 URLs — 3.2%.
+  # Measured section breakdown of the sitemap:
+  #     kalender/<slug>            7,700   <- ADDED  court calendar = engagement/visit notes
+  #     foto-video/<slug>          3,225   excluded — photo/video galleries
+  #     nyheder/<slug>             1,983   <- ADDED  news / statements
+  #     menu/foto--video/<slug>    1,083   excluded — gallery, and a /menu/ alias besides
+  #     taler/<slug>                 567   <- was the only one taken
+  #     en/news/<slug>               444   excluded — the ENGLISH twin (see below)
+  #     menu/nyheder|kalender/…      808   excluded — /menu/-prefixed ALIASES of the same pages
+  #     presse/meddelelser/<slug>    233   <- ADDED  press releases
+  # New coverage 10,537 of 17,956 = 58.7% (the remainder is galleries, aliases and the
+  # English mirror). Anchored so the host is followed DIRECTLY by the section, which is what
+  # excludes the /menu/... aliases — they are the same articles under a nav path and would
+  # otherwise be scraped twice.
+  #
+  # Anchored to the DANISH tree. The site also has an /en/ mirror (444 news + speeches);
+  # scraping both would duplicate every row, and the convention is to take the original
+  # language and let the translation stage do English. A separate dnk_kongehuset_english
+  # recipe is the right home for /en/ if it is ever wanted — `source_language` is one field
+  # per recipe, so it cannot live here.
+  link_pattern: 'kongehuset\.dk/(?:taler|nyheder|kalender|presse/meddelelser)/[^/?]+$'
 
 pagination:
   type: sitemap

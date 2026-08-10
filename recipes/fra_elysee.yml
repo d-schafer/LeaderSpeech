@@ -1,7 +1,28 @@
 # France — Élysée (presidential) actualités: speeches, declarations, communiqués.
 # Despite the slick front-end, the listing and article pages are SERVER-RENDERED,
 # so this is a plain static recipe (no browser needed). The date even lives in the
-# article URL (/emmanuel-macron/YYYY/MM/DD/slug).
+# article URL (/<president-slug>/YYYY/MM/DD/slug).
+#
+# 2026-08-10 WIDENED (CLAUDE.md RULE 1) — and this one was not a missing SECTION, it was five
+# missing PRESIDENTS. elysee.fr publishes the speech archive of every Fifth-Republic president
+# under a per-president path, and the recipe took `emmanuel-macron` only. Measured against the
+# site's own sitemap.publication.xml (15,338 URLs, so this is exact, not an estimate):
+#     /emmanuel-macron              4,660   <- was the only one taken
+#     /francois-mitterrand          3,083   <- ADDED  (1981-1995)
+#     /jacques-chirac               2,902   <- ADDED  (1995-2007)
+#     /francois-hollande            1,615   <- ADDED  (2012-2017)
+#     /valery-giscard-d-estaing     1,422   <- ADDED  (1974-1981)
+#     /nicolas-sarkozy              1,184   <- ADDED  (2007-2012)
+#     /charles-de-gaulle               11   <- ADDED  (1958-1969; incl. "Je vous ai compris")
+# Coverage goes 4,746 of 15,338 = 30.9%  ->  ~14,880 = 97%, and the span goes 2017-2026 -> 1958-2026.
+# EXCLUDED: /maison-elysee (92, about the palace itself), /g7biarritz2019 + /G7evian (116, summit
+# microsites — explanatory pages like "qu'est-ce que le G7", not presidential speech), and the
+# ~240 section/chrome URLs (/accessibilite, /feed/*, /*/agenda, /*/recherche).
+#
+# CONSEQUENCE THAT MATTERS: `speaker_default: Emmanuel Macron` HAD to be removed. Left in place,
+# the widening would have stamped Macron's name on 10,000 speeches by Mitterrand, Chirac, Giscard,
+# Sarkozy, Hollande and de Gaulle. The date is unambiguous (it is in the URL), so the cleaner's
+# tenure crosscheck assigns the speaker reliably.
 source_id: fra_elysee
 country: France
 source_language: French
@@ -10,7 +31,9 @@ start_urls:
 renderer: static
 
 listing:
-  link_pattern: '/emmanuel-macron/\d{4}/\d{2}/\d{2}/'
+  # One alternative per president. Anchored on the host so a stray relative link can't match,
+  # and on /YYYY/MM/DD/ so the per-president landing pages (/emmanuel-macron/<slug>) stay out.
+  link_pattern: 'elysee\.fr/(?:emmanuel-macron|francois-hollande|nicolas-sarkozy|jacques-chirac|francois-mitterrand|valery-giscard-d-estaing|charles-de-gaulle)/\d{4}/\d{2}/\d{2}/'
 
 pagination:
   # The server-rendered listing only shows the latest ~100 items and ignores ?page=,
@@ -25,10 +48,22 @@ text:
   selectors: [".card__body", ".ck-styled", ".rich-text", "main"]
 date:
   selectors: [".published-at", "time"]
+  # Backstop for the pre-Macron generations, whose pages may not carry .published-at.
+  # url_regex runs only when no selector matched, so it cannot override a good on-page date.
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
 
 position: president
-speaker_default: Emmanuel Macron
+# NO speaker_default — see the header. Six presidents share this path scheme; the cleaner's
+# tenure crosscheck assigns the speaker from the (URL-derived, unambiguous) date.
 date_languages: ["fr"]
 notes: >
   Not all actualités are formal speeches (some are communiqués/déclarations); all are
-  Macron presidential communications. Refine with a context/type filter later if needed.
+  presidential communications, and the cleaner's document_type gate is what sifts them.
+  2026-08-10 WIDENED from Macron-only to ALL SIX Fifth-Republic presidents published on
+  elysee.fr — Mitterrand 3,083, Chirac 2,902, Hollande 1,615, Giscard 1,422, Sarkozy 1,184,
+  de Gaulle 11, alongside Macron's 4,660. Measured exactly against the site's own
+  sitemap.publication.xml: coverage 4,746/15,338 = 30.9% -> ~14,880 = 97%, span 2017-2026 ->
+  1958-2026. `speaker_default: Emmanuel Macron` was REMOVED in the same edit: leaving it would
+  have attributed every Mitterrand and Chirac speech to Macron. INCREMENTAL — the existing
+  4,743 scraped rows stay; an ordinary run fetches only the newly-matched URLs (the country
+  state file's `seen` set), so do NOT use --rescrape. FULL RUN is the researcher's gate.

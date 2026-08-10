@@ -12,7 +12,13 @@ start_urls:
   - https://www.kongehuset.no/offisielle-taler
 
 listing:
-  link_pattern: '/taler-og-budskap/[^/]+/'
+  # 2026-08-10 WIDENED (CLAUDE.md RULE 1). /taler-og-budskap/ was 1,232 of the sitemap's
+  # 5,135 URLs — 24%. Measured breakdown:
+  #     nyheter/<slug>          3,509   <- ADDED  the Royal House news / statement stream
+  #     taler-og-budskap/…      1,232   <- was the only one taken
+  #     presse/<…>/<slug>          86   <- ADDED  press releases
+  # The rest is /monarkiet/ and /kongehuset/ static "about" pages, plus a handful of chrome.
+  link_pattern: 'kongehuset\.no/(?:taler-og-budskap|nyheter|presse)/[^/?]{3,}'
 
 pagination:
   type: sitemap

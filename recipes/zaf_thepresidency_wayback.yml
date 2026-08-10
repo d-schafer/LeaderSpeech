@@ -1,41 +1,91 @@
-# South Africa — Presidency (thepresidency.gov.za), OLD site, via the Internet Archive.
-# The current thepresidency.gov.za was rebuilt for the 7th administration (2024- ) and its live
-# speeches listing is a JS/AJAX Drupal view; current presidential speeches are also on gov.za
-# (see zaf_gov), so this recipe targets the PREVIOUS presidency site's deep speech archive.
-# CDX for thepresidency.gov.za/speeches = 3638 distinct /speeches/<slug> article captures (of 42k+
-# total captures), the old Drupal-7 site: Zuma (to 2018), Ramaphosa as Deputy President then
-# President (2014-2024). Archived article: title h1, body .field-name-body (Drupal 7 single-dash),
-# date a date-class element ("19 March 2015"). English.
+# South Africa — Presidency (thepresidency.gov.za) via the Internet Archive.
+# Covers the Drupal generations: Drupal-7 sectioned URLs (/speeches/<slug>, 2014-2024) AND the
+# Drupal-10 rebuild for the 7th administration (2024- ), which serves articles at the ROOT
+# (/address-president-cyril-ramaphosa-...). Current speeches are also on gov.za (see zaf_gov).
+#
+# 2026-08-10 WIDENED (CLAUDE.md RULE 1). Whole-host CDX enumeration: 217,190 raw captures ->
+# 29,842 distinct articles once ?page= echoes are collapsed -> 24,612 in scope. The old
+# link_pattern took /speeches/<slug> ONLY and matched 524 of them — 2.1%. Sections by size:
+#     /press-statements          2,244   <- ADDED (the press-release stream; missing entirely)
+#     /speeches                  1,742   <- was the only one taken
+#     /content                   1,563   <- ADDED (engagement/visit notices + press items)
+#     /cabinet-statements          709   <- ADDED (official statements)
+#     /from-the-desk-of-the-...    294   <- ADDED (the President's weekly letter)
+#     /newsletters                 289   <- ADDED (same letter, later naming generation)
+#     /state-of-the-nation-addr    192   <- ADDED (SONA — core, and it was being dropped)
+#     root-level <slug>          2,677   <- ADDED (the 2024+ Drupal-10 generation)
+# Sampled before adding, per RULE 1's never-dismiss-an-endpoint rule: /content/president-zuma-
+# attend-nuclear-security-summit is a real 1,879-char article; root-level /address-president-
+# jacob-zuma-occasion-launch-child-protection-week-... is an 11,822-char full speech.
+# New match count: 8,791 captures (16.8x).
+#
+# DELIBERATELY EXCLUDED, and why (these are the bulk of the remaining unmatched):
+#   /node/N + /node/N/translate  ~5,275  Drupal serves EVERY article at both /node/N and its
+#                                        alias; the engine dedupes by URL string only, so
+#                                        including these would fetch and store every speech
+#                                        twice. Not a section — an alias.
+#   /calendar-node-field-event-date/{day,week,month}/…  ~3,179   calendar navigation
+#   /national-orders/…             ~735  honours + decorations register (RULE 1 out-of-scope)
+#   ?page=N variants               ~460  Drupal's body pager. NOTE: ?page=1 is the SECOND page
+#                                        of a long speech, so very long speeches are truncated
+#                                        at page 1. That is an extraction limit, not a harvest
+#                                        one — recorded, not fixed here.
+#   %22-encoded mirror junk               the issue #64 fix; kept, see the lookahead below
+#   pebble.asp / main.asp / show.asp  ~3,642   TWO EARLIER CMS GENERATIONS, still unscraped:
+#       * pebble.asp?relid=N       2,105 + 254 = the 2010-2016 Zuma-era article store. SAMPLED
+#         and confirmed real: relid=19016 is "Address by Deputy President Cyril Ramaphosa at
+#         the Youth Engagement, Harare Library, Khayelitsha" with .date "11 February 2015".
+#         Needs its OWN recipe: its <h1> is the homepage carousel headline, NOT the article
+#         title (the title is in <title> after "The Presidency | "), so this recipe's h1-first
+#         chain would mis-title every row.  ?t=79 / ?t=80 are the Print / Email views of the
+#         same article — print-view duplicates, out of scope.
+#       * show.asp?include=<who>/<sp|pr>/<year>/<file>.htm&type=<sp|pr>   ~658 = the 2007-2010
+#         generation, with speeches (sp) and press releases (pr) for the deputy president and
+#         ministers. Also wants its own recipe.
+#     Both are recorded as follow-ups rather than crammed in here, because sharing one selector
+#     chain across three CMS generations is what produces silent mis-extraction.
 source_id: zaf_thepresidency_wayback
 country: South Africa
 source_language: English
 renderer: static
 start_urls:
-  - thepresidency.gov.za/speeches
+  # Bare host: the 2024+ generation serves articles at the ROOT, so no section prefix can
+  # reach them. The engine drops captures whose PATH equals a start_url path — for a bare
+  # host that is the empty path, i.e. only the site root — so nothing real is lost.
+  - thepresidency.gov.za
 
 listing:
-  # A real Drupal pathauto slug is lowercase alphanumerics + hyphens only (e.g.
-  # /speeches/address-deputy-president-cyril-ramaphosa-...). Match EXACTLY that (issue #64):
-  #   * excludes the ?page=N referrer variants (no '?' can appear in [a-z0-9-]);
-  #   * excludes the hundreds of MALFORMED captures the Archive holds under /speeches/ —
-  #     percent-encoded mirror junk like /speeches/%22http:/en.wikipedia.org/.../system.base.css
-  #     and /speeches/%22mailto:...%22 — which are NOT speeches: they fetch a ~659-char
-  #     nav-chrome page (no .field-name-body), so the generic fallback wrote a thin snippet
-  #     and the cleaner rejected ~every row. The old '[^?]{12,}$' admitted all of them
-  #     (138 junk vs 22 real in a 160-capture sample); this keeps only real article slugs.
-  # {11,} => a ≥12-char slug (real speech slugs are long descriptive strings).
-  link_pattern: 'thepresidency\.gov\.za/speeches/[a-z0-9][a-z0-9-]{11,}$'
+  # A real Drupal pathauto slug is lowercase alphanumerics + hyphens, optionally with
+  # percent-escapes (%2C for a comma, %3A for a time prefix). Uppercase A-F is admitted ONLY
+  # because it appears inside those escapes — real slugs are lowercase.
+  #   * the `(?!.*%22)` lookahead keeps the issue #64 fix: the Archive holds hundreds of
+  #     malformed captures under /speeches/ (percent-encoded mirror junk like
+  #     /speeches/%22http:/en.wikipedia.org/.../system.base.css) that fetch a ~659-char
+  #     nav-chrome page with no body. Every one of them contains %22.
+  #   * the `$` anchor is load-bearing: it refuses the ?page=N variants, which would
+  #     otherwise be fetched as separate documents (the engine's noise-param dedupe does
+  #     NOT strip `page`).
+  #   * the bare section names are excluded so the section INDEX pages aren't scraped as
+  #     articles; {15,} => a ≥16-char slug.
+  link_pattern: 'thepresidency\.gov\.za(?::80)?/(?!.*%22)(?!calendar-node|national-orders|node/|sites/|files/|modules/|themes/|misc/|user/|taxonomy/|speeches/?$|press-statements/?$|cabinet-statements/?$|newsletters/?$|content/?$|from-the-desk-of-the-president/?$|state-of-the-nation-address/?$)(?:(?:speeches|press-statements|cabinet-statements|from-the-desk-of-the-president|newsletters|state-of-the-nation-address|content)/)?[a-z0-9][a-z0-9,%A-F-]{15,}/?$'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
   wayback_filter:
     - "statuscode:200"
+    # The host has ~1,500 .css and ~1,550 .js captures plus images; without this the
+    # whole-host prefix pulls them all into the link filter for nothing.
+    - "mimetype:text/html"
 
 title:
   selectors: ["h1#page-title", "h1", "title"]
 text:
-  selectors: [".field-name-body", ".field--name-body", ".node__content"]
+  # .field-name-body = Drupal 7 (single dash), .field--name-body = Drupal 8+ (double).
+  # The 2024+ rebuild exposes neither under a stable class, so `article`/`main` back the
+  # chain up before trafilatura has to guess.
+  selectors: [".field-name-body", ".field--name-body", ".node__content",
+              "article .content", "article", "main"]
 date:
   selectors: [".date-display-single", "[class*=date-display]", "[class*=date]", "time"]
   regex: '\d{1,2}\s+[A-Z][a-z]+\s+\d{4}'
