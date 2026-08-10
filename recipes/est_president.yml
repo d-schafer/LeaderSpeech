@@ -12,14 +12,33 @@
 source_id: est_president
 country: Estonia
 source_language: Estonian
+#
+# 2026-08-10 WIDENED to five sections. "Kõned" was one of them, and the note at the bottom of
+# this file already said the siblings were "worth a source each" — the researcher's ruling is
+# that press releases, interviews and statements are in scope, so they belong HERE rather than
+# in separate sources. Measured off the domain's CDX index (which is a fair proxy for how much
+# each section holds):
+#     /et/meediakajastus/pressiteated   6,408 captures   press releases   <- ADDED (biggest)
+#     /et/ametitegevus/koned            1,747            speeches         (was the only one)
+#     /et/meediakajastus/intervjuud     1,094            interviews       <- ADDED
+#     /et/ametitegevus/visiidid           360            visits           <- ADDED
+#     /et/ametitegevus/avaldused          ---            statements       <- ADDED
+# NOT added, deliberately: /et/ametitegevus/otsused (3,935) and /kaeskkirjad (661) are DECISIONS
+# and DECREES — legal instruments, not speech — and /et/teenetemargid/* (1,999) is the
+# decorations register. The First Lady's speeches (/et/vabariigi-president/abikaasa/koned) stay
+# out because she is a different speaker.
 start_urls:
   - https://president.ee/et/ametitegevus/koned/
+  - https://president.ee/et/ametitegevus/avaldused/
+  - https://president.ee/et/ametitegevus/visiidid/
+  - https://president.ee/et/meediakajastus/pressiteated/
+  - https://president.ee/et/meediakajastus/intervjuud/
 renderer: js
 
 listing:
-  # Speech permalinks are /et/ametitegevus/koned/<id>-<slug>. The numeric id keeps this
-  # off the section index and the sibling /avaldused (statements) and /kaskkirjad trees.
-  link_pattern: '/et/ametitegevus/koned/\d+'
+  # Permalinks are /<section-path>/<id>-<slug>. The numeric id keeps this off the section
+  # indexes; the enumerated section list keeps it off /otsused, /kaeskkirjad and /teenetemargid.
+  link_pattern: '/et/(?:ametitegevus/(?:koned|avaldused|visiidid)|meediakajastus/(?:pressiteated|intervjuud))/\d+'
 
 pagination:
   # The pager's page links carry NO href — they are JS handlers (cursor:pointer, tabindex),
@@ -76,7 +95,16 @@ notes: >
   hrefs and a URL that never changes -> type: click. SCOPE NOTE: Estonia's president is
   ceremonial (leader_tenure_final.csv marks Karis is_ceremonial=TRUE); the head of
   government is the PM (Kallas/Ratas). Ceremonial heads of state are in scope per the
-  researcher, but a stats.riigikantselei/valitsus.ee PM source would be the executive
-  counterpart and is not yet in master_sources. Sibling sections worth a source each:
-  /et/ametitegevus/avaldused (statements), /et/vabariigi-president/abikaasa/koned (the
-  First Lady's speeches — a different speaker, deliberately excluded here).
+  researcher, but a valitsus.ee PM source would be the executive counterpart and is not yet
+  in master_sources — Estonia's 228 unmatched audit rows are 90 Mart Laar, 51 Mart Siimann,
+  39 Kaja Kallas and 19 Jüri Ratas, i.e. ALL prime ministers, so that source is the real
+  gap-closer. /et/vabariigi-president/abikaasa/koned (the First Lady's speeches) stays out —
+  a different speaker.
+  2026-08-10 WIDENED to five sections (gap-closing wave 2): 334 -> 1,581 links. The note above
+  used to say the sibling sections were "worth a source each"; per the researcher they belong
+  here, so press releases (/meediakajastus/pressiteated, by far the biggest), interviews
+  (/meediakajastus/intervjuud), statements (/ametitegevus/avaldused) and visits
+  (/ametitegevus/visiidid) are now start_urls alongside speeches. The SAME selectors and the
+  same click pager work on every section — re-probe --spread 10/10 green on title, text and
+  date across koned, avaldused and pressiteated, dates 2023-06 -> 2026-07. Decisions
+  (/ametitegevus/otsused) and decrees (/kaeskkirjad) stay out as legal instruments.

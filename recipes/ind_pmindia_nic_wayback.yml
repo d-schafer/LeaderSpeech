@@ -111,3 +111,14 @@ notes: >
   (2) the title chain led with h1/h2/title, every one of which is the site banner on both
   generations ("Prime Minister of India", "Prime Minister's Office"), so no row had a real
   headline.
+  ACTION AGREED 2026-08-10 — this source needs a FULL `--rescrape`, not an incremental run:
+      python -m leaderspeech.text_scraper.run --recipe recipes/ind_pmindia_nic_wayback.yml \
+             --rescrape --adaptive-wayback
+  Measured on the CSV on disk with recipe_tools/textrepeat.py: mean repeat share 0.68, 34 of 40
+  sampled rows above the 0.35 threshold, worst row ~5.0 copies of its own speech. NOTHING
+  DOWNSTREAM FIXES THIS — the cleaner writes `"text": cell("text")` (it classifies, it does not
+  rewrite the body) and clean_structure_metadata/duplicates.py only compares one row's text to
+  ANOTHER row's, never to itself. A rescrape re-EXTRACTS with the corrected `body` selector rather
+  than repairing a bad extraction after the fact, and in the same pass picks up the ~930 newly
+  matched captures. ~2,112 fetches, ~4.8h at this source's measured 8.2s adaptive pacing; the old
+  CSV is preserved as .bak and the country's other sources are untouched.

@@ -2,25 +2,38 @@
 # accept TCP at all (ConnectTimeout — dead or geo-fenced), so it cannot be scraped live from
 # here. The Internet Archive holds ~650 captures spanning 2020-2025.
 #
-# STRUCTURE: it is a flat PHP site with a DEDICATED speeches endpoint —
-#   speechdetail.php?id=<N>   (the President's speeches; ~100+ archived ids)
-# distinct from mediadetail.php?id=<N> (general news/media, only ~13 archived). So the speech
-# set is the speechdetail.php?id=N pages; speeches.php is the listing shell, not the articles.
+# STRUCTURE: a flat PHP site with THREE article endpoints. The whole host is only 355 unique
+# status-200 text/html captures, and they break down as:
+#     speechdetail.php?id=<N>    182   the President's speeches           <- taken
+#     programdetail.php?id=<N>   130   engagements / programme items      <- ADDED 2026-08-10
+#     mediadetail.php?id=<N>      13   "Media Release" articles           <- ADDED 2026-08-10
+#     program.php?page=<N>         11   listing shells (not articles)
+#     ~19 one-off chrome pages (index, gallery, corporateprofile, headofstate, …)
+#
+# 2026-08-10 WIDENED. The original header claimed mediadetail was "general news/media" and
+# programdetail was not considered at all; sampling the captures shows mediadetail.php?id=1 is
+# a proper article — h1 "Office of the President heads to Namosi for Community Outreach
+# Programme", h2 "Media Release", ~3,089 chars — i.e. exactly the press-release stream the
+# speeches endpoint does not carry. Taking all three lifts the harvest from 182 of 325 article
+# captures (56%) to all of them, and the cleaner's document_type gate is the right place to
+# sift an engagement note from an address.
 source_id: fji_presidentsoffice_wayback
 country: Fiji
 source_language: English
 start_urls:
-  # CDX prefix DELIBERATELY truncated to 'speechdetail' (no '.php'): the speeches are
-  # distinguished only by ?id=N under the single path /speechdetail.php, and the engine's
-  # wayback filter drops any capture whose path (query stripped) equals a start_url's path —
-  # so a '…/speechdetail.php' start_url would drop every speech. The truncated prefix still
-  # prefix-matches speechdetail.php?id=N while keeping its own path (/speechdetail) distinct.
+  # CDX prefix DELIBERATELY truncated (no '.php'): the articles are distinguished only by ?id=N
+  # under a single path, and the engine's wayback filter drops any capture whose path (query
+  # stripped) equals a start_url's path — so a '…/speechdetail.php' start_url would drop every
+  # speech. The truncated prefix still prefix-matches …detail.php?id=N while keeping its own
+  # path distinct. One truncated prefix per endpoint.
   - presidentsoffice.gov.fj/speechdetail
+  - presidentsoffice.gov.fj/programdetail
+  - presidentsoffice.gov.fj/mediadetail
 renderer: static
 
 listing:
-  # Individual speech detail pages carry a numeric ?id=.
-  link_pattern: 'speechdetail\.php\?id=\d+'
+  # Individual article pages of any of the three endpoints; each carries a numeric ?id=.
+  link_pattern: '(?:speech|program|media)detail\.php\?id=\d+'
 
 pagination:
   type: wayback
@@ -45,6 +58,16 @@ position: president
 date_languages: ["en"]
 notes: >
   DRAFT — probe-validated (no full run). Fiji President's Office, PURE-WAYBACK (live site: no
-  TCP). ~354 archived mediadetail.php?id=N pages, 2020-2025. Flat PHP site; the media feed
-  includes the President's speeches/messages mixed with office news -> the cleaner's gate keeps
-  the speeches/official_statements. Selectors verified against archived snapshots. English.
+  TCP). Flat PHP site; the feed mixes the President's speeches/messages with office news ->
+  the cleaner's gate keeps the speeches/official_statements. Selectors verified against
+  archived snapshots. English.
+  2026-08-10 WIDENED from one endpoint to three: 182 -> 325 snapshots, which is EVERY article
+  capture the host has. The recipe took speechdetail.php only; programdetail.php (130 captures)
+  and mediadetail.php (13) were dismissed in the old header as "general news/media" without
+  being sampled. They are real articles — mediadetail.php?id=1 is h1 "Office of the President
+  heads to Namosi for Community Outreach Programme", h2 "Media Release", ~3,089 chars — i.e.
+  the press-release stream the speeches endpoint does not carry. Re-probe --spread 12/12 green
+  on title, text AND date across all three endpoints, dates 2009-11 -> 2021-12.
+  SCOPE NOTE: Fiji's 148 unmatched audit rows are 100% Frank BAINIMARAMA, who was PRIME
+  MINISTER — so this source, the ceremonial head of state, cannot close that gap however wide
+  it gets. fiji.gov.fj (the PM's office) is the source that would.

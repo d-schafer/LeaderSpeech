@@ -4,6 +4,52 @@ A recipe is a YAML file in `recipes/` that teaches the engine how one source exp
 This guide is the field reference plus a worked example. It is written so that a person — or a coding
 agent assigned a "new source" issue — can produce a working recipe by inspecting a site.
 
+## ⛔ Rule 1: take EVERY section, not the one called "speeches"
+
+**The most expensive recurring mistake in this project.** If a site publishes speeches, statements,
+press releases, interviews, messages, addresses, visits or engagement notes as separate sections,
+the recipe takes **all of them**.
+
+Err toward including trivial-but-plausible pages. **Removing non-speech material is the CLEANER's
+job**, not the harvest's: `clean_structure_metadata`'s `document_type` gate keeps
+speech / interview / official_statement and rejects the rest, and rejected rows are *retained*
+rather than deleted. A page wrongly harvested costs one cheap model call. A section wrongly
+excluded is invisible, permanent, and only discovered by re-deriving the source months later.
+
+Measured on 2026-08-10 — five recipes re-examined, all five were too narrow:
+
+| source | was scoped to | after widening |
+|---|---|---|
+| `arm_president_wayback` | `press-release` — **1 of 11** sections | 8,152 → 11,620 |
+| `ind_pmindia_nic_wayback` | **2 of 8** URL schemes | 1,185 → 2,112 |
+| `est_president_english_wayback` | `speeches` — **1 of 5** sections × **3** naming generations | 911 → 1,242 |
+| `est_president` (live) | `koned` — **1 of 5** | 334 → **1,581** |
+| `fji_presidentsoffice_wayback` | `speechdetail.php` — **1 of 3** endpoints | 182 → 325 |
+
+**Before writing `link_pattern`:**
+1. Enumerate the whole host — `recipe_tools/cdx.py <host> --match domain --save <tmp>`, then
+   `recipe_tools/shapes.py <tmp> --top 25`, plus a count of the section path segment. Do not infer
+   the sections from the nav menu or from one listing page.
+2. Match **every naming generation**. Sites rename sections and often run two spellings at once:
+   president.ee went `/en/duties/*.php` → `/en/meedia/*` → `/en/media/*`, with the localised and
+   English spellings both live in the CDX index.
+3. **Never dismiss an endpoint without sampling it.** Fiji's `mediadetail.php` was written off in a
+   recipe header as "general news/media"; it is the press-release stream.
+4. Record the coverage ratio in the recipe notes — *captures matched ÷ speech-bearing captures on
+   the host*. Under ~70% needs a stated reason.
+
+**Legitimately out of scope:** decrees / decisions / signed laws (legal instruments), honours and
+decorations registers, photo and video galleries, media-gallery nav pages, print-view duplicates of
+pages already taken, oEmbed `/embed/` stubs, search-component URLs, `favicon.ico` children.
+
+> **Breadth is not an excuse for duplication.** Adding sections often pulls in the same article by a
+> second route — a print view, an other-language twin, a charset-converter mirror. `extract.first_match`
+> also **joins every element a selector matches**, so a `text: ["td"]` recipe on nested tables writes the
+> body once per enclosing cell. Check with `recipe_tools/selcheck.py` (shows what the engine really gets)
+> and `recipe_tools/textrepeat.py` (finds text repeated *inside* one row — which nothing downstream
+> fixes, because the cleaner passes `text` through unchanged and its duplicate finder only compares
+> rows to each other).
+
 ## How to inspect a site (the 10-minute version)
 
 1. **Find a listing page** — the index that links to individual speeches (e.g. `.../discursos`,

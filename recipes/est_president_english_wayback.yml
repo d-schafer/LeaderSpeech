@@ -3,20 +3,45 @@
 # speeches category, so speeches land directly in the English `text` column (no translation needed).
 # No live est_president recipe yet.
 #
-# Speeches: /en/official-duties/speeches/<id>-<slug> (targeting this subtree deliberately avoids the
-# huge /en/estonia/decorations/bearer/... medal-holder pages that flood the broad /en prefix). CDX
-# for that prefix ≈ 1,415 statuscode:200 captures spanning 2010–2026 (Ilves→Kaljulaid→Karis).
+# 2026-08-10 WIDENED — "speeches" was ONE of five speech-bearing sections, across THREE naming
+# generations. The original recipe took /en/official-duties/speeches only, which is 844 of roughly
+# 4,830 relevant English captures (18%). Enumerating the whole domain's CDX index by section:
+#
+#   SECTION          2008 gen        2014 gen        current gen        total
+#   press-releases   duties/         meedia/  892    media/    1,926    2,883   <- ADDED (biggest!)
+#                    press_releases/ archives/ 13
+#                    51
+#   speeches         duties/ 6       archives/ 11    official-duties/     861   (was the only one)
+#                                    speeches/       speeches/ 844
+#   interviews       —               meedia/  218    media/      359      577   <- ADDED
+#   visits           duties/ 1       —               official-duties/     427   <- ADDED
+#                                                    visits/ 426
+#   statements       duties/ 1       meedia/ 30      media/ 17,            80   <- ADDED
+#                                    archives/ 9     official-duties/ 21
+#
+# The three generations are why a single pattern missed so much: the site renamed /en/duties/*.php
+# (2008) -> /en/meedia/* and /en/archives/* (2014) -> /en/media/* and /en/official-duties/*
+# (current), and BOTH the Estonian-derived "meedia" and the English "media" spellings are live in
+# the index. All three are matched below.
+#
+# STILL EXCLUDED, and this is the reason the original recipe was narrow in the first place:
+# /en/estonia/decorations/* is 19,547 captures of MEDAL-HOLDER records — four times the entire
+# speech corpus — plus /en/state-decorations/bearers-of-decorations (202). /en/image/*, /en/video/*
+# and /en/*/images|photos are galleries. All are barred server-side.
 source_id: est_president_english_wayback
 country: Estonia
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, NO trailing '*'.
-  - president.ee/en/official-duties/speeches
+  # Bare /en prefix: the five sections live under three DIFFERENT parent segments
+  # (duties / meedia / media / archives / official-duties), so no narrower prefix reaches them.
+  # The wayback_filter does the narrowing server-side instead.
+  - president.ee/en
 
 listing:
-  # speech permalink under the speeches category: /en/official-duties/speeches/<id>[-<slug>]
-  link_pattern: '/en/official-duties/speeches/\d'
+  # <section-parent>/<section>/<id>[-<slug>] across all three naming generations. The 2008
+  # generation is a .php listing plus numbered detail pages, hence the optional `.php` arm.
+  link_pattern: '^[^?]*/en/(?:official-duties|duties|media|meedia|archives|speeches)/(?:speeches|statements|interviews|press[_-]releases|visits)/\d[^/]*/?$'
 
 pagination:
   type: wayback
@@ -25,20 +50,50 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    # Server-side narrowing. Without it the bare /en prefix returns ~26,000 captures of which
+    # 19,547 are decoration/medal-holder records — they would be discarded client-side anyway,
+    # but the CDX payload and the 60,000-row ceiling both matter on this host.
+    - "original:.*/en/(official-duties|duties|media|meedia|archives|speeches)/(speeches|statements|interviews|press[_-]releases|visits)/.*"
 
 title:
   selectors: ["h1", ".article-title", ".title", "title"]
   regex: '^\s*(.+)'
 text:
-  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
-  # the full speech body (probe: 3,310–18,604 chars).
-  selectors: [".article-body", ".article__content"]
+  # THREE DOM generations, each with its own container; the chain self-selects.
+  #   Nuxt SSR (current, numeric ids)   : .body-content  -> 3,907 chars of pure speech
+  #   Joomla   (/en/meedia/*, 2014-20)  : .article-view  -> 1,411 chars
+  # The old chain (.article-body / .article__content) matched NOTHING on any generation, which is
+  # why the recipe's own notes said every row came from the generic trafilatura fallback.
+  # Scoping matters on the Joomla generation: the page carries a SECOND `.article` element,
+  # `.article.aside.article_left`, which is the "recent press releases" rail (828 chars of other
+  # articles' headlines). A bare `.article` selector would join both.
+  selectors: [".body-content", ".article-view", ".article-body", ".article__content"]
 date:
-  # DATE TRAP: .date matched the sidebar recent-speeches feed (a block of DD.MM.YYYY values) → omitted;
-  # date deferred to the cleaner's corrected-date pass + wayback_capture backstop.
-  selectors: ["time[datetime]"]
+  # DATE TRAP, and it is why the original recipe had no working date selector: on the Joomla
+  # generation `.date` matches ELEVEN elements — the sidebar recent-items feed — and the engine
+  # joins them into "28.03.2019 26.03.2019 20.03.2019 …". On the Nuxt generation `.date` is a
+  # single element holding the article's own date ("14.09.2023"). So the selector is SCOPED to
+  # `#content`, an id that exists only on the Nuxt generation, which gets the good date while the
+  # Joomla generation still falls through to the cleaner rather than eating the sidebar blob.
+  selectors: ["#content .date", "time[datetime]"]
+  # Numeric DD.MM.YYYY, so a stray match must not be parsed as prose.
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+  regex_required: true
 
-date_languages: ["en"]
+keep_if:
+  # DROP the Nuxt loading shells. The CURRENT site generation (/en/media/*) is a Nuxt SPA and the
+  # Archive captured only its skeleton: 3,331 bytes, ids `__nuxt` + `nuxt-loading`, body text
+  # "Loading..." — 23 characters. That is 2,302 of the captures this widening adds, including the
+  # single biggest section (media/press-releases, 1,926), so without this filter the run would
+  # write ~2,300 junk rows. Presence of #nuxt-loading is an exact tell; `negate` drops on a hit.
+  selectors: ["#nuxt-loading"]
+  negate: true
+
+# ["et"] IS A CORRECTNESS REQUIREMENT, not a claim about the text (which is English): the Nuxt
+# generation stamps a numeric DD.MM.YYYY and dateparser resolves ambiguous numerics by locale, so
+# ["en"] would read 05.01.2015 as 1 May. This was safe to leave wrong only while the date selector
+# matched nothing; now that it resolves, it matters.
+date_languages: ["et"]
 notes: >
   DRAFT — Wayback ENGLISH tree of Estonia's presidency (president.ee/en → English column, no
   translation). link_pattern targets the dedicated /en/official-duties/speeches/<id>-<slug> category
@@ -50,3 +105,22 @@ notes: >
   Conference"); TEXT via the generic (trafilatura) fallback (3,310–18,604 chars, full speeches). DATE
   trap: .date matched the sidebar recent-speeches feed → dropped, deferred to the cleaner +
   wayback_capture → recipe_status partial. FULL RUN is the researcher's gate.
+  2026-08-10 WIDENED + SELECTORS FIXED (gap-closing wave 2). "speeches" was ONE of five
+  speech-bearing sections spread over THREE naming generations, so the recipe was taking 844 of
+  roughly 4,830 relevant English captures. Added press-releases (2,883 captures — the biggest
+  section by far), interviews (577), visits (427) and statements (80), across the
+  /en/duties (2008), /en/meedia + /en/archives (2014) and /en/media + /en/official-duties
+  (current) spellings. Harvest 911 -> 1,242 snapshots. TEXT now comes from real selectors instead
+  of the generic fallback on every row: .body-content for the Nuxt generation, .article-view for
+  the Joomla one. Re-probe --spread 14: keep_if kept 11, and 11 of 11 kept pages have text on a
+  recipe selector.
+  THE FINDING THAT MATTERS MOST HERE — the current site is a NUXT SPA and the Archive largely
+  captured only its skeleton: 3,331 bytes, ids __nuxt + nuxt-loading, body text "Loading...",
+  23 characters. A `keep_if` on #nuxt-loading (negated) drops them; without it the widening would
+  have written ~2,300 junk rows, most of them from the biggest section. Some Nuxt captures DID get
+  SSR content and those extract cleanly (3,907 chars) AND carry a working date. CONSEQUENCE FOR
+  COVERAGE: for the recent era the Archive is a poor route and the LIVE site is the good one —
+  see est_president.yml, which should carry the equivalent section widening.
+  date_languages moved "en" -> "et": the Nuxt date is numeric DD.MM.YYYY and dateparser resolves
+  ambiguous numerics by locale, so "en" would read 05.01.2015 as 1 May. That was harmless only
+  while no date selector matched.
