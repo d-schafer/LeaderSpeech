@@ -37,6 +37,30 @@ def test_first_match_uses_fallback_chain():
     assert "Title here" in first_match(soup, spec)
 
 
+def test_regex_miss_returns_the_whole_value_by_default():
+    """Historical behaviour, unchanged: `regex` is a best-effort trim."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup("<b>SPEECH AT THE BANQUET</b>", "lxml")
+    spec = FieldSpec(selectors=["b"], regex=r"\d{4}")
+    assert first_match(soup, spec) == "SPEECH AT THE BANQUET"
+
+
+def test_regex_required_makes_a_miss_skip_to_the_next_selector():
+    """With `regex_required`, a selector whose text doesn't contain the pattern is treated
+    as not matching — so a headline can never be handed to dateparser as if it were a date
+    (which is how a real page dated itself to TODAY; see FieldSpec.regex_required)."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup("<b>SPEECH AT THE BANQUET</b><p>New Delhi, 10 May, 2001</p>", "lxml")
+    spec = FieldSpec(selectors=["b", "p"], regex=r"\d{1,2}\s+\w+,?\s+(?:19|20)\d\d",
+                     regex_required=True)
+    assert first_match(soup, spec) == "10 May, 2001"
+
+    nothing = FieldSpec(selectors=["b"], regex=r"\d{4}", regex_required=True)
+    assert first_match(soup, nothing) is None
+
+
 def test_first_match_reads_attribute():
     from bs4 import BeautifulSoup
 

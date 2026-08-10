@@ -1,0 +1,89 @@
+# Sierra Leone — State House, the JOOMLA generation (2012-2017), via the Internet Archive.
+#
+# WHY: Sierra Leone's audit gap is 172 rows and 100% of them are unmatched — Ernest Bai
+# Koroma 155 (2007-2018) and Julius Maada Bio 17. The existing sle_statehouse_wayback
+# harvests the WORDPRESS permalink scheme (/YYYY/MM/DD/<slug>/), which is the Bio-era and
+# later site; the audit shows its scraped years as 2025-2026. Koroma's presidency lived on
+# the earlier Joomla site and was not reachable by any recipe.
+#
+# TWO JOOMLA ROUTES TO THE SAME ARTICLES, both taken because the Archive captured different
+# subsets through each:
+#     /index.php/presidents-speeches/<id>-<slug>                         ~232 captures
+#     /index.php/component/content/article/34-news-articles/<id>-<slug> 1,224 captures
+# The numeric <id> prefix is Joomla's article id, so the two routes overlap only where the
+# same id appears twice — and the engine dedupes by URL, not by id, so a small number of
+# duplicate rows is possible and is the price of covering both. Category 34 is
+# "news-articles"; the other observed categories (42-slideshow-article, 41-press-release,
+# 44-state-house-chief-of-staff) are tiny and mostly not speech.
+#
+# NOT TAKEN, and worth recording so it is not re-investigated: this host is dominated by
+# junk. Of 29,287 unique status-200 captures, ~3,200 are Joomla search-component URLs
+# (/index.php/component/search/?searchword=…, which the Archive crawled combinatorially),
+# 3,476 are /index.php/statehouse-tv, 2,889 are WordPress /<slug>/embed/ oEmbed stubs and
+# 678 are /wp-login.php redirects.
+source_id: sle_statehouse_joomla_wayback
+country: Sierra Leone
+source_language: English
+renderer: static
+start_urls:
+  - statehouse.gov.sl/index.php
+
+listing:
+  # Both routes, each anchored on the numeric Joomla article id so section and index
+  # captures cannot match. `^[^?]*` bars the search-component query strings.
+  link_pattern: '^[^?]*/index\.php/(?:presidents-speeches|component/content/article/34-news-articles)/\d+-[a-z0-9][-a-z0-9]*/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "!original:.*(component/search|statehouse-tv|/embed/|wp-login).*"
+
+title:
+  # <title> is exactly the headline on an article page ("PPRC NEW EXECUTIVE MEETS PRESIDENT
+  # KOROMA"). .contentheading is the on-page heading but the theme reuses the class for a
+  # "Related articles:" module, so the engine's join returns headline + related-links noise —
+  # hence it is the fallback, not the lead.
+  selectors: ["title", ".contentheading"]
+text:
+  # Joomla's classic article table. `body` would add ~3,600 chars of accessibility links,
+  # a photo carousel and a "Latest News" rail.
+  selectors: ["table.contentpaneopen", "div#ja-current-content", "body"]
+date:
+  # These articles carry a State House press dateline two lines into the body:
+  # "CODE: SH/34/11   14TH APRIL 2011   MEDIA ADVISORY   FREETOWN: …". There is no date
+  # element, no Joomla .create stamp, and no date in the URL, so this is the only source.
+  # It is safe here ONLY because the regex is scoped to the article table and the dateline
+  # precedes the prose — the same care the Koizumi case demanded.
+  # BOTH orders are needed — a first probe with only the day-first form dated 4 of 12: the
+  # State House press office wrote "14TH APRIL 2011" in the earlier years and
+  # "September 24, 2014" later (the same string that ends some of the slugs).
+  selectors: ["table.contentpaneopen"]
+  regex: '\d{1,2}\s*(?:ST|ND|RD|TH|st|nd|rd|th)?\s+[A-Za-z]+,?\s+(?:19|20)\d\d|[A-Za-z]+\s+\d{1,2}\s*(?:ST|ND|RD|TH|st|nd|rd|th)?,?\s+(?:19|20)\d\d'
+  # A miss must leave the date blank rather than feed a 3,500-char article to dateparser.
+  regex_required: true
+
+position: president
+# No speaker_default: the Joomla window spans Koroma's whole presidency and the start of
+# Bio's, and the press stream also covers the Vice-President — the tenure crosscheck and the
+# cleaner's speaker pass decide.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Ernest Bai Koroma's
+  presidency, which is 155 of Sierra Leone's 172 unmatched audit rows and was reachable by no
+  existing recipe: sle_statehouse_wayback covers only the later WordPress permalink scheme.
+  Two Joomla routes to the article space; probe harvests 1,468 captures, 2012-2017, and
+  title + text resolve on a recipe selector on 12 of 12 sampled pages. The date comes from
+  the State House press dateline inside the article table because the site offers nothing
+  else — no date element, no Joomla create stamp, no date in the URL — and `regex_required`
+  keeps a miss blank instead of handing the article to dateparser. MEASURED: 5 of 12 sampled
+  pages carry a dateline and date correctly (one cross-checks exactly against its own slug,
+  …-september-24-2014 -> 2014-09-24); the other 7 have no date anywhere on the page and are
+  deliberately left blank for the cleaner's corrected-date pass, with the wayback capture
+  stamp as the backstop. That is a real limitation of this generation, not a selector bug. HOST NOISE, measured, so
+  it is not re-investigated: of 29,287 unique captures ~3,200 are combinatorially-crawled
+  Joomla search URLs, 3,476 are /statehouse-tv, 2,889 are WordPress oEmbed /embed/ stubs and
+  678 are wp-login redirects; all are excluded server-side. FULL RUN is the researcher's gate.

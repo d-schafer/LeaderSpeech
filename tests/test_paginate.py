@@ -3,6 +3,7 @@ page target non-numeric URLs (e.g. president.ie's /P0, /P20, /P40)."""
 
 import gzip
 
+import httpx
 import pytest
 
 from leaderspeech.text_scraper import paginate
@@ -335,6 +336,68 @@ def test_listing_fetch_failure_flags_stopped_early():
     r = _recipe(type="query_param", param="page", start=1, step=1, max_pages=10)
     stats = {}
     paginate.harvest_links(r, Breaks(), stats=stats)
+    assert stats["stopped_early"] is True
+    assert stats["stop_reason"] == "listing_fetch_failed"
+
+
+class _Http404:
+    """The shape Fetcher.get raises for a 404: a RuntimeError chained (`from`) to the
+    underlying httpx.HTTPStatusError, which carries .response.status_code."""
+
+    def __init__(self, pages_ok: int, status: int = 404):
+        self.urls = []
+        self.pages_ok = pages_ok
+        self.status = status
+
+    def get(self, url):
+        self.urls.append(url)
+        n = len(self.urls)
+        if n <= self.pages_ok:
+            return f'<a href="/s/{n}">item</a>'
+        inner = httpx.HTTPStatusError(
+            f"Client error '{self.status}' for url '{url}'",
+            request=httpx.Request("GET", url),
+            response=httpx.Response(self.status, request=httpx.Request("GET", url)),
+        )
+        raise RuntimeError(f"Failed after 3 attempts: {url} :: {inner}") from inner
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_pager_404_after_real_pages_is_a_normal_stop(status, caplog):
+    """Some pagers signal end-of-results with a 404 on page N+1 instead of an empty page
+    (WordPress; *whitehouse.archives.gov; pmindia.gov.in). That is the genuine end of the
+    archive, so it must NOT raise the "PAGINATION STOPPED EARLY" flag on a complete run."""
+    r = _recipe(type="path", path_format="page/{n}", start=1, step=1, max_pages=10)
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, _Http404(pages_ok=3, status=status), stats=stats)
+
+    assert links == [f"https://example.org/s/{n}" for n in (1, 2, 3)]
+    assert stats["stopped_early"] is False
+    assert stats["stop_reason"] == "pager_404"
+    assert caplog.text == ""          # no warning: nothing is wrong
+
+
+def test_pager_404_on_the_very_first_page_is_still_a_failure():
+    """A 404 before ANY page yielded links is a broken start_url, not the end of a pager."""
+    r = _recipe(type="path", path_format="page/{n}", start=1, step=1, max_pages=10)
+    stats = {}
+    links = paginate.harvest_links(r, _Http404(pages_ok=0), stats=stats)
+    assert links == []
+    assert stats["stopped_early"] is True
+    assert stats["stop_reason"] == "listing_fetch_failed"
+
+
+def test_pager_5xx_after_real_pages_is_still_early():
+    """Only 404/410 mean "no such page". A 503 is the site failing mid-crawl — the harvest
+    really is truncated and must keep flagging it."""
+
+    class ServerError(_Http404):
+        pass
+
+    r = _recipe(type="path", path_format="page/{n}", start=1, step=1, max_pages=10)
+    stats = {}
+    paginate.harvest_links(r, ServerError(pages_ok=2, status=503), stats=stats)
     assert stats["stopped_early"] is True
     assert stats["stop_reason"] == "listing_fetch_failed"
 

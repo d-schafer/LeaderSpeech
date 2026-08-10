@@ -72,6 +72,17 @@ class FieldSpec(BaseModel):
     selectors: list[str] = Field(default_factory=list)
     attr: Optional[str] = None    # read this attribute instead of the text
     regex: Optional[str] = None   # optional regex to pull a substring out
+    # What to do when `regex` MISSES. The default (False) keeps the historical behaviour:
+    # the selector's unfiltered value is returned, i.e. the regex is a best-effort trim.
+    # That is a trap for DATES. presidentofindia.nic.in's oldest tree puts the headline and
+    # the dateline in one <b> block; on a page whose dateline reads "New Delhi, 10 th May,
+    # 2001" (note the space inside the ordinal) the regex missed, the whole 169-char
+    # HEADLINE was handed to dateparser, and it returned TODAY'S DATE — a plausible, silent,
+    # completely wrong date, which then picks the wrong tenure roster and mis-assigns the
+    # speaker. Set `regex_required: true` and a miss is treated as "this selector didn't
+    # match", so the chain moves on and the field ends up blank. A blank date beats a
+    # plausible wrong one.
+    regex_required: bool = False
     # Extract this field from the page URL when no selector matches (or when there is no
     # DOM at all — PDFs). Applied to the speech URL; the whole match is used, or group(1)
     # if the regex captures. For dates, named groups (?P<year>)/(?P<month>)/(?P<day>) are

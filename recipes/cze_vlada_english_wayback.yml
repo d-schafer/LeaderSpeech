@@ -1,0 +1,77 @@
+# Czechia — the GOVERNMENT (vlada.cz), official English, via the Internet Archive.
+# The head-of-GOVERNMENT half of Czechia's audit gap: of 325 unmatched corpus rows, Andrej
+# Babiš is 42 and Bohuslav Sobotka 31 — both prime ministers, and the project had no Czech
+# government recipe at all (cze_hrad_* are all Prague Castle, i.e. the president).
+#
+# HOST SIZE WARNING: a domain-wide CDX query for vlada.cz returns the 60,000-row ceiling
+# (2001-2003 alone are ~28,000 captures of the old site), so it MUST be queried by prefix.
+# The /en tree is 3,867 captures, which is workable. Shapes inside it:
+#     /en/media-centrum/aktualne/<slug>/            1,280   government news
+#     /en/media-centrum/ocekavane-udalosti/<slug>/    580   "expected events" diary — excluded
+#     /en/media-centrum/tiskove-zpravy/<slug>/        254   press releases      <- taken
+#     /en/media-centrum/tiskove-konference/<slug>/    219   press-conference transcripts <- taken
+#     /en/clenove-vlady/premier/speeches/<slug>/      107   PM SPEECHES         <- taken
+# The three taken trees are the ones that carry a leader's own words. `aktualne` is
+# third-person newsroom copy about the cabinet as a whole and `ocekavane-udalosti` is a
+# forward diary of scheduled events, so both are left out.
+source_id: cze_vlada_english_wayback
+country: Czechia
+source_language: English
+renderer: static
+start_urls:
+  - vlada.cz/en/clenove-vlady/premier/speeches
+  - vlada.cz/en/media-centrum/tiskove-konference
+  - vlada.cz/en/media-centrum/tiskove-zpravy
+
+listing:
+  # Article slugs end in the CMS id (…-191508/). `^[^?]*` drops the marketing-tracker twins
+  # the Archive also stored (…?elqTrackId=…&elqTrack=true), which are the same page.
+  link_pattern: '^[^?]*/en/(?:clenove-vlady/premier/speeches|media-centrum/(?:tiskove-konference|tiskove-zpravy))/[^/]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 and .perex carry the same string, which is the real headline
+  # ("Andrej Babiš: It is absolutely crucial for individual states to choose their own energy
+  # mix to achieve carbon neutrality") — note it NAMES THE SPEAKER, which gives the cleaner a
+  # second signal on top of the tenure crosscheck.
+  selectors: ["h1", ".perex", "title"]
+text:
+  # div.detail is the article body (4,176 chars) with no navigation. Do NOT use `body` here:
+  # this CMS puts a long two-level nav plus a search form ahead of the article, so `body`
+  # returns 5,128 chars of which ~1,000 are chrome.
+  selectors: [".detail", ".content-main"]
+date:
+  # The CMS prints "Speeches 1. 11. 2021 17:09" in the .info strip above the headline —
+  # Czech numeric D. M. YYYY, DAY-FIRST. `.content-main` is the fallback and also opens with
+  # that strip, so the first date in it is the publication date rather than something quoted
+  # inside the speech.
+  selectors: [".info", ".content-main"]
+  regex: '\d{1,2}\.\s*\d{1,2}\.\s*\d{4}'
+  # Without this a miss would hand the whole nav-and-headline blob to dateparser.
+  regex_required: true
+
+position: prime minister
+# No speaker_default: the window spans Sobotka, Babiš and Fiala, and the press-release tree
+# also carries other ministers — the cleaner's speaker pass plus the tenure crosscheck sort
+# that out, and the headlines name the speaker outright.
+# ["cs"] IS A CORRECTNESS REQUIREMENT, not a language claim about the text (which is English):
+# the date is numeric D. M. YYYY and dateparser resolves ambiguous numerics by locale, so
+# ["en"] would read 1. 11. 2021 as 11 January. Same trap as cze_hrad_wayback and est_president.
+date_languages: ["cs"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Czechia's head of
+  GOVERNMENT in official English — an office with no recipe at all until now, and 73+ of the
+  country's 325 unmatched audit rows (Babiš 42, Sobotka 31). Three trees: the PM's own
+  speeches (107 captures, 2014-2023, Sobotka/Babiš/Fiala), press-conference transcripts (219)
+  and press releases (254). Native English, so no translation pass. RECORDED FOR NEXT TIME:
+  vlada.cz cannot be queried domain-wide — it hits the CDX 60,000-row ceiling on the
+  2001-2003 captures alone — so every query here must be by prefix. The Archive also stored
+  ?elqTrackId= marketing-tracker twins of many articles; the link_pattern bars a query string
+  so they cannot double the harvest. FULL RUN is the researcher's gate.

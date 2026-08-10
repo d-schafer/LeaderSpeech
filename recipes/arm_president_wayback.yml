@@ -8,22 +8,56 @@
 # wayback conversion of a working live recipe — the live recipe stays as
 # arm_president.yml; this one exists because the live run is currently unreliable and
 # to reach the pre-2022 history.
+#
+# 2026-08-10 WIDENED — press-release was only ONE of the site's eleven article sections.
+# Armenia is the third-largest measured audit gap (343 unmatched corpus rows, 304 of them
+# Serzh Sargsyan 2007-2018) despite this source having already produced 8,157 rows, which
+# is the signature of a harvest that is deep but NARROW. Enumerating the full CDX index
+# (38,107 unique status-200 text/html captures under president.am/en) by section:
+#     press-release                  10,950   (was the only one harvested)
+#     decrees                        10,329   EXCLUDED — presidential decrees, legal text
+#     congratulatory                  2,586   <- added
+#     condolence                        801   <- added
+#     signed-laws                       733   EXCLUDED — enacted statutes, legal text
+#     domestic-visits                   732   <- added
+#     statements-and-messages           698   <- added  (the president's own addresses)
+#     foreign-visits                    423   <- added
+#     videos                            379   EXCLUDED — video pages, no transcript
+#     interviews-and-press-conferences  297   <- added  (verbatim Q&A)
+#     notepad                           239   <- added
+#     chronicle                          67   <- added
+#     announcements                      10   <- added
+# statements-and-messages and interviews-and-press-conferences are the two that most
+# obviously carry a leader's own words and were entirely missing. decrees/signed-laws are
+# excluded because they are instruments, not speech, and together they are 45% of the host —
+# harvesting them would have tripled the run for no usable rows.
 source_id: arm_president_wayback
 country: Armenia
 source_language: English
 start_urls:
-  - president.am/en/press-release/item     # CDX prefix (no scheme, no trailing '*')
+  # Bare-ish prefix: the eleven sections are siblings under /en, so no single narrower
+  # prefix reaches them. The CDX filter below does the narrowing server-side.
+  - president.am/en
 renderer: static
 
 listing:
-  # Dated press-release permalinks; require a >=5-char slug so section/index captures
-  # are excluded.
-  link_pattern: '/en/press-release/item/\d{4}/\d{2}/\d{2}/[^/?]{5,}/?$'
+  # Any speech-bearing section's dated permalink. The >=5-char slug requirement (kept from
+  # the original) excludes section and index captures; `^[^?]*` bars a query string.
+  link_pattern: '^[^?]*/en/(?:press-release|statements-and-messages|interviews-and-press-conferences|congratulatory|condolence|domestic-visits|foreign-visits|notepad|chronicle|announcements)/item/\d{4}/\d{2}/\d{2}/[^/?]{5,}/?$'
 
 pagination:
   type: wayback
   wayback_collapse: urlkey
   wayback_delay: 2.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Two things this buys, both needed once start_urls is /en. (1) It drops the 10,329
+    # `decrees` and 733 `signed-laws` captures server-side. (2) The Archive stored a
+    # /favicon.ico child under thousands of article URLs (10,629 of them across the host —
+    # e.g. …/item/2013/10/12/<slug>/favicon.ico); they are text/html-typed junk and the
+    # mimetype filter alone does not remove them.
+    - "!original:.*(/decrees/|/signed-laws/|/videos/|favicon\\.ico).*"
 
 title:
   selectors: ["h1", "title"]
@@ -33,6 +67,11 @@ date:
   # New template ".date-cub" ("18 01, 2022") + older ".news-date" ("05.01.2015"),
   # both day-first -> date_languages: [hy].
   selectors: [".date-cub", ".news-date", "time", ".date"]
+  # Every permalink on this site carries /YYYY/MM/DD/, so the URL is an exact, unambiguous
+  # backstop for the captures whose mid-2018 template date the selectors miss (the original
+  # notes below asked for exactly this; the engine gained it since). url_regex runs only
+  # when no selector matched, so it cannot override a good on-page date.
+  url_regex: '/item/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
 
 position: president
 date_languages: ["hy"]
@@ -44,3 +83,15 @@ notes: >
   miss a mid-2018 template date — normal wayback noise (lands in _errors.csv). Every
   permalink carries /YYYY/MM/DD/, so a future engine "date-from-URL" feature would make
   the date rock-solid for every capture (also relevant to the Cameroon recipe).
+  2026-08-10 WIDENED (gap-closing wave 2): harvest 8,152 -> 11,620 snapshots. Armenia is the
+  third-largest measured audit gap (343 unmatched corpus rows, 304 of them Serzh Sargsyan
+  2007-2018) even though this source had already produced 8,157 rows — the signature of a
+  harvest that is deep but NARROW. press-release turned out to be one of ELEVEN article
+  sections; nine speech-bearing ones are now included, of which
+  statements-and-messages (698 captures) and interviews-and-press-conferences (297) are the
+  two that most obviously carry the president's own words and were entirely missing. decrees
+  (10,329) and signed-laws (733) stay excluded as legal instruments, and videos (379) has no
+  transcript — together 45% of the host, so including them would have tripled the run for no
+  usable rows. The date url_regex asked for in the paragraph above is now wired up. Re-probe
+  --spread 12/12 green across both DOM templates and five sections. FULL RUN is the
+  researcher's gate.

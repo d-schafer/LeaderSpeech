@@ -15,6 +15,11 @@
 source_id: gha_presidency
 country: Ghana
 source_language: English
+# WAF is UA-keyed (same class as ind_pmindia / col_presidencia): the honest bot UA gets a
+# 52-byte "403 - Forbidden" from nginx on /wp-json AND on the article pages, while a browser
+# UA gets 200 on both. Verified 2026-08-10 from this IP: bot UA -> 403, browser UA -> 200
+# with the full JSON body. Opt-in policy exception; the default stays the honest bot UA.
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 start_urls:
   - https://presidency.gov.gh/wp-json/wp/v2/posts?per_page=100
 
@@ -57,3 +62,10 @@ notes: >
   third-person news (single "uncategorized" category, no speech filter) -> the cleaner's gate
   keeps speeches/official_statements. English source. Coverage is shallow (incumbent only);
   older administrations (Akufo-Addo etc.) would need Wayback.
+  2026-08-10 FIX + re-probe: the site had begun 403-ing the honest bot UA on /wp-json and on
+  the article pages alike (52-byte nginx "403 - Forbidden"), so the recipe harvested 0. Added
+  the browser `user_agent` above; probe --spread now harvests 324 links (site has grown from
+  302), 8/8 sampled pages green — title <- h1, text <- main (1,770-3,724 chars, the theme is
+  Elementor so .entry-content/article do not exist; `main` is the only body container and
+  carries a two-word "Press Releases" breadcrumb prefix), date <- the carried WP JSON `date`
+  field, so no body-date regex is involved. Dates span 2025-01-11 -> 2026-08-03.

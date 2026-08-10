@@ -140,6 +140,13 @@ steadily growing memory footprint and an open connection to the Archive is the s
   archive ran out) logs a warning and sets `pagination_stopped_early` in the summary. A run can otherwise
   finish with zero errors while covering a few recent weeks — that used to be indistinguishable from a
   genuinely short archive. (Tested in `tests/test_paginate.py`.)
+  - **A 404 on page N+1 is a NORMAL end, not a truncation** (`stop_reason: pager_404`). Some pagers signal
+    end-of-results with a 404 instead of serving an empty page — WordPress does, and so do
+    `trumpwhitehouse`/`obamawhitehouse`/`bidenwhitehouse.archives.gov` and `pmindia.gov.in`. Those four
+    sources spent a release flagged `PAGINATION STOPPED EARLY` on complete harvests (verified: pmindia
+    `/page/254` = 200 with 37 links, `/page/255` = 404). The engine now classifies a 404/410 as a normal
+    stop **only when earlier pages actually produced links** — a 404 on the very first page is still a real
+    failure, and a 5xx is still a truncation.
 - **Fatal errors are visible.** Anything unexpected is logged with a full traceback (`FATAL ...`) and partial
   results are flushed to disk before the error propagates.
 - **No silent data loss.** Failures land in `failed_urls` (not `seen`), so a recipe fix + `--retry-failed`

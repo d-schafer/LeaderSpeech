@@ -54,7 +54,13 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
         if value:
             if spec.regex:
                 m = re.search(spec.regex, value)
-                value = m.group(0) if m else value
+                if m:
+                    value = m.group(0)
+                elif spec.regex_required:
+                    # An explicit "the regex IS the field" contract: a miss means this
+                    # selector didn't really match, so keep walking the chain rather than
+                    # returning the unfiltered blob (see FieldSpec.regex_required).
+                    continue
             return value
     return None
 
@@ -176,15 +182,32 @@ def match_url(spec: Optional[FieldSpec], url: Optional[str]) -> Optional[str]:
     return m.group(1) if m.groups() else m.group(0)
 
 
+def _expand_two_digit_year(raw: str) -> str:
+    """Widen a 2-digit year with the POSIX pivot (69-99 -> 19xx, 00-68 -> 20xx).
+
+    Vintage government sites often date a speech in the FILENAME as DDMMYY —
+    presidentofindia.nic.in's `/sp010108.html` is 1 January 2008, and there are ~1,000 of
+    them. Without this, `int("08")` is year 8, the <1900 sanity check rejects it, and the
+    date silently falls through to a body-text regex (the failure mode that dated Koizumi's
+    2003 press conference to 2001-09-11). Only ever applied to an exactly-2-digit group, so
+    4-digit years are untouched."""
+    return ("19" if int(raw) >= 69 else "20") + raw
+
+
 def _iso_from_named_groups(m: re.Match) -> Optional[str]:
     """If a date url_regex captured named year/month/day groups, assemble an ISO date
     directly — this sidesteps dateparser's DD/MM ambiguity for numeric archive paths like
-    `/2003/18-06-...`. Returns None if the groups are absent or don't form a real date."""
+    `/2003/18-06-...`. A 2-digit year group is widened (see _expand_two_digit_year), which
+    is what makes DDMMYY filenames usable. Returns None if the groups are absent or don't
+    form a real date."""
     gd = m.groupdict()
     if not (gd.get("year") and gd.get("month") and gd.get("day")):
         return None
+    year = gd["year"]
+    if len(year) == 2 and year.isdigit():
+        year = _expand_two_digit_year(year)
     try:
-        dt = datetime(int(gd["year"]), int(gd["month"]), int(gd["day"]))
+        dt = datetime(int(year), int(gd["month"]), int(gd["day"]))
     except (ValueError, TypeError):
         return None
     if dt.year < 1900 or dt.year > datetime.now().year + 1:
@@ -202,9 +225,14 @@ def date_from_url(spec: Optional[FieldSpec], url: Optional[str],
     m = re.search(spec.url_regex, url)
     if not m:
         return None
-    iso = _iso_from_named_groups(m)
-    if iso:
-        return iso
+    gd = m.groupdict()
+    if gd.get("year") and gd.get("month") and gd.get("day"):
+        # The recipe asked for an unambiguous assembled date. If the captured parts don't
+        # form a real one, that is a MISS — do NOT fall through to parse_date, which would
+        # be handed group(1) (a bare day or year) and let dateparser fill the rest of the
+        # date from TODAY. A blank date beats a plausible wrong one: the resolved date
+        # picks the tenure roster, so a wrong year corrupts speaker attribution too.
+        return _iso_from_named_groups(m)
     raw = m.group(1) if m.groups() else m.group(0)
     return parse_date(raw, languages)
 

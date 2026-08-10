@@ -125,8 +125,34 @@ def _with_query_param(url: str, param: str, value) -> str:
 # raised. Without this, "the archive is 10 items" and "we silently lost 99% of it" produce
 # byte-identical output (see issue #53 / Austria).
 NORMAL_STOPS = {"empty_page", "no_next_button", "no_next_link", "cyclic_pager",
-                "max_pages", "max_links", "single_page"}
+                "max_pages", "max_links", "single_page", "pager_404"}
 EARLY_STOPS = {"next_click_failed", "listing_fetch_failed", "no_new_links"}
+
+# HTTP statuses that mean "this listing page does not exist" rather than "the listing is
+# broken". Some pagers signal end-of-results with a 404 on page N+1 instead of serving an
+# empty page -- WordPress does, and so do trumpwhitehouse/obamawhitehouse/bidenwhitehouse
+# .archives.gov and pmindia.gov.in. Classifying that as `listing_fetch_failed` raised a
+# false "PAGINATION STOPPED EARLY" on four complete harvests (verified 2026-08-08/10:
+# pmindia /page/254 = 200 with 37 links, /page/255 = 404; trumpwhitehouse page/670 = 200,
+# page/671 = 404). It only counts as a normal end when EARLIER pages actually produced
+# links -- a 404 on the very first page is still a real failure.
+_END_OF_PAGER_STATUSES = {404, 410}
+
+
+def _http_status(exc: BaseException | None) -> int | None:
+    """The HTTP status behind a fetch exception, or None if it wasn't an HTTP error.
+
+    Fetcher.get wraps the underlying error in a RuntimeError but chains it (`from
+    last_err`), so walk __cause__/__context__ rather than regexing the message."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        resp = getattr(exc, "response", None)
+        status = getattr(resp, "status_code", None)
+        if isinstance(status, int):
+            return status
+        exc = exc.__cause__ or exc.__context__
+    return None
 
 
 def _note(stats: dict | None, reason: str, early: bool = False) -> None:
@@ -202,6 +228,14 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 html = fetcher.get(page_url)
             except Exception as e:
                 # one bad listing page shouldn't kill the whole crawl
+                if _http_status(e) in _END_OF_PAGER_STATUSES and collected:
+                    # The pager ran off the end: this page doesn't exist and earlier ones
+                    # yielded links. A NORMAL stop, not a truncated harvest.
+                    log.info("listing page %d returned %d — the pager has no page %d, treating "
+                             "as the end of the results (%d link(s) harvested)",
+                             page_idx + 1, _http_status(e), page_idx + 1, len(collected))
+                    _note(stats, "pager_404")
+                    break
                 log.warning("listing page failed, stopping pagination here: %s :: %s", page_url, e)
                 _note(stats, "listing_fetch_failed", early=True)
                 break
@@ -349,6 +383,12 @@ def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None
             try:
                 html = fetcher.get(url)
             except Exception as e:
+                if _http_status(e) in _END_OF_PAGER_STATUSES and collected:
+                    log.info("listing page %d returned %d — the 'next' link points at a page "
+                             "that doesn't exist, treating as the end of the results "
+                             "(%d link(s) harvested)", page_idx + 1, _http_status(e), len(collected))
+                    _note(stats, "pager_404")
+                    break
                 log.warning("listing page failed, stopping pagination here: %s :: %s", url, e)
                 _note(stats, "listing_fetch_failed", early=True)
                 break

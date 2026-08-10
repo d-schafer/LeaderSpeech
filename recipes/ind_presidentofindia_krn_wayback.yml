@@ -1,0 +1,91 @@
+# India — President of India, the OLDEST archived generation: the static /S/html tree,
+# captured 2002-2004, holding K. R. Narayanan's presidency (1997-2002) and the start of
+# A. P. J. Abdul Kalam's. This is the deepest Indian presidential material that exists
+# anywhere in the corpus — the next-oldest recipe (ind_presidentofindia_old_wayback) starts
+# in 2008.
+#
+# THE TREE, from the CDX index (1,849 captures under presidentofindia.nic.in/S/html;
+# 491 in 2002, 353 in 2003, 58 in 2004):
+#     /S/html/krn/speeches/<section>/<file>.htm    259   Narayanan's own subtree ("krn")
+#     /S/html/speeches/others/<file>.htm           236
+#     /S/html/speeches/credentials/<file>.htm      127   addresses to incoming ambassadors
+#     /S/html/speeches/banquet/<file>.htm           44
+#     /S/html/speeches/foreigntrip/<file>.htm       35
+#     /S/html/speeches/{indepen,republic,parliament,fladyspeech}/…  ~31
+#     /S/html/press_release/press-new/pr<N>.htm    211   NOT taken (press releases)
+#     /S/html/rb/…, /S/html/flow/…                  ~60  NOT taken (Rashtrapati Bhavan
+#                                                        art gallery / museum / flower show)
+# The section INDEXES (e.g. /S/html/krn/speeches.htm, a 485-char left-nav page listing
+# "Republic Day / Independence Day / Farewell Address / Banquets / …") are excluded by
+# requiring a further /<file> segment after the section.
+#
+# TRAP NOTE: start_urls is /S/html rather than the bare host — that prefix is not itself an
+# article path, so filter_entries_for_recipe drops nothing, and it narrows the CDX query to
+# 1,849 captures instead of the host's 14,473.
+source_id: ind_presidentofindia_krn_wayback
+country: India
+source_language: English
+renderer: static
+start_urls:
+  - presidentofindia.nic.in/S/html
+
+listing:
+  # Any speech section, one file deep. `^[^?]*` bars a query string before the match, the
+  # same guard the sibling recipe needed after the site's ASP.NET error page
+  # (/error.htm?aspxerrorpath=/sp040609.html) was harvested as a speech.
+  link_pattern: '^[^?]*/S/html/(?:krn/)?speeches/[^/]+/[^/]+\.html?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # These pages have NO classes and NO headings at all — <title> is the bare site banner
+  # ("President of India") and there is no h1/h2. The headline is a <b> block at the very
+  # top of the single content cell, and it carries the dateline with it, e.g.
+  # "SPEECH BY SHRI KOCHERIL RAMAN NARAYANAN ON HIS ASSUMPTION OF OFFICE AS PRESIDENT OF
+  #  INDIA New Delhi, 25 July, 1997, 3 Sravana, 1919".
+  selectors: ["b", "title"]
+text:
+  # No classes exist on the document; `body` and the outer `td` return identical text
+  # (measured: 7,839 chars each on july25_1997.htm), so `body` is used — it cannot
+  # double-count the way a `td` selector does on nested tables, because the engine joins
+  # every matching element.
+  selectors: ["body"]
+date:
+  # DELIBERATELY scoped to the SAME <b> block as the title, NOT to the body. That block is
+  # the headline + dateline and nothing else, so "the first date in it" is the delivery date
+  # by construction. Running the same regex over the body would reintroduce the Koizumi
+  # failure — these addresses quote historical dates in their opening paragraphs.
+  # The filename carries the date too (july25_1997.htm) but as a month NAME, which the
+  # engine's named-group assembly cannot parse; the dateline is the cross-check for it.
+  #
+  # TWO DETAILS PAID FOR BY A BAD PROBE ROW:
+  #   * `\s*(?:st|nd|rd|th)?` — the ordinal suffix is sometimes SPACED OFF the number on
+  #     these pages ("New Delhi, 10 th May, 2001"), which a `\d{1,2}\s+\w+` pattern misses.
+  #   * `regex_required: true` — without it, a miss returns the WHOLE <b> block (headline
+  #     + all), and dateparser turned "SPEECH BY THE PRESIDENT AT THE BANQUET HOSTED IN
+  #     HONOUR OF …" into TODAY'S DATE. Now a miss just leaves the date blank.
+  selectors: ["b"]
+  regex: '\d{1,2}\s*(?:st|nd|rd|th)?\s+\w+,?\s+(?:19|20)\d\d|\w+\s+\d{1,2}\s*(?:st|nd|rd|th)?,?\s+(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+# No speaker_default: the tree spans Narayanan and early Kalam (and a handful of First Lady
+# items under /fladyspeech, which the cleaner's speaker pass will type correctly), so the
+# tenure crosscheck assigns from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). The oldest archived
+  presidentofindia.nic.in generation: the static /S/html speech tree, captured 2002-2004,
+  content reaching back to Narayanan's 1997 assumption-of-office address. ~730 speech
+  captures across eight sections. Sampled bodies ~7,800-9,300 chars — full transcripts with
+  no nav pollution worth speaking of. The site offers no headings and no classes, so title
+  and date both come from the single <b> headline/dateline block; scoping the date regex to
+  that block rather than the body is what makes a body-text date safe here. Press releases
+  (/S/html/press_release, 211) and the Rashtrapati Bhavan art-gallery / museum / flower-show
+  trees are excluded. FULL RUN is the researcher's gate.

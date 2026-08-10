@@ -123,6 +123,28 @@ def test_date_from_url_falls_back_to_parse_date():
     assert extract.date_from_url(spec, "https://x/a/18-06-2003-foo.pdf", ["pt"]) == "2003-06-18"
 
 
+def test_date_from_url_widens_a_two_digit_year():
+    """DDMMYY filenames are the vintage-government-site norm — presidentofindia.nic.in
+    dates ~1,000 speeches as /sp010108.html (1 Jan 2008). A 2-digit year group is widened
+    with the POSIX pivot instead of being rejected by the <1900 sanity check."""
+    spec = FieldSpec(url_regex=r"/sp(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})")
+    assert extract.date_from_url(spec, "https://x/sp010108.html") == "2008-01-01"
+    assert extract.date_from_url(spec, "https://x/sp311214-2.html") == "2014-12-31"
+    # 69..99 are last century; 00..68 this one.
+    assert extract.date_from_url(spec, "https://x/sp150385.html") == "1985-03-15"
+    # A 4-digit year is untouched.
+    four = FieldSpec(url_regex=r"/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})")
+    assert extract.date_from_url(four, "https://x/2008-01-01/s") == "2008-01-01"
+
+
+def test_named_date_groups_that_dont_form_a_date_return_nothing():
+    """When a recipe asks for assembled year/month/day, an impossible combination is a MISS.
+    It must not fall back to parse_date(group(1)) — that hands dateparser a bare "99", which
+    it happily completes with TODAY's month and day. A blank date beats a wrong one."""
+    spec = FieldSpec(url_regex=r"/sp(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})")
+    assert extract.date_from_url(spec, "https://x/sp993108.html") is None
+
+
 # --- extract_pdf_record -------------------------------------------------------------
 
 def _pdf_recipe(**over) -> Recipe:

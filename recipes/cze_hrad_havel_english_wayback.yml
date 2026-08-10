@@ -1,0 +1,85 @@
+# Czechia — Václav Havel's speeches in ENGLISH, from the original hrad.cz tree
+# (/president/Havel/speeches/<year>/<DDMM>.html), via the Internet Archive.
+#
+# WHY: Czechia's measured audit gap is 325 unmatched rows and Havel alone is 129 of them —
+# the largest single-speaker hole in the whole audit after Orbán. Neither existing Czech
+# recipe reaches him: cze_hrad_wayback harvests the CZECH press stream
+# (/cs/pro-media/tiskove-zpravy) from roughly 2009, i.e. the Klaus/Zeman era, and
+# cze_hrad_english_wayback is the modern English site. Havel left office in 2003.
+#
+# THE DUPLICATION TRAP — this is the thing to know about hrad.cz. The 1990s site served
+# every page through a bank of CGI charset converters, so ONE speech exists under ~24
+# distinct URLs: /cgi-bin/toUTF8.en/, /toISO-8859-2.cs/, /toCP1250.en/, /toASCII.cs/,
+# /toMAC.en/, /toKEYBCS2.en/, /win/, … each crossed with /president/ and /prezident/, on
+# hrad.cz and old.hrad.cz. Measured: 7,483 captures under `Havel/speeches` collapse to just
+# 312 distinct <year>/<file> paths. Harvesting the host would therefore write each speech
+# about twenty-four times. This recipe pins ONE host and ONE prefix; the engine dedupes by
+# exact URL string, which would NOT save us here because every variant is a different string.
+#
+# LANGUAGE: /president/ is the ENGLISH tree and /prezident/ the Czech one (verified by
+# reading the pages, not inferred from the spelling) — so this is native English and needs
+# no translation pass. The `.en` / `.cs` inside the cgi-bin names is the same distinction
+# applied to the converter scripts.
+source_id: cze_hrad_havel_english_wayback
+country: Czechia
+source_language: English
+renderer: static
+start_urls:
+  # Pinned prefix, one host. CDX normalises www., so www.hrad.cz collapses in here; the
+  # old.hrad.cz mirror of the same tree (307 captures) is a different urlkey host and is
+  # deliberately left out as a pure duplicate.
+  - hrad.cz/president/Havel/speeches
+
+listing:
+  # /<year>/<file>.html only, which excludes the per-year index pages (/speeches/1997/) and
+  # the tree root — the root is the book's table of contents ("Challenges of Our Time,
+  # Selected Speeches and Writings 1990-1997"), a 4,366-char list of titles and datelines
+  # that would otherwise be written in as if it were one enormous speech.
+  link_pattern: '/president/Havel/speeches/\d{4}/\d+(?:-\d+)?\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the bare headline ("Jackson H. Ralston Prize"); <title> is the same thing prefixed
+  # with the speaker and suffixed with the date ("Vaclav Havel: Jackson H. Ralston Prize,
+  # September 29, 1994"), which is the useful fallback if h1 is ever missing.
+  selectors: ["h1", "title"]
+text:
+  # These are hand-written 1990s HTML pages: no wrapper div, no classes, no ids. `body` is
+  # the only container and it is almost pure speech — 19,786 chars on the sample with a
+  # two-line dateline header and no navigation at all.
+  selectors: ["body"]
+date:
+  # FROM THE URL. The filename is DDMM inside a year directory: /1994/2909.html is
+  # 29 September 1994 and /2002/1707.html is 17 July 2002 — both cross-checked against the
+  # dateline printed on the page itself ("Stanford University, September 29, 1994").
+  # A body-text regex is not used even though the dateline is line 2: several of these
+  # addresses are historical retrospectives that name earlier dates in their opening
+  # sentences, which is exactly the failure that dated Koizumi's 2003 press conference to
+  # 2001-09-11.
+  selectors: []
+  url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})(?P<month>\d{2})(?:-\d+)?\.html'
+
+speaker_default: Václav Havel
+position: president
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Václav Havel's
+  presidency (1990-2003) in native ENGLISH, which nothing in the corpus covers and which is
+  129 of Czechia's 325 unmatched audit rows. ~550 captures under the pinned prefix, spanning
+  every year 1990-2003 (the per-year capture histogram over all URL variants: 1990 777,
+  1999 741, 1995 710, 1994 605, 2000 575, 1997 517, 1991 497, 1992 468, 1998 442, 2001 439,
+  1996 432, 1993 429, 2002 308, 2003 28). Bodies are full transcripts — 19,846 chars on the
+  sampled Stanford address. THE HEADLINE FINDING, recorded so nobody re-derives it: hrad.cz
+  served the 1990s site through ~24 CGI charset converters, so 7,483 `Havel/speeches`
+  captures collapse to 312 distinct paths, and a host-wide harvest would write every speech
+  about twenty-four times. Pinning one host + one prefix is the whole defence. Dates come
+  from the DDMM filename and were cross-checked against the datelines on the pages.
+  speaker_default is set because this tree is Havel and only Havel. FULL RUN is the
+  researcher's gate.

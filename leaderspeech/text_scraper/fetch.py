@@ -340,7 +340,11 @@ class Fetcher:
                 last_err = e
                 if attempt < self.retries:
                     time.sleep(self.backoff * (2 ** (attempt - 1)))  # exponential backoff
-        raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}")
+        # `from last_err` keeps the ORIGINAL exception reachable as __cause__. The message is
+        # unchanged, but callers can now ask *why* it failed instead of regexing the string —
+        # paginate.py uses it to tell "the pager ran off the end" (404) from "the listing is
+        # broken" (timeout/5xx), which used to look identical. See paginate._http_status.
+        raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}") from last_err
 
     def _guard_block(self, html: str, url: str) -> str:
         """Raise BlockPageError if `html` is a WAF/block/challenge page served with HTTP
@@ -386,7 +390,7 @@ class Fetcher:
                 last_err = e
                 if attempt < self.retries:
                     time.sleep(self.backoff * (2 ** (attempt - 1)))
-        raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}")
+        raise RuntimeError(f"Failed after {self.retries} attempts: {url} :: {last_err}") from last_err
 
     def close(self):
         if self._client:

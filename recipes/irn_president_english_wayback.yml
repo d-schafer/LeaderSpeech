@@ -1,0 +1,104 @@
+# Iran — the PRESIDENT's official English site (president.ir/en), via the Internet Archive.
+#
+# WHY THIS SOURCE, AND WHY IT IS NOT THE ONE WE ALREADY HAVE. The corpus's Iran gap is 172
+# unmatched rows and the SPEAKER breakdown decides the target: Khamenei 70, Hassan Rouhani
+# 70, Mohammad Khatami 30, Ahmadinejad 2. Khamenei is the Supreme Leader and is already
+# covered by irn_khamenei_english_wayback / irn_leader (leader.ir, english.khamenei.ir) —
+# a DIFFERENT office. The presidents were never scraped at all.
+#
+# CDX (president.ir/en prefix, status 200, text/html): 32,507 unique captures, 2004-07 ->
+# 2026-07. Grouped by URL shape:
+#     /en/<id>                15,090   the article permalink        <- taken
+#     /en/<id>/printable      11,012   print twin of the SAME article — excluded server-side
+#     /en/?ArtID=<n>             923   the 2004-2008 scheme (Khatami/early Ahmadinejad)
+#     /en/view.php?ArtID=<n>     652     "     "        "
+#     /en/print.php?ArtID=<n>    967   print twins of those
+#     /en/Archive?c=&m=&t=&y=    692   listing pages
+#     /eng/**/cronicnews/**      ~480   the oldest tree, mostly photo chronicles
+#     /en/<id>/slide             126   image slideshows
+#
+# SCOPE: this recipe takes the /en/<id> permalink space only, which is the Ahmadinejad ->
+# Rouhani -> Raisi -> Pezeshkian era and covers the 70 unmatched Rouhani rows. THE KHATAMI
+# ERA (?ArtID=) IS A SEPARATE, DELIBERATE FOLLOW-UP: it is a query-addressed scheme, so it
+# needs the truncated-prefix + wayback_filter idiom (the engine drops any capture whose PATH
+# equals a start_url path, and every one of those articles has the path /en/ or
+# /en/view.php). ~1,575 captures; worth doing if the 30 Khatami rows matter.
+#
+# THE /en/<id> SPACE IS MIXED — news items, speech transcripts, and PHOTO ALBUMS all share
+# it, and nothing in the URL distinguishes them (verified: /en/40695 is "Trip to Arabia -
+# Meeting with Turkey's President", a 561-char gallery page with no body at all). The
+# `keep_if` below drops the bodyless ones at scrape time; the cleaner's document_type gate
+# then sifts news from speech.
+source_id: irn_president_english_wayback
+country: Iran
+source_language: English
+renderer: static
+start_urls:
+  - president.ir/en
+
+listing:
+  # The bare permalink only: `$` excludes /printable, /slide and the /en/<a>/<b>/<c>/<d>
+  # date-path variants; `^[^?]*` bars the ?ArtID= scheme (a separate era, see the header).
+  link_pattern: '^[^?]*/en/\d+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Drop the 11,012 /printable twins SERVER-SIDE. They are byte-for-byte the same article
+    # as the permalink we do take, so harvesting them would double every Iranian row; doing
+    # it in the CDX query (rather than only in link_pattern) also keeps the harvest payload
+    # near 15k instead of 33k.
+    - "!original:.*(printable|/slide|print\\.php).*"
+
+title:
+  # .title is the article headline and is unique on the page (n=1 on every generation
+  # sampled). <title> is useless — it is literally the string "detail" on the 2019 layout.
+  selectors: [".newsitem_detail .title", ".title"]
+text:
+  # div#news (= .newspage.body) is the article body, 1,484 chars on the sample. DO NOT use
+  # `.content`: it matches three sidebar blocks ("Top News", "related news") and returns
+  # 1,932 chars of OTHER articles' headlines. #content is the whole page including nav.
+  selectors: ["div#news", ".newspage.body"]
+date:
+  # The site prints the publication date inside a `.date` block as "Thursday 16 August 2012
+  # - 12:13" / "Sun 06 - August 2017 - 14:31" (the day-name and the separators vary). Four
+  # `.date` elements exist and the engine joins them, so the raw value also carries
+  # "news id: 100003 -" and the section name — hence the regex, which pulls just the
+  # day/month/year.
+  #
+  # NOT the page's leading clock: #content opens with "Sun Aug 18, 2019 22:38:26", which is
+  # the live server time AT CAPTURE, not the publication date (a 2017 article captured in
+  # 2019 shows the 2019 stamp). Any body-leading date selector would silently stamp every
+  # row with its crawl date — the pm.gc.ca trap.
+  selectors: [".date"]
+  regex: '\d{1,2}\s*-?\s*[A-Za-z]+\s*-?\s*(?:19|20)\d\d'
+  # A miss must leave the date blank, not hand the whole "news id: … Foreign Meetings" blob
+  # to dateparser (which fills a bare token from TODAY).
+  regex_required: true
+
+keep_if:
+  # Keep only captures that actually have an article body. This is what separates the speech
+  # and news items from the photo-album pages that share the /en/<id> space.
+  selectors: ["div#news", ".newspage.body"]
+
+position: president
+# No speaker_default — the id space spans Ahmadinejad, Rouhani, Raisi and Pezeshkian, so the
+# tenure crosscheck assigns the speaker from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Iran's presidents in
+  official English, which the corpus has never held: the two existing Iranian sources are
+  leader.ir / english.khamenei.ir, i.e. the SUPREME LEADER, a different office. Of the 172
+  unmatched Iranian corpus rows, 70 are Rouhani and 2 Ahmadinejad — inside this recipe's
+  window. SIZE WARNING for queue planning: ~15,000 captures, so this is a multi-day run on
+  its own; the /printable twins (11,012) are excluded server-side or it would be 26,000.
+  The /en/<id> space mixes speeches, news and photo albums with nothing in the URL to tell
+  them apart, so a `keep_if` drops the bodyless gallery pages at scrape time and the
+  cleaner's document_type gate does the rest — expect a meaningful reject rate, by design.
+  FOLLOW-UP recorded in the header: the Khatami-era ?ArtID= scheme (~1,575 captures,
+  2004-2008) needs its own truncated-prefix recipe and would cover the remaining 30
+  unmatched Khatami rows. FULL RUN is the researcher's gate.

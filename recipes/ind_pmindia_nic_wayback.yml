@@ -5,18 +5,43 @@
 #   * /speech/content.asp?id=<id>       (ASP era, ~2006–2011)
 #   * /speech-details.php?nodeid=<id>   (PHP era, ~2012–2014)
 # English is the default; the Hindi copy carries ?ln=hindi, excluded by the link_pattern.
+#
+# 2026-08-10 WIDENED — and the reason is the measured audit gap. India's 227 unmatched
+# corpus rows are Manmohan Singh (182) + Vajpayee (43), i.e. this source, and the previous
+# link_pattern took only two of the site's SIX English speech/statement schemes. Enumerating
+# the full CDX index (7,898 unique status-200 text/html captures on the domain) by URL shape
+# showed what was being dropped:
+#     speech/content.asp?id=        1,023   (was harvested)
+#     speech-details.php?nodeid=      162   (was harvested)
+#     visits/content.asp?id=          358   DROPPED — PM statements on foreign visits
+#     lspeech.asp?id=                 240   DROPPED — the older "latest speech" scheme, 2003-2012
+#     press-details.php?nodeid=       145   DROPPED
+#     prelease/pcontent.asp?id=        91   DROPPED
+#     pmmessageappeals.php?nodeid=     54   DROPPED — PM messages/appeals
+#     message/mcontent.asp?id=         40   DROPPED
+# Verified by sampling, not assumed: lspeech.asp?id=10 is "Speech by the Prime Minister of
+# India at the inaugural BIMST-EC SUMMIT / July 31, 2004 / Bangkok" (7,431 chars) and
+# visits/content.asp?id=10 is "Statement by PM on the eve of his departure to London and New
+# York / September 19, 2004" — both plainly in scope. The press/message schemes are kept
+# deliberately (same ruling as rou_presidency_english_wayback): the cleaner's document_type
+# gate is the right place to sift a communiqué from a speech, not the harvest.
+# STILL EXCLUDED, on purpose: `contentNprint.asp` (770) and `content_print.php` are
+# print-view DUPLICATES of pages we already take, and every `?ln=hindi` variant is the Hindi
+# rendering of an English page we already have.
 source_id: ind_pmindia_nic_wayback
 country: India
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — catches both /speech/content.asp and /speech-details.php.
-  - pmindia.nic.in/speech
+  # Bare host: the six schemes above live under four different first path segments
+  # (/speech, /visits, /message, /prelease) plus root-level .php scripts, so no single CDX
+  # prefix reaches them. The wayback_filter below does the narrowing server-side instead.
+  - pmindia.nic.in
 
 listing:
-  # English speech detail pages of either scheme, anchored at the id so the ?ln=hindi and
-  # content4print.asp variants are excluded.
-  link_pattern: '/(speech/content\.asp\?id=\d+|speech-details\.php\?nodeid=\d+)$'
+  # The six English detail schemes, each anchored at its id so the `?ln=hindi` twins and the
+  # print views can't match. Ordered as in the comment above.
+  link_pattern: '/(speech/content\.asp\?id=\d+|speech-details\.php\?nodeid=\d+|visits/content\.asp\?id=\d+|lspeech\.asp\?id=\d+|press-details\.php\?nodeid=\d+|prelease/pcontent\.asp\?id=\d+|pmmessageappeals\.php\?nodeid=\d+|message/mcontent\.asp\?id=\d+)$'
 
 pagination:
   type: wayback
@@ -25,17 +50,40 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    # Server-side narrowing, needed now that start_urls is the bare host: without it the
+    # query returns all 7,898 captures (1,353 of them ShowLargePhoto.asp, 661 photo-gallery
+    # pages, …) and the link_pattern would throw ~85% of them away client-side.
+    - "original:.*(speech|visits/content|lspeech|press-details|prelease/pcontent|pmmessageappeals|message/mcontent).*"
 
 title:
-  selectors: ["h1", "h2", ".pageheading", "title"]
+  # Chain ordered PHP-era first, then ASP-era, because each generation's winner is absent
+  # from the other. NEITHER `h1` nor `title` may lead: on every page of both generations
+  # they are the site banner ("Prime Minister of India", "Prime Minister's Office",
+  # "Prime Minister of India - Dr. Manmohan Singh"), i.e. a nav blob, not a headline.
+  #   PHP 2012-14: div.rt h2 -> "PM dedicates BHEL's Power Plant Piping Unit … to the Nation"
+  #   ASP 2003-11: b (2 elements, joined) -> "Speech by the Prime Minister of India at the
+  #                inaugural BIMST-EC SUMMIT July 31, 2004 Bangkok" — headline + dateline.
+  selectors: ["div.rt h2", "b", "h1", "title"]
 text:
-  # Vintage table-layout ASP/PHP pages. The speech sits in a <td> (probe: 25k–48k-char Manmohan Singh
-  # addresses); trafilatura tends to miss table-based content, so `td` leads and the cleaner's GPT pass
-  # strips any joined nav chrome. (The /speech-details.php PHP tail extracts thinly — generic backstops.)
-  selectors: ["td", "#content", ".content", "article"]
+  # Vintage table-layout ASP/PHP pages.
+  # `body` LEADS DELIBERATELY, and this is a fix, not a preference: these pages nest tables
+  # 3-5 deep, and the engine JOINS every element a selector matches — so a leading `td`
+  # selector returns the same speech once per enclosing cell. Measured on
+  # lspeech.asp?id=10: `td` = 36,847 chars, `body` = 7,364 chars for a 7.4k-char speech,
+  # i.e. the body was being written FIVE TIMES over. `body` also picks up the site's small
+  # header/footer chrome, which the cleaner's GPT pass strips; five copies of the speech it
+  # would not. The 1,182 rows scraped 2026-07-31 carry the duplicated text — a `--rescrape`
+  # would rebuild them clean.
+  # div.contentInner is the PHP era's article container (5,001 chars, no nav); `body` is the
+  # ASP era's least-bad container (no classes exist on those pages at all).
+  selectors: ["div.contentInner", "body", "td", "#content", ".content", "article"]
 date:
-  # These speech pages carry a dateline; refine the selector after inspecting the archived DOM at probe.
-  selectors: ["body"]
+  # Both generations open the article with a dateline, so the FIRST date in these containers
+  # is the right one (verified on both: PHP div.contentInner starts "August 2, 2013
+  # Thirumayam, Tamil Nadu <headline>"; ASP body starts "<headline> July 31, 2004 Bangkok").
+  # That is the ONLY reason a body-text date regex is safe here — cf. the Koizumi case, where
+  # the first date on the page was a date mentioned inside the speech.
+  selectors: ["div.contentInner", "body"]
   regex: '\d{1,2}(?:st|nd|rd|th)?\s+\w+,?\s+(?:19|20)\d\d|\w+\s+\d{1,2},?\s+(?:19|20)\d\d'
 
 position: prime minister
@@ -48,3 +96,18 @@ notes: >
   speaker_default — the cleaner's speaker pass + tenure crosscheck assign Vajpayee vs Manmohan Singh by
   date. TITLE/DATE/TEXT selectors are provisional (vintage ASP DOM) → VERIFY + refine at probe;
   body likely via generic fallback. FULL RUN is the researcher's gate.
+  2026-08-10 WIDENED + SELECTORS FIXED (gap-closing wave 2). This source IS India's measured
+  gap: of 227 unmatched corpus rows, 182 are Manmohan Singh and 43 Vajpayee. Harvest went
+  1,185 -> 2,112 snapshots by adding the four English schemes the old link_pattern dropped
+  (visits/content.asp 358, lspeech.asp 240, press-details.php 145, prelease/pcontent.asp 91,
+  pmmessageappeals.php 54, message/mcontent.asp 40); start_urls moved to the bare host with a
+  CDX `original:` filter because those schemes sit under four different path segments.
+  Probe --spread 15/15: title, text and date all resolve on a recipe selector on BOTH
+  generations, dates 2002-04-08 -> 2012-05-05, no generic-fallback warnings.
+  Two defects fixed while there: (1) `td` led the text chain, and because the engine joins
+  every matching element while these pages nest tables 3-5 deep, each speech was written
+  ~5x over (lspeech.asp?id=10: td 36,847 chars vs body 7,364 for a 7.4k speech) — the 1,182
+  rows scraped 2026-07-31 carry that duplication and a `--rescrape` would rebuild them clean;
+  (2) the title chain led with h1/h2/title, every one of which is the site banner on both
+  generations ("Prime Minister of India", "Prime Minister's Office"), so no row had a real
+  headline.

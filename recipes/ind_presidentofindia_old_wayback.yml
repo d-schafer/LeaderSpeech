@@ -1,0 +1,123 @@
+# India — President of India, the 2008-2014 presidentofindia.nic.in root scheme
+# (/sp<DDMMYY>.html), via the Internet Archive: Pratibha Patil (2007-2012) and early Pranab
+# Mukherjee (2012-2014).
+#
+# THREE RECIPES COVER THIS HOST, split by URL generation, and they do not overlap:
+#   ind_presidentofindia_krn_wayback   /S/html/…/speeches/…   2002-2004 captures (Narayanan)
+#   THIS ONE                           /sp<DDMMYY>.html       2008-2014
+#   ind_presidentofindia_wayback       /speeches-detail.htm?<id> 2014-2023 + /speeches/<slug>
+#   ind_presidentofindia (live)        the rolling ~6-week tail
+# The split is forced by the DATE, not by taste: this generation encodes the date NUMERICALLY
+# in the filename and the /S/html generation encodes it as a month NAME (july25_1997.htm), and
+# Python forbids two groups with the same name, so one `url_regex` cannot serve both.
+#
+# THE SHAPES, measured off the full CDX index (14,473 unique status-200 text/html captures
+# on the host, 2002-02 -> 2026-08) grouped by URL shape:
+#     sp<DDMMYY>.html / sp<DDMMYY>-N.html     584   SPEECHES        <- taken
+#     /S/html/[krn/]speeches/<section>/<x>.htm ~730  SPEECHES        <- taken
+#     sp<DDMMYY>_hindi.html                    281   Hindi twin of a page we already take
+#     pr<DDMMYY>[-N].html                    1,296   press releases  <- NOT taken, see below
+#     re<DDMMYY>[-N].html                      777   "Recent Events" <- NOT taken, MEASURED
+#     mg<DDMMYY>[-N].html                      195   Media Gallery   <- NOT taken, MEASURED
+#     Default.aspx?id=&lg=&y= / default.aspx?y= 992  year-index listing pages
+#     BirdPopup / largephoto / photosN / videogalleryN  ~900 image and video chrome
+#
+# THE TWO EXCLUSIONS ARE MEASURED, NOT ASSUMED — sampled archived captures rather than
+# inferred from the path name, so they need not be re-investigated:
+#   * re<DDMMYY>.html is the "Recent Events" stream: third-person photo captions of 500-1,800
+#     chars ("The President Spends Time with Children on New Year's Day 2010 / The President
+#     of India, Smt. Pratibha Devisingh Patil spend her time with a large group of children
+#     …"). Not speech, not statement. Its <title> is the misleading part — it reads
+#     "President of India : President's Address to the Nation" on caption pages too, because
+#     that string is the section banner, not the article title.
+#   * mg<DDMMYY>.html is the Media Gallery: 1,421 chars of pure left-nav ("Profile Speeches
+#     Press Releases Events Photo Gallery …") with no article at all.
+#   * pr<DDMMYY>.html (press releases) is left out for SCOPE, not quality — India's president
+#     side is already 85.7% matched in the audit while the 227-row gap is the PMs (see
+#     ind_pmindia_nic_wayback), so 1,296 further fetches buy little here. It is the obvious
+#     first widening if more Indian presidential material is ever wanted: add
+#     `pr\d{6}(-\d+)?\.html` to link_pattern and `pr` to the wayback_filter alternation.
+#
+# TRAP NOTE: start_urls is the BARE HOST on purpose. filter_entries_for_recipe drops any
+# capture whose PATH equals a start_url path, and these articles sit at the root
+# (/sp150410.html), so any narrower start_url would either drop them or fail to reach the
+# second scheme under /S/html. The CDX `original:` filter does the narrowing server-side.
+source_id: ind_presidentofindia_old_wayback
+country: India
+source_language: English
+renderer: static
+start_urls:
+  - presidentofindia.nic.in
+
+listing:
+  # Two generations, and nothing else:
+  #   /sp<DDMMYY>.html, /sp<DDMMYY>-N.html   — the 2008-2014 root scheme (Patil, Mukherjee).
+  #     The `_hindi` twin cannot match: the pattern ends at the optional -N and `.html`.
+  #   /S/html/[krn/]speeches/<section>/<file>.htm — the 2002-2004 tree (Narayanan, Kalam).
+  #     `krn` is K. R. Narayanan's own subtree; the section indexes (/S/html/krn/speeches.htm,
+  #     which is a 485-char nav page) are excluded by requiring a further /<file> segment.
+  # `^[^?]*` is load-bearing: without it the pattern also matched the site's ASP.NET error
+  # page, `/error.htm?aspxerrorpath=/sp040609.html`, which ENDS in a valid speech filename
+  # and was harvested as a speech on the first probe. Barring '?' before the match keeps the
+  # filename in the PATH.
+  link_pattern: '^[^?]*/sp\d{6}(?:-\d+)?\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Server-side narrowing — a bare-host query otherwise returns all 14,473 captures.
+    - "original:.*/sp[0-9]{6}.*"
+
+title:
+  # Ordered newest generation first; each generation's winner is absent from the others, so
+  # the chain self-selects. NONE of h1 / <title> may lead — on every generation they are the
+  # site banner ("The President of India Shri Pranab Mukherjee", "President of India :
+  # President's Speeches"), i.e. a nav blob rather than a headline.
+  #   2012-14 (Mukherjee, div layout) : .contHolder b -> "SPEECH BY THE PRESIDENT OF INDIA,
+  #                                     SHRI PRANAB MUKHERJEE AT THE VALEDICTORY FUNCTION …"
+  #   2008-12 (Patil, table layout)   : .head (a <font class="head">) -> "SPEECH BY HER
+  #                                     EXCELLENCY THE PRESIDENT OF INDIA, SHRIMATI PRATIBHA …"
+  selectors: [".contHolder b", ".head", "b", "title"]
+text:
+  # .contHolder is the 2012-14 article container (11,175 chars, no nav). The two older
+  # generations have NO usable class at all — the Patil pages carry exactly two classes on
+  # the whole document (.head, .style2) — so `body` is the container. `body` deliberately
+  # beats `td`: the engine joins every matching element and these pages nest tables, so a
+  # leading `td` returns the speech twice (measured on sp150410.html: td 13,141 chars vs
+  # body 6,624 for a 6.6k-char page). The small "Home » Speeches Back" prefix and the NIC
+  # footer that `body` picks up are what the cleaner's GPT pass is for.
+  selectors: [".contHolder", "body"]
+date:
+  # NO SELECTORS, BY DESIGN — the date comes from the URL, which is unambiguous.
+  # /sp150410.html is 15 April 2010 (DDMMYY), cross-checked against the dateline inside the
+  # page ("Gangtok, Sikkim, 15th April 2010") on three separate captures; /sp090113.html is
+  # 09-01-2013, matching its own "Kochi, Kerala: 09-01-2013". A body-text regex was rejected:
+  # these transcripts quote historical dates in their opening paragraphs, which is exactly
+  # how a first-date-on-the-page regex dated Koizumi's 2003 press conference to 2001-09-11.
+  # The 2-digit year is widened by the engine with the POSIX pivot (00-68 -> 20xx).
+  selectors: []
+  url_regex: '/sp(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})'
+
+position: president
+# No speaker_default: the window spans Patil and Mukherjee, so the tenure crosscheck assigns
+# from country+date. The titles also name the president explicitly, giving the cleaner a
+# second signal.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Recovers the
+  2008-2014 presidentofindia.nic.in root speech scheme (/sp<DDMMYY>.html), which nothing in
+  the corpus covers: the sibling ind_presidentofindia_wayback starts at
+  /speeches-detail.htm in 2014 and the live ind_presidentofindia is a rolling ~6-week
+  window. Two DOM generations inside this one URL scheme (Patil's table layout, Mukherjee's
+  div layout) are handled by chain order. Sampled bodies 6,624 / 11,175 chars — full
+  transcripts. Dates come from the URL and were cross-checked against the dateline printed
+  inside three separate pages. Hindi twins (sp<DDMMYY>_hindi.html, 281 captures) excluded.
+  Measured negative findings recorded in the header so they are not re-investigated:
+  re<DDMMYY>.html (777) is a third-person photo-caption stream and mg<DDMMYY>.html (195) is
+  media-gallery nav; the press-release scheme pr<DDMMYY>.html (1,296) is a deliberate SCOPE
+  exclusion, not a quality one, and is the obvious first widening. FULL RUN is the
+  researcher's gate.
