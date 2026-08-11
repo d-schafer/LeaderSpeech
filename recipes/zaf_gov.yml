@@ -10,11 +10,44 @@ source_id: zaf_gov
 country: South Africa
 source_language: English
 renderer: static
+# WIDENED 2026-08-10 (RULE 1 sweep, chunk A1). The recipe took /news/speeches ONLY — one of
+# gov.za's SEVEN news sections. Enumerated from the site's own nav (live triage; a CDX pass on
+# gov.za/news is not usable, see the note at the foot of this header):
+#     /news/speeches                        <- the only one previously taken
+#     /news/media-statements                <- statements/press releases. SAMPLED: same Drupal
+#                                              shape, h1 + .field--name-body (17,776 chars on
+#                                              "Minister Ronald Lamola: South Africa's foreign
+#                                              policy priorities…") + <time>. Selectors unchanged.
+#     /news/cabinet-statements              <- Cabinet statements
+#     /news/parliamentary-questions-and-answers  <- the leader's own answers to Parliament
+#     /news/media-advisories                <- short notices, taken (cheap, cleaner filters)
+#     /news/events                          <- NOT taken: engagement diary, the Denmark
+#                                              /kalender/ shape
+#     /news/state-nation-address            <- NOT taken as a section: it is a HUB page with
+#                                              in-page year anchors (#2026, #2025, …), not a
+#                                              listing of article URLs. The SONA texts themselves
+#                                              live under /news/speeches/ and are already caught.
+# Also NOT taken: /blog (opinion pieces — a different top-level path, needs its own start_url;
+# sample first) and /national-budget-0 (budget-speech hub, same hub shape as SONA).
+#
+# INCREMENTAL: data/state/South Africa.json holds a seen-URL set, so an ordinary run fetches only
+# newly-matched URLs. Do NOT --rescrape.
+#
+# ⚠ CONCURRENCY: South Africa's state file is shared with zaf_thepresidency_wayback,
+# zaf_gov_wayback and zaf_govza_extra_wayback. Never run this at the same time as any of those
+# on another machine (queue rule 2) — as of 2026-08-10 a sweep_wb_za queue is running
+# zaf_thepresidency_wayback on the MSU workstation.
 start_urls:
   - https://www.gov.za/news/speeches
+  - https://www.gov.za/news/media-statements
+  - https://www.gov.za/news/cabinet-statements
+  - https://www.gov.za/news/parliamentary-questions-and-answers
+  - https://www.gov.za/news/media-advisories
 
 listing:
-  link_pattern: '/news/speeches/[a-z0-9-]+'
+  # All five text-bearing news sections. The optional middle segment admits the sub-filed
+  # variant seen on media-statements (…/media-statements/government-activities/<slug>).
+  link_pattern: '/news/(speeches|media-statements|cabinet-statements|parliamentary-questions-and-answers|media-advisories)/(?:[a-z0-9-]+/)?[a-z0-9-]+'
 
 pagination:
   type: query_param

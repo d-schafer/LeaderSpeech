@@ -10,11 +10,50 @@ source_id: rou_guvern
 country: Romania
 source_language: Romanian
 renderer: static
+# BANKED, NOT BUILT (standing bank-it-author-later policy): gov.ro has a LIVE ENGLISH MIRROR at
+# gov.ro/en/news/<slug>, with siblings /en/media/press-releases and /en/government/cabinet-meeting.
+# Verified live 2026-08-10: real articles ("Prime Minister Ilie Bolojan received Prime Minister of
+# the Republic of Moldova Vasile Tofan at Victoria Palace", "Set of measures to stabilize the
+# national power system…"). It needs its OWN recipe because source_language is one field per
+# recipe — but it is otherwise this recipe with `/en/` swapped in, so it should be cheap. HIGH
+# PRIORITY under the researcher's English-first scraping policy: an English source can be queued
+# immediately, whereas this Romanian recipe cannot.
 start_urls:
   - https://gov.ro/ro/stiri
 
 listing:
   link_selector: "h2 a"
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — WIDENED, THEN REVERTED. NOT NARROW.
+  #
+  # gov.ro's nav advertises three article paths, so this was widened to
+  #   /ro/(stiri|media/comunicate|guvernul/sedinte-guvern)/<slug>
+  # which lifted the probe from 7,251 to 12,513 links. **That was WRONG and is reverted.** The
+  # other two paths are ALTERNATE VIEWS of the same articles already served under /ro/stiri/,
+  # not separate content — the classic same-article-under-multiple-paths trap.
+  #
+  # PROOF (two independent cases, and the second is the decisive one):
+  #   * "testele-de-securitate-functionalitate-i-performanta-ale-sistemului-e-terra-avanseaza"
+  #     appears under BOTH /ro/stiri/ and /ro/media/comunicate/.
+  #   * "declaratii-de-presa-sustinute-de-premierul-ilie-bolojan-la-finalul-edintei-de-guvern"
+  #     appears under BOTH /ro/stiri/ and /ro/guvernul/sedinte-guvern/, and the /ro/stiri/ copy
+  #     is STRICTLY BETTER: identical 35,448-char body, but the title resolves via
+  #     `.page.w635 h2` (the intended selector) instead of falling through to <title>, and the
+  #     date resolves — "Joi, 06 August 2026" — where the alternate view's does not.
+  #
+  # The widening would therefore have added ~5,262 DUPLICATE fetches AND degraded extraction.
+  # It was caught by the probe's date column: /ro/media/comunicate/ pages carry only
+  # "Miercuri, 31 Mai" — day and month, NO YEAR anywhere on the page (the year exists only as a
+  # Unix epoch in the trailing URL digits, e.g. …1685554304 = 2023-05-31, which `url_regex`
+  # cannot convert since it needs named year/month/day groups). Chasing that failure is what
+  # exposed the duplication.
+  #
+  # LESSON, worth generalising: a nav listing three "sections" is not evidence of three content
+  # sets. Before widening a live site, take one slug from the new section and check whether the
+  # SAME slug resolves under the section already covered.
+  #
+  # Genuinely out of scope here: /ro/media/foto and /ro/media/video (galleries, RULE 1),
+  # /ro/media/acreditare-presa (press accreditation), /ro/prim-ministru/agenda (the PM's DIARY,
+  # the Denmark /kalender/ shape), and the static /ro/guvernul/* and /ro/obiective/* pages.
   link_pattern: '/ro/stiri/[a-z0-9-]+'
 
 politeness:
