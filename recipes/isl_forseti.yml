@@ -18,6 +18,14 @@ listing:
   # Icelandic tree only: forseti.is/frettir/<slug>, no deeper segment. The /en/ mirror is a
   # partial translation of the same items — scraping it would duplicate rows; convention is to
   # take the original language and let the translation stage fill English.
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A-sitemap) — NO CHANGE NEEDED on the
+  # Icelandic side. The sitemap holds 707 URLs and this matches 510 = 72.1%; the remainder is
+  # /en/ (the English mirror, 109 news + 23 static), /myndasafn/ (the photo gallery, out by
+  # RULE 1), and /embaettid/ + /forseti/ + /bessastadir (static about-pages). There is no
+  # second Icelandic article section to add.
+  # BANKED (not built, per the sweep's bank-it-author-later policy): isl_forseti_english over
+  # the 109 /en/news/<slug> pages — official English, so no translation step. Needs its own
+  # recipe only because source_language is one field per recipe.
   link_pattern: 'forseti\.is/frettir/[^/]+$'
 
 pagination:

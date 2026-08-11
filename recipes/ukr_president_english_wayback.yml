@@ -18,6 +18,38 @@ start_urls:
 
 listing:
   # modern slug ending in -<id≥3 digits>, or the old numeric .html page
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — NO PATTERN CHANGE, but read this
+  # before "fixing" the coverage number. Full CDX of president.gov.ua/en: 41,066 raw captures
+  # -> 34,958 distinct -> 28,360 in scope; this pattern matches 19,114 = 67.4%, which trips the
+  # <70% finding threshold. Every missed shape was sampled and none belongs in THIS recipe:
+  #
+  #   * /eng/<section>/<id>.html  (2,992 captures, 2002-2005 Kuchma era) and
+  #     /en/news/data/<id>.html   (1,782 captures, 2005-2008 Yushchenko era)
+  #     — TWO legacy CMS generations, both TABLE-LAYOUT. The only text container is `td`, which
+  #     is trap #1: the engine joins every matching element, so `td` returns the whole page
+  #     including the section nav ("Statements / Adresses / Speeches / Interviews / Press
+  #     conferences / Visits / Receptions / Meetings / Decrees / ..."). None of this recipe's
+  #     text selectors (.article_content/.news_detail/.editor/article/.content) exist on them,
+  #     the title lives in <title> behind an "Official Website - " prefix, and /en/news/data/
+  #     has no date element at all (the /eng/ pages do: .date, "11.10.2002 // 10:37").
+  #     Content is real — "President of Ukraine meets Prime Minister of the Republic of
+  #     Armenia", "Ukraine 3000, MTI to open computer classroom". BANKED as one sibling recipe
+  #     (ukr_president_english_old_wayback); it needs its own selector chain, so per the sweep's
+  #     standing policy it is banked, not built here.
+  #   * /en/documents/<id>-<n>  (1,850) — presidential DECREES. Sampled and REJECTED on the
+  #     three-part test, exactly like the Armenian case: h1 is "№1001/2008" (the decree number,
+  #     the same shape on every item, so no per-document title), .date reads 9 November 2017 for
+  #     a 2008 decree (a publication stamp, not the decree date), and no body container carries
+  #     the text — only page chrome.
+  #   * /en/press-office/<slug>-<id> (610) — h1 and .date resolve, but no article container
+  #     exists; the body is navigation. These are media-accreditation notices for events.
+  #   * /en/news/<id>.html?PrintVersion (1,728) and /eng/<...>_mode_print.html — print
+  #     duplicates of pages already taken. /en/news/index.php?... and /en/archive?cat= — listings.
+  #
+  # The MODERN generation is genuinely broad already: the site's nav (News, Current events,
+  # Speeches, Congratulations, Presidential Administration, President's wife) are filtered
+  # VIEWS of one URL space, /en/news/<slug>-<id>, not separate paths — so there is no sibling
+  # section to add here. That is why 67.4% is the right number rather than a defect.
   link_pattern: '/en/news/[^/?]+-\d{3,}|/en/news/\d+\.html'
 
 pagination:

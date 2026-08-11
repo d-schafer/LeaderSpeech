@@ -11,6 +11,40 @@
 # misses. This recipe still uses the sitemap (it works and is complete for 2012-2016);
 # moving it to the live listing is tracked as a follow-up. A bgr_president_wayback.yml over
 # the IA CDX is the other route to the Radev gap.
+#
+# WIDENED 2026-08-10 (RULE 1 sweep): 4,379 -> 4,878 sitemap URLs. The pattern took the
+# /newsN/ section only; president.bg files articles as /<section><id>/<slug>.html and three
+# more sections carry leader text — speeches-and-statements (+333), interviews-president
+# (+127), briefings (+12). INCREMENTAL: the per-country state file's `seen` URL set means an
+# ordinary `run` fetches only the newly-matched URLs. Do NOT --rescrape.
+#
+# WHAT WAS SAMPLED AND REJECTED (never dismiss an endpoint without sampling; never add a
+# block without sampling either). The sitemap's other 18k URLs are NOT harvestable content:
+#   * catN/... (~5,000 URLs across catN/SLUG, catN/N/SLUG.html, ///catN/, pardons/catN/) —
+#     SOFT-404s. Sampled cat88/365/closing-speech-by-the-vicepresident..., cat47/400/veto-na-
+#     prezidenta-...-zakona-za-srs.html and pardons/cat100/: all return HTTP 200 with the
+#     homepage shell — no h2.article-title, no .print-content, `<title>` is the generic
+#     "Президент на Република България". This also ANSWERS the sweep's open question about
+#     `pardons/` (345): there is nothing behind those URLs to harvest.
+#   * photo-galleryN/ (827) — real pages, but body is date + title + "Снимки: <photographer>"
+#     (201 chars, sampled photo-gallery1568). Photo galleries are out of scope by RULE 1 and
+#     the sampling agrees.
+#   * docs/N.pdf (1,079) — procurement attachments, not speeches. 2 of 3 sampled extract
+#     ZERO chars (image-only scans, would need OCR); one is a German used-car sale contract
+#     template. Also docs/N.xls, .doc, .pdf.tsr (timestamp files).
+#   * calendar/N/N/N/ (884), news/page/N/, catN/{rss,links,contacts,site-map} — listings/nav.
+#
+# TWO KNOWN DEFECTS IN THIS SITEMAP, recorded so nobody re-derives them:
+#   1. ~1,150 <loc>s are VULNERABILITY-SCANNER FUZZ — the sitemap was built while a Netsparker
+#      scan was running, so real URLs appear with injected prefixes ("Netsparker<hex>",
+#      "1e309-", "268435455-", "nosuchpageNNN", base64 ../../etc/passwd payloads). They 200 as
+#      soft-404s. They do not match this pattern (no valid <section><id>/ head), so they are
+#      harmless here — but they are why the raw "19.3% coverage" number was misleading.
+#   2. The SLUG IS DECORATIVE — the id drives the content. /news2618/<bulgarian-slug>.html and
+#      /news2618/<english-slug>.html both serve the SAME Bulgarian article (sampled). So the
+#      4,878 URLs are only ~3,150 distinct articles and the scraped CSV carries ~1.3x
+#      duplicate rows. The engine dedupes by URL, not by id, so a link_pattern cannot fix
+#      this — dedupe on the /(\w+)(\d+)/ id downstream before the cleaning step pays GPT twice.
 source_id: bgr_president
 country: Bulgaria
 source_language: Bulgarian
@@ -19,14 +53,27 @@ start_urls:
 renderer: static
 
 listing:
-  # Keep sitemap URLs to article permalinks (/newsNNNN/<slug>.html); drops section
-  # and category pages. Tolerates the './news' artifact some <loc>s carry.
-  link_pattern: '/news\d+/[^/]+\.html$'
+  # Keep sitemap URLs to article permalinks (/<section><id>/<slug>.html) across ALL four
+  # text-bearing sections; drops section, category and gallery pages. Tolerates the './news'
+  # artifact some <loc>s carry. The trailing `\.html$` anchor is deliberate: the bare
+  # /<section><id>/ form serves the same article (only ~80 ids are bare-only), so admitting
+  # it would add ~600 duplicate fetches for <80 extra pages.
+  link_pattern: '/(news|speeches-and-statements|interviews-president|briefings)\d+/[^/]+\.html$'
 
 pagination:
   type: sitemap
   sitemap_urls:
     - https://www.president.bg/sitemap.xml   # index -> sitemap_000.xml + sitemap_001.xml
+
+# president.bg answers a dead permalink with HTTP 200 + the homepage shell rather than a
+# 404, so a soft-404 would otherwise be written as a row titled "Президент на Република
+# България" with the homepage chrome as its body and TODAY's sidebar date. Every real
+# article carries .print-content and no soft-404 does, so presence of that element is the
+# gate. Added 2026-08-10 with the section widening: a handful of the newly-admitted
+# interviews-president ids are dead this way (interviews-president1520 and 1559 are, 1028
+# and 1820 are fine), and the same guard protects the long-standing /newsN/ section too.
+keep_if:
+  selectors: [".print-content"]
 
 title:
   selectors: ["h2.article-title", "h1", "title"]
@@ -40,7 +87,13 @@ date_languages: ["bg"]
 notes: >
   Presidency of Bulgaria. Sitemap recipe over president.bg/sitemap.xml — probe-
   verified clean extraction across 2012-2016 (title h2.article-title, text
-  .print-content, date .date; ~4,379 permalinks). Content is BULGARIAN (Cyrillic)
+  .print-content, date .date). WIDENED 2026-08-10 from the /newsN/ section alone to
+  all four text-bearing sections (news + speeches-and-statements + interviews-president
+  + briefings): 4,379 -> 4,878 permalinks. Incremental — do NOT --rescrape; the state
+  file's seen-URL set means a normal run picks up only the new sections. Everything
+  else in the sitemap was SAMPLED and rejected (catN/ and pardons/ are soft-404s,
+  photo-gallery pages carry only a photo credit, docs/*.pdf are procurement scans) —
+  see the recipe header for the evidence. Content is BULGARIAN (Cyrillic)
   even on /en/ URLs, so source_language: Bulgarian and date_languages: [bg]
   (dates read like "21 Юни 2026"). Captures presidential + vice-presidential
   activity/statements; the cleaner's tenure gate narrows to leader speeches.

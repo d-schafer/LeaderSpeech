@@ -18,8 +18,29 @@
 #      Modern Drupal. Hurley / Mostyn. h1 is the headline, time[datetime] is ISO,
 #      body in .field--name-body.
 #
-# The 2013-2018 window is genuinely thin in the Archive — no speech generation was
-# captured in quantity there. Not a recipe defect.
+# ❌ CORRECTED 2026-08-10 (RULE 1 sweep, chunk A1). This header used to claim: "The
+# 2013-2018 window is genuinely thin in the Archive — no speech generation was captured in
+# quantity there. Not a recipe defect." THAT IS WRONG, and a full CDX enumeration of the host
+# disproves it. There is a FOURTH generation:
+#   4. 2013-2019  /speech/<slug>                                      ~324 caps (filtered)
+#      Drupal 7. Captures by year: 2013:19, 2014:209, 2015:43, 2016:38, 2017:2, 2018:9,
+#      2019:4 — i.e. concentrated in EXACTLY the window called sparse above. Bryce / Cosgrove.
+#      Sampled http://www.gg.gov.au/speech/150th-melbourne-cup (cap 20140213051008): real
+#      speech text, 1,496 chars.
+# It is NOT harvested here, and deliberately so — it needs a title strategy this recipe cannot
+# express. Verified selectors, so authoring it later is near-mechanical:
+#      text  -> .field-name-body      (SINGLE dash: Drupal 7. Gen 3's .field--name-body is the
+#                                      Drupal 8 double-dash class, so the two never collide.)
+#      date  -> .date-display-single  ("2 November 2010"; absent on gens 1-3)
+#      title -> <title> minus the " | Governor-General of the Commonwealth of Australia"
+#               suffix. THIS is the blocker: gen 4's h1 is the site banner
+#               ("Governor-General of the Commonwealth of Australia Speech"), and h1 must stay
+#               ahead of <title> in the chain because gen 3 depends on it. There is no
+#               gen-4-only headline selector — #page-title, h1.title and .node-title all miss.
+#      ⚠ Do NOT simply add /speech/<slug> to the link_pattern: with the current chains gen 4
+#      resolves title -> the site banner and text -> .content, which on these pages is the NAV
+#      MENU (1,412 chars of "Search form Search About the Governor-General Role Patronages…").
+# BANKED as a sibling recipe per the sweep's standing policy.
 #
 # ⚠️ AKAMAI/RECURSION JUNK. A plain CDX query for this domain returns ~32,000 captures
 # of /akam/13/... (the Akamai bot-management interstitial) plus Drupal module

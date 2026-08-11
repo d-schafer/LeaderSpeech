@@ -22,6 +22,28 @@ listing:
   # archive subdomain and under /old/. Requires a single ≥12-char hyphenated slug and a trailing
   # slash (no query) → excludes the old ASP pages (/shqip/…asp?id=), the ?p=<id> and ?lang=en dup
   # variants, /category/, /album/, short section pages (/kontakt/, /biografia/), and /en/ English dups.
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — NO CHANGE, two siblings BANKED.
+  # Full CDX of president.al: 31,591 raw -> 31,565 distinct -> 29,379 in scope; this pattern
+  # matches 8,471 = 28.8%. The shortfall is NOT missing sections — this pattern is already
+  # section-agnostic over the modern WordPress slug space. It is three other things:
+  #   * president.al/?p=<id> (1,399 + 1,039) and /?lang=<x>&p=<id> (1,022) — WordPress's
+  #     ALIAS permalink form for the very same articles. Same trap as Drupal /node/N: taking
+  #     them would store every speech twice. Correctly excluded.
+  #   * president.al/<slug>/?lang=<x> (1,790) — the language-switch query form of slugs already
+  #     matched. Duplicates in the other language. Correctly excluded.
+  #   * shqip/rubrika.asp?d=&r= (743) and category/<x>/page/<n>/ (~656) — listing pages.
+  # BANKED (each needs its own selector chain, so per the standing policy they are not built
+  # here) — and note that BOTH already have a proven selector chain elsewhere in the corpus:
+  #   1. `president.al/shqip/info.asp?id=<N>` — ~3,717 captures. The OLD ASP site in ALBANIAN.
+  #      This is the same CMS as the English ASP site that alb_president_english_wayback
+  #      already scrapes (president.al/english/pub/info.asp?id=<N>), so a sibling
+  #      alb_president_old_wayback can reuse that recipe's selectors verbatim and just swap
+  #      the language path and source_language.
+  #   2. `president.al/en/<slug>/` — ~4,473 captures (2,859 + 865 on the :80 host + 749 on
+  #      arkiva.). The MODERN English mirror, and it is covered by NO recipe today:
+  #      alb_president_english_wayback deliberately targets only the 2003-2011 ASP English
+  #      site. A sibling can reuse THIS recipe's selectors verbatim (same WordPress theme)
+  #      with source_language: English — which also means no translation stage.
   link_pattern: '^https?://(arkiva\.|www\.)?president\.al/(old/)?[a-z][a-z0-9-]{11,}/$'
 
 pagination:

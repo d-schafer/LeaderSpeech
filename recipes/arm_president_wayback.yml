@@ -15,10 +15,10 @@
 # is the signature of a harvest that is deep but NARROW. Enumerating the full CDX index
 # (38,107 unique status-200 text/html captures under president.am/en) by section:
 #     press-release                  10,950   (was the only one harvested)
-#     decrees                        10,329   EXCLUDED — presidential decrees, legal text
+#     decrees                        10,329   EXCLUDED — SAMPLED, see the note below
 #     congratulatory                  2,586   <- added
 #     condolence                        801   <- added
-#     signed-laws                       733   EXCLUDED — enacted statutes, legal text
+#     signed-laws                       733   EXCLUDED — same
 #     domestic-visits                   732   <- added
 #     statements-and-messages           698   <- added  (the president's own addresses)
 #     foreign-visits                    423   <- added
@@ -28,9 +28,28 @@
 #     chronicle                          67   <- added
 #     announcements                      10   <- added
 # statements-and-messages and interviews-and-press-conferences are the two that most
-# obviously carry a leader's own words and were entirely missing. decrees/signed-laws are
-# excluded because they are instruments, not speech, and together they are 45% of the host —
-# harvesting them would have tripled the run for no usable rows.
+# obviously carry a leader's own words and were entirely missing.
+#
+# DECREES / SIGNED-LAWS — RECONSIDERED AND THEN SAMPLED, 2026-08-10. The researcher moved
+# legal instruments into scope, so these 11,062 captures were re-examined. They were then
+# SAMPLED, per RULE 1's never-dismiss-an-endpoint rule applied in the other direction — never
+# ADD one without sampling either — and they do not belong in a speech corpus:
+#   * URL shape is /en/decrees/item/<N>/ — a BARE NUMERIC ID with no date anywhere in the URL,
+#     unlike every speech section here (/item/YYYY/MM/DD/<slug>/). So the existing
+#     link_pattern never matched them in the first place: adding the two section names to it
+#     moved the probe only 11,620 -> 12,189, and that increment was not decrees.
+#   * The pages are ~1,150-1,325 chars of which most is nav chrome. h1/h2/<title> are the
+#     generic section header ("Decrees of the President of RA") on EVERY item, so there is no
+#     per-document title, and there is no date element at all.
+#   * The body is in ARMENIAN even under /en/ — e.g. item/1 is "ՀԱՅԱՍՏԱՆԻ ՀԱՆՐԱՊԵՏՈՒԹՅԱՆ
+#     ՆԱԽԱԳԱՀԻ ՀՐԱՄԱՆԱԳԻՐԸ / Հայաստանի Հանրապետության վարչապետ նշանակելու մասին" = "Decree of
+#     the President of the RA / On appointing the Prime Minister of the RA". So they would
+#     also violate this recipe's source_language: English.
+#   * Content is boilerplate appointment and administrative orders ("On appointing S.
+#     Ghukasyan Head of the Military Police of the Ministry of Defence"), not oratory.
+# VERDICT: flagged, not scraped. A decree register with no title, no date and the wrong
+# language is its own project — it wants its own recipe with Armenian selectors and a
+# document-id scheme, not a widening of this one.
 source_id: arm_president_wayback
 country: Armenia
 source_language: English

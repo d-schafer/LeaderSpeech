@@ -8,18 +8,57 @@
 # reach back to 2000, so the CONTENT spans Putin's first terms + Medvedev (2008–2012) + Putin again.
 # The link_pattern keeps only the numeric article permalink and drops the /videos, /photos,
 # /by-date/, /copy/ and section-listing captures.
+#
+# WIDENED 2026-08-10 (RULE 1 sweep, Session A chunk A1). The recipe took `transcripts` — ONE of
+# the presidency's three event sections, and it is not the big one. Full CDX enumeration of
+# en.kremlin.ru/events/president (182,128 raw captures -> 125,322 distinct articles after
+# collapsing ?page= echoes -> 57,567 in scope) gives:
+#     news         30,250   <-- 3.5x the section we were taking, and it was invisible
+#     transcripts   8,659   <-- the only one previously harvested
+#     trips           792
+#   plus transcripts' own SUBSECTIONS, all in scope and all previously excluded because the
+#   old pattern demanded a digit straight after `transcripts/`:
+#     deliberations 873, speeches 671, comminity_meetings 664 (the site's own misspelling —
+#     match it as written), statements 608, press_conferences 452, interviews 278,
+#     messages 103, articles 48
+# Dropped as noise: copy/ (3,876 news + 1,933 transcripts — duplicate renderings), by-date/ and
+# page/ (listing pages), /print (35,867), photo (30,697), video (1,190).
+# INCREMENTAL: the per-country state file's `seen` URL set means an ordinary `run` fetches only
+# the newly-matched URLs. Do NOT --rescrape.
+#
+# MEASURED RESULT: probe --spread --n 12 harvests 50,112 snapshots, up from 11,015. All 12
+# sampled pages GREEN on title (h1), text (.read__content) and date (time[datetime]), spanning
+# 2006-2026 and covering every newly-added shape — /news/10 (Medvedev's 2008 inauguration day),
+# /news/36040 (2006), /transcripts/deliberations/73329, /trips/9869 — plus the legacy
+# en.kremlin.ru:80 and www.en.kremlin.ru host variants, which the path-anchored pattern handles.
+#
+# ⚠ CDX CAP CAVEAT — keep in mind on the re-run. A single CDX query is capped at 60,000 rows and
+# the engine issues ONE query per start_url with no year-slicing. Splitting the three sections
+# keeps each query under the cap today (50,112 total, and the raw per-year enumeration only hit
+# the cap because it was querying the undivided parent prefix). If a future harvest returns
+# suspiciously close to 60,000 for one section, the fix is year-sliced sibling recipes
+# (wayback_from/wayback_to are recipe-level, so one recipe per era) — BANKED as a follow-up
+# rather than built now, per the sweep's bank-it-author-later policy.
 source_id: rus_kremlin_english_wayback
 country: Russian Federation
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, NO trailing '*'.
+  # CDX prefixes — engine prefix-matches, NO trailing '*'. ONE CDX QUERY PER ENTRY, which is
+  # why the sections are listed separately instead of using the single parent prefix
+  # /events/president: that parent returns 182,128 raw captures and a single CDX query is
+  # capped at 60,000 rows, so it would silently truncate. Splitting keeps each query small
+  # enough — except /news, see the CAP CAVEAT in the header.
+  - en.kremlin.ru/events/president/news
   - en.kremlin.ru/events/president/transcripts
+  - en.kremlin.ru/events/president/trips
 
 listing:
-  # numeric article id immediately after transcripts/, NOT followed by another digit or a slash
-  # (so /transcripts/61896/videos, /transcripts/copy/24727, /transcripts/by-date/... are excluded).
-  link_pattern: '/events/president/transcripts/\d+(?![\d/])'
+  # A numeric article id directly under one of the three sections, or under one of
+  # transcripts' subsections. The negative lookahead drops the three non-article
+  # subsection names (copy/ duplicates, by-date/ and page/ listings) wherever they appear,
+  # and `(?![\d/.])` after the id drops /videos, /photos and the dotted by-date ids.
+  link_pattern: '/events/president/(?:news|transcripts|trips)/(?:(?!copy|by-date|page)[a-z_]+/)?\d+(?![\d/.])'
 
 pagination:
   type: wayback
@@ -41,6 +80,16 @@ date:
 position: president
 date_languages: ["en"]
 notes: >
+  WIDENED 2026-08-10 (RULE 1 sweep, chunk A1): 11,015 -> 50,112 snapshots. The recipe took
+  `transcripts` only — one of the presidency's three event sections, and not the largest. Full
+  CDX enumeration of en.kremlin.ru/events/president shows news 30,250 (3.5x what we were
+  taking, entirely invisible), transcripts 8,659, trips 792, plus transcripts' eight
+  subsections (deliberations 873, speeches 671, comminity_meetings 664 — the site's own
+  misspelling, statements 608, press_conferences 452, interviews 278, messages 103,
+  articles 48), which the old pattern excluded by demanding a digit straight after
+  `transcripts/`. Re-probe --spread n=12: 12/12 green on title, text AND date, 2006-2026,
+  covering news, transcripts, transcripts/deliberations and trips. Incremental — do NOT
+  --rescrape. Earlier validation below.
   DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 10): 11,015 snapshots; TITLE (h1), TEXT
   (.read__content, 1,486–20,575 chars) and DATE (time[datetime]) all GREEN on every sample. Wayback
   ENGLISH companion to Russia's presidency (yes-and; en.kremlin.ru is the official English mirror of

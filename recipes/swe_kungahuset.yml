@@ -5,10 +5,32 @@
 # monarchy fits the "national leader" scope.
 #
 # LISTING via the site's GZIPPED sitemap (issue #63). robots.txt -> /sitemapindex.xml ->
-# /sitemap1.xml.gz (35,204 <loc>, of which 1,509 are /arkiv/tal/ speech URLs). The child
-# sitemap is served as application/gzip, so this recipe only works with the engine's
-# transparent gunzip of *.xml.gz sitemaps. The sitemap index is followed into its child
-# automatically; link_pattern keeps only the dated speech pages.
+# /sitemap1.xml.gz (35,211 <loc>). The child sitemap is served as application/gzip, so this
+# recipe only works with the engine's transparent gunzip of *.xml.gz sitemaps. The sitemap
+# index is followed into its child automatically.
+#
+# WIDENED 2026-08-10 (RULE 1 sweep, Session A chunk A-sitemap): 1,509 -> 7,035 links, 4.3%
+# -> 20.0% of the sitemap. The recipe took /arkiv/tal/ ONLY; the Royal Court files ALL of
+# its text under /arkiv/<section>/ and eight further sections were invisible. The pattern is
+# now section-agnostic (see `listing`). INCREMENTAL: the per-country state file's `seen` URL
+# set means an ordinary `run` fetches only the newly-matched URLs — do NOT --rescrape.
+#
+# WHAT STAYS OUT, and why (each sampled, per the never-dismiss-without-sampling rule):
+#   * sveriges-monarki/ordnar-och-medaljer/sok-medaljforlaningar/<year>/<person> (3,739) —
+#     the ORDERS AND MEDALS register. Honours and decorations registers are out of scope by
+#     RULE 1; the URL shape (year + recipient name, no date, no document) confirms it.
+#   * mediecenter/officiella-program/officiella-program/<date>-<slug> (2,084 + 27 under the
+#     'officiellaprogram' spelling) — the daily OFFICIAL PROGRAMME. Sampled two: the body is
+#     87 and 163 chars, being the title repeated plus a press contact or a "read more" link.
+#     This is the same object as Denmark's /kalender/, which the researcher ruled out on
+#     2026-08-10 as "not informative or substantive"; that ruling is applied here. FLAGGED
+#     for the researcher rather than silently dropped — reversing it is a one-word pattern
+#     change, and it would add ~2,100 near-empty rows plus ~2,100 GPT calls at cleaning.
+#   * english/archive/{speeches 398, news 226, press-releases 86, telegrams 65} — these are
+#     the ENGLISH mirror and belong to the existing swe_kungahuset_english_wayback recipe
+#     (source_language is one field per recipe). Deliberately NOT taken here.
+#   * images/ (20,508), download/, and the /sveriges-monarki/, /kungl.-huset/,
+#     /kungliga-slott-och-residens/ static about-pages.
 source_id: swe_kungahuset
 country: Sweden
 source_language: Swedish
@@ -17,8 +39,23 @@ start_urls:
   - https://www.kungahuset.se/
 
 listing:
-  # /arkiv/tal/YYYY-MM-DD-<slug> — the date-in-URL speech pages.
-  link_pattern: '/arkiv/tal/\d{4}-\d{2}-\d{2}-'
+  # EVERY article under /arkiv/<section>/ — deliberately section-AGNOSTIC (CLAUDE.md RULE 1).
+  # The Court files all of its text under one archive, and naming a section here is exactly
+  # the mistake the rule is about; matching the whole archive also survives the Court adding
+  # or renaming one. The nine sections currently present, all in scope, all sampled:
+  #   aldre-nyheter 2,930  (older news; the 2010 Brazil state visit runs 7,821 chars)
+  #   nyheter       1,668  (news)
+  #   tal           1,513  (speeches — the ONLY one this recipe used to take)
+  #   pressmeddelanden 810 (press releases)
+  #   telegram        102  (condolence/congratulation telegrams — the King's own words)
+  #   uttalanden       34  (statements, e.g. the King on the Swedish Academy/Nobel affair)
+  #   kommunikeer-fran-riksmarskalksambetet 18  (Marshal of the Realm communiques)
+  #   fordjupning       3  (in-depth pieces)
+  #   aldrenyheter      1  (a stray spelling of aldre-nyheter — a naming generation)
+  # A three-segment match also picks up the older Sitevision generation
+  # /arkiv/<section>/<squashedslug>.5.<nodeid>.html (6 URLs, real speeches, no URL date),
+  # while excluding the /arkiv/<section>/ listing pages themselves (they end in '/').
+  link_pattern: '/arkiv/[^/]+/[^/]+$'
 
 pagination:
   type: sitemap
@@ -34,7 +71,11 @@ text:
 date:
   # The page carries no visible/`<time>` date, but the URL does: /arkiv/tal/2024-04-15-...
   # Named year/month/day groups assemble to an unambiguous ISO date (no selector needed).
-  url_regex: '/arkiv/tal/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+  # Section-agnostic since the 2026-08-10 widening — EVERY /arkiv/ section uses the same
+  # YYYY-MM-DD- slug prefix. The only exceptions are the 6 old .5.<nodeid>.html URLs, which
+  # carry their date as visible text ("28 augusti 2010") with no distinguishing selector;
+  # they land with a blank date and the cleaning step resolves it.
+  url_regex: '/arkiv/[^/]+/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
 
 # Speaker deliberately LEFT BLANK: /arkiv/tal/ mixes the King, Queen, Crown Princess,
 # Prince Daniel, etc. — the title says who ("H.M. Konungens tal", "H.K.H. Kronprinsessans
@@ -42,10 +83,16 @@ date:
 date_languages: ["sv"]
 
 notes: >
-  DRAFT — probe-validated (no full run). Swedish Royal Court (kungahuset.se) speeches at
-  /arkiv/tal/. Motivating case for issue #63 (gzipped sitemaps): the only clean listing is
-  the site's GZIPPED sitemap — robots -> /sitemapindex.xml -> /sitemap1.xml.gz (35,204 locs,
-  1,509 /arkiv/tal/ speech URLs) — which harvests to 0 links without the engine's transparent
+  DRAFT — probe-validated (no full run). Swedish Royal Court (kungahuset.se), the WHOLE
+  /arkiv/ — speeches, news, older news, press releases, telegrams, statements and Marshal
+  of the Realm communiques. WIDENED 2026-08-10 from /arkiv/tal/ alone: 1,509 -> 7,035 links
+  (4.3% -> 20.0% of the sitemap); incremental, do NOT --rescrape. Excluded after sampling:
+  the orders-and-medals register (3,739, honours are out by RULE 1), the daily official
+  programme (2,084, bodies of 87-163 chars — the Denmark /kalender/ ruling applied, FLAGGED
+  for the researcher), and /english/archive/ (belongs to swe_kungahuset_english_wayback).
+  Motivating case for issue #63 (gzipped sitemaps): the only clean listing is
+  the site's GZIPPED sitemap — robots -> /sitemapindex.xml -> /sitemap1.xml.gz (35,211 locs)
+  — which harvests to 0 links without the engine's transparent
   gunzip of *.xml.gz. Title h1; body .pagecontent (Sitevision), generic fallback for drift;
   date parsed from the URL's YYYY-MM-DD via url_regex named groups (the page has no visible
   date). Swedish source_language (title/text land in *_originlanguage for the translate step).

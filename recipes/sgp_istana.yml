@@ -17,6 +17,11 @@ pagination:
     - https://www.istana.gov.sg/sitemap.xml
 
 listing:
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A-sitemap) — NO CHANGE NEEDED.
+  # The sitemap holds 1,055 URLs and this matches 942 = 89.3%. Same Isomer shape as sgp_pmo:
+  # everything editorial is under /newsroom/. The remainder is /visit-and-explore/state-gifts/
+  # (49, a museum catalogue), Council of Presidential Advisers bios (20 + 10), visit-us and
+  # contact statics — no sibling article section exists to add.
   link_pattern: '/newsroom/[a-z0-9-]{10,}'
 
 title:

@@ -19,6 +19,20 @@ start_urls:
 listing:
   # Old ASP English article pages only: /english/pub/info.asp?id=<id>. Excludes the /english/pub/
   # foto.asp + album.asp photo pages and the modern /en/ WordPress tree.
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — NO CHANGE, but note the GAP.
+  # This recipe covers the OLD ASP English site only (~479 captures, 2003-2011, Moisiu/Topi).
+  # A full CDX of president.al shows the MODERN English mirror, president.al/en/<slug>/, at
+  # ~4,473 captures (2,859 + 865 on the :80 host + 749 on arkiva.president.al) — and NO recipe
+  # covers it today. It is banked rather than bolted on here, because the two are different
+  # CMSs: this recipe's selectors (.news/.article/#content/.content) are for the ASP pages,
+  # while the modern mirror is the same WordPress theme that alb_president_wayback already
+  # handles (article .td-post-content / .entry-content / .td-post-date). So the sibling to
+  # write is essentially alb_president_wayback with `/en/` in the pattern and
+  # source_language: English — which also means it needs no translation stage.
+  # Symmetrically, president.al/shqip/info.asp?id=<N> (~3,717 captures) is the ALBANIAN half of
+  # THIS recipe's ASP site and is likewise uncovered; it can reuse the selectors below verbatim.
+  # Both are recorded in alb_president_wayback.yml's header too, so whichever recipe the next
+  # session opens first, the finding is there.
   link_pattern: 'president\.al/english/pub/info\.asp\?id=\d+'
 
 pagination:

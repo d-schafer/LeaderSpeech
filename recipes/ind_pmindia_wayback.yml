@@ -14,6 +14,31 @@ listing:
   # English-slug detail page /en/news_updates/<slug>. Requiring an ASCII-lowercase first char drops the
   # %e0%a4… (Devanagari/Hindi mirror) slugs; the ?comment=/?tag_term= query variants still match on the
   # slug and dedupe by original URL downstream.
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — NO CHANGE NEEDED, but the raw
+  # coverage number is a TRAP. A full CDX of pmindia.gov.in/en reports 31,950 in-scope captures
+  # and this pattern matching 15,341 = 48.0%, which trips the finding threshold. It should not:
+  # 15,376 of those "in-scope" captures are `pmindia.gov.in/en/?s=<query>` — SEARCH-COMPONENT
+  # URLs, which RULE 1 lists as out of scope and which cdxbatch does not filter. Excluding them
+  # the real ratio is 15,341 / ~16,574 = 92.6%.
+  # Section histogram of /en/ confirms there is no missed article section of any size:
+  #   news_updates 15,948 (taken) | tag 242 (listings) | speeches 209 | pm-visits 182 (listings)
+  #   gallery_image 84, eventgallery 74, image-gallery 37, image-2015 53 (galleries — out)
+  #   media-coverage 74 | twitter-share-general 64 (share widgets) | image/former_pm 44
+  #   government_tr_rec 34 | pms-interview-single 33 | news-updates 30 (a stray hyphenated
+  #   spelling of the main section) | page 30 (pagination)
+  # BANKED, deliberately not added — together they are ~350 captures across five tiny sections
+  # and one dead endpoint, which is not worth the risk of loosening a pattern that currently
+  # admits exactly one clean shape:
+  #   * /en/speeches/?id=<N> (~206 incl. the /en/speeches// double-slash variant) — an OLD
+  #     query-string speeches endpoint. The LIVE recipe ind_pmindia already covers
+  #     /en/(news_updates|speeches)/, so this is a wayback-only gap.
+  #   * /en/pms-interview-single/ (33) — interviews. /en/government_tr_rec/ (34),
+  #     /en/media-coverage/ (74).
+  # NOTE (pre-existing, not introduced here): many /en/news_updates/ URLs are percent-encoded
+  # DEVANAGARI — Hindi articles served under the /en/ path. They are already being harvested.
+  # Separately, ind_pmindia_nic_wayback (a DIFFERENT host, pmindia.nic.in) is the standing
+  # --rescrape exception because its stored rows carry ~5x duplicated text; that does not
+  # apply to this recipe.
   link_pattern: '/en/news_updates/[a-z0-9][a-z0-9-]+'
 
 pagination:

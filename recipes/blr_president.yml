@@ -21,6 +21,21 @@ listing:
   # Any /ru/events/<slug> detail page. Do NOT require a trailing -<digits> id: only ~8%
   # of events carry one and it is not a reliable date key, so requiring \d{10} silently
   # dropped ~92% of speeches across ALL years (1995–present) — only ~1,181 of 14,476 events.
+  #
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A-sitemap) — NO CHANGE NEEDED.
+  # sitemap.event.xml holds 38,341 URLs and this pattern matches 14,565 = 38.0%, which LOOKS
+  # like the RULE 1 shape but is not: the whole remainder is the same events in the other two
+  # languages — /be/events/ 12,833 and /en/events/ 10,348 — i.e. trap #4 (wrong-language
+  # twins), correctly excluded because source_language is one field per recipe.
+  # The only non-/events Russian section is /ru/media/details/ (184). SAMPLED and rejected:
+  # it is the site's MEDIA GALLERY (breadcrumb "Главная / Медиа"); every .detail__* body
+  # selector misses so `main` wins with 394 chars of nav chrome plus a caption, and a scan of
+  # the 184 slugs finds meetings and ceremonies, no obrashchenie/poslanie/vystuplenie.
+  # Media galleries are out of scope by RULE 1 and the extraction agrees.
+  # BANKED (not built, per the sweep's bank-it-author-later policy): blr_president_english
+  # over the 10,348 /en/events/ pages — official English Lukashenko, so it would land straight
+  # in the English column with no translation step. Same sitemap, same selectors, one changed
+  # language segment; it needs its own recipe only because source_language is per-recipe.
   link_pattern: '/ru/events/[a-z0-9\-]+(?:\?.*)?$'
 
 title:

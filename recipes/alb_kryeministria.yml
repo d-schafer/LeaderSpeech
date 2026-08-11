@@ -7,15 +7,43 @@ source_id: alb_kryeministria
 country: Albania
 source_language: Albanian
 renderer: js
+# WIDENED 2026-08-10 (RULE 1 sweep, chunk A1). The recipe seeded 2 of the site's THIRTEEN
+# newsroom categories — and, critically, NOT `fjalime`. The old comment on the
+# deklarata-per-shtyp line read "Fjalime (speeches / press statements)", conflating two
+# separate categories: deklarata-per-shtyp is *press statements*, while `fjalime` ("speeches")
+# is its own listing and was never seeded. The PM's speeches were therefore reachable only
+# incidentally, whenever one also happened to be filed under lajme.
+# Full CDX of kryeministria.al gives the 13 categories (counts = archived listing captures):
+#   lajme 124, fjalime 76, deklarata-per-shtyp 61, vkm 31, projekt-ligj 19,
+#   ditari-javor-i-keshillit-te-ministrave 13, artikuj 7, fakt 4, njoftime 4,
+#   plane-pune-dhe-strategjite 2, programi-i-transparences 2, udhezime 2, punet-e-shqiperise 2
+# Because articles are filed FLAT at /newsroom/<slug>/ regardless of category, breadth here is
+# set entirely by which listings are seeded — the link_pattern is already section-agnostic.
 start_urls:
-  - https://kryeministria.al/newsrooms/deklarata-per-shtyp/   # Fjalime (speeches / press statements)
-  - https://kryeministria.al/newsrooms/lajme/                 # Lajme (news)
+  - https://kryeministria.al/newsrooms/fjalime/               # SPEECHES — was missing entirely
+  - https://kryeministria.al/newsrooms/deklarata-per-shtyp/   # press statements
+  - https://kryeministria.al/newsrooms/lajme/                 # news
+  - https://kryeministria.al/newsrooms/artikuj/               # articles / op-eds
+  - https://kryeministria.al/newsrooms/njoftime/              # announcements
+  - https://kryeministria.al/newsrooms/punet-e-shqiperise/    # "Albania's work" programme pieces
+  - https://kryeministria.al/newsrooms/fakt/                  # fact-check / rebuttal posts
+  # NOT seeded, pending a sample — the legal-instrument block. Per CLAUDE.md RULE 1 these are
+  # in scope IN PRINCIPLE but must be sampled first (does each item have its own title, a date,
+  # and Albanian text?), and a block of pure legal boilerplate is a separate project:
+  #   vkm (Vendime të Këshillit të Ministrave — Council of Ministers decisions), projekt-ligj
+  #   (draft laws), udhezime (directives).
+  # Also not seeded: ditari-javor-i-keshillit-te-ministrave (the Council's WEEKLY DIARY — the
+  # Denmark /kalender/ shape), plane-pune-dhe-strategjite and programi-i-transparences (static
+  # planning/transparency pages).
 
 listing:
   # singular /newsroom/<slug>/ article links; excludes the plural /newsrooms/ listings and the
   # static taxonomy pages (/newsroom/parqet|muzete|monumentet-e-kultures/).
   link_selector: "article a, h2 a, h3 a, a[href*='/newsroom/']"
-  link_pattern: '^https?://kryeministria\.al/newsroom/(?!parqet|muzete|monumentet)[^/?#]+/?$'
+  # `(www\.)?` added 2026-08-10: the site serves and archives both www. and bare hosts, and the
+  # old host-anchored pattern would have rejected every www. link. This recipe was still
+  # "pending probe", so that had never been caught.
+  link_pattern: '^https?://(www\.)?kryeministria\.al/newsroom/(?!parqet|muzete|monumentet)[^/?#]+/?$'
 
 pagination:
   type: path

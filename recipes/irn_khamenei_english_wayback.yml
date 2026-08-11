@@ -15,6 +15,23 @@ start_urls:
 
 listing:
   # numeric news id + slug — e.g. /news/1/Leader-s-Address-to-the-Officials...
+  # NARROWNESS-CHECKED 2026-08-10 (RULE 1 sweep, chunk A1) — NO PATTERN CHANGE. Full CDX of
+  # english.khamenei.ir: 20,686 raw captures -> 20,672 distinct -> 11,205 in scope; this
+  # pattern matches 8,852 = 79.0%. The site has ONE article space (/news/<id>/<slug>) — the
+  # nav's Speeches / Statements / Messages / Letters are filtered VIEWS of it, not separate
+  # paths — so there is no sibling section to add. The missed remainder, all sampled:
+  #   * index.php?option=com_content&task=view&id=<N>  (~1,132 captures, 2008-2015) — the OLD
+  #     JOOMLA GENERATION, and the content is real: id=1002 is "Supreme Leader's Address to
+  #     Army Cadets". But it is a TABLE-LAYOUT page — no h2 (so this recipe's title chain would
+  #     fall through to <title>, which carries a "Khamenei.ir - " prefix the title regex does
+  #     not strip), no date element anywhere, and none of the .news_content/.body/article
+  #     selectors match. BANKED as a sibling recipe; it needs its own selector chain, a title
+  #     prefix strip and a date strategy, so per the standing policy it is banked, not built.
+  #   * index2.php?...&pop=1 (~90) — print popups of the same Joomla articles. Duplicates.
+  #   * page/archive.xhtml?ms=&pi=&tp= (~970) and archive?tp= — paginated listing pages.
+  #   * Opinions/<slug> (14) and subject/<id>/<slug> (4) — curated topic hubs, not documents.
+  #   * Dropped upstream as out-of-scope by cdxbatch: /print 8,202, photo 877, gallery 102,
+  #     video 61, honor/medal/award 58 — the last of which is an honours register (RULE 1).
   link_pattern: '/news/\d+/[A-Za-z0-9]'
 
 pagination:
