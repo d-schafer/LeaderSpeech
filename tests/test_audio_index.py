@@ -33,6 +33,9 @@ def test_audio_source_marked_from_sidecar(tmp_path):
         {"doc_id": "ITA0001", "kind": "playlist", "backend": "faster-whisper", "model": "large-v3"},
         {"doc_id": "ITA0002", "kind": "playlist", "backend": "faster-whisper", "model": "large-v3"},
     ])
+    (out_root / "Italy" / "ita_conte_links.txt").write_text(
+        "https://www.youtube.com/watch?v=vid1\n"
+        "https://www.youtube.com/watch?v=vid2\n", encoding="utf-8")
 
     path = index.build_index(str(out_root), str(tmp_path / "recipes"))
     df = pd.read_excel(path)
@@ -44,3 +47,8 @@ def test_audio_source_marked_from_sidecar(tmp_path):
     assert row["dataset"] == "LeaderSpeech"      # provenance stays LeaderSpeech
     assert row["n_speeches"] == 2
     assert row["doc_id_first"] == "ITA0001"
+    # the audio harvester writes its link list AFTER --max-videos, so the count equals what
+    # was fetched: ~100% by construction, and the status says not to read anything into it
+    assert row["n_unique_links"] == 2
+    assert row["percent_scraped"] == 100.0
+    assert row["links_status"] == "post_limit"

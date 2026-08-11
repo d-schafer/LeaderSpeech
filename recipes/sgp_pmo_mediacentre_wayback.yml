@@ -1,0 +1,85 @@
+# Singapore — PMO, the 2015-16 DRUPAL "/mediacentre/" generation, via the Internet Archive.
+# English-native → English column. Third sibling on this host, alongside the live sgp_pmo
+# (Isomer sitemap, current) and sgp_pmo_wayback (the /Newsroom/ generation, 2016-2023).
+#
+# WHY ITS OWN RECIPE (authored 2026-08-11, CHUNK A2 sweep). cdxbatch over pmo.gov.sg surfaced
+# 880 captures under /mediacentre/<slug> (541 in the :80 form + 339 https) that no recipe
+# reached — real speeches, e.g. "address-prime-minister-lee-hsien-loong-gala-dinner-
+# international-housing-conference". It cannot be folded into sgp_pmo_wayback because that
+# recipe's title chain starts at "h1", and on THIS generation <h1> is the site banner
+# "Prime Minister's Office Singapore" — every row would carry the same title.
+#
+# THE TRAP ON THIS PAGE, and why `date` looks the way it does. There are three `.date`
+# elements and they are the SIDEBAR "latest items" views feed, not the article's date:
+# selcheck returns "20 Mar 2015 19 Mar 2015 18 Mar 2015" (the engine joins all matches).
+# Using .date would stamp every row with whatever was newest on the day of capture. The
+# article body carries no date element at all. What DOES carry the real date is the <title>,
+# which on this generation spells the occasion out: "Address by Prime Minister Lee Hsien Loong
+# at the Gala Dinner for the International Housing Conference on Tuesday, 26 January 2010".
+# Note that example: captured in 2015, spoken in 2010 — this generation REPUBLISHED older
+# speeches, so the wayback_capture stamp would be years off. The title date is the only
+# trustworthy source, and regex_required means a title without one yields a BLANK date rather
+# than handing the whole headline to dateparser.
+source_id: sgp_pmo_mediacentre_wayback
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  - pmo.gov.sg/mediacentre
+
+listing:
+  # article slug directly under /mediacentre/ (>=16 chars); the bare /mediacentre listing and
+  # its ?page= facets have nothing after the section, so they cannot match.
+  link_pattern: '/mediacentre/[a-z][a-z0-9-]{15,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # <title> only. h1 is the site banner on this generation, and .title is the sidebar feed.
+  selectors: ["title"]
+  # keep everything up to the " | Prime Minister's Office Singapore" suffix; the |$ branch
+  # leaves a suffix-less title intact (the engine keeps group(0), so a lookahead ends the match).
+  # (?s) matters: the regex runs on the RAW value before clean_text, and archived <title>
+  # elements on this host are routinely wrapped across lines (see sgp_pmo_news_wayback, where a
+  # newline-blind regex silently returned the site name on every row).
+  regex: '(?s)^\s*.+?(?=\s*\|\s*Prime Minister|$)'
+text:
+  # the Drupal body field alone (11,601 chars on the sample, starting at the salutation with
+  # no nav). article.node is the same text; #content-column would add the Print/A+/A- chrome.
+  selectors: ["div.field-body.view-mode-full", "article.node", "div.node-content"]
+date:
+  # from the TITLE's occasion clause. NOT .date — see the header: that is the sidebar feed.
+  selectors: ["title"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+(?:19|20)\d\d'
+  regex_required: true
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-11 (Session A, CHUNK A2 sweep). Recovers the 2015-16 Drupal
+  /mediacentre/ generation of pmo.gov.sg — 880 captures no recipe reached. "yes-and" to the
+  live sgp_pmo (Isomer, current) and sgp_pmo_wayback (/Newsroom/, 2016-2023); the three cover
+  different CMS generations of the same office and share data/state/Singapore.json, so URLs
+  already scraped are skipped automatically — never --rescrape. NO speaker_default: the feed
+  carries PM Lee Hsien Loong, DPMs and ministers, so the cleaner's speaker pass + tenure
+  crosscheck attribute each. Selectors verified against archived capture 20150320163906 of
+  /mediacentre/address-prime-minister-lee-hsien-loong-gala-dinner-international-housing-
+  conference: title 165 chars before the suffix strip, div.field-body.view-mode-full 11,601
+  chars, .date REJECTED as the sidebar views feed.
+  PROBE-VALIDATED --spread --n 8: 804 snapshots, title 8/8, text 8/8 (658-11,673 chars),
+  DATE 4/8 and that is the expected ceiling, not a defect — the date can only come from the
+  title's occasion clause, so items titled without one ("Mr G Muthukumarasamy's Eulogy for the
+  late Mr Lee Kuan Yew", "Press statement from Prime Minister on mother tongue education")
+  correctly resolve to BLANK and fall through to the wayback_capture stamp plus the cleaner's
+  own date extraction. regex_required is what makes that a blank instead of dateparser being
+  handed the headline. The dates it does resolve are worth having: the sample returned 2010,
+  2010, 2011 and 2016 from captures taken in 2015-16, which is the republication effect the
+  header describes — wayback_capture alone would have been up to five years wrong.
+  FULL RUN is the researcher's gate.

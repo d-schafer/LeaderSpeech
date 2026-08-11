@@ -1,0 +1,67 @@
+# United States — Obama White House, NARA archive: STATEMENTS & RELEASES.
+# Sibling of usa_whitehouse_obama (Speeches & Remarks). Same host, same frozen Drupal
+# snapshot, same selectors, same /the-press-office/YYYY/MM/DD/<slug> namespace — the ONLY
+# thing that differs is which frozen taxonomy view we page through.
+#
+# WHY A SEPARATE RECIPE AND NOT A start_urls WIDENING (2026-08-11): NARA froze the Drupal
+# pager as static files whose NAME embeds the section's taxonomy term id —
+#   speeches-and-remarks    index__q_term_node_tid_depth=31&page=N.html   472 pages ~4,730
+#   press-briefings         index__q_term_node_tid_depth=36&page=N.html   177 pages ~1,780
+#   statements-and-releases index__q_term_node_tid_depth=41&page=N.html 1,176 pages ~11,770
+#   presidential-actions    index__q_term_node_tid_depth=46&page=N.html   211 pages ~2,120
+# A wrong tid 404s (verified). `pagination.path_format` is ONE string per recipe, so the
+# four views need four recipes. Page counts found by exponential search + bisect on the
+# frozen pager, 2026-08-11.
+# `weekly-address` and `legislation`/`nominations-and-appointments` are NOT separate recipes:
+# they are subset views — e.g. /the-press-office/2017/01/14/weekly-address-honor-serving-you-
+# president appears on page 1 of speeches-and-remarks. Cross-recipe duplicates are harmless
+# anyway: the per-country state file dedupes by URL.
+source_id: usa_whitehouse_obama_statements
+country: United States
+source_language: English
+start_urls:
+  - https://obamawhitehouse.archives.gov/briefing-room/statements-and-releases
+renderer: static
+
+listing:
+  link_selector: "a[href*='/the-press-office/']"
+  # press-office posts: later pages use dated slugs (/the-press-office/YYYY/MM/DD/<slug>),
+  # early 2009-2010 pages use UNDATED slugs (/the-press-office/<slug>) — accept both, but
+  # require a real slug so the bare /the-press-office index never matches.
+  link_pattern: '/the-press-office/(?:\d{4}/\d{2}/\d{2}/)?[a-z][a-z0-9-]+/?$'
+
+pagination:
+  type: path
+  path_format: "index__q_term_node_tid_depth=41&page={n}.html"
+  start: 1          # page 0 is the bare start_url; the frozen pager runs page=1..1176
+  step: 1
+  max_pages: 1200   # last real page measured at 1,176; stops early on an empty page
+
+title:
+  selectors: [".pane-node-title", "h1#page-title", "#page-title", "h1", "title"]
+text:
+  selectors:
+    - ".field-name-field-forall-body"
+    - ".pane-node-field-forall-body .forall-body"
+    - ".panel-col-section-content .forall-body"
+    - "article"
+    - "main"
+date:
+  selectors: ["#press_article_date_created", ".press-article-date", ".date-display-single", "time"]
+
+position: president
+speaker_default: Barack Obama
+date_languages: ["en"]
+notes: >
+  obamawhitehouse.archives.gov Statements & Releases — the LARGEST briefing-room section by
+  far (~11,770 items vs ~4,730 for Speeches & Remarks, which was the only section any recipe
+  reached before 2026-08-11). Written during the CHUNK A2 narrowness sweep. Statements,
+  readouts, fact sheets and press releases are all explicitly in scope per CLAUDE.md RULE 1;
+  the clean_structure_metadata document_type gate removes what is not a speech. Selectors are
+  IDENTICAL to usa_whitehouse_obama (same frozen snapshot, one layout). speaker_default
+  Barack Obama is a FALLBACK — this section carries press-secretary, VP Biden and third-person
+  readout material, and the cleaning pass confirms the real speaker per doc. WATCH: the Obama
+  press office published SPANISH items into the same URL space ("MENSAJE SEMANAL: …") with no
+  URL tell; source_language is English here, so the cleaner's language field is what catches
+  them. INCREMENTAL: shares data/state/United States.json with the other USA recipes, so URLs
+  already scraped by usa_whitehouse_obama are skipped automatically — never --rescrape.

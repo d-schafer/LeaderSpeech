@@ -279,6 +279,34 @@ def test_rescrape_with_no_harvested_links_preserves_the_csv(tmp_path, monkeypatc
     assert not (out / "Argentina" / "test_src.csv.bak").exists()        # nothing backed up
 
 
+def test_harvest_writes_a_sidecar_recording_how_pagination_ended(tmp_path, monkeypatch):
+    """Two runs leave byte-identical `_links.txt` files whether the pager finished or broke
+    37 links in. The JSON sibling of the dated snapshot is what lets the index tell a
+    complete denominator from a floor — and it records the caps a probe never sees."""
+    def fake_harvest(*a, stats=None, **k):
+        if stats is not None:
+            stats.update(stopped_early=True, stop_reason="no_new_links")
+        return ["http://x/a", "http://x/b"]
+
+    monkeypatch.setattr(run, "harvest_links", fake_harvest)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+
+    out = tmp_path / "scraped"
+    run.scrape_recipe(_recipe(tmp_path), out_root=str(out), state_root=str(tmp_path / "st"),
+                      max_pages=3)
+
+    sidecars = list((out / "Argentina" / "sample").glob("test_src_links_*.json"))
+    assert len(sidecars) == 1
+    meta = json.loads(sidecars[0].read_text(encoding="utf-8"))
+    assert meta["n_links"] == 2
+    assert meta["max_pages"] == 3
+    # same key names as probe.py's `listing`, so links.py reads both with one rule
+    assert meta["listing"]["stopped_early"] is True
+    assert meta["listing"]["stop_reason"] == "no_new_links"
+    assert sidecars[0].with_suffix(".txt").exists()
+
+
 def test_circuit_breaker_aborts_on_consecutive_failures(tmp_path, monkeypatch):
     urls = [f"http://x/{i}-boom" for i in range(20)]
     monkeypatch.setattr(run, "harvest_links", lambda *a, **k: list(urls))

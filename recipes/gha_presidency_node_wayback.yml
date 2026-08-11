@@ -1,0 +1,74 @@
+# Ghana — Office of the President, the 2013-2016 DRUPAL 7 "/node/<id>" generation, via the
+# Internet Archive. English-native → English column. This is the John Mahama presidency
+# (2012-2017), and it is the deepest full-text material on this host: bodies run past 10,000
+# chars because the site published complete speech transcripts, not news summaries.
+#
+# WHY ITS OWN RECIPE (authored 2026-08-11, CHUNK A2 sweep). cdxbatch over presidency.gov.gh
+# found 322 /node/<id> captures that no recipe reached — a whole CMS generation sitting
+# between the 2010-13 /press-centre/ Drupal 6 site (gha_presidency_press_wayback) and the
+# 2017-24 Joomla /index.php/briefing-room/ site (gha_presidency_wayback). It cannot share
+# either of those: the Joomla recipe keys on .item-page and a " - The Presidency, Republic of
+# Ghana" title suffix, neither of which exists here.
+#
+# ⚠ DO NOT USE `.content` AS THE TEXT SELECTOR ON THIS GENERATION. It is the element-join
+# trap: several elements carry that class, and because the engine joins EVERY match it
+# returns 21,929 chars for an 11,995-char page — the speech plus the category sidebar plus
+# repeats. `.field-name-body` is the single Drupal body field, 10,525 chars, clean.
+source_id: gha_presidency_node_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  - presidency.gov.gh/node
+
+listing:
+  # bare node permalink; the trailing anchor drops /node/<id>/edit, /track, ?destination= etc.
+  link_pattern: '/node/\d+$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # <title> first, because h2 matches TWO elements here (headline + venue/dateline) and the
+  # engine joins them; <title> is single-valued. The lookahead strips the site suffix, which
+  # this generation spells " | The Presidency - Republic of Ghana" and the older /press-centre/
+  # one spells " | The Presidency of The Republic of Ghana" — "| The Presidency" covers both.
+  # (?s) because the regex runs on the RAW value, before clean_text collapses line wraps.
+  selectors: ["title", "h2"]
+  regex: '(?s)^\s*.+?(?=\s*\|\s*The Presidency|$)'
+text:
+  selectors: [".field-name-body", "div#content-sub", "div#mainContent"]
+date:
+  # Drupal 7's node byline: "Tuesday 4 August 2015" — a real per-article date, and it matches
+  # the dateline printed inside the speech. A body-scoped regex was the first idea and is the
+  # WORSE one: it would take the first date-like string anywhere in a 10,000-char transcript,
+  # the failure mode docs/recipes.md documents for presidentofindia.nic.in.
+  selectors: [".submitted"]
+  regex: '\d{1,2}\s+[A-Z][a-z]+\s+(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-11 (Session A, CHUNK A2 sweep). Recovers the 2013-2016 Drupal 7
+  /node/<id> generation of presidency.gov.gh — 322 captures no recipe reached, John Mahama
+  era. "yes-and" to gha_presidency (live WP REST, Mahama 2025- ),
+  gha_presidency_wayback (Joomla /index.php/briefing-room/, 2017-24) and
+  gha_presidency_press_wayback (Drupal 6 /press-centre/, 2010-13); all four share
+  data/state/Ghana.json so nothing is fetched twice — never --rescrape. NO speaker_default:
+  the feed carries President Mahama plus the Vice-President and ministers, so the cleaner's
+  speaker pass + tenure crosscheck attribute each. Selectors verified against archived
+  capture 20150808014900 of /node/1002 ("Official launch of the preparation of a long-term
+  National Development Plan for Ghana"): h2 title clean, .field-name-body 10,525 chars of
+  verbatim transcript, `.content` REJECTED as an element-join duplicate at 21,929 chars.
+  PROBE-VALIDATED --spread --n 6: 322 snapshots, title 6/6, text 6/6, DATE 6/6, spanning
+  2013-11 to 2016-03. Bodies 82-14,415 chars — the long ones are full transcripts ("Remarks by
+  President John Dramani Mahama at a sod-cutting ceremony for 5,000 housing units at Saglemi",
+  14,415 chars), the short ones are one-line news stubs the cleaner's gate will drop.
+  FULL RUN is the researcher's gate.

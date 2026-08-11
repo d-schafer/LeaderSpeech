@@ -5,6 +5,20 @@
 # dedicated live recipe here is cleaner + more complete than scraping Wayback. Speeches &
 # remarks live under /the-press-office/YYYY/MM/DD/<slug>; Drupal pages with ?page=N.
 # English; the president is the leader (Obama). Complements the current-admin usa_whitehouse.
+#
+# RULE 1 BREADTH, measured 2026-08-11 (CHUNK A2). This recipe reaches ONE of the briefing
+# room's four paged views — ~4,730 of ~20,400 press-office items, 23%. The other three are
+# NOT alternate views: every section publishes into this same /the-press-office/ namespace,
+# so the link_pattern below already accepts them; only the start_url limited the harvest.
+# They could not be added as extra start_urls because NARA froze each view's pager under a
+# filename embedding its Drupal taxonomy tid, and `pagination.path_format` is one string per
+# recipe (a wrong tid 404s — verified). Hence three SIBLING recipes, all probe-validated:
+#   usa_whitehouse_obama_statements  tid=41  1,176 pages  ~11,770   <- 2.5x this recipe
+#   usa_whitehouse_obama_actions     tid=46    211 pages   ~2,120
+#   usa_whitehouse_obama_briefings   tid=36    177 pages   ~1,780
+# `weekly-address`, `legislation`, `nominations-and-appointments` need no recipe: they are
+# subset views (e.g. /the-press-office/2017/01/14/weekly-address-honor-serving-you-president
+# is on page 1 of speeches-and-remarks). `disclosures` is a visitor-log register — out.
 source_id: usa_whitehouse_obama
 country: United States
 source_language: English

@@ -1,26 +1,47 @@
 # United States — Biden White House, NARA archive subdomain (bidenwhitehouse.archives.gov).
 # Frozen WordPress snapshot (server-rendered, no JS); uniform layout across its history, so a
-# dedicated live recipe beats Wayback. Speeches & remarks live under
-# /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>; WordPress /page/N/ pagination. English;
+# dedicated live recipe beats Wayback. Everything lives under
+# /briefing-room/<section>/YYYY/MM/DD/<slug>; WordPress /page/N/ pagination. English;
 # president is Biden. Complements the current-admin usa_whitehouse and usa_whitehouse_obama/_trump.
+#
+# RULE 1 WIDENING 2026-08-11 — the Briefing Room nav lists SEVEN sections; this recipe took
+# ONE, and it was not even the biggest. Measured with recipe_tools/pagecount.py:
+#   statements-releases   651 pages  ~6,510   <- 2.4x bigger than the section we took
+#   speeches-remarks      275 pages  ~2,750   <- was the ONLY start_url
+#   presidential-actions  178 pages  ~1,780   EOs / proclamations / memoranda
+#   press-briefings       116 pages  ~1,160   podium briefings + gaggles
+#   legislation            20 pages    ~200   "Bills Signed: H.R. …" press releases
+#   blog                    5 pages     ~50
+#   disclosures             6 pages     ~60   EXCLUDED — visitor-log records register
+#                                             ("August 2024 Visitor Logs Records Posted"),
+#                                             the out-of-scope register shape
+# 2,750 of ~12,450 in-scope items = 22%. Sections are disjoint dated namespaces, NOT
+# alternate views. Selectors carry over UNCHANGED — sampled a statement (h1.page-title 68
+# chars, section.body-content 692) and an executive order (h1 66, body 7,566, time green).
 source_id: usa_whitehouse_biden
 country: United States
 source_language: English
 start_urls:
   - https://bidenwhitehouse.archives.gov/briefing-room/speeches-remarks/
+  - https://bidenwhitehouse.archives.gov/briefing-room/statements-releases/
+  - https://bidenwhitehouse.archives.gov/briefing-room/presidential-actions/
+  - https://bidenwhitehouse.archives.gov/briefing-room/press-briefings/
+  - https://bidenwhitehouse.archives.gov/briefing-room/legislation/
+  - https://bidenwhitehouse.archives.gov/briefing-room/blog/
 renderer: static
 
 listing:
-  link_selector: "a[href*='/speeches-remarks/']"
-  # dated speech slugs: /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>
-  link_pattern: '/speeches-remarks/\d{4}/\d{2}/\d{2}/[^/]+/?$'
+  link_selector: "a[href*='/briefing-room/']"
+  # dated post slugs under any in-scope briefing-room section:
+  # /briefing-room/<section>/YYYY/MM/DD/<slug>.  `disclosures` is deliberately absent.
+  link_pattern: '/briefing-room/(?:speeches-remarks|statements-releases|presidential-actions|press-briefings|legislation|blog)/\d{4}/\d{2}/\d{2}/[^/]+/?$'
 
 pagination:
   type: path
   path_format: "page/{n}"
   start: 2          # page 1 is the bare listing start_url; the pager begins at /page/2/
   step: 1
-  max_pages: 300    # ~275 pages of 10; stops early on an empty page
+  max_pages: 660    # statements-releases is the longest at ~651; others stop early on empty
 
 title:
   selectors: ["h1.page-title", "h1", "h2", "title"]
@@ -33,9 +54,20 @@ position: president
 speaker_default: Joseph R. Biden
 date_languages: ["en"]
 notes: >
-  bidenwhitehouse.archives.gov (NARA frozen WordPress archive). Listing
-  /briefing-room/speeches-remarks/, WordPress /page/N/ pagination (~275 pages). Speech URLs
-  /briefing-room/speeches-remarks/YYYY/MM/DD/<slug>. Static/server-rendered; uniform layout
-  across the archive (captured once), so no drift. Title h1.page-title, body
-  section.body-content, date time. speaker_default Joseph R. Biden (2021-01-20..2025-01-20).
-  Dedicated archive subdomain -> preferred over Wayback.
+  bidenwhitehouse.archives.gov (NARA frozen WordPress archive). Six briefing-room sections,
+  WordPress /page/N/ pagination. Post URLs /briefing-room/<section>/YYYY/MM/DD/<slug>.
+  Static/server-rendered; uniform layout across the archive (captured once), so no drift.
+  Title h1.page-title, body section.body-content, date time. speaker_default Joseph R. Biden
+  (2021-01-20..2025-01-20) — a FALLBACK only: statements-releases and press-briefings carry
+  press-secretary and VP Harris material too, and the clean_structure_metadata pass confirms
+  the real speaker per doc. Dedicated archive subdomain -> preferred over Wayback.
+  RULE 1 WIDENING 2026-08-11: was 1 of 7 nav sections (~2,750 of ~12,450 items = 22%); now 6,
+  excluding only the visitor-log `disclosures` register. Probe --spread --n 12 now harvests
+  12,356 links (vs the 6,654-row one-section harvest before) and 12/12 sampled pages are green
+  on title/text/date across 2021-03..2025-01, covering all six sections — speeches-remarks,
+  statements-releases, presidential-actions, press-briefings and blog all sampled and clean
+  (bodies 184-70,719 chars). INCREMENTAL: do not
+  --rescrape — data/state/United States.json holds the seen-URL set, so an ordinary run
+  fetches only the newly matched URLs. BANKED sibling: /es/prensa/ is a full SPANISH mirror
+  of the briefing room (linked from the site nav) — needs its own recipe because
+  source_language is one field per recipe.

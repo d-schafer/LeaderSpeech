@@ -3,6 +3,28 @@
 # sitemap): the Archive holds the OLDER /Newsroom/<Title-Case-slug> CMS generation (2016–2023) — the PM
 # Lee Hsien Loong / SM Teo Chee Hean / DPM Heng Swee Keat era that the current sitemap no longer lists.
 # Distinct from sgp_istana (the ceremonial President) and sgp_istana_wayback.
+#
+# RULE 1 AUDIT 2026-08-11 (CHUNK A2) — NARROW, and the missing blocks are BANKED not widened.
+# cdxbatch over the whole host: 27,182 raw captures -> 20,740 in scope; this pattern matches
+# 3,119 = 15.0%. That headline ratio is misleading: 12,111 of the "missed" captures are the
+# faceted-search listing /Newsroom?page=&keywords=&from=&topic=&year=&type=, which is a LISTING
+# and correctly excluded. What is genuinely missed are THREE OLDER CMS GENERATIONS, all sampled:
+#   /mediacentre/<slug>            880 captures, 2015-2016. Real speeches ("address-prime-
+#                                  minister-lee-hsien-loong-gala-dinner-international-housing-
+#                                  conference"). CANNOT share this recipe: <h1> is the site
+#                                  banner "Prime Minister's Office Singapore", so the ["h1",
+#                                  "title"] chain here would title every row identically. Its
+#                                  own chain would be title=<title>, text=article (11,724
+#                                  chars), date=.date ("20 Mar 2015").
+#   /News/{Speeches,Transcripts,   ~1,070 captures, 2008-2010, incl. National Day Rally and
+#     PressReleases,Messages}/     National Day Message texts. CANNOT share: table-layout page,
+#     <Title+Case>.htm             `td` is the only container and joins to 20,218 chars of nav
+#                                  (the element-join trap), no <h1>, no date element, and
+#                                  <title> carries a "Prime Minister's Office - " prefix.
+#   /nda/…tlsm_N.html +            ~300 captures, the pre-2004 National Day Rally archive.
+#     /pmohq/nda/<year>/…          Static .html, not sampled yet.
+# Everything else in the miss is out of scope: /Topics/*?page= facets, /cabinet/<minister> bios,
+# /PMO/Templates/*.aspx?NRMODE= CMS artifacts, awards/photos/honours.
 source_id: sgp_pmo_wayback
 country: Singapore
 source_language: English

@@ -11,12 +11,25 @@ source_language: English
 renderer: static
 start_urls:
   # CDX prefix — engine prefix-matches (urlkey normalizes www/:80), NO trailing '*'.
-  - presidency.gov.gh/index.php/briefing-room
+  # WIDENED 2026-08-11 (CHUNK A2) from presidency.gov.gh/index.php/briefing-room to the bare host:
+  # the old prefix could only ever see ONE of this host's several CMS generations.
+  - presidency.gov.gh
 
 listing:
-  # Joomla article permalink under briefing-room: <section>/<id>-<slug> (excludes ?start= listings and
-  # the /component/mailto share links)
-  link_pattern: '/index.php/briefing-room/[a-z0-9-]+/\d+-[a-z]'
+  # TWO generations taken:
+  #  (a) Joomla article permalink /index.php/briefing-room/<section>/<id>-<slug> (excludes the
+  #      ?start= listings and the 738 /component/mailto share links);
+  #  (b) the 2017-18 WordPress DATE-PERMALINK generation /index.php/YYYY/MM/DD/<slug>/ — 460
+  #      captures, early Akufo-Addo, sampled 2026-08-11 and real ("President Akufo-Addo
+  #      Congratulates German Chancellor Angela Merkel", .date "September 25, 2017").
+  # Net effect, measured by probe --spread: 2,600 -> 3,129 harvested snapshots (the raw jump was
+  # to 3,475 before the print-view exclusion below removed 346 duplicates). The rest of the host
+  # is mailto share links, ?start= listing pagers, and the generations banked in the notes.
+  # The [^?]*$ on alternative (a) is new too: the OLD pattern had no end anchor, so it also
+  # harvested the ?tmpl=component&print=1&layout=default PRINT VIEW of articles it already had
+  # (343 such captures on this host) — duplicates, and they lose the <time> element so they
+  # arrive dateless. RULE 1's out-list names print-view duplicates explicitly.
+  link_pattern: '(?:/index\.php/briefing-room/[a-z0-9-]+/\d+-[a-z][^?]*$)|(?:/index\.php/20\d\d/\d\d/\d\d/[a-z0-9-]{10,}/?$)'
 
 pagination:
   type: wayback
@@ -31,11 +44,16 @@ title:
   # The engine keeps the WHOLE match (re.search group(0), not group(1)), so a lookahead ends the match
   # before the suffix; the |$ alternative keeps a suffix-less title intact. (Verified on the samples.)
   selectors: ["h1", ".article-title", ".item-title", "title"]
-  regex: '^\s*.+?(?=\s*-\s*The Presidency, Republic of Ghana|$)'
+  # [-–] not just '-': the 2017-18 WordPress generation joins the suffix with an EN DASH
+  # ("… Angela Merkel – The Presidency, Republic of Ghana"), the Joomla one with a hyphen.
+  regex: '^\s*.+?(?=\s*[-–]\s*The Presidency, Republic of Ghana|$)'
 text:
-  selectors: [".item-page", ".article-content", ".content", "article"]
+  selectors: [".item-page", ".article-content", ".content", "article", ".entry-content"]
 date:
   selectors: ["time", ".published", ".create", ".date"]
+  # Fallback for the 2017-18 date-permalink generation: the URL itself is unambiguous. Only
+  # consulted when every selector above misses (the engine tries selectors first).
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
 
 position: president
 date_languages: ["en"]
@@ -52,3 +70,20 @@ notes: >
   (time) working (2017–2022, Akufo-Addo era sampled). Many items are third-person presidency news →
   the cleaner's document-type gate keeps the speech/official_statement subset. A few /speeches/…?print=1
   print-version dups may harvest (cleaner/merge dedup). FULL RUN is the researcher's gate.
+  RULE 1 WIDENING 2026-08-11 (CHUNK A2). cdxbatch over the whole host: the old prefix +
+  link_pattern reached 2,600 of 5,322 in-scope captures = 48.9%. Added the 2017-18 WordPress
+  date-permalink generation (see listing comment). BANKED, not added — each needs its own
+  selector chain and a sampling pass:
+    /node/<N>              322 captures. The OLDEST (Drupal) generation. No title or date in the
+                           URL at all, so it needs its own chain and probably a title regex.
+    /press-centre/{general-news,press-releases,blog,speeches}/<slug>   ~235 captures. A distinct
+                           section vocabulary that no recipe covers; general-news is the bulk (152).
+    presidency.gov.gh/<slug>/   148 captures. The CURRENT WordPress root-slug shape — mostly
+                           2025-26 Mahama, which the LIVE gha_presidency (WP REST) already has, so
+                           low priority; worth revisiting only for items the live API has dropped.
+  RE-PROBED --spread --n 8 after the widening + print-view exclusion: 3,129 snapshots,
+  title 8/8, text 8/8 (.item-page, 1,614-9,610 chars), DATE 8/8 across 2018-03..2024-08. Date was
+  6/8 before the print-view fix — the two misses were exactly the ?print=1 duplicates, which drop
+  the <time> element, so excluding them removed a duplicate AND a dateless row in one edit.
+  INCREMENTAL: never --rescrape — the widening only adds newly matched URLs, and Ghana's state
+  file is shared with gha_presidency.

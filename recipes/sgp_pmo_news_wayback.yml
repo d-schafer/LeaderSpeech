@@ -1,0 +1,107 @@
+# Singapore — PMO, the 2008-2010 ASP.NET "/News/" generation, via the Internet Archive.
+# English-native → English column. The OLDEST recoverable PM Lee Hsien Loong text on this host,
+# and the only recipe that reaches the National Day Message / National Day Rally transcripts.
+#
+# WHY ITS OWN RECIPE (authored 2026-08-11, CHUNK A2 sweep). cdxbatch over pmo.gov.sg found
+# 1,089 `.htm` captures under four /News/ sections that no recipe reached:
+#     /News/Transcripts/     550     /News/Speeches/        272
+#     /News/PressReleases/   237     /News/Messages/         40
+# It cannot share sgp_pmo_wayback: this is a TABLE-LAYOUT ASP.NET page with no <h1>, no date
+# element, and `td` as the only structural container — and `td` is the element-join trap in
+# its purest form, joining to 18,606 chars of navigation on a 6,613-char page. The one thing
+# that saves it is that the site shipped a print view inside the same document:
+# `td.txtdefault#PrinterFriendlyContent` is a SINGLE element holding the breadcrumb, the date
+# and the whole speech (6,418 chars on the sample) and nothing else.
+#
+# TITLE: <title> is uniformly "Prime Minister's Office - <headline>" on this generation, so a
+# lookbehind on the separator isolates the headline — but the raw value is wrapped across
+# lines with \r\n and tabs, which defeated two earlier attempts (see the `title` block below).
+# regex_required is deliberately NOT set here — if a page ever breaks the pattern, the
+# unfiltered "Prime Minister's Office - X" is still a usable title, whereas a blank one is not.
+# (#PostingTitle1 looks promising and is not: it reads "Media Centre" on every page.)
+# DATE: the "D Mon YYYY" that follows the breadcrumb inside the same container ("25 Jan 2009").
+# regex_required IS set here, per docs/recipes.md — a body-scoped date regex that misses must
+# yield a blank, never hand the surrounding blob to dateparser.
+source_id: sgp_pmo_news_wayback
+country: Singapore
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  # NB this prefix also returns the /Newsroom/ captures (urlkey is case-folded and prefix
+  # matching does not respect the segment boundary); the link_pattern's "/News/" with its
+  # trailing slash is what separates the two generations.
+  - pmo.gov.sg/News
+
+listing:
+  # /News/<Section>/[<Office>/]<Title+Case+File>.htm — every article on this generation is a
+  # .htm file, but the depth VARIES: most sit under an extra office folder that names the
+  # speaker. Measured over the 1,089 distinct urlkeys:
+  #     Transcripts/Prime+Minister    317      Speeches/Prime+Minister   166
+  #     Transcripts/Minister+Mentor   128      Speeches/Senior+Minister   63
+  #     Transcripts/Senior+Minister    97      Speeches/Minister+Mentor   39
+  #     (two-segment, no office folder)  63    + a long tail of one-offs
+  # A first pass anchored at exactly two segments and harvested 278 of 1,089 — it silently
+  # dropped every office-foldered file, i.e. all of Lee Kuan Yew's Minister Mentor transcripts
+  # and Goh Chok Tong's Senior Minister ones. Hence the optional middle segment.
+  link_pattern: '/News/[A-Za-z]+/(?:[^/?]+/)?[^/?]+\.htm$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["title"]
+  # THE REGEX RUNS ON THE RAW VALUE, BEFORE clean_text — and the raw <title> here is
+  #     "\r\n\t\t\tPrime Minister's Office\r\n\t\t\t-\r\n\t\t\tChinese New Year Message 2009\r\n\t\t"
+  # Two attempts failed on that and are worth recording so nobody repeats them:
+  #   "(?<=Office - ).+"          — the " - " is really "\r\n\t\t\t-\r\n\t\t\t", so it never fired;
+  #   "[^\n]*[A-Za-z][^\n]*$"     — the LAST \n-delimited segment is "\t\t", which has no letter,
+  #                                 so it never fired either.
+  # Both misses fell back to the unfiltered blob (regex_required is off here by design), whose
+  # first line is the useless site name — which is exactly what the probe showed.
+  # (?s) makes "." span the newlines and the one-char lookbehind anchors on the separator; the
+  # site name contains no hyphen, so the FIRST "-" is always the separator. A title with no
+  # hyphen degrades to the unfiltered value rather than to nothing.
+  regex: '(?s)(?<=-).{5,}'
+text:
+  # the in-document print view: ONE element, breadcrumb + date + full speech, no nav.
+  # Never plain `td` here — it joins to 18,606 chars of navigation.
+  selectors: ["td.txtdefault#PrinterFriendlyContent", "td#PrinterFriendlyContent"]
+date:
+  selectors: ["td.txtdefault#PrinterFriendlyContent", "td#PrinterFriendlyContent"]
+  regex: '\d{1,2}\s+[A-Z][a-z]{2}\s+(?:19|20)\d\d'
+  regex_required: true
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-11 (Session A, CHUNK A2 sweep). Recovers the 2008-2010 ASP.NET /News/
+  generation of pmo.gov.sg — 1,089 .htm captures across Transcripts (550), Speeches (272),
+  PressReleases (237) and Messages (40) that no recipe reached. This is where the National Day
+  Message and National Day Rally texts of that era live. "yes-and" to sgp_pmo (live Isomer),
+  sgp_pmo_wayback (/Newsroom/, 2016-2023) and sgp_pmo_mediacentre_wayback (Drupal, 2015-16);
+  all four share data/state/Singapore.json, so nothing is fetched twice — never --rescrape.
+  NO speaker_default: PM Lee Hsien Loong dominates but the sections also carry DPM/minister
+  material and third-party National Day Messages in Malay/Mandarin/Tamil delivered by other
+  ministers (those are English pages ABOUT them; the cleaner's language + speaker passes sort
+  it out). Selectors verified against archived capture 20090310105615 of
+  /News/Messages/Chinese+New+Year+Message+2009.htm: title "Prime Minister's Office - Chinese
+  New Year Message 2009" -> "Chinese New Year Message 2009";
+  td.txtdefault#PrinterFriendlyContent 6,418 chars; date "25 Jan 2009".
+  PROBE-VALIDATED --spread --n 8: 1,089 snapshots, title 8/8, text 8/8, date 8/8, spanning
+  2007-03..2009-06. Bodies 793-33,559 chars (the long one is a full MM Lee interview with
+  Bloomberg News). USEFUL SIDE EFFECT of the office folder in the URL: it disambiguates the
+  two Lees, which nothing else on this generation can — /News/Transcripts/Minister+Mentor/ is
+  Lee Kuan Yew and /News/Transcripts/Prime+Minister/ is Lee Hsien Loong, so a reviewer
+  checking the cleaner's speaker assignment can read it off the `source` column.
+  NOT REACHED and
+  deliberately so: pmo.gov.sg/nda/ (419 captures) is the National Day AWARDS register — an
+  honours and decorations register, explicitly out of scope under CLAUDE.md RULE 1. It was
+  briefly mis-banked as a "National Day Rally archive"; sampling two of its pages (<title>
+  "National Day Awards", body "The Public Service Star / The Public Administration Medal
+  (Gold)") settled it. FULL RUN is the researcher's gate.

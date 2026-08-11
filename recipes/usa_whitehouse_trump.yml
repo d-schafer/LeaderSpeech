@@ -1,20 +1,35 @@
 # United States — Trump (45) White House, NARA archive subdomain (trumpwhitehouse.archives.gov).
 # Frozen WordPress snapshot (server-rendered, no JS); uniform layout across its history, so a
-# dedicated live recipe beats Wayback. Remarks/statements live directly under
-# /briefings-statements/<slug>; WordPress /page/N/ pagination. English; president is Trump.
+# dedicated live recipe beats Wayback. English; president is Trump.
 # Complements the current-admin usa_whitehouse (Trump 47) and usa_whitehouse_obama/_biden.
+#
+# RULE 1 WIDENING 2026-08-11 — the site's own nav (triage.py on the homepage) lists FOUR news
+# sections; this recipe took ONE. All three content namespaces are now start_urls:
+#   /briefings-statements/  ~670 pages of 10   (was the only section)
+#   /presidential-actions/  ~178 pages         EOs, proclamations, memoranda, notices
+#   /articles/              ~ 62 pages         admin op-eds / explainers
+#   (/news/ = 910 pages = the union of exactly those three; /remarks/ = 199 pages is an
+#    ALTERNATE VIEW — every item on it links to /briefings-statements/<slug>, so it was
+#    already covered. Verified, not assumed: the alternate-views trap.)
+# Namespaces are disjoint: /briefings-statements/blue-collar-presidency/ and
+# /briefings-statements/executive-order-care-veterans-service-uzbekistan/ both 404.
+# Legal instruments pass the researcher's three-part test (own title / own date / English
+# text) — sampled EO "Care Of Veterans With Service In Uzbekistan": h1 62 chars,
+# .page-content__content 2,797 chars, .meta__date "Issued on: January 19, 2021".
 source_id: usa_whitehouse_trump
 country: United States
 source_language: English
 start_urls:
   - https://trumpwhitehouse.archives.gov/briefings-statements/
+  - https://trumpwhitehouse.archives.gov/presidential-actions/
+  - https://trumpwhitehouse.archives.gov/articles/
 renderer: static
 
 listing:
-  link_selector: "a[href*='/briefings-statements/']"
-  # a real post slug directly under /briefings-statements/ (>=9 chars); excludes the
-  # /briefings-statements/page/N/ pagers and ?issue= filter links.
-  link_pattern: '/briefings-statements/[a-z0-9][a-z0-9-]{8,}/?$'
+  link_selector: "a[href*='/briefings-statements/'], a[href*='/presidential-actions/'], a[href*='/articles/']"
+  # a real post slug directly under one of the three sections (>=9 chars); excludes the
+  # /<section>/page/N/ pagers and the ?issue_filter= facet links.
+  link_pattern: '/(?:briefings-statements|presidential-actions|articles)/[a-z0-9][a-z0-9-]{8,}/?$'
 
 pagination:
   type: path
@@ -34,10 +49,17 @@ position: president
 speaker_default: Donald Trump
 date_languages: ["en"]
 notes: >
-  trumpwhitehouse.archives.gov (NARA frozen WordPress archive). Listing /briefings-statements/,
-  WordPress /page/N/ pagination (~670 pages). Post URLs /briefings-statements/<slug>.
-  Static/server-rendered; uniform layout across the archive (captured once), so no drift.
-  link_pattern requires a real slug and drops the page/N pagers + ?issue= filters. Title
-  h1.topper__title, body .page-content, date .meta__date. speaker_default Donald Trump
-  (45th term 2017-01-20..2021-01-20). NOTE: this covers Trump 45; the current-admin
+  trumpwhitehouse.archives.gov (NARA frozen WordPress archive). Static/server-rendered; uniform
+  layout across the archive (captured once), so no drift. WordPress /page/N/ pagination.
+  Title h1.topper__title -> h1, body .page-content__content, date .meta__date. speaker_default
+  Donald Trump (45th term 2017-01-20..2021-01-20). NOTE: this covers Trump 45; the current-admin
   usa_whitehouse (Trump 47, 2025+) is a separate live recipe. Dedicated subdomain -> beats Wayback.
+  RULE 1 WIDENING 2026-08-11: was scoped to /briefings-statements/ alone (1 of the site's 4 nav
+  news sections). Added /presidential-actions/ and /articles/; /remarks/ was checked and is an
+  alternate VIEW of /briefings-statements/, not a fourth namespace. Probe --spread --n 12
+  harvests 9,059 links (vs 6,654 rows scraped under the old one-section pattern) and all 12
+  sampled pages are green on title/text/date across 2017-02..2021-01 — including the two NEW
+  shapes (/presidential-actions/proclamation-prayer-peace-memorial-day-2019 4,118 chars;
+  /articles/happy-birthday-president-reagan 445 chars). Legal instruments are IN per the
+  2026-08-10 three-part test. INCREMENTAL: do not --rescrape — data/state/United States.json
+  holds the seen-URL set, so an ordinary run fetches only the newly matched URLs.

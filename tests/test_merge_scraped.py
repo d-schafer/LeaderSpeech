@@ -111,6 +111,22 @@ def test_merge_prefers_the_index_csv_file_column(scraped, tmp_path):
     assert set(df["source_id"]) == {"gha_wayback"}
 
 
+def test_merge_reads_sheet_0_and_ignores_the_second_sheet(scraped, tmp_path, caplog):
+    """The index carries a `harvested_not_scraped` sheet for sources with links but no CSV.
+    `pd.read_excel` with no `sheet_name` reads sheet 0, so merge must never see it — a
+    blank-`csv_file` row would fire its "listed in the index are missing" warning forever."""
+    with pd.ExcelWriter(scraped / INDEX_NAME, engine="openpyxl") as writer:
+        pd.DataFrame({"csv_file": [(scraped / "Ghana" / "gha_wayback.csv").as_posix()]}) \
+            .to_excel(writer, sheet_name="sources", index=False)
+        pd.DataFrame({"source_id": ["zaf_never_scraped"], "n_unique_links": [12372]}) \
+            .to_excel(writer, sheet_name="harvested_not_scraped", index=False)
+
+    with caplog.at_level("WARNING"):
+        df = merge_mod.merge_scraped(out_root=str(scraped), out_path=str(tmp_path / "o.parquet"))
+    assert set(df["source_id"]) == {"gha_wayback"}
+    assert "are missing" not in caplog.text
+
+
 def test_merge_falls_back_to_glob_when_index_lacks_csv_file(scraped, tmp_path, caplog):
     pd.DataFrame({"something_else": [1]}).to_excel(scraped / INDEX_NAME, index=False)
     with caplog.at_level(logging.WARNING):

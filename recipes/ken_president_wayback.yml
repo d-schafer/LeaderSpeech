@@ -15,15 +15,25 @@ source_language: English
 renderer: static
 start_urls:
   # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
-  # "…/20" catches every /2013…/2022/ date-path post. (Deliberately the /20 prefix, not
-  # /category/speeches, because the engine harvests article URLs from the CDX, not by crawling the
-  # listing pages; the tight link_pattern + the cleaner's gate do the speech selection.)
-  - president.go.ke/20
+  # RULE 1 WIDENING 2026-08-11: this was `president.go.ke/20`, which by construction could only
+  # ever see the date-permalink generation. cdxbatch over the WHOLE host measured that at
+  # 4,182 of 8,050 in-scope captures = 52.0%; the biggest missed shape was 1,925 ROOT-SLUG
+  # articles (president.go.ke/<slug>/), which is how this site published both before the date
+  # permalinks and after the 2022 rebuild. Prefix is now the bare host.
+  - president.go.ke
 
 listing:
-  # date-permalink post: /<yyyy>/<mm>/<dd>/<slug>/ ending at the slug (excludes /YYYY/MM/ month
-  # archives and the /<slug>/embed/ + /feed/ WordPress duplicates)
-  link_pattern: '/20\d\d/\d\d/\d\d/[-a-z0-9%]+/?$'
+  # Two article generations, both real and both sampled (see notes):
+  #  (a) date-permalink post /<yyyy>/<mm>/<dd>/<slug>/ — excludes /YYYY/MM/ month archives and
+  #      the /<slug>/embed/ + /feed/ WordPress duplicates;
+  #  (b) ROOT-slug post directly under the host, requiring >=4 hyphen-separated groups and a
+  #      LETTER first. That letter anchor is load-bearing: it rejects the ~200 image-attachment
+  #      slugs (/2015020600-12/, /20150605-ai7i0004/, /18192-2/) that otherwise look identical.
+  #      Anchoring on the host also keeps out /administration/office-of-the-deputy-president/
+  #      and /tenders/<slug>/, which are two segments deep.
+  # Measured: 6,095 of 8,050 = 75.7%. The rest is nav pages, /category/*/page/N pagers, month
+  # archives, wp-login, wordfence probes and tenders — all correctly out.
+  link_pattern: '(?:/20\d\d/\d\d/\d\d/[-a-z0-9%]+/?$)|(?:president\.go\.ke(?::80)?/[a-z][a-z0-9%-]*(?:-[a-z0-9%]+){3,}/?$)'
 
 pagination:
   type: wayback
@@ -37,12 +47,32 @@ title:
   selectors: ["h1.entry-title", "h1", ".entry-title", ".post-title", "title"]
   regex: '^\s*(.+)'
 text:
-  # WordPress article body; generic (trafilatura) fallback recovers it if the theme class drifts
-  selectors: [".entry-content", ".post-content", ".single-content", "article"]
+  # WordPress article body; generic (trafilatura) fallback recovers it if the theme class drifts.
+  # FOUR theme generations live in this archive; the chain is ordered so each one's own
+  # container wins where it exists:
+  #   .entry-content        2014-era root-slug theme
+  #   .brxe-post-content    2022+ Bricks-builder rebuild (no .entry-content, no <article>)
+  #   article               2018-2022 dated pages (4,006 chars on the sampled 2018-09-18)
+  #   .post_content_wrapper 2015-2017 dated pages — a custom theme with NO standard container.
+  #                         Placed AFTER `article` so it can never pre-empt a generation that
+  #                         has one. Before 2026-08-11 these pages matched nothing and were
+  #                         silently rescued by run.py's trafilatura fallback (3,903 chars vs
+  #                         3,920 here) — the text was fine, but the probe read as 0 chars.
+  selectors: [".entry-content", ".post-content", ".single-content", ".brxe-post-content", "article", ".post_content_wrapper", "main#brx-content"]
 date:
-  # url_regex ONLY (no date selector), deliberately: the permalink /2017/01/27/… is authoritative and
-  # unambiguous, whereas .post-date returns a re-crawl artifact on archived pages (probe: a /2015/03/03/
-  # URL gave .post-date=2016-04-07). Mirrors aus_gg_wayback.
+  # PRIMARY is still the permalink via url_regex: /2017/01/27/… is authoritative and unambiguous,
+  # whereas .post-date returns a re-crawl artifact on archived pages (probe: a /2015/03/03/ URL
+  # gave .post-date=2016-04-07). Mirrors aus_gg_wayback.
+  # The ROOT-SLUG generation has no date in the URL, so it needs a selector — but note the engine
+  # tries SELECTORS FIRST and only then url_regex, so anything listed here would override the
+  # permalink. `time[datetime]` is safe because it is absent from the date-permalink generation
+  # (sampled 3 archived dated pages: they expose .post-date and no <time>) and present + correct
+  # on the 2014-15 root-slug theme (2014-10-09T10:38:10+00:00 on a 2014-10-10 capture).
+  # Do NOT add .post-date or .entry-date here — that is exactly the artifact this avoids.
+  # The 2022+ Bricks pages carry no date element at all; they fall through to the recipe's
+  # wayback_capture stamp and the cleaner's own date extraction.
+  selectors: ["time"]
+  attr: datetime
   url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
 
 position: president
@@ -62,3 +92,20 @@ notes: >
   opposition"); TEXT via .entry-content / generic fallback (2.7k–3.9k chars); DATE from the URL
   permalink via url_regex (NOT .post-date, which returns a re-crawl artifact). FULL RUN is the
   researcher's gate.
+  RULE 1 WIDENING 2026-08-11 (CHUNK A2): the CDX prefix was president.go.ke/20, which could only
+  reach the date-permalink generation — measured at 4,182 of 8,050 in-scope captures = 52.0%.
+  Widened the prefix to the bare host and the pattern to also take the 1,925 ROOT-SLUG articles
+  (president.go.ke/<slug>/), taking coverage to 6,095 = 75.7%. Those root slugs are TWO
+  generations, both sampled with wbsample.py: the 2014-15 theme (h1.entry-title, .entry-content
+  1,339 chars, time[datetime] correct) and the 2022+ Bricks rebuild (h1, .brxe-post-content /
+  main#brx-content ~4,100 chars, no date element). Both selector chains extended accordingly.
+  RE-PROBED --spread --n 10 after the widening: 4,252 -> 6,183 snapshots, title 10/10, text 10/10,
+  date 8/10. The two dateless samples are the 2022+ Bricks root slugs, which carry no date anywhere
+  in page or URL — they fall through to the wayback_capture stamp plus the cleaner's own date
+  extraction. A 2014 root slug resolved its date correctly via time[datetime] (2014-07-24), and all
+  seven date-permalink samples still resolve via url_regex, so the new selector did not displace it.
+  RUN ORDER: run ken_president_news FIRST. It covers the same Ruto-era root slugs with an EXACT ISO
+  date from the WordPress API, and the shared data/state/Kenya.json then makes this recipe skip
+  them, so the dateless captures never get written. Overlap dedupes only where the scheme matches
+  (both https://www.); a few http:// captures of the same article may still slip through.
+  INCREMENTAL: never --rescrape — the widening only adds newly matched URLs.

@@ -12,6 +12,15 @@
 # chars). All 302 sit in the single "uncategorized" category, so there is no category filter
 # to isolate speeches — we take all posts and let the cleaner's document_type gate keep the
 # speeches / official_statements and drop pure news. results_path "." (WordPress root array).
+#
+# RULE 1 BREADTH — CHECKED CLEAN 2026-08-11 (CHUNK A2). An `api` recipe's breadth is set by the
+# endpoint, not a link_pattern, so it was audited by enumerating the WHOLE WordPress REST root:
+#   post  rest_base=posts  324   <- this recipe takes ALL of them
+#   page  9 (static About/Contact) | attachment 1,471 (media) | wp_navigation 1 | the rest 401/404
+# There are NO custom post types here — contrast Kenya, whose president.go.ke hides a 445-row
+# `speeches_remarks` CPT alongside its 765 `posts`. Categories: one ("uncategorized", 324).
+# Tags: one ("featured", 1). So `posts` IS the whole content set: nothing to widen on the live
+# host. The chronological gap (pre-2025 administrations) is gha_presidency_wayback's job.
 source_id: gha_presidency
 country: Ghana
 source_language: English

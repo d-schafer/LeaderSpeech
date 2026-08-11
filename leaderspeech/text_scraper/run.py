@@ -653,6 +653,29 @@ def scrape_recipe(
             snap_dir.mkdir(parents=True, exist_ok=True)
             snap_path = snap_dir / f"{recipe.source_id}_links_{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
             snap_path.write_text(links_body, encoding="utf-8")
+            # A JSON sibling recording HOW the harvest ended, mirroring probe.py's `listing`
+            # keys exactly so `links.py` has one rule for both. Without it a run that
+            # harvested everything and one that stopped 37 links in on a broken pager leave
+            # byte-identical .txt files, and the verdict survives only in this run's .log —
+            # so the index cannot tell a complete denominator from a floor. This also
+            # captures what a probe never sees: the caps actually passed on the command line.
+            snap_path.with_suffix(".json").write_text(json.dumps({
+                "source_id": recipe.source_id,
+                "country": recipe.country,
+                "pagination_type": ptype.value,
+                "n_links": len(links),
+                "listing": {
+                    "mode": f"run ({ptype.value})",
+                    "links_found": len(links),
+                    "stopped_early": bool(harvest_stats.get("stopped_early")),
+                    "stop_reason": harvest_stats.get("stop_reason"),
+                },
+                "max_pages": max_pages,
+                "max_links": max_links,
+                "limit": limit,
+                "rescrape": bool(rescrape),
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
             log.info("saved %d harvested links to %s (+ dated snapshot sample/%s)",
                      len(links), links_path.name, snap_path.name)
 

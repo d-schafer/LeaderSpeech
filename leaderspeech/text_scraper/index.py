@@ -28,11 +28,14 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
+from . import links as linksmod
 from .recipe import load_recipe
 
 log = logging.getLogger(__name__)
 
 INDEX_NAME = "scraped_progress_log.xlsx"
+SHEET_SOURCES = "sources"
+SHEET_PENDING = "harvested_not_scraped"
 
 # Column order in the workbook.
 COLUMNS = [
@@ -40,9 +43,19 @@ COLUMNS = [
     "main_website", "start_url",
     "source_language", "dataset", "position",
     "pagination_type", "renderer",
-    "n_speeches", "date_min", "date_max", "n_bad_or_missing_date",
+    "n_speeches", "n_unique_links", "percent_scraped", "links_status",
+    "date_min", "date_max", "n_bad_or_missing_date",
     "doc_id_first", "doc_id_last",
-    "recipe_file", "csv_file", "last_updated", "notes",
+    "recipe_file", "csv_file", "last_updated", "links_last_harvested", "notes",
+]
+
+# Sources that have harvested links on disk but no CSV yet — a SECOND sheet, never rows on
+# the first. `merge` reads sheet 0 and `.exists()`-checks every `csv_file`; a blank one would
+# fire its "N file(s) listed in the index are missing — rebuild it" warning on every merge,
+# which is the project's designated stale-index signal and must not cry wolf.
+PENDING_COLUMNS = [
+    "source_id", "country", "n_unique_links", "links_status",
+    "links_last_harvested", "recipe_file",
 ]
 
 
@@ -114,6 +127,29 @@ def docid_sort_key(doc_id: str) -> tuple[str, int]:
     return (doc_id[: m.start()], int(m.group(1))) if m else (doc_id, -1)
 
 
+def _link_columns(universe, n_scraped: int, audio: bool = False) -> tuple:
+    """The four link columns for one row: (n_unique_links, percent_scraped, links_status,
+    links_last_harvested).
+
+    `n_unique_links` and `percent_scraped` are **None (blank), never 0**, when there is no
+    link list at all — a source scraped before link lists were saved knows of no links, and
+    printing `0` there says the opposite of the truth. A list that exists but is *empty*
+    does report 0, so "we looked and found nothing" stays distinguishable.
+
+    The percentage is deliberately uncapped: above 100 means the lists are stale or narrower
+    than the recipe, and `links_status` says `stale_links`. Clamping would hide the one
+    condition that proves the denominator is wrong.
+    """
+    if universe is None:
+        return None, None, "", ""
+    n_links = universe.n_unique if universe.found else None
+    pct = round(100 * n_scraped / n_links, 1) if n_links else None
+    status = universe.status(n_scraped=n_scraped, audio=audio)
+    harvested = (datetime.fromtimestamp(universe.newest).date().isoformat()
+                 if universe.newest else "")
+    return n_links, pct, status, harvested
+
+
 def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optional[Path]) -> dict:
     date_min, date_max, n_bad = _coverage(df)
     doc_ids = sorted((str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna()
@@ -133,6 +169,15 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
     pagination_type = audio[1] if audio else (recipe.pagination.type.value if recipe else "")
     renderer = audio[0] if audio else (recipe.renderer.value if recipe else "")
 
+    # What we KNOW how to fetch, from the link lists this source has left on disk (see
+    # `links.py`). A disk hiccup must never sink the index — a failed scan yields blanks.
+    try:
+        universe = linksmod.link_universe(csv_path.parent, source_id, recipe=recipe)
+    except Exception as e:  # noqa: BLE001
+        log.warning("index: link scan failed for %s :: %s", source_id, e)
+        universe = None
+    n_links, pct, links_status, harvested = _link_columns(universe, len(df), bool(audio))
+
     return {
         "source_id": source_id,
         "country": country,
@@ -146,6 +191,9 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
         "pagination_type": pagination_type,
         "renderer": renderer,
         "n_speeches": len(df),
+        "n_unique_links": n_links,
+        "percent_scraped": pct,
+        "links_status": links_status,
         "date_min": date_min,
         "date_max": date_max,
         "n_bad_or_missing_date": n_bad,
@@ -154,6 +202,7 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
         "recipe_file": yml.as_posix() if yml else "",
         "csv_file": csv_path.as_posix(),
         "last_updated": datetime.fromtimestamp(csv_path.stat().st_mtime).isoformat(timespec="seconds"),
+        "links_last_harvested": harvested,
         "notes": (recipe.notes or "") if recipe else "",
     }
 
@@ -191,11 +240,69 @@ def build_index(out_root: str = "data/scraped", recipes_dir: str = "recipes",
         return None
 
     df_out = pd.DataFrame(rows, columns=COLUMNS).sort_values(["country", "source_id"])
+    # A column of ints holding any blank becomes float64 and can render as "1234.0". pandas'
+    # nullable integer keeps both: real integer cells, and genuinely empty ones. This only
+    # works because `_link_columns` emits None — astype("Int64") over an object column
+    # containing "" raises.
+    df_out["n_unique_links"] = df_out["n_unique_links"].astype("Int64")
+
+    df_pending = _pending_sources(Path(out_root), recipes, set(df_out["source_id"]))
+
     out_root.mkdir(parents=True, exist_ok=True)
     out_path = out_root / out_name
-    df_out.to_excel(out_path, index=False)
-    log.info("index: wrote %d source(s) to %s", len(rows), out_path)
+    with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
+        df_out.to_excel(writer, sheet_name=SHEET_SOURCES, index=False)
+        if not df_pending.empty:
+            df_pending.to_excel(writer, sheet_name=SHEET_PENDING, index=False)
+
+    known = int(df_out["n_unique_links"].sum())
+    scraped = int(df_out["n_speeches"].sum())
+    log.info("index: wrote %d source(s) to %s | %s of %s known links scraped (%.1f%%)",
+             len(rows), out_path, f"{scraped:,}", f"{known:,}",
+             (100 * scraped / known) if known else 0.0)
+    if not df_pending.empty:
+        log.info("index: + %d source(s) harvested but never scraped (%s links) on the '%s' "
+                 "sheet", len(df_pending),
+                 f"{int(df_pending['n_unique_links'].sum()):,}", SHEET_PENDING)
     return out_path
+
+
+def _pending_sources(out_root: Path, recipes: dict, already: set) -> pd.DataFrame:
+    """Sources with harvested links on disk but no CSV — invisible to a `*/*.csv` glob.
+
+    Worth surfacing (78k links on this tree) but NOT as rows on the main sheet: see
+    :data:`PENDING_COLUMNS`. Failure here must not cost the index, so it degrades to empty.
+    """
+    try:
+        discovered = linksmod.discover_sources(out_root)
+    except Exception as e:  # noqa: BLE001
+        log.warning("index: could not scan for unscraped harvests :: %s", e)
+        return pd.DataFrame(columns=PENDING_COLUMNS)
+
+    rows = []
+    for source_id, country_dir in sorted(discovered.items()):
+        if source_id in already:
+            continue
+        yml = recipes.get(source_id)          # `recipes` maps source_id -> recipe PATH
+        try:
+            recipe = load_recipe(yml) if yml else None
+            universe = linksmod.link_universe(country_dir, source_id, recipe=recipe)
+        except Exception as e:  # noqa: BLE001
+            log.warning("index: link scan failed for %s :: %s", source_id, e)
+            continue
+        n_links, _, links_status, harvested = _link_columns(universe, 0)
+        rows.append({
+            "source_id": source_id,
+            "country": country_dir.name,
+            "n_unique_links": n_links,
+            "links_status": links_status,
+            "links_last_harvested": harvested,
+            "recipe_file": yml.as_posix() if yml else "",
+        })
+    df = pd.DataFrame(rows, columns=PENDING_COLUMNS)
+    if not df.empty:
+        df["n_unique_links"] = df["n_unique_links"].astype("Int64")
+    return df
 
 
 def main():

@@ -827,10 +827,52 @@ If something looks wrong, the run's summary, log, and `_errors.csv` tell you wha
 
 Output CSVs are named after the *site* (`arg_casarosada.csv`), which makes a folder of them hard to read
 and to merge. Every `run` rebuilds **`data/scraped/scraped_progress_log.xlsx`** — one row per source CSV
-with its country, website, file path, pagination type, date coverage, doc_id range, and a bad/missing-date
-count. Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. It is a **regenerable,
+with its country, website, file path, pagination type, date coverage, doc_id range, a bad/missing-date
+count, and **how far through the source we are** (`n_unique_links` / `percent_scraped` / `links_status`).
+Rebuild it on demand with `python -m leaderspeech.text_scraper.index`. It is a **regenerable,
 machine-owned** artifact — distinct from `data/sources/sources.csv`, the published source list (itself
 generated, from the maintainer's local working file — see `data/sources/export_public_sources.py`).
+
+A second sheet, **`harvested_not_scraped`**, lists sources that have harvested links on disk but no CSV
+yet — a recipe that was probed and never run. They are invisible to the main sheet, which is one row per
+source *CSV*. Nothing reads sheet 1 (`merge` reads sheet 0), so it is purely a backlog view.
+
+### How much of a source is done? (`n_unique_links`, `percent_scraped`, `links_status`)
+
+`n_speeches` alone can't say whether a source is *finished* — 1,528 rows is complete for one site and 4% of
+another. The denominator is already on disk: a run writes `<Country>/<id>_links.txt` and a dated
+`sample/<id>_links_<stamp>.txt` copy, and every probe writes `sample/<id>_probe_<stamp>.txt`. All are the
+full harvest, one URL per line. `leaderspeech/text_scraper/links.py` unions them, normalizes
+(scheme / `www.` / `:80` / slash noise collapse; the query string is kept), and counts.
+
+**The union is filtered through the recipe's *current* `link_pattern`** — the same
+`re.search(pattern, url)` the engine applies in every harvest path. That matters because harvest files are
+append-only history: tighten a `link_pattern` to drop a non-substantive branch and the dropped URLs stay in
+every old snapshot forever. Re-filtering means the denominator is always *what this recipe would harvest
+today*, and it self-corrects on the next index rebuild.
+
+**So do NOT delete link history to "clean up" a percentage.** That history is what rescues a source whose
+last run was `--max-pages`-bounded: `<id>_links.txt` is overwritten each run, so a bounded run replaces the
+record of a prior full crawl, and only the dated `sample/` copies still hold it.
+
+`links_status` says how much to trust the number. `complete` / `probe_only` are fine; **`stopped_early`
+(a pager fault), `capped` (stopped at `max_pages`/`max_links`, including the 200-page default — a *normal*
+stop that is still bounded) and `page1_only` (the only record is a probe run without `--spread`) all mean
+the count is a FLOOR**, so the percentage is an upper bound. `stale_links` means `n_speeches` exceeds the
+links we know of, so the lists are stale; the percentage is printed raw, above 100, rather than clamped.
+`post_limit` marks audio sources, whose list is written *after* `--max-videos` and so reads ~100% by
+construction. `unfiltered` means there was no `link_pattern` to re-filter with, so the denominator may be
+too wide. A blank status means no link list at all — `n_unique_links` and `percent_scraped` are then
+**empty, not 0**.
+
+Three things the re-filter cannot replay, so read the percentage with them in mind: narrowing done in
+`link_selector` rather than `link_pattern` (no DOM to re-test), tightened `wayback_from`/`wayback_to`
+bounds (the `.txt` files carry URLs, not CDX timestamps), and `keep_if` rejections — those URLs were
+legitimately harvested and then dropped after fetch, so a `keep_if` source tops out just below 100%
+(measured at 0.2% of resolved URLs corpus-wide).
+
+`python -m leaderspeech.text_scraper.links --audit` prints the per-source `union / kept / dropped` table
+behind these columns, worst drift first.
 
 **`python -m leaderspeech.text_scraper.merge`** is the merge step that reads the index's `csv_file` column
 and concatenates every file it lists (text-scraper and audio sources alike) into

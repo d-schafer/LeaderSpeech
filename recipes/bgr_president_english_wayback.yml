@@ -11,13 +11,29 @@ source_language: English
 renderer: static
 start_urls:
   # CDX prefix — the engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
-  - president.bg/cat49
+  # RULE 1 WIDENING 2026-08-11 (CHUNK A2): was president.bg/cat49, i.e. ONE category, which
+  # measured 43 of 65,945 in-scope captures = 0.1% — the worst ratio in the sweep so far.
+  # Widened to the bare host so every &lang=en category is reachable.
+  - president.bg
 
 listing:
-  # English speech: /cat49/<numeric-id>/<slug>&lang=en (the &lang=en suffix = the English render;
-  # &lang=bg / no-suffix = Bulgarian, dropped). The category-index /cat49/<slug>/?lang has no numeric
-  # id and uses ?lang (not &lang), so it can't match.
-  link_pattern: '/cat49/\d+/[^/]*&lang=en'
+  # English article: /cat<N>/<numeric-id>/<slug>&lang=en. The &lang=en suffix IS the English
+  # render (&lang=bg / no suffix = Bulgarian) and the numeric id is what separates an article
+  # from the category index (/cat49/<slug>/?lang, which uses ?lang not &lang).
+  #
+  # 715 URLs carry that shape across ~40 categories. Sampled the biggest to decide which:
+  #   IN  cat49 statements by the President and Vice President (was the only one taken)
+  #       cat47 presidential VETOES ("President-Veto-Anti-Corruption")
+  #       cat88 Vice-President statements ("Iziavlenie-na-Viceprezidenta … pomilvane-2012")
+  #       cat40 anniversaries / events, cat38 commemorations
+  #   OUT cat33, cat32  presidential-adviser BIOS (a staff directory, not documents)
+  #       cat7, cat165  PUBLIC PROCUREMENT notices ("Otkrita-procedura-catering",
+  #                     "Publichna-pokana-Firewall") — a tender register, out by RULE 1
+  # A deny-list rather than an allow-list, so an unsampled category is taken by default and
+  # the cleaner's document_type gate does the fine filtering, per RULE 1.
+  # cat0 is also denied: it is the static-page bucket (/cat0/104/Avtorska-i-pravna-politika =
+  # "Copyright and legal policy"), not a document stream. Found by re-probing, not by guessing.
+  link_pattern: 'president\.bg(?::80)?/cat(?!0/|7/|32/|33/|165/)\d+/\d+/[^/]*&lang=en'
 
 pagination:
   type: wayback
@@ -27,12 +43,30 @@ pagination:
     - "statuscode:200"
     - "mimetype:text/html"
 
+# SOFT-404 GUARD — the same one bgr_president carries, and it is not optional here.
+# president.bg answers a dead permalink with HTTP 200 and the HOMEPAGE SHELL: title
+# "President of the Republic of Bulgaria", no article body, and TODAY's sidebar date. Without
+# this the first widened probe wrote five such rows out of eight, each stamped 2024-2026.
+# Every real article carries .print-content and no soft-404 does, so its presence is the gate.
+keep_if:
+  selectors: [".print-content"]
+
+# All three chains below are LIFTED VERBATIM from bgr_president, the Bulgarian-language recipe
+# for the same site and the same theme — the only difference between the two recipes is the
+# &lang=en URL suffix. They replace a provisional set (h1 / .news-title / .news-text / #content)
+# that the original DRAFT header flagged as "VERIFY + refine at probe" and that had never been
+# probed: it produced a generic site-name title and ZERO chars of body on every sample.
 title:
-  selectors: ["h1", ".news-title", ".title", "title"]
+  selectors: ["h2.article-title", "h1", "title"]
 text:
-  selectors: [".news-text", ".content", "article", "#content"]
+  # .print-content is the article with its date + headline prefix; .index-news-bdy is the body
+  # alone (11,027 vs 11,169 chars on the sampled UN General Assembly statement) but only the
+  # first two are proven across the parent recipe's full 2012-2016 range, so keep their order.
+  selectors: [".print-content", ".font-resize-content", ".index-news-bdy"]
 date:
-  selectors: [".date", ".news-date", "time", ".published"]
+  # "20 September 2017 | 20:47" — and it is the ARTICLE's date, not a crawl artifact: that
+  # value came off a capture taken in 2026 and matches the real date of Radev's UN GA speech.
+  selectors: [".date"]
 
 position: president
 date_languages: ["en"]
@@ -42,5 +76,29 @@ notes: >
   link_pattern keeps the &lang=en (English) subset — Presidents Plevneliev + Radev (e.g. "New Year's
   address of President Rumen Radev"; "address by the head of state Plevneliev"). The site has no /en
   subdomain, so the &lang=en URL suffix is the only English route. NO speaker_default (two presidents)
-  -> cleaner + tenure crosscheck. TITLE/TEXT/DATE selectors provisional -> VERIFY + refine at probe.
-  FULL RUN is the researcher's gate.
+  -> cleaner + tenure crosscheck. FULL RUN is the researcher's gate.
+  RULE 1 WIDENING + SELECTOR REPAIR 2026-08-11 (Session A, CHUNK A2). The recipe was scoped to
+  the single category cat49 and measured 43 of 65,945 in-scope captures = 0.1%, the worst ratio
+  in the sweep. Widened the CDX prefix to the bare host and the pattern to every &lang=en
+  category except a sampled deny-list (bios, procurement, static pages): 43 -> 490 snapshots.
+  The bigger find was that the DRAFT selectors had never been probed and were simply wrong —
+  they returned the generic site name as the title and ZERO chars of body on every sample. They
+  are now lifted verbatim from bgr_president, the Bulgarian recipe for the same theme, together
+  with its .print-content keep_if guard. That guard matters more here than anywhere: the first
+  re-probe after widening showed FIVE of eight samples were president.bg's soft-404 homepage
+  shell, each of which would have been written as a speech titled "President of the Republic of
+  Bulgaria" and dated 2023-2026. With the guard the probe reports "KEEP_IF kept 4 of 8", and the
+  four real articles extract cleanly (h2.article-title, .print-content 2,179 chars, .date
+  2012-11-13). Expect roughly half the 490 to be filtered at run time; the ~245 that survive are
+  still ~6x what the recipe reached before. VERIFIED, against the parent recipe's warning that
+  president.bg serves Bulgarian even under /en/: the &lang=en render of an archived catN page is
+  genuinely English ("STATEMENT BY PRESIDENT RUMEN RADEV AT THE GENERAL DEBATE OF THE 72ND
+  SESSION OF THE UNITED NATIONS GENERAL ASSEMBLY"), and .date on it reads 20 September 2017 —
+  the real speech date — off a capture taken in 2026, so it is not a crawl artifact.
+  BANKED, not built: two whole-site ENGLISH mirrors that no recipe covers —
+  text.president.bg/en/news<N>/<slug> (2,552 captures matching an article shape, 2019-2026) and
+  m.president.bg/en/news<N>/<slug> (1,582). Both carry real English bodies with the article
+  title in h2, but they are bare accessibility/mobile renders: the ONLY text container is
+  <body>/#content, which includes the entire nav menu, and their .date is unreliable (a 2013
+  article showed "2 October 2025" five days before its capture). They need their own selector
+  work and a date strategy before they are worth authoring.

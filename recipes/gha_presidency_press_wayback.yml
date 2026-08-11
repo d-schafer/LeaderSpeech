@@ -1,0 +1,79 @@
+# Ghana — Office of the President, the 2010-2013 DRUPAL 6 "/press-centre/" generation, via
+# the Internet Archive. English-native → English column. This is the OLDEST recoverable
+# material on this host: the John Atta Mills presidency (2009-2012, died in office) and the
+# start of John Mahama's. No other recipe reaches that era at all.
+#
+# WHY ITS OWN RECIPE (authored 2026-08-11, CHUNK A2 sweep). cdxbatch over presidency.gov.gh
+# found ~235 captures under /press-centre/{general-news,press-releases,blog,speeches} that no
+# recipe reached. It cannot share the Joomla gha_presidency_wayback (.item-page, a
+# " - The Presidency, Republic of Ghana" title suffix) nor the Drupal 7
+# gha_presidency_node_wayback (h2 headline, .field-name-body): this generation puts the
+# headline ONLY in <title>, with a different suffix, and its body field is #content-sub.
+source_id: gha_presidency_press_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  # CDX prefix — engine prefix-matches (urlkey normalizes www/:80/https), NO trailing '*'.
+  - presidency.gov.gh/press-centre
+
+listing:
+  # /press-centre/<section>/<slug> — the four sections are general-news (the bulk),
+  # press-releases, blog and speeches. Requiring a >=12-char slug drops the section indexes
+  # (/press-centre, /press-centre/blog) and their ?page= pagers.
+  link_pattern: '/press-centre/[a-z-]+/[a-z0-9-]{12,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the site banner and h2/.title both read "Categories" (the sidebar block), so <title>
+  # is the only per-article headline. Strip the site suffix with a lookahead; the |$ branch
+  # leaves a suffix-less title intact. (?s) because archived <title> values on this host wrap
+  # across lines and the regex runs on the RAW value, before clean_text.
+  selectors: ["title"]
+  regex: '(?s)^\s*.+?(?=\s*\|\s*The Presidency|$)'
+text:
+  # #content-sub is the article body alone (1,572 chars on the sample). #node_content adds the
+  # headline, #content adds the "You are here : Home > Press Centre > …" breadcrumb, and
+  # #wrapper-content adds the whole nav — so order matters here.
+  selectors: ["div#content-sub", "div.node#node_content", "div#mainContent"]
+date:
+  # Drupal 6's byline: "Submitted on Tuesday 18/01/2011". Note the DAY-FIRST numeric form —
+  # different from the Drupal 7 generation's "Tuesday 4 August 2015" — so the regex isolates
+  # the numeric date and dayfirst parsing (date_languages: en + the engine's dateparser
+  # settings) resolves it. regex_required so a byline-less page yields a blank, never the
+  # word "Submitted" handed to dateparser.
+  selectors: [".submitted"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-11 (Session A, CHUNK A2 sweep). Recovers the 2010-2013 Drupal 6
+  /press-centre/ generation of presidency.gov.gh — ~235 captures no recipe reached, spanning
+  the John Atta Mills presidency and the start of Mahama's. "yes-and" to gha_presidency (live
+  WP REST), gha_presidency_wayback (Joomla, 2017-24) and gha_presidency_node_wayback (Drupal
+  7, 2013-16); all four share data/state/Ghana.json so nothing is fetched twice — never
+  --rescrape. NO speaker_default (two presidents plus ministers) -> cleaner + tenure
+  crosscheck. Selectors verified against archived capture 20121027050945 of
+  /press-centre/blog/12-new-district-hospitals-and-200-ambulances-be-procured: <title> "12 New
+  District Hospitals And 200 Ambulances To Be Procured. | The Presidency of The Republic of
+  Ghana" -> headline after the suffix strip; #content-sub 1,572 chars. Note the capture window
+  is narrow (2010-2013, peaking 2011-12), so this is a modest but otherwise unreachable block.
+  PROBE-VALIDATED --spread --n 6: 103 snapshots, title 6/6, text 6/6 (1,572-2,656 chars on the
+  real articles), DATE 2/6. TWO CAVEATS, both visible in that probe and both left as-is
+  deliberately: (1) the .submitted byline exists only on the earlier Drupal 6 sub-generation,
+  so the later pages — which fall through to div#mainContent — arrive dateless and depend on
+  clean_structure_metadata plus the wayback_capture stamp; (2) one sample was a soft-404 shell
+  (title "The Presidency of The Republic of Ghana", 36 chars of body). No keep_if guard is set
+  because this generation has no element that reliably distinguishes the shell, and a 36-char
+  body cannot pass the cleaner's document_type + speaker gate anyway — unlike president.bg,
+  where the shell carried a full page of chrome and a plausible date. FULL RUN is the
+  researcher's gate.

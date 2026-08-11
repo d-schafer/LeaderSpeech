@@ -125,6 +125,12 @@ are marked **without a recipe**, from the `<id>_media.csv` sidecar: the `rendere
 `audio:<backend>` (e.g. `audio:faster-whisper`) and `pagination_type` shows the source `kind`
 (`playlist` / `channel` / `url_list`). `dataset` stays `LeaderSpeech`.
 
+The progress columns need a caveat here. `harvest.write_links` writes `<id>_links.txt` **after**
+`max_videos` truncation, so for an audio source the link list equals what was fetched rather than what the
+channel holds — `percent_scraped` reads ~100% by construction and says nothing about remaining coverage.
+The index marks that explicitly with `links_status = post_limit`. (Text sources are the other way round:
+`run` writes the list *before* scraping, so their percentage is meaningful.)
+
 ## Resumability, retention, safety
 
 - **Resumable.** The shared per-country state records seen/failed URLs and the last `doc_id` number, so

@@ -1,0 +1,76 @@
+# Kenya — Office of the President (president.go.ke), NEWS stream. LIVE, WordPress REST.
+#
+# WHY THIS EXISTS (CHUNK A2 narrowness sweep, 2026-08-11). `ken_president` reaches exactly one
+# thing on this host: the PDF attachments linked from /speeches/ (~404 files, no dates). The
+# site's own nav lists FIVE content sections, and the WordPress REST API enumerates them
+# exactly (recipe_tools helper `wpjson.py`):
+#     post              rest_base=posts              765   <- THIS RECIPE, previously 0% covered
+#     speeches_remarks  rest_base=speeches_remarks   445   <- ken_president, via the PDFs
+#     cabinet-secretary rest_base=cabinet-secretary   24   bios, out of scope
+#     tenders           rest_base=tenders             35   procurement, out of scope
+#     ministries-ke     rest_base=ministries-ke       22   directory, out of scope
+# The 765 `posts` are the /news/ + /cabinet-briefs/ stream: full HTML articles at ROOT-level
+# slugs (https://www.president.go.ke/<slug>/), a mix of verbatim address coverage and
+# third-person reports on the President. All 765 sit in one category ("news", id 1), so there
+# is no speech filter to apply — take them all and let clean_structure_metadata's
+# document_type gate keep speeches / official_statements, per CLAUDE.md RULE 1.
+#
+# NOT a duplicate of ken_president: that recipe's URLs are /wp-content/uploads/*.pdf and this
+# one's are root slugs, so the per-country state file cannot double-fetch either way.
+source_id: ken_president_news
+country: Kenya
+source_language: English
+renderer: static
+# Same false positive as ken_president: the pages carry Cloudflare's email-obfuscation script,
+# so the literal string "cloudflare" trips the engine's block-page guard (issue #65) on a page
+# that is real and complete. NOT a WAF — the honest bot UA gets 200 on the API and the articles.
+block_page: false
+start_urls:
+  - https://www.president.go.ke/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: 'president\.go\.ke/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 12        # 765 / 100 ≈ 8 pages; stops when a page returns no new rows
+  api:
+    results_path: "."          # WordPress returns a bare root array
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601, exact — the article pages carry no <time>
+    # text_field deliberately unset: content.rendered is raw HTML and the engine does not
+    # strip tags, so fetch the page and use the selectors below instead.
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # Bricks builder theme — there is no .entry-content/article. .brxe-post-content is the
+  # article body alone (5,993 chars on the sample); `main#brx-content` also matches but
+  # includes the h1 + date chrome, so it is only the fallback.
+  selectors: [".brxe-post-content", "main#brx-content", "main"]
+date:
+  selectors: ["time", ".entry-date"]
+  attr: datetime
+
+position: president
+speaker_default: William Ruto
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated (no full run). Kenya Office of the President NEWS stream via the
+  WordPress REST API (/wp-json/wp/v2/posts, 765 posts). Authored 2026-08-11 during the CHUNK
+  A2 narrowness sweep: the pre-existing ken_president recipe took ONLY the /speeches/ PDF
+  attachments, leaving this entire stream — the larger of the two — uncovered. Articles are
+  server-rendered at root-level slugs; title <- h1, body <- .brxe-post-content, date <- the
+  carried WP JSON `date` field (the pages have no <time> element, which is also why date_field
+  matters here). speaker_default William Ruto (in office since 2022-09); the site drops
+  predecessors, so Kenyatta-era material needs ken_president_wayback. English source ->
+  no translation stage. INCREMENTAL: shares data/state/Kenya.json with ken_president and
+  ken_president_wayback, so a normal run never re-fetches — do not --rescrape.
+  FOLLOW-UP worth noting: the speeches_remarks CPT (rest_base=speeches_remarks, 445 rows)
+  carries a TITLE and an exact ISO DATE for each speech even though its `content` is empty
+  (the text is a PDF attachment). ken_president currently has NO date at all — deriving it
+  from that endpoint would fix the gap without a re-scrape of the PDFs.

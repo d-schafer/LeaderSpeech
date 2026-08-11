@@ -33,6 +33,14 @@ record of what it found, under `data/scraped/<Country>/sample/`:
 | `<source_id>_probe_<timestamp>.txt` | **every harvested link**, one per line — the full `--spread` list, or page 1 otherwise. A snapshot of the source's coverage at that moment (the run's `<id>_links.txt`, but for a probe, and never overwritten). |
 | `<source_id>_probe_<timestamp>.json` | the **full report** — the listing summary plus each sampled page's per-field results (which selector matched, parsed date, kept?). Audit the extracted structure straight from the file. |
 
+A **run** leaves the matching pair in the same folder: `<source_id>_links_<timestamp>.txt` (a dated copy of
+the harvest, never overwritten — unlike `<id>_links.txt`, which every run replaces) and
+`<source_id>_links_<timestamp>.json`, recording how pagination ended (`listing.stopped_early` /
+`listing.stop_reason`, deliberately the same key names as the probe's) plus the `--max-pages` /
+`--max-links` / `--limit` actually passed. Without it, a run that harvested everything and one that stopped
+37 links in on a broken pager leave byte-identical `.txt` files. These flags are what the index's
+`links_status` column reads — see [recipes.md](recipes.md#the-scrape-index-for-merging).
+
 Written automatically on every CLI probe (the path is printed to stderr, so it never
 corrupts `--json` stdout). These live under the gitignored data tree, so they accumulate
 locally as a history and never clutter the repo. The sampled pages are chosen **evenly
