@@ -1,0 +1,85 @@
+# Hungary — keh.hu (Köztársasági Elnöki Hivatal), the ENGLISH sections, via the Internet Archive.
+# English sibling of hun_keh_wayback, which owns the five Hungarian sections on the same host.
+#
+# WHY THIS EXISTS, AND WHY IT ALMOST DID NOT GET WRITTEN. hun_keh_wayback's header carried a
+# closed lead: "AN ENGLISH keh.hu TREE IS NOT HARVESTABLE … do not re-open". That verdict is
+# CORRECT about what it examined — the 2002–2006 `index2.php?…&l=e` language flag, where every
+# capture is a 613–756 byte <frameset> stub whose content was never archived. But it is not the
+# whole story: the MODERN Áder-era CMS has its own English sections in the very <id>-<slug>
+# scheme hun_keh_wayback now harvests, and those are real articles:
+#
+#     keh.hu/speeches/<id>-<slug>                65 captures
+#     keh.hu/statements_and_letters/<id>-<slug>  19 captures
+#
+# So the lesson is narrower than the original note: a closed lead is closed for the GENERATION
+# that was sampled, not for the host.
+#
+# SELECTORS — verified on three captures (ids 1867, 1879, 1890; Áder speeches from 2014 at
+# Auschwitz-Birkenau, the inaugural session of the new Parliament, and the Nagy Imre reburial
+# memorial):
+#     text   p.text        1,219–1,657 chars of clean English, n=1. Same as the Hungarian sibling.
+#     date   div.newsDate  "06th May 2014" — English ordinals, hence date_languages ["en"] rather
+#                          than the sibling's ["hu"].
+#     title  ⚠ THERE IS NO TITLE ELEMENT. h2 does not match and <title> is the SITE NAME on every
+#            page ("Office of the President of the Republic") — the same banner trap as
+#            pol_president_english_wayback and the old hun_kormany_english_wayback. The headline
+#            does appear inside #content, but only after the section word and the date
+#            ("SPEECHES 06th May 2014 Speech of Hungarian president János Áder at …"), which is
+#            fragile to regex. The URL slug is the clean source and is taken via url_regex, with
+#            NO title selectors at all — selectors win over url_regex, so listing any of them
+#            would reinstate the banner.
+source_id: hun_keh_english_wayback
+country: Hungary
+source_language: English
+renderer: static
+
+start_urls:
+  - keh.hu/speeches/
+  - keh.hu/statements_and_letters/
+
+listing:
+  # Same <id>-<slug> scheme as the Hungarian sections.
+  # `&pnr=N` is KEPT, exactly as in hun_keh_wayback and for the same measured reason: on this CMS
+  # it PAGINATES A LONG ARTICLE rather than echoing a listing (proven there on Áder's 2012
+  # inaugural address, where &pnr=5 continues the same speech). Excluding it truncates long
+  # speeches; the cost is that a long speech lands as several rows and only page 1 carries
+  # div.newsDate.
+  link_pattern: 'keh\.hu(?::80)?/(speeches|statements_and_letters)/\d+-'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  # url_regex ONLY — see the header. Underscored slug; the cleaner polishes it. A few slugs carry
+  # percent-encoded typographic quotes (%E2%80%9C) which survive into the raw title.
+  url_regex: '/\d+-(.+)$'
+text:
+  selectors: ["p.text", ".text", "#content"]
+date:
+  selectors: ["div.newsDate", ".newsDate"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE, authored 2026-08-11 in sweep A3 alongside the hun_keh_wayback widening. The modern
+  ENGLISH sections of the pre-2022 Hungarian presidency site — keh.hu/speeches/ (65 captures) and
+  keh.hu/statements_and_letters/ (19) — in the same <id>-<slug> CMS as the five Hungarian sections
+  its sibling now covers. Small, but ENGLISH, so it lands straight in the English column with no
+  translation stage and is immediately queueable. It exists because hun_keh_wayback's header had
+  closed "there is no English keh.hu tree": true of the 2002-2006 frameset-stub generation that
+  note sampled, not true of the modern CMS — a closed lead is closed for the GENERATION examined,
+  not for the host. Selectors verified on three 2014 Áder speeches: text p.text (1,219-1,657
+  chars, n=1), date div.newsDate ("06th May 2014", English ordinals hence date_languages ["en"]).
+  NO title selectors: h2 misses and <title> is the site banner on every page, so the title comes
+  from the URL slug via url_regex — the same banner trap handled the same way in
+  pol_president_english_wayback. &pnr= is kept deliberately (it paginates long articles on this
+  CMS; see hun_keh_wayback for the measurement). Speaker left to the tenure crosscheck — no
+  speaker_default, since the id-slug era is mostly Áder but overlaps Novák's 2022 start, and this
+  sweep found per-recipe speaker defaults to be the project's main mis-attribution risk. Shares
+  data/state/Hungary.json with the other Hungary recipes — run serially. NOT YET RUN; FULL RUN is
+  the researcher's gate.

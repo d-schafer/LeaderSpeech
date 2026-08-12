@@ -88,6 +88,7 @@ is_substantive: does the document convey a SUBSTANTIVE expression of the leader'
 speaker: the actual person whose position the document represents, as a clean full name (no title). Determine from the text and title. A title in front of a name does NOT make a different person ("President X" IS X). Accent/transliteration variants are the same person. If the document is clearly a DIFFERENT named individual than the attributed SPEAKER (e.g. a visiting foreign leader's own speech hosted on this government site, or a minister speaking, not the president), give the ACTUAL person. If no person can be identified, null.
 
 speaker_attributed_correct: compared to the scraped SPEAKER — "yes" if they are the same person (ignore titles/accents/spelling), "no" if a genuinely different person spoke, "unsure" if unclear or SPEAKER was blank.
+  ⚠ SPEAKER IS OFTEN NOT A BYLINE. For most sources it is a per-source DEFAULT, filled in because the website belongs to one leader and the collection window falls inside that leader's term — it is a surmise from the source and the date, NOT something read off the page. So treat SPEAKER as a PRIOR, not as evidence: it is the expected speaker, and the document itself outranks it. Where the text names a different person, follow the text and answer "no" without hesitation. This matters most on whole-of-government sites, where a ministry or spokesperson item can arrive stamped with the head of government's name.
 
 speaker_type: the actual speaker's role AT THE TIME — one of: "head_of_state", "head_of_government", "both" (e.g. an executive president who is both), "other_minister" (any cabinet minister/official who is not the leader), "foreign_visitor" (a leader/official of ANOTHER country), "other" (anyone else), or "unknown".
 
@@ -170,7 +171,8 @@ def build_user_message(row: dict, leaders_info: str, max_words: int = 500) -> st
     """
     text = _truncate(_pick_text(row), max_words)
     return (
-        f"SPEAKER: {_safe(row.get('speaker'))}\n"
+        f"SPEAKER (expected, may be a per-source default — see the rules): "
+        f"{_safe(row.get('speaker'))}\n"
         f"COUNTRY: {_safe(row.get('country'))}\n"
         f"DATE: {_safe(row.get('date'))}\n"
         f"{_date_evidence_lines(row)}"

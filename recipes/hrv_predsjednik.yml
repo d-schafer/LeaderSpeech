@@ -1,20 +1,48 @@
 # Croatia — predsjednik.hr (Office of the President).
+#
+# ✅ RULE 1 AUDIT 2026-08-11 (sweep A3), done from the LIVE NAV plus the WordPress REST root
+# rather than CDX. The nav advertises four content sections — /vijesti/, /govori/, /press/,
+# /najave/ — and the recipe took ONE. /wp-json/wp/v2/types settles what each of them actually is,
+# and it is the only thing that does, because the site serves any slug under any base:
+#
+#     post type       rest_base       total   served at        verdict
+#     news            news            2,322   /vijesti/        ✅ already covered (2,320 rows scraped)
+#     statements      statements         28   /govori/         ⭐ ADDED — the full speech transcripts
+#     announcements   announcements     854   /najave/         ❌ content is "" on every one — empty stubs
+#     commissions/recognitions/officials/cabinets/presidents   ❌ institutional registers, out by RULE 1
+#
+# ⚠️ THE ALTERNATE-VIEWS TRAP NEARLY FIRED HERE, IN BOTH DIRECTIONS.
+#   * /vijesti/inauguracijski-govor-predsjednika-republike-hrvatske-zorana-milanovica/ returns
+#     HTTP 200 with the correct title, i.e. a /govori/ slug DOES resolve under the covered
+#     section — the gov.ro test, and by that test alone /govori/ would have been dismissed as a
+#     duplicate view. It is not: /wp-json shows `statements` is a distinct post type whose
+#     canonical `link` is /govori/<slug>/, WordPress is merely permissive about the base, and the
+#     /vijesti/page/N/ listings the crawler walks never link to them. URL resolvability is not
+#     harvest coverage.
+#   * Conversely /press/ IS a trap and was rejected: it is a hub page (accreditation anchors, a
+#     Flickr embed) whose article links are a mixed feed of /vijesti/ and /govori/ items. The
+#     recipe's old note "the /press/ (priopćenja) section could be added later" is therefore
+#     wrong — there is no priopćenja post type. Recorded so it is not re-derived.
 source_id: hrv_predsjednik
 country: Croatia
 source_language: Croatian
 start_urls:
   - https://www.predsjednik.hr/vijesti/
-renderer: static
+  # `statements` — the full speech transcripts (UN General Assembly addresses, the inaugural
+  # speech, Oluja/Statehood Day addresses). Its own pager: /govori/page/N/ returns 200.
+  - https://www.predsjednik.hr/govori/
 
 listing:
-  # Article permalinks are /vijesti/<slug>/ (absolute hrefs). Require a >=7-char
-  # slug so the bare /vijesti/ index and /vijesti/page/N/ pager pages are excluded.
-  link_pattern: '/vijesti/[a-z][^/?#]{6,}/?$'
+  # Article permalinks are /vijesti/<slug>/ and /govori/<slug>/ (absolute hrefs). Require a
+  # >=7-char slug so the bare indexes and the /page/N/ pagers are excluded ("page" is 4 chars).
+  link_pattern: '/(?:vijesti|govori)/[a-z][^/?#]{6,}/?$'
+renderer: static
 
 pagination:
-  # No sitemap exists (/, /sitemap.xml, /sitemap_index.xml all 404). The /vijesti/
-  # index paginates as /vijesti/page/{n}/ (6 articles/page); the engine stops when a
-  # page yields no new links. ~400 pages spans the Milanović term (from 2020).
+  # No sitemap exists (/, /sitemap.xml, /sitemap_index.xml all 404). Both sections paginate as
+  # <section>/page/{n}/ (6 articles/page); the engine applies the format to EACH start_url and
+  # stops when a page yields no new links, so /govori/ (~5 pages) costs nothing extra beyond its
+  # own depth. ~400 pages spans the Milanović term (from 2020).
   type: path
   path_format: "page/{n}"
   start: 1
@@ -38,5 +66,18 @@ notes: >
   (title h1, text .p-post-single__content, date .p-post-single__meta parsed with
   date_languages: [hr]; ~420 links over 70 pages, deeper pages reach the Milanović
   era). Content is Croatian. Speaker filled downstream from leader tenure; the
-  cleaner's tenure gate narrows president news to leader speeches/statements. The
-  /press/ (priopćenja) section could be added later for more statement coverage.
+  cleaner's tenure gate narrows president news to leader speeches/statements.
+  WIDENED 2026-08-11 in sweep A3: added /govori/, the site's `statements` custom post type
+  (28 items) — the FULL SPEECH TRANSCRIPTS, including the inaugural speech and the UN General
+  Assembly addresses. Audited from the live nav plus /wp-json/wp/v2/types, which is what settles
+  it: `news` (2,322, /vijesti/) is what the recipe already had, essentially in full given 2,320
+  rows scraped; `statements` (28, /govori/) is a distinct post type the /vijesti/ pager never
+  links to; `announcements` (854, /najave/) has content:"" on every row — 854 empty diary stubs,
+  matching the same finding on the English mirror — and the remaining types are institutional
+  registers. The old note here said the /press/ section could be added later for statement
+  coverage: that was WRONG and is now settled — /press/ is a hub page (accreditation + Flickr)
+  whose article links are a mixed feed of /vijesti/ and /govori/, and there is no priopćenja
+  post type. Also note the alternate-views test is MISLEADING on this host: a /govori/ slug does
+  return 200 under /vijesti/, because WordPress resolves any slug under any base, yet the item is
+  a separate post that the crawler could never reach. Widening needs NO --rescrape.
+  Shares data/state/Croatia.json with hrv_predsjednik_english_wayback — run serially.

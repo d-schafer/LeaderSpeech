@@ -42,7 +42,11 @@ def test_build_user_message_truncates_and_uses_originlanguage():
 
 def test_build_user_message_blank_fields():
     msg = extract.build_user_message({"country": "Chile"}, "", max_words=100)
-    assert "SPEAKER: not available" in msg
+    # The SPEAKER label carries a caveat: for most sources the value is a per-recipe
+    # `speaker_default`, i.e. surmised from the site + date rather than read off the page,
+    # so the prompt must not present it to the model as a byline.
+    assert "SPEAKER (expected, may be a per-source default" in msg
+    assert "): not available" in msg
     assert "TEXT (first ~100 words):\nnot available" in msg
 
 

@@ -1,0 +1,84 @@
+# Afghanistan — president.gov.af ("Arg", the Presidential Palace), the modern ENGLISH tree,
+# via the Internet Archive.
+#
+# WHY THIS EXISTS. afg_president_gov_wayback covers only the OLD Karzai-era ASP.NET scheme
+# /Contents/<cat>/Documents/<id>/<slug>.html. Measured 2026-08-11 (sweep A3): that reaches 1,986
+# of 30,831 in-scope captures on the host = 6.4%. The other 94% is a whole later WordPress-era
+# site with FOUR language trees, none of which any recipe touched:
+#
+#     /fa/news/<id>   3,372   Dari        ← no recipe
+#     /ps/news/<id>   3,257   Pashto      ← no recipe
+#     /en/news/<id>   2,203   ENGLISH     ← THIS RECIPE
+#     /uz/…             716   Uzbek       ← no recipe
+#     plus /da/, /pashto-dari/news, /english/ (older) and the /Contents/ block above
+#
+# English first, per the project's language policy: this tree lands straight in the English
+# `text` column with no translation stage. The Dari, Pashto and Uzbek twins are recorded in the
+# outbox as follow-ups — same host, same template, one changed language segment each.
+#
+# SELECTORS — verified on two captures at opposite ends of the range (id 10106, a 2015 MoU with
+# the United States; id 298521, "President Ghani receives Ambassadors of EU countries", 2017):
+#     h1            the clean headline. NOT <title>, which appends " - Office of the President".
+#     .Contents     the article body — 774 chars on the sampled item, opening with its own
+#                   dateline ("25 February 2017 President of the Islamic Republic of Afghanistan
+#                   Mohammad Ashraf Ghani met…"). Note this is a CLASS on the modern theme and has
+#                   nothing to do with the old scheme's /Contents/ PATH.
+#     .contentDiv   the wrapper that carries "Publish Date: Feb 25, 2017" between the headline and
+#                   the body. There is no dedicated date element, so the container is the selector
+#                   and the regex lifts the date out of it.
+# `article`, `.entry-content`, `.post-content`, `time` and `.entry-date` were all tried and match
+# NOTHING here — this is a hand-rolled theme, not stock WordPress markup, despite the URL shape.
+source_id: afg_president_gov_english_wayback
+country: Afghanistan
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'.
+  - president.gov.af/en/news
+
+listing:
+  # /en/news/<numeric-id>. End-anchored so the section listings and ?query views stay out — the
+  # sibling afg_aop_dari_wayback was found harvesting ~1,067 category-listing URLs for exactly
+  # that reason, so the guard is applied here from the start rather than after the fact.
+  # (?::80)? because the pre-HTTPS era of this host is recorded as president.gov.af:80 — 184 of
+  # its captures carry it, and a host-anchored pattern would drop the article outright (CDX is
+  # queried with collapse=urlkey, which keeps the EARLIEST capture per article).
+  link_pattern: 'president\.gov\.af(?::80)?/en/news/\d+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+  regex: '^\s*(.+)'
+text:
+  selectors: [".Contents", ".contentDiv", ".widgetBlock"]
+date:
+  # "Publish Date: Feb 25, 2017" — no dedicated element, so scope to the wrapper and regex it out.
+  selectors: [".contentDiv", ".block", ".widgetBlock"]
+  regex: '[A-Z][a-z]{2}\s+\d{1,2},\s*\d{4}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE, authored 2026-08-11 in sweep A3 under the author-now policy, out of the RULE 1 audit
+  of afg_president_gov_wayback. That recipe reports 100% coverage of its own start_url prefix,
+  which is exactly why the prefix had to be questioned rather than the pattern: enumerating the
+  whole host showed it reaches 1,986 of 30,831 in-scope captures = 6.4%, because it covers only
+  the OLD Karzai-era ASP.NET /Contents/ scheme. The modern WordPress-era site carries four
+  language trees and no recipe touched any of them; this takes the ENGLISH one (/en/news/<id>,
+  2,203 captures), which lands directly in the English column with no translation. Ghani era,
+  roughly 2014-2021. NO speaker_default: the tree spans Ghani and the transition, and this sweep
+  found per-recipe speaker defaults to be the project's main mis-attribution risk, so the
+  cleaner's speaker pass and tenure crosscheck assign it. Selectors verified on captures from
+  both ends of the range; `article`, `.entry-content`, `.post-content`, `time` and `.entry-date`
+  all match nothing (hand-rolled theme, not stock WordPress). FOLLOW-UPS recorded in the outbox:
+  the Dari (/fa/, 3,372), Pashto (/ps/, 3,257) and Uzbek (/uz/, 716) twins on the same host and
+  template. NOT YET RUN — probe-validated only; FULL RUN is the researcher's gate. Shares
+  data/state/Afghanistan.json with the other Afghan recipes — run serially.

@@ -2,8 +2,36 @@
 # president.lv is native Latvian; /en/ is the official English site, so text lands directly in the
 # English `text` column (no translation needed). No live lva_president recipe yet.
 #
-# Article permalink: /en/article/<slug>. CDX for president.lv/en ≈ 5,270 statuscode:200 captures
+# Article permalink: /en/article/<slug>. CDX for president.lv/en ≈ 5,300 statuscode:200 captures
 # spanning 2000–2026 (heaviest 2021–2026: Vējonis→Levits→Rinkēvičs).
+#
+# ✅ RULE 1 AUDIT 2026-08-11 (sweep A3). 2,806 of 5,300 captures matched before this edit, and the
+# 2,494 "missed" are almost entirely NOT documents — the denominator lies here in the usual way:
+#     815  /en/events?view=calendar&date=…        calendar VIEWS of the event list
+#     422  /en/cookies?destination=…              the consent wrapper (already excluded by lookbehind)
+#     222  /en/news/agenda etc.                   section indexes
+#     121+ /en?view=calendar / ?page= / ?category=  more listing permutations
+#      34  /en/president-of-latvia/…, /en/employee/, /en/activities/  static institutional pages
+#      24  /en/media/oembed?url=…                 oEmbed stubs, out by RULE 1
+#      22  /en/gallery/…                          photo galleries, out by RULE 1
+# The :80 host-anchor bug does NOT apply — this pattern anchors a PATH segment, not the host — and
+# port80.py confirms it: 74 captures carry :80, and adding (?::80)? gains exactly 0.
+#
+# ⭐ ONE REAL FIND: A PRE-2002 ENGLISH GENERATION AT /english/, which no recipe reached.
+#   http://www.president.lv:80/english/<year>/speech_txt/spch<DDMM>[_tag].html — Vaira Vīķe-Freiberga's
+#   English speeches, e.g. spch2109.html = "Address by Her Excellency Dr. Vaira Vike-Freiberga,
+#   President of the Republic of Latvia at the Norwegian School of Management" (15,343 chars of clean
+#   English) and spch0101_ny.html, the 2000 New Year address. ~30 captures. Sampled 5 pages:
+#     * <title> is the FULL headline; there is no h1, so the existing title chain lands on `title`.
+#     * `p` is the body (3,547–15,343 chars) — cleaner than `body`, which prefixes a "List of
+#       speeches" nav crumb; `td` does not match at all on these.
+#     * the date is in the filename (spch<DD><MM>) plus the year in the path → an unambiguous
+#       url_regex, which matters because these pages have no date element whatsoever.
+#   SAMPLED AND REJECTED from the same tree: /english/<year>/Texts/<DDMM>_N.html and
+#   /english/<year>/speech_txt/concept.html are LATVIAN, served in a legacy charset that arrives as
+#   mojibake ("Vaira V��e-Freiberga"), and are mostly the Triju Zvaigžņu ordenis awards
+#   register — out by RULE 1 on both language and content. Also rejected: the *_fs.html / *_top.html
+#   frameset shells and slejas_fs/topiks menu pages.
 source_id: lva_president_english_wayback
 country: Latvia
 source_language: English
@@ -16,7 +44,9 @@ listing:
   # article/event permalink (excludes /en/events?view=calendar and /en?category= listings). The
   # (?<!=) drops the cookie-consent wrapper /en/cookies?destination=/en/article/... (the /en/article
   # there sits after "destination=", preceded by "="; a real permalink is preceded by the host).
-  link_pattern: '(?<!=)/en/(article|event)/[a-z]'
+  # Second alternative = the pre-2002 /english/ generation (see the header). Anchored to
+  # speech_txt/spch so the Latvian Texts/ tree, the frameset shells and the menu pages stay out.
+  link_pattern: '(?<!=)/en/(article|event)/[a-z]|/english/\d{4}/speech_txt/spch\d{4}'
 
 pagination:
   type: wayback
@@ -30,12 +60,29 @@ title:
   selectors: ["h1", ".article-title", ".title", "title"]
   regex: '^\s*(.+)'
 text:
-  # .content holds the clean English body (probe: 466–18,239 chars); generic fallback backs it up
-  selectors: [".content", ".article__body", ".field--name-body"]
+  # .text__text-content FIRST, matching the live lva_president recipe. It is the single CKEditor
+  # body element (n=1). `.content` — which used to lead this chain — matches TWO elements on the
+  # same page and the engine joins them (9,149 chars vs 9,082), i.e. the element-join trap in
+  # miniature; it stays as a fallback for captures where the CKEditor class is absent.
+  # `p` last = the pre-2002 /english/ generation, which matches none of the Drupal classes. It is
+  # only ever reached there, and it is preferred over `body` (which prefixes a "List of speeches"
+  # nav crumb) and over `td` (which does not match these pages at all).
+  selectors: [".text__text-content", ".content", ".article__body", ".field--name-body", "p"]
 date:
-  # the archived date element concatenates two DD.MM.YYYY. values (publish + update) → dateparser
-  # can't parse it, so DATE is deferred to the cleaner's corrected-date pass + wayback_capture backstop
-  selectors: ["time[datetime]"]
+  # ⚠️ FIXED 2026-08-11 (sweep A3). This field used to be `time[datetime]` alone, with a header note
+  # explaining that the element "concatenates publish+update values → unparseable → deferred to the
+  # cleaner". That was a MISDIAGNOSIS: time[datetime] does not match these captures AT ALL — the
+  # probe returned NO MATCH on 10 of 12 sampled pages, so 2,786 rows were heading for the cleaner
+  # dateless. The archived pages carry the same `.submitted` element the LIVE lva_president recipe
+  # already uses — "Published: 24.09.2024." — verified 4/4 on captures from 2019, 2021, 2022, 2024.
+  # Same regex + date_languages ["lv"] as the live recipe, because the rendered date is a Latvian
+  # DD.MM.YYYY even on the English page; ["en"] would read 05.09.2024 as 9 May.
+  selectors: [".submitted", "time[datetime]"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+  # …the pre-2002 /english/ pages carry no date element at all. There the filename is the date:
+  # /english/2000/speech_txt/spch2109.html = 21 September 2000. Named groups assemble an
+  # unambiguous ISO date, and url_regex is only consulted when the selectors miss.
+  url_regex: '/english/(?P<year>\d{4})/speech_txt/spch(?P<day>\d{2})(?P<month>\d{2})'
 
 position: president
 date_languages: ["en"]
@@ -47,6 +94,23 @@ notes: >
   Latvia's presidency (president.lv/en → English column, no translation). CDX prefix president.lv/en ≈
   5,270 captures 2000–2026 (heaviest 2021–2026: Vējonis→Levits→Rinkēvičs). Multiple presidents → NO
   speaker_default; the cleaner's tenure crosscheck assigns the speaker; many items are third-person
-  activity news → the document-type gate keeps the speech/official_statement subset. DATE element
-  concatenates publish+update values → unparseable → deferred to the cleaner + wayback_capture →
-  recipe_status partial. FULL RUN is the researcher's gate.
+  activity news → the document-type gate keeps the speech/official_statement subset.
+  AUDITED AND REPAIRED 2026-08-11 in sweep A3. Breadth: CHECKED CLEAN — 2,806 of 5,300 captures
+  matched, and the 2,494 "missed" are calendar views, cookie wrappers, section indexes, oEmbed
+  stubs and galleries, not documents (the :80 host-anchor bug does not apply here because the
+  pattern anchors a PATH segment; port80.py confirms adding (?::80)? gains exactly 0). ONE REAL
+  FIND, now added: a pre-2002 English generation at /english/<year>/speech_txt/spch<DDMM>.html —
+  Vaira Vīķe-Freiberga's English speeches, an era otherwise absent from the corpus; its Latvian
+  sibling trees (Texts/, the frameset shells) were sampled and rejected as mojibake awards-register
+  material. TWO QUALITY DEFECTS FIXED, both worth more than the widening: (1) the DATE field was
+  time[datetime], which does NOT MATCH these captures at all — the probe returned NO MATCH on 10 of
+  12 pages, so 2,786 rows were heading for the cleaner dateless, and the header's explanation that
+  the element "concatenates publish+update values" was a misdiagnosis. The archived pages carry the
+  same .submitted element ("Published: 24.09.2024.") the LIVE lva_president recipe already uses,
+  verified 4/4 across 2019-2024, with the same regex and date_languages ["lv"]. (2) text now leads
+  with .text__text-content (n=1) instead of .content (n=2 — the engine joins both, 9,149 vs 9,082
+  chars). Probe --spread --n 12 after: 2,786 snapshots, title 12/12, text 12/12, DATE 12/12 (was
+  1/12), 2001-03 to 2024-09. RESCRAPE FLAG: the widening alone needs no --rescrape, but the date
+  fix does not repair the ~2,701 rows already stored, which are dateless — a genuine --rescrape
+  candidate, researcher's call. Shares data/state/Latvia.json with lva_president — run serially.
+  FULL RUN is the researcher's gate.

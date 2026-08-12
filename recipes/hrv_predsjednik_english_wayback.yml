@@ -3,12 +3,41 @@
 # site's own ENGLISH tree directly, so the text lands in the English `text` column with NO machine
 # translation. "yes-and" to the live recipe.
 #
-# TWO English generations under the /en prefix (CDX prefix-match catches both; ≈ 1,383 English
-# captures 2000–2026):
+# THREE English generations under the /en prefix (CDX prefix-match catches all; 1,384 English
+# captures 2000–2026). Enumerated and re-measured 2026-08-11 in sweep A3:
 #   1. MODERN   predsjednik.hr/en/speeches/<slug>  (speech transcripts) and
 #               predsjednik.hr/en/news/<slug>      (president activities/statements)  — 2014, 2020–2026
-#   2. OLD ASP  predsjednik.hr/english/speeches/<DD_MM_YYYY[_n]>.html                  — 2000–2003 (Mesić)
+#   2. JOSIPOVIĆ predsjednik.hr/en/<YYYY>/<MM>/<slug>/  WordPress date permalinks       — 2011–2014
+#   3. OLD ASP  predsjednik.hr/english/speeches/<DD_MM_YYYY[_n]>.html                  — 2000–2003 (Mesić)
 # Spans Mesić → Josipović → Milanović.
+#
+# ✅ SWEEP A3, 2026-08-11 — 835 → 1,122 matched captures, +287 NEW page identities, 0 duplicates.
+# Two independent defects, both measured with recipe_tools/port80.py:
+#
+#   (a) THE :80 HOST ANCHOR (+238). The Archive records the pre-HTTPS era as
+#       http://www.predsjednik.hr:80/…, and the pattern anchored the host directly to '/', so
+#       it rejected 331 captures — which is to say it rejected essentially the WHOLE of
+#       generation 3, the Mesić-era /english/speeches/*.html files the recipe was written to
+#       collect. Worse than "old captures missed": CDX is queried with collapse=urlkey, urlkey
+#       strips scheme AND port, and collapse keeps the EARLIEST row per group, so a
+#       pre-HTTPS-first article is dropped outright. Monotone-safe — CDX already emitted one
+#       row per urlkey and filter_entries_for_recipe dedupes again on page_identity.
+#
+#   (b) GENERATION 2 WAS ENTIRELY UNCOVERED (+49 captures / +287 identities together). The
+#       Josipović presidency's English articles live ONLY at /en/<YYYY>/<MM>/<slug>/. Checked
+#       for the alternate-views trap and it is NOT one: not a single /en/news/ URL on this host
+#       mentions josipovic, i.e. /en/news/ only ever held the modern Milanović era.
+#
+# SAMPLED AND REJECTED, so the next reader does not re-derive it:
+#   * /en/announcements/<weekday-D-month-YYYY>/ (25) — the president's daily diary. Looks like
+#     RULE 1 "engagement notes", but .p-post-single__content is EMPTY on every one; the whole
+#     document is the date heading plus a topic tag. No body, nothing to extract.
+#   * /en/vijesti/<slug>/ (23) — CROATIAN articles served under the /en/ prefix (wrong-language
+#     twins: "cestitka-predsjednika-republike-povodom-ramazanskog-bajrama"). The live Croatian
+#     recipe hrv_predsjednik owns that content.
+#   * /english/photo_album/ (25), /english/advisers/ (10), /english/working_groups/ (12),
+#     /en/president-office/ + /en/office-of-the-president/ (80) — galleries and static
+#     institutional pages, out by RULE 1.
 source_id: hrv_predsjednik_english_wayback
 country: Croatia
 source_language: English
@@ -18,9 +47,15 @@ start_urls:
   - predsjednik.hr/en
 
 listing:
-  # modern /en/speeches/<slug> + /en/news/<slug>; old /english/speeches/<file>.html. Non-anchored
-  # so www./:80/http(s) all match. Excludes bare /en/ and /en/news (listing) captures.
-  link_pattern: 'predsjednik\.hr/en/(news|speeches)/[a-z]|predsjednik\.hr/english/speeches/[^/]+\.html'
+  # gen 1 /en/(news|speeches)/<slug>; gen 2 /en/<YYYY>/<MM>/<slug>/; gen 3 /english/speeches/<f>.html.
+  # (?::80)? on BOTH alternatives — see (a) in the header; without it generation 3 is unreachable.
+  # Excludes bare /en/ and /en/news (listing) captures.
+  #
+  # (?!page/) — a PRE-EXISTING defect found by this sweep's re-probe, not introduced by it: the
+  # old pattern's "(news|speeches)/[a-z]" happily matched /en/speeches/page/3/, because "page"
+  # begins with a letter. The probe duly harvested one and extracted a pager listing as if it
+  # were a speech (title from h1, text from `main`, no date). Both generations get the guard.
+  link_pattern: 'predsjednik\.hr(?::80)?/en/(?:(?:news|speeches)|\d{4}/\d{2})/(?!page/)[a-z]|predsjednik\.hr(?::80)?/english/speeches/[^/]+\.html'
 
 pagination:
   type: wayback
@@ -34,11 +69,27 @@ title:
   selectors: ["h1", ".p-post-single__title", "title"]
   regex: '^\s*(.+)'
 text:
-  # modern theme .p-post-single__content (reused from the live recipe); old ASP /english/speeches
-  # pages match none of these → the engine's generic (trafilatura) fallback recovers the body.
-  selectors: [".p-post-single__content", "article", ".content", "main"]
+  # gen 1 (modern theme) .p-post-single__content, reused from the live recipe.
+  # gen 2 (Josipović, WordPress twentytwelve) .post — measured at 7,055 chars on the Knesset
+  #   address, and it is the ONLY workable container there: .p-post-single__content, article,
+  #   .content and main all miss (the old theme uses div#content / div#main, i.e. IDs, which a
+  #   class/tag selector cannot reach). Safe last-but-one because gen 1 matches earlier in the
+  #   chain, so .post is only ever reached on the old theme.
+  # gen 3 (old ASP /english/speeches) — `body`, LAST in the chain. The header used to say these
+  #   pages "match none of these → trafilatura recovers the body", and the 2026-08-11 probe showed
+  #   text as a hard NO MATCH on all three sampled gen-3 pages. Relying on the silent generic
+  #   rescue is exactly the defect found on ken_president_wayback, so it is now explicit. These
+  #   pages are bare — no navigation at all — so body is n=1 / 1,877 chars of pure speech, and
+  #   it is SAFER here than `td` (n=10) or `table` (n=2), which invite the element-join trap.
+  #   It can only ever fire on gen 3, because gens 1 and 2 match earlier in the chain.
+  selectors: [".p-post-single__content", "article", ".post", ".content", "main", "body"]
 date:
-  selectors: [".p-post-single__meta", "time", ".datum", ".date"]
+  # gen 2 has no date ELEMENT: the date is the first line inside .post ("15 February 2012 Mr.
+  # Speaker, President Peres, …"), so the regex below lifts it off the front of that container.
+  # The regex only ever applies to whichever selector wins, and .post sits after the modern
+  # .p-post-single__meta, so it cannot disturb gen 1.
+  selectors: [".p-post-single__meta", "time", ".datum", ".date", ".post"]
+  regex: '\d{1,2}\s+[A-Za-zČĆŽŠĐčćžšđ]+\s+\d{4}|\w+\s+\d{1,2},\s*\d{4}'
   # OLD ASP pages carry no date element — the delivery date is in the filename
   # (english/speeches/17_7_2000_2.html = 17 Jul 2000); named groups assemble an unambiguous ISO date.
   url_regex: '/english/speeches/(?P<day>\d{1,2})_(?P<month>\d{1,2})_(?P<year>\d{4})'
@@ -46,11 +97,26 @@ date:
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback ENGLISH companion to the live hrv_predsjednik (yes-and, genuine English → English
-  column, no translation). CDX prefix predsjednik.hr/en ≈ 1,383 English captures 2000–2026, TWO
-  generations: modern /en/(speeches|news)/<slug> (2014, 2020–2026) + old /english/speeches/<file>.html
-  (2000–2003, Mesić). Multiple presidents (Mesić→Josipović→Milanović) → NO speaker_default; the
-  cleaner's tenure crosscheck assigns the speaker. /en/news/ carries president activities/statements
-  (cleaner's document-type gate keeps the speech/official_statement subset); /en/speeches/ and old
-  /english/speeches/ are transcripts. OLD-page date via the filename url_regex; modern via
-  .p-post-single__meta / cleaner. PROBE the modern vs old selectors. FULL RUN is the researcher's gate.
+  Wayback ENGLISH companion to the live hrv_predsjednik (yes-and, genuine English → English column,
+  no translation). WIDENED AND REPAIRED 2026-08-11 in sweep A3: 835 → 1,116 matched captures,
+  +287 new page identities, 0 duplicates. Three fixes, all measured. (1) The :80 host anchor —
+  the pattern anchored predsjednik.hr directly to '/', which rejected 331 pre-HTTPS captures and
+  thereby rejected essentially the whole Mesić-era /english/speeches/ generation the recipe existed
+  to collect. (2) A THIRD generation was entirely uncovered: the Josipović presidency's English
+  articles live only at /en/<YYYY>/<MM>/<slug>/, and it is not an alternate view — no /en/news/ URL
+  on this host mentions josipovic at all, so /en/news/ only ever held the modern Milanović era.
+  Selectors for it: title h1, text .post (the old twentytwelve theme uses div#content / div#main,
+  IDs a class selector cannot reach), date .datum. (3) TWO PRE-EXISTING DEFECTS the re-probe
+  exposed: "(news|speeches)/[a-z]" matched /en/speeches/page/3/ and extracted a pager listing as a
+  speech (now guarded with (?!page/)), and the old ASP pages were relying on a silent trafilatura
+  rescue — text was a hard NO MATCH on all three sampled — now explicitly `body`, safe because
+  those pages carry no navigation (n=1, 1,877 chars) and because gens 1-2 match earlier in the
+  chain. Probe --spread --n 14 after: 1,116 snapshots, title 14/14, text 14/14, date 14/14,
+  spanning 2000-07 to 2026-05 and all three generations. Multiple presidents
+  (Mesić→Josipović→Milanović) → NO speaker_default; the cleaner's tenure crosscheck assigns the
+  speaker. SAMPLED AND REJECTED, recorded in the header so it is not re-derived: /en/announcements/
+  (the daily diary — .p-post-single__content is empty on every one), /en/vijesti/ (Croatian
+  wrong-language twins owned by the live recipe), photo albums and static institutional pages.
+  Widening needs NO --rescrape: the state file's seen-set means an incremental run fetches only the
+  newly matched URLs. Shares data/state/Croatia.json with hrv_predsjednik — run serially.
+  FULL RUN is the researcher's gate.

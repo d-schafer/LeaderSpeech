@@ -23,22 +23,52 @@ pagination:
     - "statuscode:200"
 
 title:
-  # probe: archived aop pages have no h1; the <title> tag carries the headline (sometimes " - AOP"
-  # suffixed or doubled). Take the first line to drop the dup; the cleaner refines the rest.
-  selectors: ["h1", ".news-title", ".title", "title"]
+  # ⚠️ FIXED 2026-08-11 (sweep A3). The old chain was ["h1", ".news-title", ".title", "title"] with a
+  # header note saying "archived aop pages have no h1; <title> carries the headline (sometimes
+  # doubled)". h1/.news-title/.title indeed never match — but <title> is doubled on EVERY modern
+  # capture (n=2: the head tag plus a repeat), so the recipe was relying on a first-line regex to
+  # undo damage the engine's element-join had done. The theme has proper title elements, and it
+  # uses TWO of them in different eras, so both are needed:
+  #   .blog-post-title   — an <h2>, carries the headline on the 2021-22 captures (id 1001, pa/1004)
+  #                        and is present-but-EMPTY on the later ones (id 3429). An empty value is
+  #                        falsy, so first_match correctly walks past it to the next selector.
+  #   .blog-post-date h5 — carries the headline on the 2023-24 captures (id 3429, en/1978, en/3605).
+  # <title> stays last as the backstop, and the first-line regex with it.
+  selectors: [".blog-post-title", ".blog-post-date h5", "h1", ".news-title", ".title", "title"]
   regex: '^\s*(.+)'
 text:
-  # The custom Afghan CMS body is under none of the usual containers (probe: all missed). Kept a
-  # few specific guesses; the real body comes from the engine's generic (trafilatura) fallback,
-  # which fires automatically when these miss (probe confirmed 0.8k–26k chars recovered). Broad
-  # selectors (main/.content/article) are deliberately OMITTED so they can't match a nav blob and
-  # pre-empt that fallback.
-  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+  # ⚠️ FIXED 2026-08-11. .news-details / .news-body / .article-body / .single-news match NOTHING on
+  # this host — verified again on captures from 2021, 2022, 2023 and 2024 — so every one of the
+  # ~2,379 rows collected so far had its body recovered by the engine's silent generic
+  # (trafilatura) fallback. That is the same defect found on ken_president_wayback: it usually
+  # works, it is invisible when it does not, and it cannot be probed. .content_body_font_size is
+  # the actual body div (944–1,477 chars measured on the Dari tree). The old guesses are kept
+  # behind it at no cost, and the generic fallback still backstops everything.
+  selectors: [".content_body_font_size", ".news-details", ".news-body", ".article-body", ".single-news"]
 date:
-  # No standard date element in the archived DOM (probe: all missed). Best-effort chain; the date
-  # is recovered by the generic fallback / the cleaner's metadata pass (dates are likely Solar
-  # Hijri / Dari, which selector parsing can't handle anyway).
-  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+  # ⚠️ FIXED 2026-08-11. The old chain matched nothing and the header concluded there is "no
+  # standard date element in the archived DOM". There is: .blog-post-date a.number-font, e.g.
+  # "5 دلو 1400" / "1 اسد 1403" — a SOLAR HIJRI (Jalali) date, which is precisely why it reads as
+  # unparseable to a Gregorian eye. The cleaner already handles this: clean_structure_metadata's
+  # jalali.py parses zodiac and Iranian month names, and the pipeline resolves
+  # jalali(text) > model/scraped > wayback_capture. Capturing the string is what matters; getting
+  # it into the row is strictly better than leaving the field empty.
+  # The date sits inside .blog-post-date, but only SOMETIMES wrapped in <a class="number-font">
+  # (id 1978 has the anchor; ids 1000, 3137 and en/2404 print it as bare text), so the container is
+  # the selector and the regex lifts the date off the front — the rest of that div is the headline.
+  # The pattern is <D> <month-word> <YYYY>, which covers both the Solar Hijri months ("3 ثور 1403",
+  # "4 دلو 1400") and the English tree's "09 Nov 2023".
+  selectors: [".blog-post-date", ".date", ".news-date", "time", ".published", ".post-date"]
+  regex: '\d{1,2}\s+[^\s\d]+\s+\d{4}'
+  # ⚠️ THE PROBE WILL REPORT date ✗ ON THESE ROWS AND THAT IS CORRECT, NOT A FAILURE. It says
+  #     selector '.blog-post-date' matched '4 دلو 1400' but it did not parse as a date
+  # i.e. the selector and regex are working and the string IS being written to the row; the
+  # SCRAPER cannot parse it because دلو (Dalw), ثور (Sawr), قوس (Qaws), اسد (Asad) are Solar Hijri
+  # ZODIAC month names and dateparser has no locale for them. That is by design: the cleaner's
+  # clean_structure_metadata/jalali.py exists precisely for this, and the pipeline resolves
+  # jalali(text) > model/scraped > wayback_capture. Do not "fix" this by deleting the selector —
+  # capturing the string is what lets the cleaner date the row at all. Before this change the
+  # field was empty and the only fallback was the capture date.
 
 pdf_link:
   # Many /dr/(news|information)_details pages are just a title + a link to the speech PDF

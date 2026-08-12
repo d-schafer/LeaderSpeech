@@ -28,6 +28,16 @@
 # each variant as a DISTINCT page and the run would fetch and store the same speech many
 # times over. The link_pattern is end-anchored to a trailing slash, which keeps only the
 # canonical form.
+#
+# ✅ RULE 1 AUDIT 2026-08-11 (sweep A3) — CHECKED CLEAN, and the ?nocache= call above was
+# right. A raw CDX coverage ratio here reads a catastrophic 2,407 / 24,245 = 9.9%, which is
+# the run-2 lesson in its purest form: 21,838 of the "missed" captures are ?nocache= echoes
+# of articles the recipe ALREADY has. Measured directly — of the 2,189 distinct articles
+# that appear in ?nocache= form, only 10 never appear in canonical form, and 7 of those 10
+# are listings (/en, /en/news, /en/speeches) or non-/en/ Hungarian root slugs. Against the
+# real denominator the recipe covers 2,407 of 2,410 single-segment /en/ articles = 99.9%,
+# the three misses being the percent-encoded French slugs now admitted by the pattern.
+# No sibling section exists on this host under /en/: everything is one flat article space.
 source_id: hun_miniszterelnok_english_wayback
 country: Hungary
 source_language: English
@@ -41,7 +51,21 @@ listing:
   # Requires a literal /en/ segment (the prefix trap) and ends at the slash (the
   # ?nocache= trap). The {8,} floor drops short section paths such as /en/news,
   # /en/career, /en/contact while keeping real article slugs.
-  link_pattern: 'miniszterelnok\.hu/en/[a-z0-9][a-z0-9-]{8,}/$'
+  #
+  # % added to the slug class 2026-08-11 (sweep A3). The site percent-encodes the
+  # superscript "ᵉ" in French ordinals, so three real Orbán speeches were being rejected:
+  # /en/allocution-de-m-viktor-orban-a-loccasion-du-177%e1%b5%89-anniversaire-…
+  # /en/discours-de-viktor-orban-lors-de-la-ceremonie-de-remise-des-prix-de-la-26%e1%b5%89-…
+  # /en/discours-de-viktor-orban-lors-de-la-ceremonie-douverture-du-xviii%e1%b5%89-…
+  # Those are the ONLY 3 of 2,410 single-segment /en/ articles the old class refused; the
+  # other 6 rejects are section stubs (career, contact, embed, family, news, speeches),
+  # which the {8,} floor and this class both correctly drop.
+  #
+  # (?::80)? is the cross-cutting host-anchor guard (see hun_kormany_english_wayback). It
+  # changes NOTHING here — measured: only 2 of 24,245 captures on this host carry :80, and
+  # both are non-articles — but it is monotone-safe and stops the bug reappearing if the
+  # Archive backfills older crawls.
+  link_pattern: 'miniszterelnok\.hu(?::80)?/en/[a-z0-9][a-z0-9%-]{8,}/$'
 
 pagination:
   type: wayback

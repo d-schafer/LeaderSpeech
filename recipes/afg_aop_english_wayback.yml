@@ -1,18 +1,42 @@
-# Afghanistan — Office of the President (aop.gov.af), the OLD (pre-2020) site's ENGLISH
-# individual-article scheme, via the Internet Archive. English sibling of afg_aop_dari_wayback.yml.
-# The Archive holds ~227 status-200 English article captures under aop.gov.af/english/<id>/<slug>,
-# 2016–2017 (Ghani) plus a 2021 batch — e.g. /english/1082/President+Ghani+Approves+National+
-# Counter+Narcotics+Plan. English source → text lands directly in the English `text` column (no
-# translation needed). Live origin unreachable/geo-fenced (issue #15) → Wayback only.
+# Afghanistan — Office of the President (aop.gov.af), BOTH ENGLISH generations, via the Internet
+# Archive. English sibling of afg_aop_wayback (Dari). Live origin unreachable/geo-fenced (issue
+# #15) → Wayback only. English source → text lands directly in the English `text` column, no
+# translation stage.
+#
+# ⭐ WIDENED 2026-08-11 (sweep A3). This recipe covered ONLY the old scheme — ~203 captures under
+# /english/<id>/<slug>, 2016-17 Ghani plus a 2021 batch. Enumerating the whole host (16,375 raw
+# captures → 12,925 in scope) showed aop.gov.af runs FOUR PARALLEL LANGUAGE TREES in the modern
+# generation, and the ENGLISH one was reached by no recipe at all:
+#
+#     tree                        modern (post-2020)              old (pre-2020)     covered by
+#     Dari      /dr/news_details 2,143 + information 243     /dari/<id>   1,303   afg_aop_wayback,
+#                                                                                 afg_aop_dari_wayback
+#     ENGLISH   /en/news_details 1,153 + information   43    /english/<id>  203   ← THIS RECIPE
+#     Pashto    /pa/news_details 1,838 + information  194    /pashto/<id>   197   ← NO RECIPE
+#     Uzbek     /uz/news_details   706                                            ← NO RECIPE
+#
+# So the English side went from 203 reachable captures to ~1,399 — a 6.9× increase, and under the
+# English-first policy all of it is immediately queueable. (Pashto and Uzbek are recorded in the
+# outbox as follow-ups; Uzbek needs sampling first — /uz/news_details/1004 returned an empty shell,
+# <title> just "AOP", with none of the content containers present.)
+#
+# ⚠️ NOTE ON WHO IS SPEAKING. The modern tree is post-August-2021, i.e. the Islamic Emirate
+# administration (Mohammad Hassan Akhund, Abdul Salam Hanafi, Mawlavi Ahmad Jan Ahmadi), not Ghani.
+# That is the same era and the same institution afg_aop_wayback already collects on the Dari side,
+# so it is in scope by precedent; there is no speaker_default and the cleaner's tenure crosscheck
+# and document-type gate decide what survives.
 source_id: afg_aop_english_wayback
 country: Afghanistan
 source_language: English
 start_urls:
   - aop.gov.af/english
+  # the modern English tree — the 2026-08-11 widening
+  - aop.gov.af/en/news_details
+  - aop.gov.af/en/information_details
 
 listing:
-  # OLD-scheme individual English article pages: /english/<numeric-id>[/<slug>]
-  link_pattern: '/english/\d+'
+  # OLD scheme /english/<numeric-id>[/<slug>]  +  MODERN scheme /en/(news|information)_details/<id>.
+  link_pattern: '/english/\d+|/en/(news|information)_details/\d+'
 
 pagination:
   type: wayback
@@ -23,21 +47,80 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  selectors: ["h1", ".news-title", ".title", "title"]
+  # MODERN tree: the theme puts the headline in one of two places depending on era —
+  #   .blog-post-title    an <h2>, used on the 2021-22 captures, present-but-EMPTY on later ones
+  #                       (an empty value is falsy, so first_match walks past it correctly);
+  #   .blog-post-date h5  used on the 2023-25 captures (verified on en/2404, en/1978, en/3605).
+  # OLD tree: h1 (verified on /dari/3565; the English twin uses the same theme), else <title>.
+  # <title> is DOUBLED on every modern capture ("X - AOP\nX", because the engine joins both
+  # matching elements), which is what the first-line regex is for — keep it.
+  # LAST RESORT .content_body_font_size: on the 2023-25 English captures NONE of the title
+  # elements above is present (probe: title ✗ while text ✓ and date ✓ on ids 1946/2479/3029/
+  # 3542/4568), but the body div opens with the headline in its own <p> —
+  #   <p>The Representatives Of Third And Fourth Districts Meets Director…</p><p>November 9th, …</p>
+  # — and get_text("\n") makes that the FIRST LINE, which is exactly what the regex below takes.
+  # Safe at the end of the chain: it is only reached when every real title element has missed.
+  # …and .blog-post-date ABSOLUTELY last. On the 2023-25 English sub-generation every element
+  # above returns nothing, but that div does match (it is what the date field uses) and it reads
+  # "25 Jul 2023 New deputy director of Media Directorate of AOP IEA assumes office" — the date
+  # followed by the headline. The first-line regex therefore yields a title with a leading date
+  # on those rows, which is untidy but is a real headline where the alternative is a NULL title;
+  # the cleaner's title normalisation strips it. Do not try to strip it with a lookbehind here:
+  # FieldSpec has ONE regex for the whole chain, and a date-anchored pattern would break the
+  # doubled-<title> case that '^\s*(.+)' exists to handle.
+  selectors: [".blog-post-title", ".blog-post-date h5", "h1", ".news-title", ".title", "title", ".content_body_font_size", ".blog-post-date"]
   regex: '^\s*(.+)'
 text:
-  # generic (trafilatura) fallback recovers the body (custom CMS containers miss); see the Dari recipe
-  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+  # .content_body_font_size is the real body div on the modern tree (1,286-1,359 chars measured on
+  # the English pages). The old guesses NEVER match on this host — verified across 2021-2025 — so
+  # before this change every row's body came from the engine's SILENT generic trafilatura fallback,
+  # the ken_president_wayback defect class. They are kept behind it at no cost.
+  # `article` LAST = the OLD /english/<id> theme, where the four guesses above all miss and the
+  # body had been coming from the silent generic (trafilatura) rescue. It is n=1 and holds
+  # headline + date + body (1,286 chars on the March-2017 cabinet readout). Only ever reached on
+  # the old tree, because .content_body_font_size wins on every modern page.
+  selectors: [".content_body_font_size", ".news-details", ".news-body", ".article-body", ".single-news", "article"]
 date:
-  # English pages may carry a Gregorian date in the body; dateparser handles it, else cleaner backstop
-  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+  # MODERN tree: .blog-post-date holds "09 Nov 2023" (the Dari/Pashto trees put a Solar Hijri date
+  # in the same slot). The date is not always wrapped in <a class="number-font">, so the container
+  # is the selector and the regex lifts the leading date off the front — the rest is the headline.
+  # OLD tree: .time / .time2 holds "30 05 2017", i.e. DD MM YYYY.
+  # The regex must serve both, hence \S+ for the middle token rather than a letters-only class:
+  # it matches "25 Jul 2023" AND "30 05 2017".
+  selectors: [".blog-post-date", ".time", ".time2", ".date", ".news-date", "time", ".published", ".post-date"]
+  regex: '\d{1,2}\s+\S+\s+\d{4}'
 
 position: president
 date_languages: ["en"]
 notes: >
-  PROBE-VALIDATED (2026-07-24, --spread --n 5) — Wayback-only recovery of the OLD aop.gov.af ENGLISH
-  article scheme (Ghani era). The probe harvested 228 /english/<id> snapshots; titles extract via h1
-  (e.g. "Status of Kamal Khan Dam's Contractor Clarified…", plus institutional directorate pages the
-  cleaner gates out). English text goes straight to the English `text` column. Coverage PARTIAL. TITLE
-  from <title>/h1; TEXT via generic fallback; DATE from the body or cleaner/wayback_capture backstop.
-  No speaker_default (cleaner assigns via tenure — Ghani 2014–2021). FULL RUN is the researcher's gate.
+  WIDENED 2026-08-11 in sweep A3: 228 -> 1,424 snapshots, a 6.2x increase, by adding the MODERN
+  English tree /en/(news|information)_details/<id>. This recipe previously covered only the old
+  /english/<id> scheme (~203 captures, 2016-17 Ghani plus a 2021 batch). Enumerating the whole host
+  (16,375 raw captures -> 12,925 in scope) showed aop.gov.af runs FOUR parallel language trees in
+  the modern generation and the ENGLISH one was reached by no recipe at all: /en/news_details 1,153
+  + /en/information_details 43. Pashto (/pa/ 2,032 + /pashto/ 197) and Uzbek (/uz/ 706) remain
+  uncovered and are recorded in the outbox as follow-ups. Selectors for the modern theme
+  (.content_body_font_size for text, .blog-post-date + a leading-date regex for date,
+  .blog-post-title / .blog-post-date h5 for title) were added here and to afg_aop_wayback, where
+  they also fixed a silent defect: the old chain matched NOTHING on this host, so every row's body
+  had been coming from the engine's generic trafilatura fallback.
+  PROBE --spread --n 12 AFTER: 1,424 snapshots; title 7/12, text 5/12, date 5/12 — and the pattern
+  is era-dependent rather than random, which matters for reading those numbers:
+    * old /english/<id> (2016-17): title via h1; text falls to the generic extractor as before.
+    * early modern /en/ captures (ids 669, 856, 1032, 1204): title via <title> only — these are
+      EMPTY SHELLS, archived before the article body was populated (/en/news_details/1000 has
+      <title> "AOP" and none of the content containers). Nothing to extract; not a selector bug.
+    * 2023-25 modern captures (ids 1946, 2479, 3029, 3542, 4568): text AND date extract cleanly.
+  ⚠️ ONE UNRESOLVED ANOMALY, flagged rather than papered over. On that last group the probe reports
+  title NO MATCH even though .content_body_font_size and .blog-post-date are BOTH in the title
+  chain and both demonstrably match on the same page for the text and date fields (selcheck on
+  /en/news_details/1946 shows .blog-post-date = "25 Jul 2023 New deputy director of Media
+  Directorate of AOP IEA assumes office"). A selector cannot match for one field and not another on
+  one soup, so something in the field-evaluation path is involved; it resisted diagnosis from
+  outside the engine and is left as a known gap. Those rows still carry text and date, and the
+  cleaner can recover a title from the body's first line. Worth a proper look before a full run.
+  No speaker_default. The modern tree is post-August-2021, i.e. the Islamic Emirate administration
+  rather than Ghani — same era and institution afg_aop_wayback already collects on the Dari side,
+  so in scope by precedent; the cleaner's tenure crosscheck and document-type gate decide what
+  survives. ENGLISH -> queueable. Shares data/state/Afghanistan.json with the other three Afghan
+  recipes — run serially. FULL RUN is the researcher's gate.

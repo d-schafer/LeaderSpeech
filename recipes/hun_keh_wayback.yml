@@ -2,7 +2,14 @@ source_id: hun_keh_wayback
 country: Hungary
 source_language: Hungarian
 start_urls:
+  # WIDENED 2026-08-11 (sweep A3). Was `keh.hu/beszedek/` alone — and because a wayback
+  # start_url is a CDX PREFIX, that single entry made the other sections unreachable no matter
+  # what the link_pattern said. All five are the same CMS and the same selectors.
   - keh.hu/beszedek/
+  - keh.hu/elnoki_nyilatkozatok/
+  - keh.hu/sajtokozlemenyek/
+  - keh.hu/interjuk/
+  - keh.hu/levelek/
 renderer: static
 
 # WAYBACK recipe for the PREDECESSOR office domain keh.hu (Köztársasági Elnöki
@@ -26,6 +33,17 @@ renderer: static
 #     text, <title> "Köztársasági Elnöki Hivatal". The content lived in a frame that
 #     was not archived. Sampled 5 across the range; all identical. So there is no
 #     hun_keh_english_wayback to write.
+#     ⚠️ AMENDED 2026-08-11 (sweep A3): that verdict is right about the 2002–2006 `l=e`
+#     frameset era, but it is NOT the whole English story. The MODERN Áder-era CMS has
+#     its own English sections in the same <id>-<slug> scheme this recipe now harvests:
+#     keh.hu/speeches/<id>-<slug> (65 captures, e.g. 1640-Speech_by_Janos_Ader_at_the_
+#     VI._World_Congress_of_the_Finno_ugric_Peoples) and keh.hu/statements_and_letters/
+#     (19). ~84 captures, presumably the same #content / div.newsDate selectors as their
+#     Hungarian twins. They are deliberately NOT in this recipe because source_language
+#     is one field per recipe and these are English — they need a sibling
+#     hun_keh_english_wayback. NOT AUTHORED: flagged with the evidence rather than built,
+#     because this session was out of room to sample and probe it properly. It is small
+#     but it is ENGLISH, so it would be immediately queueable.
 #
 #  2. keh.hu/naplo* IS THE PARLIAMENTARY RECORD, NOT PRESIDENTIAL SPEECH. The ~5,700
 #     /naplo/ and /naploNN/ captures (5,503 of them from a single 2001 crawl) are the
@@ -39,7 +57,28 @@ renderer: static
 # of GOVERNMENT, and is addressed by hun_miniszterelnok_english_wayback and
 # hun_kormany_english_wayback — not by this presidential source.
 listing:
-  link_pattern: '/beszedek/\d+-'
+  # WIDENED 2026-08-11 (sweep A3): 288 -> 629 matched captures, +341 NEW page identities,
+  # 0 already covered. The recipe took `beszedek` ("speeches") and nothing else — RULE 1 in its
+  # textbook form. The four siblings are the same <id>-<slug> scheme in the same CMS:
+  #   elnoki_nyilatkozatok  presidential declarations
+  #   sajtokozlemenyek      press releases
+  #   interjuk              interviews
+  #   levelek               the president's letters
+  # Cross-section aliasing was CHECKED and is negligible: of 633 distinct article ids on the
+  # host, only 10 appear under more than one section, and most of those are static institution
+  # pages (id 1527, "A köztársasági elnöki intézményről", shows up under 13 prefixes).
+  #
+  # ⚠️ `&pnr=N` IS KEPT ON PURPOSE, AND IT IS THE OPPOSITE OF THE ?page= ECHO TRAP.
+  # 242 of the 288 original matches carry it, which looks exactly like the Drupal pagination
+  # echo that inflates other hosts — so it was tested rather than assumed. It is NOT an echo:
+  # `&pnr=` PAGINATES A LONG ARTICLE. The clean URL of Áder's 2012 inaugural address to
+  # Parliament (id 1516) opens "Tisztelt Ház, tisztelt…"; `&pnr=5` of the SAME id continues
+  # "Tisztelt Honfitársaim! Most külön is szeretnék szólni…" — the later part of the same
+  # speech. Excluding them would silently truncate every long speech on this host.
+  # The cost is that a long speech arrives as SEVERAL ROWS, and only page 1 carries
+  # div.newsDate (the `&pnr=` renders drop it), so continuation rows are dateless. The engine
+  # has no page-stitching, so that is inherent, not fixable here — flagged for the cleaner.
+  link_pattern: 'keh\.hu(?::80)?/(beszedek|levelek|sajtokozlemenyek|interjuk|elnoki_nyilatkozatok)/\d+-'
 
 pagination:
   type: wayback

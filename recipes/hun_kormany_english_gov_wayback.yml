@@ -1,0 +1,123 @@
+# Hungary — kormany.hu/en, the WHOLE-OF-GOVERNMENT half, via the Internet Archive.
+#
+# WHY THIS EXISTS. hun_kormany_english_wayback takes /en/the-prime-minister/ and nothing else,
+# and its header justified that as "kormany.hu is the whole government … harvesting the rest
+# would flood the corpus with ministerial press copy". Sweep A3 (2026-08-11) enumerated the host
+# and that exclusion was CLAUDE.md RULE 1 in its classic form: 1,145 of 6,989 in-scope captures
+# = 16.2%. The excluded 83% is not a photo gallery or a print view — it is 4,465 dated English
+# articles in exactly the same CMS template.
+#
+# So the two halves are split by SPEAKER, which is the one axis a recipe cannot express twice:
+#   * hun_kormany_english_wayback  — /en/the-prime-minister/{news,the-prime-minister-s-speeches}
+#                                    with speaker_default: Viktor Orbán.
+#   * THIS RECIPE                  — everything else under /en/, with NO speaker_default and no
+#                                    position, so the cleaner's speaker pass attributes each row
+#                                    from the text. That is the zaf_gov pattern verbatim (see
+#                                    recipes/zaf_gov.yml, widened the same way in sweep run 3).
+#
+# WHAT IS IN HERE, measured from 9,130 CDX captures of the kormany.hu/en prefix:
+#     1,070  ministry-of-foreign-affairs-and-trade/news
+#       464  prime-minister-s-office/news              <- the PM's own machinery
+#       453  ministry-for-national-economy/news
+#       396  ministry-of-human-resources/news
+#       319  ministry-of-defence/news
+#       222  government-spokesperson/news              <- speaks FOR the PM
+#       208  ministry-of-interior/news
+#       193  ministry-of-justice/news
+#       170  cabinet-office-of-the-prime-minister/news <- the PM's own machinery
+#       170  ministry-of-agriculture/news
+#       165  news                                      <- un-attributed government news
+#       143  ministry-of-national-development/news
+#       131  ministry-of-foreign-affairs/news
+#       114  ministry-of-rural-development/news
+#        84  ministry-for-innovation-and-technology/news
+#        84  ministry-of-public-administration-and-justice/news
+#        21  ministry-of-foreign-affairs/speeches-publications-and-interviews
+#       ...  plus several smaller/renamed ministries the pattern picks up generically
+#
+# ⭐ AND IT IS NOT ALL MINISTERS. /en/prime-minister-s-office/the-prime-ministers-speeches/ holds
+# 22 captures that are VIKTOR ORBÁN SPEECHES — the older (2012-era) naming generation, before the
+# site moved them to /en/the-prime-minister/the-prime-minister-s-speeches/. Checked for the
+# alternate-views trap and it is NOT one: the slug
+# viktor-orban-s-speech-at-the-hungarian-slovakian-economic-forum returns 404 under the parent
+# recipe's path. So the old exclusion was hiding actual head-of-government speeches, which is
+# precisely the RULE 1 failure mode.
+#
+# ⚠️ RESEARCHER DECISION POINT, flagged not pre-empted. RULE 1 says err toward including and let
+# the CLEANER filter, which is what this recipe does — the document_type + speaker gate will drop
+# line-ministry press copy that is not a leader speaking. If you would rather not pay ~4,465
+# Archive fetches for that, there is a one-line narrowing to the CENTRE of government only
+# (~1,035 captures), which keeps the PM's Office, the Cabinet Office of the PM, the government
+# spokesperson and /en/news:
+#     link_pattern: 'kormany\.hu(?::80)?/en/(?:news|(?:prime-minister-s-office|cabinet-office-of-the-prime-minister|government-spokesperson)/news)/[a-z0-9][a-z0-9-]{8,}$'
+# Nothing else in the recipe changes.
+#
+# SELECTORS — verified on 8 captures spanning 2012-2019 and 8 different sections (foreign
+# affairs and trade, PM's Office, government spokesperson, /en/news, Cabinet Office, the MFA
+# speeches section, defence, national economy). 8/8 on all three fields; the template is
+# identical to the PM subtree's:
+#     <div class="article-head clr"><h1>HEADLINE</h1><h4>August 28, 2014 2:31 PM</h4>
+#     <div class="article-body"><div class="article-content"> … </div>
+# A BARE h1 is the site banner ("Website of the Hungarian Goverment" [sic]) because the banner
+# h1 comes first in the DOM — .article-head must be in the selector.
+source_id: hun_kormany_english_gov_wayback
+country: Hungary
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefix — no scheme, no trailing '*'. The whole English tree; the link_pattern carves
+  # the PM subtree back out so the two recipes cannot collide.
+  - kormany.hu/en
+
+listing:
+  # /en/<office>/news/<slug>, /en/<office>/<...>speeches<...>/<slug>, and the top-level
+  # /en/news/<slug>. End-anchored so ?page=N section listings and /contacts stubs are dropped.
+  #
+  # (?::80)? — the host-anchor bug (see hun_kormany_english_wayback). The Archive records the
+  # pre-HTTPS era as http://www.kormany.hu:80/…; CDX is queried with collapse=urlkey, urlkey
+  # strips scheme AND port, and collapse keeps the EARLIEST row per group — so without this a
+  # majority of this host's older articles are dropped outright, not merely under-captured.
+  # 2,069 of the 4,465 captures this recipe matches carry :80.
+  #
+  # (?!the-prime-minister/) — the parent recipe's territory.
+  link_pattern: 'kormany\.hu(?::80)?/en/(?:news/|(?!the-prime-minister/)[a-z0-9-]+/(?:news|[a-z-]*speeches[a-z-]*|[a-z-]*interviews)/)[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # Must be scoped to .article-head — a bare h1 is the site banner. 8/8.
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  # 929-5,361 chars measured. Nothing wider: `body` adds ~1,500 chars of identical
+  # ministry navigation to every row.
+  selectors: [".article-content"]
+date:
+  # "August 28, 2014 2:31 PM". 8/8.
+  selectors: [".article-head h4"]
+
+# NO speaker_default and NO position, deliberately — this half of the host is many different
+# speakers (Antal Rogán, Zoltán Kovács, Zsolt Semjén, János Lázár, each line minister). The
+# cleaner's speaker pass reads the byline out of the text; its document_type + speaker gate is
+# what decides which of these rows are leader speech and which are line-ministry press copy.
+date_languages: ["en"]
+notes: >
+  AUTHORED 2026-08-11 in sweep A3, out of the RULE 1 audit of hun_kormany_english_wayback, which
+  reached 1,145 of 6,989 in-scope captures (16.2%) because it is pinned to /en/the-prime-minister.
+  This recipe takes the other 4,465 — every ministry/office /news/ stream, the MFA's separate
+  speeches-publications-and-interviews section, and the top-level /en/news — in the same CMS
+  template, with the same three selectors verified on 8 captures across 8 sections and 2012-2019.
+  Split from the parent by SPEAKER rather than folded into it, because speaker_default is one
+  field per recipe and the parent needs Viktor Orbán while this half must be attributed per row.
+  English tree -> English column, no translation stage. A few items under /en/ are not in fact in
+  English (there are Hungarian and German bodies); the cleaner's language field catches them and
+  there is no URL signal to filter on. NOT YET RUN — probe-validated only; FULL RUN is the
+  researcher's gate, and see the decision point in the header if ~4,465 Archive fetches of
+  whole-of-government press copy is more than you want.

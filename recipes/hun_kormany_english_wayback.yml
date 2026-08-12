@@ -14,22 +14,35 @@
 # repeat the zaf_gov mistake of flooding the corpus with ministerial press copy, so the
 # link_pattern is pinned to the PM subtree.
 #
-# ⚠️ TWO QUALITY LIMITS, both measured, neither fixable from a recipe:
-#  1. NO DATE ANYWHERE ON THE PAGE. Verified by regexing the raw archived HTML of
-#     /en/the-prime-minister/news/zalaegerszeg-is-up-on-map-of-european-automotive-industry
-#     for every date shape: the single date-like string in the document is a JavaScript
-#     asset version stamp ("script.tools-2013.10.16.js"). There is no date element, no
-#     meta date and no date in the body text or the URL. Rows therefore arrive dateless
-#     and rely on the cleaner's date pass, with `wayback_capture` as an upper bound.
-#     This is tolerable HERE specifically because Orbán has been PM continuously since
-#     2010 and the whole capture window is 2011-2020, so a dateless row still resolves to
-#     the right speaker via the tenure crosscheck.
-#  2. THE TITLE IS A BANNER. h1 is "Website of the Hungarian Goverment" [sic] on every
-#     page, <title> is the generic "Government - The Prime Minister - News", and .title
-#     is a ministry+minister blob. None of them is the headline, so the title comes from
-#     the URL slug via url_regex and NO title selectors are given — selectors win over
-#     url_regex, so listing any of them would reinstate the banner. Same pattern as
-#     pol_president_english_wayback; the cleaner polishes the dashes.
+# ✅ 2026-08-11 (sweep A3) — THE TWO "UNFIXABLE QUALITY LIMITS" RECORDED HERE WERE BOTH WRONG.
+# The header used to say the pages carry no date of any kind and that h1 is a site banner, so
+# the title came from the URL slug and every row arrived dateless. Both claims were tested on
+# 6 captures spanning 2015-2019 and both sections (/news/ and /the-prime-minister-s-speeches/),
+# and the page in fact has a proper article head:
+#
+#     <div class="article-head clr">
+#       <h1>Zsolt Semjén holds talks in Vietnam</h1>
+#       <h4>March 30, 2015 4:45 PM</h4>
+#
+#   * `.article-head h1` is the real headline, 6/6. A BARE `h1` is the banner ("Website of the
+#     Hungarian Goverment" [sic]) because the banner h1 comes FIRST in the document — which is
+#     what the original check saw. Scoping to .article-head fixes it.
+#   * `.article-head h4` is a full English date+time, 6/6.
+#   * The URL slug was not merely a weaker title, it was sometimes a WRONG one: capture
+#     20160520062829 has slug "we-must-not-turn-ourselves-into-being-victims" and h1
+#     "We have to protect borders of EU at Hungary and Slovenia".
+#
+#   `date_languages` therefore changed hu -> en: the rendered date is English ("December 15,
+#   2016 9:37 PM"), and the Hungarian hint mis-orders it.
+#
+#   ⚠️ CONSEQUENCE FOR ALREADY-SCRAPED ROWS: the ~681 rows collected under the old recipe carry
+#   a slug title and NO date. That is the sweep's standing exception — the EXTRACTION was wrong,
+#   not just narrow — so this source is one of the few that genuinely warrants `--rescrape`.
+#   Researcher's call; a plain incremental run will NOT repair the existing rows.
+#
+# ⚠️ ONE REAL LIMIT REMAINS: a few items under /en/ are not in English (capture 20170326051639,
+#   "Wortmeldung von Viktor Orbán im Europäischen Parlament", is German). The cleaner's language
+#   field catches these; there is no URL signal to filter on.
 source_id: hun_kormany_english_wayback
 country: Hungary
 source_language: English
@@ -42,7 +55,17 @@ start_urls:
 listing:
   # /en/the-prime-minister/news/<slug> plus the site's separate speeches section.
   # End-anchored so the ?page=N section listings are dropped.
-  link_pattern: 'kormany\.hu/en/the-prime-minister/[a-z-]*(?:news|speeches)[a-z-]*/[a-z0-9][a-z0-9-]{8,}$'
+  #
+  # (?::80)? — THE HOST-ANCHOR BUG, measured here 2026-08-11. The Archive records the
+  # pre-HTTPS era as http://www.kormany.hu:80/…, and a host anchored directly to '/'
+  # rejected every one of those captures. Worse than "old captures missed": the engine
+  # queries CDX with collapse=urlkey, urlkey strips scheme AND port, and collapse keeps
+  # the EARLIEST row of each group — so for any article first captured before the HTTPS
+  # switch, CDX hands the engine the :80 form and the article was dropped ENTIRELY.
+  # Measured with recipe_tools/port80.py: 697 -> 1,145 matches, +448 NEW page identities,
+  # 0 that were already covered. Cannot duplicate — CDX emitted one row per urlkey and
+  # filter_entries_for_recipe dedupes again on page_identity, which also strips the port.
+  link_pattern: 'kormany\.hu(?::80)?/en/the-prime-minister/[a-z-]*(?:news|speeches)[a-z-]*/[a-z0-9][a-z0-9-]{8,}$'
 
 pagination:
   type: wayback
@@ -53,36 +76,41 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  # url_regex ONLY — see limit 2 in the header. Takes the English headline slug, i.e. the
-  # LAST path segment. It must not be anchored to a "/news/" or "/speeches/" parent: the
-  # speeches section is actually "/the-prime-minister-s-speeches/" (with the possessive
-  # -s-), so an anchored pattern silently failed on exactly the speech pages that matter
-  # most — e.g. .../the-prime-minister-s-speeches/prime-minister-viktor-orban-s-speech-at-
-  # the-30th-balvanyos-summer-open-university-and-student-camp.
+  # .article-head h1 is the REAL headline, 6/6 across 2015-2019 (see the header). It must be
+  # scoped: a bare h1 returns the site banner, because the banner h1 comes first in the DOM.
+  selectors: [".article-head h1"]
+  # Fallback for any capture whose head markup differs: the English headline slug, i.e. the
+  # LAST path segment. Not anchored to a "/news/" or "/speeches/" parent, because the speeches
+  # section is actually "/the-prime-minister-s-speeches/" (possessive -s-) and an anchored
+  # pattern silently failed on exactly the speech pages that matter most.
   url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
 text:
-  # .article-content is the article body (1,255-4,648 chars measured). Nothing wider:
+  # .article-content is the article body (1,804-12,019 chars measured). Nothing wider:
   # `body` adds ~1,500 chars of identical ministry navigation to every row.
   selectors: [".article-content"]
 date:
-  # Intentionally empty of selectors — there is no date on these pages (see limit 1).
-  # Declared with a url_regex that can never match rather than omitted, because the
-  # schema requires date to carry selectors or url_regex.
-  url_regex: '(?P<year>20\d{2})-(?P<month>\d{2})-(?P<day>\d{2})'
+  # .article-head h4 = "March 30, 2015 4:45 PM", 6/6. See the header — the previous claim that
+  # these pages carry no date of any kind was tested against a bare h1/`.date` and was wrong.
+  selectors: [".article-head h4"]
 
 position: prime minister
 speaker_default: Viktor Orbán
-date_languages: ["hu"]
+# English rendered dates ("December 15, 2016 9:37 PM"); the Hungarian hint mis-orders them.
+date_languages: ["en"]
 notes: >
-  DRAFT — the 2011-2020 half of Hungary's head-of-government coverage; companion to
+  The 2011-2020 half of Hungary's head-of-government coverage; companion to
   hun_miniszterelnok_english_wayback, which the Archive only crawled from 2023 and which
   therefore misses the audit's 2016-2022 Orbán window. English tree -> English column, no
-  translation. Scoped to the /en/the-prime-minister subtree because kormany.hu is the
-  whole government (the URL names the ministry) — the same narrowing decision taken for
-  zaf_gov_wayback. TWO MEASURED LIMITATIONS, both documented in the header and neither
-  fixable from a recipe: the pages carry NO date of any kind (verified by regexing the raw
-  archived HTML), so rows are dateless and depend on the cleaner's date pass with
-  wayback_capture as an upper bound; and the title is a site banner on every page, so it
-  is taken from the URL slug via url_regex with no title selectors at all. Dateless rows
-  are acceptable here because Orbán has been PM for the entire 2011-2020 capture window,
-  so the tenure crosscheck still resolves the speaker. FULL RUN is the researcher's gate.
+  translation. Scoped to the /en/the-prime-minister subtree because kormany.hu is the whole
+  government and the URL names the office; the rest of /en/ (ministries, the PM's Office, the
+  Cabinet Office, the government spokesperson, /en/news) is NOT dropped — it moved to the
+  sibling recipe hun_kormany_english_gov_wayback, which carries no speaker_default so the
+  cleaner's speaker pass attributes it (the zaf_gov pattern). REWORKED 2026-08-11 in sweep A3,
+  three changes, all measured: (1) link_pattern gained (?::80)? — 697 -> 1,145 matched captures,
+  +448 NEW page identities, 0 duplicates (see the header for why this is monotone-safe);
+  (2) title now .article-head h1, the real headline, replacing a URL-slug url_regex that was
+  sometimes simply WRONG; (3) date now .article-head h4, replacing a documented — and false —
+  claim that these pages carry no date at all. Widening alone needs no --rescrape (the state
+  file's seen-set makes an ordinary incremental run fetch only the newly matched URLs), BUT the
+  title/date fixes do not repair the ~681 rows already stored, so this is one of the sweep's few
+  genuine --rescrape candidates. Researcher's call. FULL RUN is the researcher's gate.

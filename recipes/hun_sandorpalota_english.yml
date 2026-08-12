@@ -1,0 +1,85 @@
+# Hungary — Sándor Palace (sandorpalota.hu), the President's official ENGLISH site, LIVE.
+#
+# WHY THIS EXISTS. Sweep A3 (2026-08-11) audited the live Hungarian hun_sandorpalota from its own
+# nav and found it breadth-clean — but the nav also carries an "English" link to /en/news, and the
+# only recipe pointing at that tree was hun_sandorpalota_english_wayback, i.e. we were reaching an
+# ENGLISH source that is currently up and serving through the Internet Archive.
+#
+#   /en/news            69 pager pages ≈ 690 items   (this recipe)
+#   the wayback sibling 693 kept snapshots            (essentially the same set)
+#
+# Live is strictly better here: ~690 fetches at live rates (~4,500 pages/h, so minutes) against
+# ~1.7 h of Archive budget, no capture artifacts, no missing-snapshot gaps, and it keeps working as
+# new speeches are published. The wayback sibling is kept — "yes-and", per the project's Wayback
+# policy — because it holds the Novák Katalin era captures and anything since deleted.
+#
+# ⚠️ THIS IS A FLAT NAMESPACE WITH TAXONOMY TAGS, NOT A SET OF SECTIONS — which is exactly why the
+# RULE 1 answer here is "one start_url is enough", and it is worth recording so nobody re-opens it.
+# The Hungarian side advertises five categories (Hírek 32, Sajtóközlemények 31, Beszédek 33,
+# Események 34, Interjúk 35) and the English side mirrors them at /en/taxonomy/term/<N>. They are
+# TAGS on one flat /en/<slug> URL space, and /en/news is the unified, unfiltered feed: a single
+# listing page interleaves speeches, press releases, interviews and events. Harvesting the taxonomy
+# pages as well would be pure duplication.
+source_id: hun_sandorpalota_english
+country: Hungary
+source_language: English
+renderer: static
+
+start_urls:
+  - https://www.sandorpalota.hu/en/news
+
+listing:
+  # Flat article space /en/<slug>. The {8,} floor drops the short institutional stubs
+  # (/en/contact-us, /en/predecessors, /en/main-page, /en/sitemap); the negative lookahead drops
+  # the /en/node/<id> permalink aliases (the same articles under their raw Drupal node ids —
+  # the alternate-view trap), the /en/taxonomy/term/<N> tag listings and the media endpoints.
+  # Mirrors hun_sandorpalota_english_wayback's pattern so the two recipes agree on what an
+  # article is.
+  # main-page is listed explicitly because it is exactly 9 characters and so clears the {8,}
+  # floor: the first probe harvested it and extracted "MAIN PAGE | Sándor-palota" with today's
+  # date and no body. predecessors/contact-us are caught for the same reason.
+  link_pattern: 'sandorpalota\.hu/en/(?!node|media/|search|taxonomy|news|main-page|predecessors|contact-us|sitemap)[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  # Standard Drupal ?page= pager, 0-indexed, 10 items/page. 69 pages measured 2026-08-11;
+  # max_pages leaves headroom, and the engine stops when a page yields no new links.
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 90
+
+title:
+  # h1 is the clean headline (119 chars on the inaugural-session speech). h1.page-title — which
+  # the Hungarian sibling leads with — does NOT match on this theme, so it is omitted rather than
+  # copied across; <title> is the same headline plus a " | Sándor-palota" suffix, kept as backup.
+  selectors: ["h1", "title"]
+text:
+  # .node__content is the single body element (n=1, 9,218 chars measured). NOT .field--name-body
+  # first: that matches FIVE elements on the same page and the engine joins all of them
+  # (9,295 chars) — the element-join trap. It stays as a fallback only.
+  selectors: [".node__content", ".field--name-body", ".post-content"]
+date:
+  # "2026 May 09. 11:05" — Hungarian YEAR MONTH DAY order with an English month name on the
+  # English tree. date_languages ["en"] rather than the sibling's ["hu"] for exactly that reason:
+  # "May" is not a Hungarian month ("május"), so the hu hint would not resolve it. YMD order is
+  # unambiguous either way.
+  selectors: ["span.post-created", "div.post-meta", "div.node__meta"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE, authored 2026-08-11 in sweep A3 under the "add new unexploited sources" instruction
+  and the author-now policy. The live ENGLISH tree of Hungary's presidency, which no live recipe
+  covered — only the Archive sibling hun_sandorpalota_english_wayback did. English tree -> English
+  column, no translation stage, so it is immediately queueable under the English-first policy, and
+  at live rates it costs minutes rather than the ~1.7 h of Archive budget the wayback sibling
+  spends on the same ~690 items. Selectors verified on a live article (the 2026 inaugural-session
+  speech): title h1 119 chars, text .node__content 9,218 chars n=1, date span.post-created
+  "2026 May 09. 11:05". TWO element-join traps avoided and documented above: .field--name-body
+  matches 5 elements here and h1.page-title (which the Hungarian sibling uses) does not match at
+  all. Breadth: /en/news is the UNIFIED feed over a flat /en/<slug> namespace — the five
+  categories (news, press releases, speeches, events, interviews) are taxonomy TAGS, not sections,
+  and one listing page interleaves all of them, so a single start_url is complete and the
+  /en/taxonomy/term/<N> pages would be pure duplication. Shares data/state/Hungary.json with the
+  other Hungary recipes — run serially. NOT YET RUN; FULL RUN is the researcher's gate.

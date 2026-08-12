@@ -14,7 +14,20 @@ start_urls:
 
 listing:
   # OLD-scheme individual Dari article pages: /dari/<numeric-id>[/<slug>]
-  link_pattern: '/dari/\d+'
+  #
+  # ⚠️ TIGHTENED 2026-08-11 (sweep A3): 1,626 -> 559 harvested URLs, and this is a GAIN, not a
+  # scope-down. The bare `/dari/\d+` also matched the site's CATEGORY LISTINGS, which carry an
+  # article id in the path and a category in the query —
+  # /dari/2511/?s=dari&c=news_dr, /dari/4210?s=dari&c=reports_dr, and 200 under c=video_dr, which
+  # is a video gallery and out by RULE 1 outright. They render as listings, so `article` (and
+  # every other body selector) misses: the probe had text failing on 5 of 8 sampled pages and all
+  # five were query variants. Left in, they would cost ~1,067 wasted Archive fetches and write
+  # ~1,067 rows with a title and no body.
+  # MEASURED BEFORE NARROWING, because dropping URLs is the risky direction: of the ids that
+  # appear with a ?query, 153 also appear in clean form and exactly ONE does not. So the
+  # exclusion loses a single article and removes about a thousand junk fetches.
+  # (`(?:/[^?]*)?` keeps the /<id>/<slug> form; the `$` is what refuses the query.)
+  link_pattern: '/dari/\d+(?:/[^?]*)?/?$'
 
 pagination:
   type: wayback
@@ -29,14 +42,25 @@ title:
   selectors: ["h1", ".news-title", ".title", "title"]
   regex: '^\s*(.+)'
 text:
-  # custom Afghan CMS body: the usual containers miss, so the real body comes from the engine's
-  # generic (trafilatura) fallback, which fires automatically when these selectors miss. Broad
-  # selectors (main/.content/article) are deliberately OMITTED so they can't match a nav blob.
-  selectors: [".news-details", ".news-body", ".article-body", ".single-news"]
+  # ⚠️ FIXED 2026-08-11 (sweep A3). The comment below used to end "…so the real body comes from the
+  # engine's generic (trafilatura) fallback", and it named `article` as one of the broad selectors
+  # DELIBERATELY OMITTED so it "can't match a nav blob". Both parts were wrong on this theme:
+  # .news-details / .news-body / .article-body / .single-news match NOTHING here (re-verified on
+  # /dari/3565), so every row's body was coming from the silent generic rescue — the same defect
+  # found on ken_president_wayback, which is invisible exactly when it fails. And `article` is not
+  # a nav blob on this CMS: it is n=1 and 3,745 chars of headline + date + speech, scoped inside
+  # div#main. The old guesses are kept ahead of it at no cost.
+  selectors: [".news-details", ".news-body", ".article-body", ".single-news", "article"]
 date:
-  # no reliable date element in the archived DOM; the date is a Dari Solar-Hijri date in the body →
-  # recovered by the cleaner's Jalali pass (with the wayback_capture bound + disagreement guard).
-  selectors: [".date", ".news-date", "time", ".published", ".post-date"]
+  # ⚠️ FIXED 2026-08-11. The old chain matched nothing and the note concluded there is "no reliable
+  # date element in the archived DOM". There is: .time / .time2 carries "یکشنبه قوس  1395,9,7" —
+  # a Dari SOLAR HIJRI date, which is why it does not look like a date to a Gregorian eye.
+  # NO regex is applied on purpose: the string must reach the row intact so the cleaner's
+  # clean_structure_metadata/jalali.py can parse it (zodiac + Iranian month names), with the
+  # wayback_capture bound and the disagreement guard behind it. The probe will report date ✗ with
+  # a note that the selector matched but did not parse — that is correct and expected here, and
+  # strictly better than the empty field this recipe produced before.
+  selectors: [".time", ".time2", ".date", ".news-date", "time", ".published", ".post-date"]
 
 position: president
 date_languages: ["fa", "ps", "en"]
