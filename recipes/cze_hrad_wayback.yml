@@ -3,23 +3,60 @@
 # real headless Chromium only clears the FIRST navigation — sustained/paginated access is
 # re-challenged (the Italy/Quirinale pattern), so a full live crawl is not viable here.
 #
-# The Internet Archive holds the old Government-CMS site well. The President's press output —
-# which includes speech/address transcripts ("projevy") alongside shorter press notices — is
-# published as numbered articles at /cs/pro-media/tiskove-zpravy/<N>.shtml (~1,040 archived,
-# Zeman/Klaus era, roughly 2009-2020). There is no cleaner speeches-only URL section (the site
-# never exposed /vybrane-projevy* etc. — verified 0 captures), so this is the press stream and
-# the cleaner's document_type gate keeps the speech/official_statement items.
+# ⛔ RULE 1 WIDENING 2026-08-12 (chunk A4). TWO CLAIMS IN THIS HEADER WERE FALSE and both are
+# corrected below. They are left described rather than deleted because the correction is the
+# point: a recipe header that states a site limitation as fact is a HYPOTHESIS (run-7 lesson).
+#
+#   FALSE CLAIM 1 — "There is no cleaner speeches-only URL section (the site never exposed
+#   /vybrane-projevy* etc. — verified 0 captures)."  hrad.cz/cs enumerated from CDX 2026-08-12:
+#       593  /cs/prezident-cr/soucasny-prezident-cr/vybrane-projevy-a-rozhovory   <- "selected
+#            speeches and interviews", the section the header said does not exist
+#       278  /cs/prezident-cr/soucasny-prezident-cr/verejna-vystoupeni-a-rozhovory
+#       136  /cs/prezident-cr/soucasny-prezident-cr-milos-zeman/vybrane-projevy-a-rozhovory
+#       122  /cs/prezident-cr/soucasny-prezident-cr-vaclav-klaus/vybrane-projevy-a-rozhovory
+#        73  /cs/prezident-cr/prezidenti-v-minulosti/vaclav-klaus/vybrane-projevy-a-rozhovory
+#   = 1,202 captures of literally `/vybrane-projevy-a-rozhovory/`. The original check was
+#   evidently run against the /cs/pro-media/ prefix, not the host. NOTE THE THREE NAMING
+#   GENERATIONS: the section is re-parented under `soucasny-prezident-cr` (current holder),
+#   `-milos-zeman` and `-vaclav-klaus` as presidents change, plus `prezidenti-v-minulosti/<who>`
+#   once they leave. All four are matched.
+#
+#   FALSE CLAIM 2 — "the current president is Petr Pavel (2023->); the live Cloudflare block
+#   means his term is not yet captured here." The Archive holds Pavel's term fine: the
+#   `verejna-vystoupeni-a-rozhovory` captures are his New Year addresses, his podcast and his
+#   transcribed remarks (sampled 2023-04-24 and 2023-06-16).
+#
+# COVERAGE, measured on 8,454 in-scope captures of hrad.cz/cs (cdxbatch, ?page= echoes
+# collapsed, RULE 1 out-list dropped):   1,038 = 12.3%   ->   5,338 = 63.1%.
+# The 3,116 still missed are the out-list itself and correctly excluded: cathedral/castle
+# closure notices (835), the culture programme (433), the state-honours register (363),
+# `strana-N` pagers (174), `index-N.shtml` listing pages, job vacancies, the visitor calendar.
+#
+# THE BIGGEST SINGLE MISS WAS NOT A SPEECH SECTION — it was the MODERN generation of the press
+# stream the recipe already claimed: `/cs/pro-media/tiskove-zpravy/aktualni-tiskove-zpravy/
+# <slug>-<id>` (2,731 captures). The old pattern only knew the numeric `/<N>.shtml` form, so
+# everything after the CMS change was invisible.
+#
+# NOT re-scraping: widening is incremental. data/state/Czechia.json's `seen` set means an
+# ordinary `run` fetches only newly-matched URLs. Do NOT use --rescrape.
 source_id: cze_hrad_wayback
 country: Czechia
 source_language: Czech
 start_urls:
-  - hrad.cz/cs/pro-media/tiskove-zpravy
+  # Two CDX prefixes cover every section matched below (4,445 + 1,969 captures).
+  - hrad.cz/cs/pro-media
+  - hrad.cz/cs/prezident-cr
 renderer: static
 
 listing:
-  # Numbered article pages: /cs/pro-media/tiskove-zpravy/<N>.shtml. Excludes the index/listing
-  # captures (/tiskove-zpravy/ and its ?page: variants).
-  link_pattern: '/cs/pro-media/tiskove-zpravy/\d+\.shtml'
+  # Sections, then the item form. Items are either the OLD numeric `<N>.shtml` or the MODERN
+  # `<slug>-<id>` (every modern article URL ends in `-<numeric id>`), which is what keeps bare
+  # section indexes out. `(?!strana-)` drops the pagers, which otherwise look exactly like a
+  # modern item (`strana-1` ends in `-<digits>`); `index-N.shtml` is excluded by construction
+  # because the numeric branch requires ALL digits before `.shtml`.
+  # Path-anchored, so the `:80` pre-HTTPS host form is matched automatically (this recipe is
+  # immune to the port-80 bug by construction — see session_A_DividedTasks.md).
+  link_pattern: '/cs/(?:pro-media/(?:tiskove-zpravy(?:/(?:archiv|aktualni-tiskove-zpravy))?|clanky-a-ohlasy|hlasy-a-ohlasy|co-tyden-dal|vyvracime-dezinformace-1)|prezident-cr/(?:soucasny-prezident-cr(?:-milos-zeman|-vaclav-klaus)?|prezidenti-v-minulosti/[a-z][a-z-]+)/(?:vybrane-projevy-a-rozhovory|verejna-vystoupeni-a-rozhovory))/(?!strana-)(?:\d+\.shtml|[a-z0-9][^/?#]*-\d+)$'
 
 pagination:
   type: wayback
@@ -28,28 +65,50 @@ pagination:
     - "statuscode:200"
 
 title:
-  selectors: ["h1", ".article-title", "title"]
+  # `.text-content h1` FIRST: on the modern CMS the first <h1> in the DOM is the site LOGO
+  # (`h1.logo.cs`, an <img> — it contributes no text, so a bare `h1` happens to survive here,
+  # but scoping makes that luck explicit). Bare `h1` still serves the old .shtml generation.
+  selectors: [".text-content h1", "h1", ".article-title", "title"]
 text:
-  selectors: ["#content", ".detail-text", ".article-detail", "article", ".content"]
+  # THREE CMS generations, in chain order:
+  #   `.wysiwyg-content` — modern (2019->): the clean body, 1,576 chars where `#content` gives
+  #        1,813 including the headline and breadcrumb.
+  #   `#content`         — the old <N>.shtml generation (main#content).
+  #   `.text-content`    — an INTERMEDIATE generation (~2018) that has NEITHER of the above:
+  #        its only ids are `top` and `query`, and the body sits in `div.text-content.clearfix`
+  #        (1,464 chars). Found by the probe: 3 of 15 samples returned 0 chars while the generic
+  #        trafilatura fallback recovered ~1,426 — i.e. the rows would have been silently
+  #        rescued rather than failing loudly. It carries the headline and date as well as the
+  #        body; the cleaner tolerates that.
+  selectors: [".wysiwyg-content", "#content", ".text-content", ".detail-text", ".article-detail", "article", ".content"]
 date:
-  # The date sits in <p class="label">Datum: 17. 8. 2011, Praha</p> (verified) — a scoped meta
-  # line, so the regex is safe from the "first date in the body" trap. Czech numeric D. M. YYYY,
-  # day-first (note non-breaking spaces, which \s matches). date_languages MUST be ["cs"] alone
-  # (day-first; adding "en" would read day<=12 dates month-first — the est_president trap).
-  # Sanity-check sampled dates VARY, not clustered on the wayback crawl date (the Sudan trap).
-  selectors: ["p.label", ".label", ".date"]
-  regex: '\d{1,2}\.\s*\d{1,2}\.\s*\d{4}'
+  # OLD generation: <p class="label">Datum: 17. 8. 2011, Praha</p> — a scoped meta line.
+  # MODERN generation: NO label/.date/time element at all; the date is the first paragraph of
+  # the article itself, `<p><strong>24. dubna 2023</strong></p>`, immediately after the h1. So
+  # `.text-content` is the last resort and the REGEX does the extraction — which is safe here
+  # because that date paragraph precedes the body, so "first date in the container" is right.
+  # regex now matches BOTH the numeric `17. 8. 2011` and the Czech long form `24. dubna 2023`.
+  # (An earlier pass concluded "no date on the modern pages"; that was a numeric-only regex
+  # failing, not the site. Grep raw HTML for month NAMES before declaring a date absent.)
+  # regex_required: a miss means "this selector didn't match" and the chain keeps walking,
+  # instead of storing the whole 1,800-char container as the date (the run-5 raw-blob trap).
+  selectors: ["p.label", ".label", ".date", ".text-content"]
+  regex: '\d{1,2}\.\s*(?:\d{1,2}\.|ledna|února|března|dubna|května|června|července|srpna|září|října|listopadu|prosince)\s*\d{4}'
+  regex_required: true
 
 position: president
-# speaker_default omitted: the press stream spans Klaus and Zeman (and covers the office
-# generally); the cleaner + tenure crosscheck assign the speaker from country+date.
+# speaker_default omitted: this now spans Klaus, Zeman AND Pavel (and the castle administration's
+# own notices); the cleaner + tenure crosscheck assign the speaker from country+date.
 date_languages: ["cs"]
 notes: >
   DRAFT — probe-validated (no full run). Czechia President (Prague Castle), PURE-WAYBACK (live
-  Cloudflare interactive challenge, unclearable for a full crawl). ~1,040 archived
-  /cs/pro-media/tiskove-zpravy/<N>.shtml press articles (Klaus/Zeman era, ~2009-2020). This is
-  the press stream (short notices mixed with speech transcripts), not a speeches-only section
-  (none exists on the site) -> the cleaner's gate keeps the speech/official_statement items.
-  Czech original; the translation stage fills English. NOTE the current president is Petr Pavel
-  (2023->); the live Cloudflare block means his term is not yet captured here — a residential-IP
-  live attempt by the researcher, or a later archive pass, would add it.
+  Cloudflare interactive challenge, unclearable for a full crawl). WIDENED 2026-08-12 from the
+  numeric press-release scheme alone (1,038 captures, 12.3% of the host's in-scope captures) to
+  5,338 = 63.1%, by adding (a) the MODERN press generation
+  /cs/pro-media/tiskove-zpravy/aktualni-tiskove-zpravy/<slug>-<id> (2,731 — the single biggest
+  miss), (b) the speeches-and-interviews sections across all four of their naming generations
+  (soucasny-prezident-cr, -milos-zeman, -vaclav-klaus, prezidenti-v-minulosti/<who>), and
+  (c) clanky-a-ohlasy / hlasy-a-ohlasy / co-tyden-dal / vyvracime-dezinformace-1. The header's
+  two documented "facts" — that no /vybrane-projevy* section exists, and that Petr Pavel's term
+  is not archived — were BOTH false and are corrected in the header. Spans Klaus, Zeman and
+  Pavel. Czech original; the translation stage fills English. Incremental — never --rescrape.

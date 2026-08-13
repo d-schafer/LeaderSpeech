@@ -33,7 +33,17 @@ listing:
   # Any speech section, one file deep. `^[^?]*` bars a query string before the match, the
   # same guard the sibling recipe needed after the site's ASP.NET error page
   # (/error.htm?aspxerrorpath=/sp040609.html) was harvested as a speech.
-  link_pattern: '^[^?]*/S/html/(?:krn/)?speeches/[^/]+/[^/]+\.html?$'
+  # ⛔ RULE 1 WIDENING 2026-08-12 (chunk A4): `press_release` added — 564 captures in the same
+  # /S/html tree that this recipe was reaching into for speeches only (761). Measured over the
+  # full presidentofindia.nic.in CDX index; those two are the whole tree's article content
+  # (the other 45 keys are chrome: flow 55, rb 30, walktrhugh 16, mughal, herbal, frames…).
+  # NOTE THE DEPTH DIFFERS, which is why this needs two branches rather than one alternation:
+  #   speeches       /S/html/[krn/]speeches/<section>/<file>.htm   TWO segments
+  #   press_release  /S/html/[krn/]press_release/<file>.htm        ONE segment
+  # `\.html?$` also keeps /S/html/press_release/ErrorPage.aspx out by construction.
+  link_pattern: '^[^?]*/S/html/(?:krn/)?(?:speeches/[^/]+/[^/]+|press_release/[^/]+)\.html?$'
+  # The date on the press_release shape was an open follow-up when this widening landed
+  # (probe date 4/10, every miss a press release) and is now RESOLVED — see the `date` field.
 
 pagination:
   type: wayback
@@ -70,7 +80,25 @@ date:
   #   * `regex_required: true` — without it, a miss returns the WHOLE <b> block (headline
   #     + all), and dateparser turned "SPEECH BY THE PRESIDENT AT THE BANQUET HOSTED IN
   #     HONOUR OF …" into TODAY'S DATE. Now a miss just leaves the date blank.
-  selectors: ["b"]
+  #
+  # `body` ADDED 2026-08-12 as a LAST RESORT, for the newly-harvested press_release shape.
+  # DEBUGGED rather than guessed. The note above is right that a month NAME in the filename
+  # is unusable, and here is exactly why, from extract.py: when a date `url_regex` captures
+  # named year/month/day groups the engine calls `_iso_from_named_groups`, which does
+  # `int(gd["month"])` — a text month raises and returns None, and the code then DELIBERATELY
+  # does not fall through to dateparser ("a blank date beats a plausible wrong one"). Only a
+  # url_regex WITHOUT the named triple reaches dateparser. So no url_regex can date
+  # `sept30_99.htm`, and the fix had to come from the page.
+  # It does: these pages carry the dateline in the BODY, not in <b> — "RASHTRAPATI BHAVAN,
+  # April 6, 2001" as the first line, before "PRESS RELEASE" and the text (verified on
+  # apr06_01.htm and sept30_99.htm). `b` matches EMPTY on this shape, and an empty match does
+  # not end a chain (`first_match` tests `if value:`), so the chain simply walks on to `body`.
+  # THE REGEX NEEDED NO CHANGE — its second alternative already matches month-first
+  # "April 6, 2001" as well as the speeches' day-first "10 th May, 2001".
+  # The Koizumi risk the note above warns about is bounded here: `body` is only reached when
+  # <b> is empty (i.e. the press-release layout), the pages are ~1,500 chars, and the dateline
+  # is the FIRST date on them, which is what leftmost-match returns.
+  selectors: ["b", "body"]
   regex: '\d{1,2}\s*(?:st|nd|rd|th)?\s+\w+,?\s+(?:19|20)\d\d|\w+\s+\d{1,2}\s*(?:st|nd|rd|th)?,?\s+(?:19|20)\d\d'
   regex_required: true
 

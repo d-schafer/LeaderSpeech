@@ -1,15 +1,69 @@
-# Argentina — Casa Rosada, archived presidential speeches.
-# Wayback archive for the pre-2015 speeches history.
+# Argentina — Casa Rosada, ARCHIVED. Wayback companion to the live recipes/arg_casarosada.yml
+# ("yes-and": the live recipe is never replaced or modified by this one).
+#
+# RULE 1 WIDENING 2026-08-12 (chunk A4). This took `/informacion/discursos/` alone — 1 of the 7
+# article sections the Archive holds for this host. Measured with cdxbatch over
+# casarosada.gob.ar/informacion (32,319 raw -> 31,267 in-scope captures):
+#     9,558  /informacion/archivo                 <- the 2003-2015 era
+#     8,811  /informacion/actividad-oficial
+#     4,806  /informacion/eventos-destacados-presi  <- NOT in the site's current nav menu
+#     4,751  /informacion/discursos                 <- the only section this recipe took
+#     1,890  /informacion/conferencias
+#       701  /informacion/que-estamos-diciendo      <- NOT in the current nav menu either
+#        34  /informacion/blog
+#   coverage  4,655 = 14.9%  ->  24,493 = 78.3%   (pattern now identical to the live recipe's)
+#
+# ⚠⚠ READ BEFORE QUEUEING THIS RECIPE — IT NOW LARGELY DUPLICATES THE LIVE ONE. ⚠⚠
+# The 2026-08-12 widening of `arg_casarosada` added `/informacion/archivo/`, which is the SAME
+# 2003-2015 Kirchner-era material this recipe reaches for, served on the LIVE site: ~8,760 items
+# back to 2003-06, complete, at ~4,467 pages/h against the Archive's ~417. The two recipes would
+# store it twice under different URLs (`/informacion/discursos/29255-<slug>` archived vs
+# `/informacion/archivo/29255-<slug>` live) — the engine dedupes on page_identity, which is the
+# URL, so cross-recipe duplication is NOT caught.
+#
+# ⛔ THE OVERLAP WAS COUNTED, NOT INFERRED — AND IT IS 99.9%. DO NOT QUEUE THIS RECIPE.
+# Joomla keeps the article id stable across menu paths, so comparing IDS answers it exactly
+# (archived URL list vs the live probe's 19,449-link harvest, both measured 2026-08-12):
+#     archived /informacion/discursos ids                  3,253
+#       ...of those, also present in the LIVE harvest      3,250
+#       ...present in NO live section                          3   <- unique contribution
+# and across EVERY section this recipe now covers, the archive holds just 144 ids the live
+# site does not (actividad-oficial 73, archivo 29, eventos-destacados 38, que-estamos 1, +3).
+# So the trade is ~24,000 Archive fetches (~59 h) for ~144 articles.
+#
+# WHY THE ENGINE WILL NOT SAVE US: `data/state/Argentina.json` IS shared across the country's
+# recipes, but it skips on the EXACT URL STRING (`seen_urls`), and these differ in scheme AND
+# path — `http://www.casarosada.gob.ar/informacion/discursos/29255-<slug>` archived vs
+# `https://www.casarosada.gob.ar/informacion/archivo/29255-<slug>` live. `page_identity`,
+# which normalizes scheme/www/port/trailing slash, is used INSIDE a wayback harvest only.
+#
+# KEEP THE RECIPE, DON'T RUN IT. It stays correct and widened so it is ready if the live site
+# ever drops content — that is exactly the 3-and-144 case, and it can only grow. Run the LIVE
+# recipe instead. If those ~144 are ever wanted, a targeted pass beats a 59-hour crawl.
+#
+# NOT re-scraping: widening is incremental. data/state/Argentina.json's `seen` set means an
+# ordinary `run` fetches only newly-matched URLs. Do NOT use --rescrape.
 source_id: arg_casarosada_wayback
 country: Argentina
 source_language: Spanish
 start_urls:
+  # CDX prefixes. One per archived section; `wayback_to` below bounds the era, so a section
+  # that only exists after 2015 (e.g. most of /archivo) contributes nothing here.
   - casarosada.gob.ar/informacion/discursos
+  - casarosada.gob.ar/informacion/actividad-oficial
+  - casarosada.gob.ar/informacion/conferencias
+  - casarosada.gob.ar/informacion/archivo
+  - casarosada.gob.ar/informacion/eventos-destacados-presi
+  - casarosada.gob.ar/informacion/que-estamos-diciendo
 renderer: static
 
 listing:
-  link_selector: "a[href*='/informacion/discursos/']"
-  link_pattern: '/informacion/discursos/\d+[^/]*$'
+  # Identical to the live recipe's pattern, so the two stay in step. The optional
+  # `(?:/\d+-[a-z0-9-]+)?` is Joomla's `<catid>-<catalias>` segment (`/9-noticias/`,
+  # `/11-gobierno-informa/`). End-anchored to reject print views and ?start= listing echoes.
+  # `ultimas-noticias` is deliberately absent: its items render under /slider-principal/,
+  # i.e. it is an ALTERNATE VIEW, not a seventh content set.
+  link_pattern: '/(?:informacion/(?:discursos|conferencias|archivo|que-estamos-diciendo)|informacion/(?:actividad-oficial|eventos-destacados-presi)(?:/\d+-[a-z0-9-]+)?|slider-principal)/\d+-[^/?#]*$'
 
 pagination:
   type: wayback
@@ -40,6 +94,12 @@ date:
 position: president
 date_languages: ["es"]
 notes: >
-  Archived variant for the pre-2015 Casa Rosada history; the live recipe remains
-  recipes/arg_casarosada.yml. The 2015-12-10 cutoff leaves the live archive
-  recipe to cover the post-Kirchner period.
+  Archived companion to the live recipes/arg_casarosada.yml, bounded at 2015-12-10. WIDENED
+  2026-08-12 from /informacion/discursos alone (4,655 captures, 14.9% of the host's in-scope
+  captures) to 24,493 = 78.3%, matching the live recipe's section set. ⚠ It now LARGELY
+  DUPLICATES the live recipe, which since 2026-08-12 covers the same 2003-2015 era via the live
+  /informacion/archivo/ section (~8,760 items, complete, ~10x faster than the Archive) — the two
+  store the same article under different URLs and the engine's page_identity dedupe does not
+  catch that across recipes. Its remaining unique value is content DELETED from the live site.
+  Run the LIVE recipe first and treat this as an optional backstop; the researcher decides.
+  Incremental — never --rescrape.

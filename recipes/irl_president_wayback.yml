@@ -1,6 +1,53 @@
 # Ireland — President of Ireland (president.ie), MODERN speech scheme via the Internet Archive.
 # English-native → text lands straight in the English column, no machine translation.
 #
+# ⚠ TWO BLOCKS ARE DELIBERATELY LEFT OUT AND ONE OF THEM NEEDS A RESEARCHER DECISION.
+#
+# 1. `/en/diary/details/<slug>` — 15,639 captures, THE BIGGEST SECTION ON THE HOST, and
+#    uncovered by any recipe. It is in scope in principle (RULE 1 lists visits/engagement
+#    notes), but it fails the "can I write verified selectors" test in a way that matters, and
+#    it is a large enough commitment to be the researcher's call, not mine:
+#      * the BODY is a one-line engagement note — 82 chars on the sampled page ("President
+#        Connolly attended the GAA All-Ireland Senior Camogie Championship Final.");
+#      * there is NO date element (`h3.page-subheading` misses; `main#content` opens
+#        "…Championship Final All day |"), so every row would fall back to wayback_capture;
+#      * the TITLE falls through to <title> ("Diary | <headline> | President of Ireland") and
+#        would need its own regex.
+#    So it needs its OWN recipe, and at ~15.6k Archive fetches (~37 h at measured archive
+#    rates) for one-line undated notes it is close to the "thousands of pages of boilerplate =
+#    a separate project" case the researcher carved out for legal instruments. FLAGGED, not
+#    built. The live sibling has the same block at /diary/past-engagements, where it is also
+#    excluded — there for the additional reason that its pager steps by 10, not 20.
+#
+#    ⇢ ASSESSED LOW VALUE, BUT CHECK IT YOURSELF — these are live, open them in a browser:
+#        the listing   https://president.ie/en/diary/past-engagements
+#        a typical item
+#          https://president.ie/diary/details/president-connolly-attends-the-all-ireland-camogie-championship-final
+#          https://president.ie/diary/details/president-connolly-attends-dublin-horse-show-and-presents-the-aga-khan-trophy
+#          https://president.ie/diary/details/president-connolly-attends-the-ard-ollamh-awards
+#      The first of those is the sampled page: its ENTIRE body is "President Connolly attended
+#      the GAA All-Ireland Senior Camogie Championship Final." (82 chars). Compare a speech,
+#      which is what this recipe does take:
+#          https://president.ie/media-library/speeches/address-by-president-connolly-at-migrant-integration-conference
+#      If the engagement diary turns out to be wanted after all, the note above has everything
+#      needed to author it: container `.c-detail-page-content`, title only from <title> behind
+#      a "Diary | " prefix, and no date short of the wayback_capture fallback.
+#
+# 2. `/ga/…` and `/en/media-library/oraidi/` (2,602) — the IRISH-LANGUAGE mirror ("óráidí" =
+#    speeches). 55,893 captures under /ga. Out of THIS recipe because source_language is one
+#    field per recipe; a genuine sibling-recipe candidate for the non-English pass.
+# Also out: `media-library/results` (12,382 search URLs), photos/grianghraif (5,038),
+# and the Sabina Higgins diary (1,406) — the President's spouse, not the officeholder.
+#
+# KNOWN LIMIT — DATE ON THE McALEESE-ERA PAGES (pre-existing, NOT caused by the widening).
+# The 2026-08-12 probe read date on 5 of 12 samples. Every miss is an older
+# "remarks-by-president-mcaleese-…" capture, and the cause is the site, not the chain:
+# sampled capture 20241207215528 has `h2.heading` for the headline but NO date element
+# anywhere — wbsample reports zero date candidates on the page. Those rows fall back to
+# `wayback_capture` (the scraper stamps the IA snapshot date on every wayback row) and the
+# cleaner can still recover a date from the body. Not fixable by a selector; recorded so the
+# next reader does not re-derive it. Title is unaffected — 12/12.
+#
 # "YES-AND" companion to the LIVE irl_president.yml (same /en/media-library/speeches tree, path
 # pagination P0..P2400). Wayback adds (a) insurance against the live pager/site changing, and
 # (b) captures of slugs the live listing has since dropped. The Archive holds ~4,451 status-200
@@ -19,6 +66,10 @@ start_urls:
   # CDX prefix — the engine prefix-matches, so NO trailing '*'. This path is also the listing
   # index, which filter_entries_for_recipe drops automatically (article path != listing path).
   - president.ie/en/media-library/speeches
+  # A wayback start_url is a CDX PREFIX, so the link_pattern widening below would have been a
+  # pure NO-OP without these two (the run-7 lesson — check both every time).
+  - president.ie/en/media-library/news-releases
+  - president.ie/en/news/article
 
 listing:
   # ONE slug segment under /speeches/ and nothing after it, minus four kinds of non-speech URL
@@ -36,7 +87,14 @@ listing:
   # the [^\[\]] class drops truncated/garbled slugs like "1916-and-the-ethics-of-memory[77".
   # /en/media-library/oraidi/<slug> — the IRISH-language rendering of the same speeches — sits
   # on a different path and so never enters this harvest.
-  link_pattern: '/en/media-library/speeches/(?!selected-speeches$|P\d+$|Microsoft\.|Msxml2\.|\d+(?:\.\d+)?s?$)[^/?#\[\]]+$'
+  # RULE 1 WIDENING 2026-08-12 (chunk A4): `news-releases` and `news/article` added. Both
+  # reuse this recipe's selector chain unchanged (verified live on a news release: title
+  # via `.c-detail-page-content h2`, body 249-5,460 chars, date via `h3.page-subheading`).
+  #   coverage  3,967 = 3.6%  ->  10,668 = 9.6% of the host's in-scope captures.
+  # The ratio stays low because the DENOMINATOR is mostly out of scope: of 111,412 in-scope
+  # captures, 55,893 are the /ga IRISH-LANGUAGE mirror and 12,382 are `media-library/results`
+  # search URLs. See the header for the two blocks deliberately left out.
+  link_pattern: '/en/(?:media-library/(?:speeches|news-releases)|news/article)/(?!selected-speeches$|P\d+$|Microsoft\.|Msxml2\.|\d+(?:\.\d+)?s?$)[^/?#\[\]]+$'
 
 pagination:
   type: wayback

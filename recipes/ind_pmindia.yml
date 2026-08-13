@@ -1,7 +1,27 @@
 # India — Prime Minister of India speech archive (pmindia.gov.in, WordPress).
-# The speech-specific tag archive /en/tag/pmspeech is the real paginated source
-# (~2,516 posts, 2015–present). The /en/category/pms-speeches archive 301s to a
-# static landing page that carries no listing, so it is intentionally omitted.
+# The tag archive /en/tag/pmspeech is the real paginated source (~2,516 posts,
+# 2015–present). The /en/category/pms-speeches archive 301s to a static landing
+# page that carries no listing, so it is intentionally omitted.
+#
+# ✅ RULE 1 AUDIT 2026-08-12 (chunk A4) — CHECKED CLEAN, no widening needed.
+# A tag-scoped start_url is normally the exact shape RULE 1 warns about ("category =
+# speeches only"), so this was audited hard and comes back fine on three counts:
+#   1. THE TAG IS NOT A SPEECH FILTER. `pmspeech` is applied site-wide, including to
+#      items that are plainly not speeches — /en/news_updates/portfolios-of-the-union-
+#      council-of-ministers-2/ carries it, and it is a cabinet portfolio list. That
+#      article is also the ONLY tag on the page: the tag vocabulary is effectively one
+#      term, so there is no sibling tag archive to add.
+#   2. THE OTHER LISTINGS DO NOT PAGINATE. /en/news-updates/ looks like the fuller
+#      stream (21 items vs the tag's 16) but /en/news-updates/page/3 re-serves page 1
+#      verbatim — measured, overlap 21 of 21. It is a hub page, not an archive.
+#   3. THE NAV'S OTHER SECTIONS ARE HUBS TOO. mann-ki-baat, pms-interview,
+#      message-from-the-prime-minister, pm-visits, media-coverage-1 and info-quotes each
+#      return exactly ONE item link on page 1 and the same on page 3 — they are curated
+#      landing pages, not listings. /en/pms-speeches/ and /en/speeches/ are VIDEO
+#      sections (out of scope for the text scraper; candidates for video_audio_scraper).
+# WP REST is unavailable for a cross-check here: /wp-json/wp/v2/types returns 401 even
+# with the browser UA, so the audit above was done from the nav + measured pagination.
+# NOT re-scraping: nothing changed. Never --rescrape.
 # NOTE: the site's WAF hard-blocks the honest bot UA (403 on every URL); a browser
 # user_agent is required to fetch anything (same UA-keyed WAF class as Colombia).
 source_id: ind_pmindia

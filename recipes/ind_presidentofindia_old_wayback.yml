@@ -60,7 +60,26 @@ listing:
   # page, `/error.htm?aspxerrorpath=/sp040609.html`, which ENDS in a valid speech filename
   # and was harvested as a speech on the first probe. Barring '?' before the match keeps the
   # filename in the PATH.
-  link_pattern: '^[^?]*/sp\d{6}(?:-\d+)?\.html$'
+  #
+  # ⛔ RULE 1 WIDENING 2026-08-12 (chunk A4): `pr` and `re` ADDED, `mg` still excluded.
+  #   pr<DDMMYY>[-N].html  1,296  press releases. The header above excluded these "for SCOPE,
+  #     not quality", reasoning that India's president side is already 85.7% matched — that is
+  #     a PRIORITISATION judgement, and RULE 1 does not allow the harvest to make it. Press
+  #     releases are explicitly in scope. The header even named this exact fix.
+  #   re<DDMMYY>[-N].html    777  engagement notes. Excluded above as "third-person photo
+  #     captions … not speech, not statement" — but the 2026-08-10 ruling keeps
+  #     official_statement INCLUDING third-person communiqués, and lists visits/engagement
+  #     notes as in scope. Re-sampled 2026-08-12 (/re311207.html): 527 chars of real prose,
+  #     "The President of India, Smt. Pratibha Devisingh Patil met and interacted with the
+  #     Acting Chief Justice of the High Court of Andhra Pradesh … on December 31, 2007."
+  #     That is a document the cleaner's gate should judge, not the pattern.
+  #   mg<DDMMYY>[-N].html    195  STAYS OUT — re-verified 2026-08-12: <h2> is "MEDIA GALLERY"
+  #     and the 1,421-char body is pure left-nav. Photo/video galleries are on RULE 1's
+  #     explicit out-list.
+  # `(?<!/ph)` excludes the HINDI tree: the same filenames also exist under /ph/
+  # (/ph/re010213.html renders "समारोह"), and this recipe is source_language: English. The
+  # `_hindi.html` twins already cannot match, because the pattern ends at `.html`.
+  link_pattern: '^[^?]*(?<!/ph)/(?:sp|pr|re)\d{6}(?:-\d+)?\.html$'
 
 pagination:
   type: wayback
@@ -70,7 +89,8 @@ pagination:
     - "statuscode:200"
     - "mimetype:text/html"
     # Server-side narrowing — a bare-host query otherwise returns all 14,473 captures.
-    - "original:.*/sp[0-9]{6}.*"
+    # Widened with the link_pattern — a filter left at /sp would make that widening a no-op.
+    - "original:.*/(sp|pr|re)[0-9]{6}.*"
 
 title:
   # Ordered newest generation first; each generation's winner is absent from the others, so
@@ -100,7 +120,9 @@ date:
   # how a first-date-on-the-page regex dated Koizumi's 2003 press conference to 2001-09-11.
   # The 2-digit year is widened by the engine with the POSIX pivot (00-68 -> 20xx).
   selectors: []
-  url_regex: '/sp(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})'
+  # Widened alongside the link_pattern: pr/re use the SAME <DDMMYY> filename convention, so
+  # one alternation dates all three schemes.
+  url_regex: '/(?:sp|pr|re)(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})'
 
 position: president
 # No speaker_default: the window spans Patil and Mukherjee, so the tenure crosscheck assigns

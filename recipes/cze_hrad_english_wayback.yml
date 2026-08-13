@@ -7,8 +7,29 @@
 #
 # CDX prefix hrad.cz/en ≈ 2,104 statuscode:200 captures 2003–2026, but MOST are Prague-Castle
 # visitor / state-decoration institutional pages — link_pattern isolates the president's speeches-and-
-# interviews subtree. Spans Klaus/Zeman era (the current president Pavel, 2023→, is not captured — the
-# live block; a residential-IP or later-archive pass would add him).
+# interviews subtree.
+#
+# RULE 1 WIDENING 2026-08-12 (chunk A4). Enumerated hrad.cz/en: 1,903 in-scope captures.
+#   coverage  90 = 4.7%  ->  244 = 12.8%
+# Two whole sections were missing, and one of them is the bigger:
+#     139  /en/for-media/press-releases/<N>.shtml         <- unreachable by the OLD pattern,
+#          which required the path to start /en/president-of-the-cr/, so no press release
+#          could ever match however the section was spelled
+#      45  /en/president-of-the-cr/<who>/public-addresses-and-interviews/
+#       2  /en/for-media/voices-and-responses/
+#
+# ⚠ 12.8% IS THE CEILING HERE AND THAT IS CORRECT — a low ratio is a question, not a finding.
+# The 1,659 still-missed captures were read: 1,026 are `prague-castle-for-visitors`, overwhelmingly
+# "limited opening hours in St. Vitus Cathedral on 1. 1. 2018"-style CLOSURE NOTICES (481+61+49+44
+# +28+26+24+23 in the top shapes alone), 173 are the `culture-at-the-castle` programme, the rest
+# state-decoration registers and institutional pages. All are the RULE 1 out-list.
+#
+# CORRECTION: the previous header said Petr Pavel "is not captured — the live block". The Archive
+# holds his term perfectly well; see the same correction in cze_hrad_wayback, where the Czech-side
+# `verejna-vystoupeni-a-rozhovory` captures are his 2023+ addresses. Whether the ENGLISH tree
+# carries Pavel-era items is a separate question from whether the Archive has them.
+#
+# NOT re-scraping: widening is incremental (data/state/Czechia.json `seen`). Never --rescrape.
 source_id: cze_hrad_english_wayback
 country: Czechia
 source_language: English
@@ -17,10 +38,14 @@ start_urls:
   - hrad.cz/en
 
 listing:
-  # Speech/interview articles under the president's section only; require a slug after the section so
-  # the section index itself is dropped. Excludes the /en/prague-castle-for-visitors/,
-  # /en/czech-republic/state-decorations/ etc. institutional trees.
-  link_pattern: '/en/president-of-the-cr/.+/(selected-speeches-and-interviews|speeches|articles-and-interviews)/[a-z0-9]'
+  # The president's speech/interview sections AND the English press stream. `<who>` is one or two
+  # segments, because the section is re-parented as presidents change (current-president-of-the-cr,
+  # -vaclav-klaus, -milos-zeman, and former-presidents/<name>). Item is the old numeric `<N>.shtml`
+  # or the modern `<slug>-<id>`; requiring one of those drops the section indexes, and
+  # `(?!strana-)` drops the pagers, which otherwise look exactly like a modern item.
+  # Excludes the /en/prague-castle-for-visitors/, /en/culture-at-the-castle/ and
+  # /en/czech-republic/state-decorations/ institutional trees.
+  link_pattern: '/en/(?:for-media/(?:press-releases|voices-and-responses)|president-of-the-cr/[a-z0-9-]+(?:/[a-z0-9-]+)?/(?:selected-speeches-and-interviews|public-addresses-and-interviews|articles-and-interviews|speeches))/(?!strana-)(?:\d+\.shtml|[a-z0-9][^/?#]*-\d+)$'
 
 pagination:
   type: wayback
@@ -31,13 +56,31 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  selectors: ["h1", ".article-title", "title"]
+  # `.text-content h1` FIRST: on the modern CMS the first <h1> in the DOM is the site LOGO
+  # (`h1.logo`, an <img>). Bare `h1` still serves the old .shtml generation. Same as the Czech
+  # sibling — one CMS, one set of generations.
+  selectors: [".text-content h1", "h1", ".article-title", "title"]
   regex: '^\s*(.+)'
 text:
-  # same Government-CMS containers as the Czech cze_hrad_wayback; generic fallback if they miss.
-  selectors: ["#content", ".detail-text", ".article-detail", "article", ".content"]
+  # THREE CMS generations, same as cze_hrad_wayback: `.wysiwyg-content` (modern, clean body),
+  # `#content` (old <N>.shtml), `.text-content` (an intermediate ~2018 generation that has
+  # NEITHER — proven on the Czech side, where 3 of 15 probe samples returned 0 chars and were
+  # being silently rescued by the trafilatura fallback).
+  selectors: [".wysiwyg-content", "#content", ".text-content", ".detail-text", ".article-detail", "article", ".content"]
 date:
-  selectors: ["p.label", ".label", ".date", "time"]
+  # THE ENGLISH TREE DATES ARE US-STYLE M/D/YYYY, NOT the Czech `D. M. YYYY` — both generations:
+  #   old .shtml : <p class="label">Date: <strong>11/13/2008</strong></p>
+  #   modern     : no date element; the first paragraph of the article, <p><strong>12/26/2018</strong></p>
+  # So `.text-content` is the last resort and the REGEX extracts it. `date_languages: ["en"]`
+  # below makes dateparser read M/D correctly — do NOT add "cs" here or 11/13/2008 flips.
+  # regex_required means a miss keeps walking the chain instead of storing the whole container
+  # as the date (the run-5 raw-blob trap). It also earned its keep immediately: a first draft of
+  # this regex covered only the Czech and long-form English shapes, and the probe went 0/12
+  # because `p.label` matched and the regex then rejected its M/D/YYYY payload. A silent
+  # fallback would have hidden that.
+  selectors: ["p.label", ".label", ".date", "time", ".text-content"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}|\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}'
+  regex_required: true
 
 position: president
 date_languages: ["en"]

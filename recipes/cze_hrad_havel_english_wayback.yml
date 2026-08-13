@@ -20,6 +20,29 @@
 # reading the pages, not inferred from the spelling) — so this is native English and needs
 # no translation pass. The `.en` / `.cs` inside the cgi-bin names is the same distinction
 # applied to the converter scripts.
+#
+# ⚠ RE-VERIFIED 2026-08-12 (chunk A4), because the `_uk.html` twins look exactly like a
+# wrong-language bug and are NOT one. Every speech also exists as <DDMM>_uk.html (176
+# captures). "uk" reads like an English marker, so the obvious conclusion is that this
+# English-declared recipe was harvesting the Czech files. IT IS THE OPPOSITE: 1990/0101.html
+# and 1990/0101_uk.html are BOTH English and are the SAME text — "New Year's Address to the
+# Nation", 17,437 vs 17,444 chars. `_uk` is another charset/encoding variant, like the
+# index_uk.html / indexl.html / index_l.html triplets at the tree root. Excluding it is
+# correct and must stay; including it would double every Havel speech.
+#
+# RULE 1 AUDIT 2026-08-12 — the other /president/Havel/ sections were SAMPLED and REJECTED,
+# recorded so nobody re-derives them:
+#   /work/        137 captures — Havel's LITERARY BIBLIOGRAPHY, not speeches. dilo1.html is
+#                 the Antikódy poetry collection's imprint page (publisher, editors, print
+#                 run), 525 chars, and it is in Czech.
+#   /vystoupeni/   49 — TABLE-OF-CONTENTS pages, the same trap the tree root poses:
+#                 clanky.html is a 4,365-char LIST of article titles and citations with no
+#                 article text, t2003.html a table of press-conference DATES. Czech.
+#   /akce/ 48, /holocaust/ 42, /rady/ 28, /politika/ 26, /milosti/ 13 — thematic dossiers and
+#                 pardon registers, not a speech stream.
+# The other presidents under /president/ (Masaryk 38, Klaus 24, Beneš 10) are biographical
+# pages, not speech trees. So 27.1% coverage of the /president prefix is the right number:
+# the denominator is three other presidents plus Havel's non-speech sections.
 source_id: cze_hrad_havel_english_wayback
 country: Czechia
 source_language: English
@@ -35,7 +58,13 @@ listing:
   # the tree root — the root is the book's table of contents ("Challenges of Our Time,
   # Selected Speeches and Writings 1990-1997"), a 4,366-char list of titles and datelines
   # that would otherwise be written in as if it were one enormous speech.
-  link_pattern: '/president/Havel/speeches/\d{4}/\d+(?:-\d+)?\.html$'
+  #
+  # RULE 1 AUDIT 2026-08-12 (chunk A4): `[a-z]?` ADDED. The filename is <DDMM>, and when Havel
+  # gave more than one speech on a day the site appends a letter — 0406a.html, 0406b.html,
+  # 0406c.html. The old pattern required digits immediately before `.html`, so all 15 of those
+  # were silently dropped. `_uk.html` is still excluded and MUST stay excluded — see the
+  # language note below.
+  link_pattern: '/president/Havel/speeches/\d{4}/\d+[a-z]?(?:-\d+)?\.html$'
 
 pagination:
   type: wayback
@@ -64,7 +93,7 @@ date:
   # sentences, which is exactly the failure that dated Koizumi's 2003 press conference to
   # 2001-09-11.
   selectors: []
-  url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})(?P<month>\d{2})(?:-\d+)?\.html'
+  url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})(?P<month>\d{2})[a-z]?(?:-\d+)?\.html'
 
 speaker_default: Václav Havel
 position: president

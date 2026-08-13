@@ -24,18 +24,31 @@ source_language: English
 user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 start_urls:
   - https://presidentofindia.nic.in/speeches
+  # RULE 1 WIDENING 2026-08-12 (chunk A4): the nav's other article section. The LISTING is
+  # /press-release (hyphen, singular) but the ITEMS are /press_releases/<slug> (underscore,
+  # plural) — a mismatch worth noting, since guessing either form from the other fails.
+  # It paginates on the same ?page=N pager, 10 items a page. Verified 2026-08-12 that the
+  # EXISTING selector chain covers it unchanged: h1.title.page-title gives the headline
+  # ("PRESIDENT OF INDIA PAYS FLORAL TRIBUTES TO SHRI V.V. GIRI…"), and `.views-field-nothing`
+  # — the second link in the text/date chain, since `.view-speeches-detail .field-content` is
+  # speeches-only and simply misses — gives the body complete with the
+  # "Rashtrapati Bhavan : 10.08.2026" dateline the date regex reads.
+  - https://presidentofindia.nic.in/press-release
 renderer: static
 
 listing:
-  link_selector: "a[href*='/speeches/']"
-  link_pattern: '/speeches/[^/]+$'
+  link_selector: "a[href*='/speeches/'], a[href*='/press_releases/']"
+  link_pattern: '/(?:speeches|press_releases)/[^/]+$'
 
 pagination:
   type: query_param
   param: page
   start: 0
   step: 1
-  max_pages: 5   # the view really is 2 pages; the engine stops when a page adds 0 links
+  # The SPEECHES view really is 2 pages, but /press-release paginates much further, and
+  # max_pages applies per start_url — leaving it at 5 would have capped press releases at
+  # ~50 items. Pagination still self-terminates when a page adds 0 links, so a high cap is free.
+  max_pages: 80
 
 title:
   selectors: ["h1.title.page-title", "h1.page-title", "h1"]

@@ -30,7 +30,9 @@ exactly — for `zaf_thepresidency_wayback` and `alb_president_english_wayback` 
 count lands on the current `<id>_links.txt` to the link (9,981 and 168).
 
 **Say when the denominator is a floor.** A harvest can be cut short by a broken pager
-(`stopped_early`), by the 200-page default cap (`stop_reason: max_pages`, which
+(`stopped_early`), by the per-start_url page cap (`stop_reason: max_pages` —
+`paginate.DEFAULT_MAX_PAGES`, raised 200 -> 5,000 on 2026-08-12 after it truncated
+casarosada.gob.ar at exactly 200 x 40 items; which
 `paginate.NORMAL_STOPS` classifies as a *clean* finish and is therefore the easy one to
 miss), or because the only record is a probe that never left page 1. Reporting a percentage
 off a floor reads as "nearly done" when it means "we never looked". :data:`STATUS` is that

@@ -1,21 +1,88 @@
-# Argentina — Casa Rosada, official presidential speeches.
-# Static HTML, query-param pagination (?start=40, step 40), Spanish dates.
+# Argentina — Casa Rosada, the presidency's whole article space.
+# Static HTML (Joomla), query-param pagination (?start=N, step 40), Spanish dates.
+#
+# RULE 1 WIDENING 2026-08-12 (chunk A4): this took `/informacion/discursos/` ALONE —
+# 1 of the 4 paginated sections in its own nav. Measured with pagecount.py (one request
+# each, no CDX; `start` is an OFFSET, so items = last_offset + 40):
+#     discursos          last start=1520  -> ~1,560   <- the only section we took
+#     actividad-oficial  last start=7840  -> ~7,880   press notices / engagement notes
+#     conferencias       last start= 640  -> ~  680   press conferences (vocero, jefe de gabinete)
+#     archivo            last start=8720  -> ~8,760   THE 2003-2015 ERA (see below)
+#   total ~18,880 against 1,528 rows scraped = 8.1% coverage.
+#
+# `/informacion/archivo/` IS THE KIRCHNER ERA, ON THE LIVE SITE. `discursos` bottoms out
+# at 2015-12-10 (Macri's inauguration, id 35026); `archivo` TOPS OUT at 2015-12-10 (CFK's
+# farewell "Palabras de la Presidenta al Pueblo en la Plaza de Mayo", id 29255) and runs
+# back to 2003-06 (Néstor Kirchner). The two listings are CHRONOLOGICALLY DISJOINT and
+# their id ranges do not overlap, so harvesting both cannot duplicate. Sampled 2026-08-12:
+# id 29255 gives 15,868 chars of body, title and date green on the UNCHANGED selectors.
+# Note this is the same era `arg_casarosada_wayback` reaches for via the Internet Archive,
+# at ~417 pages/h against ~4,467 live — see that recipe's header.
+#
+# `slider-principal/<id>-<slug>` is IN THE PATTERN BUT NOT IN start_urls, deliberately.
+# It is the homepage "featured" category and the actividad-oficial listing emits its items
+# INLINE, interleaved by date, under that path — which is how two Milei speeches (51337
+# 2026-08-07, 51317 2026-07-16) are absent from `/informacion/discursos/` altogether. It
+# paginates at step 5, not 40, so it cannot share this recipe's `pagination.step`; taking
+# it inline gets the items without a second, mismatched pager and without duplicating
+# (each listing emits any given article under exactly one path).
+#
+# Joomla resolves ANY article id under ANY menu path, so `/informacion/discursos/29255-...`
+# returns the archivo article byte-for-byte. That is the run-7 trap: URL resolvability is
+# NOT harvest coverage. The decisive test here was the LISTINGS, which are disjoint.
+#
+# TWO SECTIONS ARE LIVE BUT NOT IN THE NAV MENU — the live-nav shortcut alone would have missed
+# them, and enumerating the ARCHIVED host is what surfaced them (they still 200 live):
+#     eventos-destacados-presi  ~2,360 items   2019-era government news/press releases
+#     que-estamos-diciendo      ~  680 items   "La semana del Presidente en palabras" — weekly
+#                                              digests of the president's own statements
+# Sampled 2026-08-12: both extract on the UNCHANGED selectors (3,125 / 3,147 chars of body,
+# title and date green). So: run the nav shortcut for speed, but on a site with a long history
+# still enumerate the archive for sections the CURRENT menu has quietly dropped.
+#
+# `ultimas-noticias` IS AN ALTERNATE VIEW AND IS DELIBERATELY EXCLUDED. It looks like a seventh
+# section (its own listing, ~2,485 items) and its items render as `/slider-principal/<id>-<slug>`
+# — the set this recipe already takes inline. Adding it as a start_url would have re-walked
+# 2,485 pages for zero new articles. The test that caught it: triage the listing and read the
+# ITEM url shape, not the section name (the gov.ro lesson).
+# `blog` is excluded too — its listing returns zero articles (an empty hub).
+#
+# NOT re-scraping: widening is incremental. data/state/Argentina.json's `seen` set means an
+# ordinary `run` fetches only the newly-matched URLs. Do NOT use --rescrape.
 source_id: arg_casarosada
 country: Argentina
 source_language: Spanish
 start_urls:
   - https://www.casarosada.gob.ar/informacion/discursos
+  - https://www.casarosada.gob.ar/informacion/actividad-oficial
+  - https://www.casarosada.gob.ar/informacion/conferencias
+  - https://www.casarosada.gob.ar/informacion/archivo
+  # Two further live sections, found by enumerating the ARCHIVED host and then confirming they
+  # are still live listings (they are absent from the site's own nav menu, so the nav shortcut
+  # alone would have missed them — see the note below):
+  - https://www.casarosada.gob.ar/informacion/eventos-destacados-presi   # ~2,360 items
+  - https://www.casarosada.gob.ar/informacion/que-estamos-diciendo       # ~  680 items
 renderer: static
 
 listing:
-  link_selector: "a[href*='/informacion/discursos/']"
-  link_pattern: '/informacion/discursos/\d'
+  # No link_selector: the listings use several different anchor shapes, so the pattern is the
+  # filter. End-anchored on [^/?#]*$ to reject ?tmpl=component print views and ?start= listing
+  # echoes (the `?page=` trap). The optional `(?:/\d+-[a-z0-9-]+)?` is Joomla's
+  # `<catid>-<catalias>` segment, which actividad-oficial and eventos-destacados-presi emit
+  # (`/9-noticias/`, `/11-gobierno-informa/`) and the others do not.
+  link_pattern: '/(?:informacion/(?:discursos|conferencias|archivo|que-estamos-diciendo)|informacion/(?:actividad-oficial|eventos-destacados-presi)(?:/\d+-[a-z0-9-]+)?|slider-principal)/\d+-[^/?#]*$'
 
 pagination:
   type: query_param
   param: start
   start: 0
   step: 40
+  # MUST be raised above the engine's 200-page default, which is applied PER start_url.
+  # `archivo` needs 219 pages (8,760 items / 40) and the first probe stopped at exactly
+  # 8,000 = 200 x 40 with stop_reason=max_pages, silently losing the OLDEST ~760 items —
+  # i.e. the start of the Néstor Kirchner presidency, the very thing this widening is for.
+  # Pagination still stops on the first empty page, so a generous cap costs nothing.
+  max_pages: 400
 
 title:
   selectors: [".col-md-8.col-md-offset-2 h2", "title"]

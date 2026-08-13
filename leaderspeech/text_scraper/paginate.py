@@ -128,6 +128,26 @@ NORMAL_STOPS = {"empty_page", "no_next_button", "no_next_link", "cyclic_pager",
                 "max_pages", "max_links", "single_page", "pager_404"}
 EARLY_STOPS = {"next_click_failed", "listing_fetch_failed", "no_new_links"}
 
+# The hard cap on listing pages per start_url when a recipe sets no `pagination.max_pages`.
+#
+# It is a RUNAWAY GUARD, not a budget: every ordinary ending is already handled above — a
+# 404/410 on page N+1 (`pager_404`), a page with no links (`empty_page`), and a page whose
+# links we have all seen (`no_new_links`, e.g. a site that ignores its pager and re-serves
+# page 1). The cap only fires when a pager keeps yielding genuinely NEW links forever, which
+# is rare but real (calendar pagers, session-tokened URLs).
+#
+# RAISED 200 -> 5000 on 2026-08-12. At 200 the cap stopped being a backstop and started
+# TRUNCATING real sources, because it counts PAGES while sites differ by 40x in items per
+# page: casarosada.gob.ar paginates in steps of 40, so 200 pages is 8,000 items and its
+# `/informacion/archivo/` section (8,760 items, the whole 2003-2015 Kirchner era) stopped at
+# exactly 8,000 = 200 x 40, losing the OLDEST ~750 — i.e. the start of the presidency the
+# widening existed to reach. Truncation is not silent (stop_reason `max_pages` -> the index's
+# `links_status: capped`), but "reported" is not "harmless".
+# 5,000 keeps a genuine runaway bounded while being far above any real listing: the largest
+# harvest in the corpus, rus_kremlin_english_wayback, is ~50k ITEMS, and wayback/sitemap
+# harvests do not use this path at all.
+DEFAULT_MAX_PAGES = 5000
+
 # HTTP statuses that mean "this listing page does not exist" rather than "the listing is
 # broken". Some pagers signal end-of-results with a 404 on page N+1 instead of serving an
 # empty page -- WordPress does, and so do trumpwhitehouse/obamawhitehouse/bidenwhitehouse
@@ -203,7 +223,7 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 gained += 1
         return gained
 
-    hard_cap = max_pages if max_pages is not None else (pg.max_pages or 200)
+    hard_cap = max_pages if max_pages is not None else (pg.max_pages or DEFAULT_MAX_PAGES)
 
     for start_url in recipe.start_urls:
         if pg.type == PaginationType.none:
@@ -370,7 +390,7 @@ def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None
     next link is the real terminator.
     """
     pg = recipe.pagination
-    hard_cap = max_pages if max_pages is not None else (pg.max_pages or 200)
+    hard_cap = max_pages if max_pages is not None else (pg.max_pages or DEFAULT_MAX_PAGES)
     collected, seen = [], set()
 
     for start_url in recipe.start_urls:
@@ -432,7 +452,7 @@ def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links, stats=None,
     """
     page = fetcher.page
     pg = recipe.pagination
-    hard_cap = max_pages if max_pages is not None else (pg.max_pages or 200)
+    hard_cap = max_pages if max_pages is not None else (pg.max_pages or DEFAULT_MAX_PAGES)
     collected, seen = [], set()
 
     for start_url in recipe.start_urls:

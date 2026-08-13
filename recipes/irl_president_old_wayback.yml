@@ -17,6 +17,26 @@
 #      Georgia workaround: point start_urls at the PARENT path (the bare host).
 #   2. A bare-host CDX prefix would otherwise return the whole 60k+ site, so the harvest is
 #      narrowed SERVER-SIDE by a CDX `original:` regex filter — cheap for the IA and for us.
+# ⛔ RULE 1 AUDIT 2026-08-12 (chunk A4) — AUDITED, NOT WIDENED, and here is exactly what is
+# left on the table so the next session does not re-derive it. The pre-2012 index.php scheme
+# keys its content by a numeric parameter; counted over the full president.ie CDX enumeration
+# (144,243 raw captures), the parameters that exist are:
+#     speech=<id>      2,067   <- this recipe (with the lang=eng filter)
+#     engagement=<id>  1,317   engagement/visit notes, the OLD form of /diary/details
+#     newsletter=<id>      62
+#     meeting=<id>         56   (Council of State meetings)
+#
+# `engagement=` is NOT added here, for the same reason `/en/diary/details/` (15,639 captures)
+# is not added to irl_president_wayback: engagement notes are in scope by RULE 1, but on this
+# site they are one-line undated entries, and taking them is a ~17,000-fetch commitment across
+# the two recipes. That is a researcher decision, and it should be made ONCE for both recipes
+# rather than differently in each. See the header of irl_president_wayback.yml for the sampled
+# evidence (82-char body, no date element, title only in <title>).
+#
+# `newsletter=` (62) and `meeting=` (56) are small and plausibly in scope, but adding them
+# means widening the recipe's CDX `original:` FILTER as well as the link_pattern — and their
+# selectors are unverified. Left for a pass that can sample them; 118 captures did not justify
+# the risk of writing unverified rows in this session.
 source_id: irl_president_old_wayback
 country: Ireland
 source_language: English

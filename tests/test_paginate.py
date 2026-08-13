@@ -705,3 +705,27 @@ def test_next_link_pagination_threads_meta():
     links = paginate.harvest_links(r, OnePage(), meta=meta)
     assert links == ["https://pmo.gov.et/media/documents/x.pdf"]
     assert meta[links[0]]["date"] == "2023-10-06"
+
+
+def test_default_max_pages_is_a_runaway_guard_not_a_budget():
+    """A recipe that sets no `pagination.max_pages` falls back to
+    `paginate.DEFAULT_MAX_PAGES`, which must stay far above any real listing.
+
+    Regression for the 2026-08-12 Casa Rosada truncation: the old default of 200 counts
+    PAGES, and casarosada.gob.ar paginates in steps of 40, so a 8,760-item section stopped
+    at exactly 8,000 = 200 x 40 and silently lost the oldest ~750 items. The cap only exists
+    to bound a pager that yields genuinely new links forever; every ordinary ending is
+    already covered by pager_404 / empty_page / no_new_links.
+    """
+    assert paginate.DEFAULT_MAX_PAGES >= 5000
+    # 200 pages x a step of 40 was the exact shape that truncated a real source.
+    assert paginate.DEFAULT_MAX_PAGES * 40 > 8_760
+
+
+def test_unset_max_pages_uses_the_default_not_200():
+    """`max_pages: None` in the recipe must reach DEFAULT_MAX_PAGES, at every call site."""
+    r = _recipe(type="path", path_format="{n}", start=1, step=1, max_pages=None)
+    f = RecordingFetcher()
+    # max_links keeps the test cheap while proving the page cap is not what stopped it.
+    paginate.harvest_links(r, f, max_links=250)
+    assert len(f.urls) == 250            # would have stopped at 200 under the old default

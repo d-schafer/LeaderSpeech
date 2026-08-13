@@ -23,6 +23,14 @@ source_language: English
 start_urls:
   # CDX prefix — the engine prefix-matches, so NO trailing '*'.
   - presidentofindia.nic.in/speeches
+  # RULE 1 WIDENING 2026-08-12 (chunk A4): the modern Drupal press-release stream, 491
+  # captures, reachable by no existing recipe. A wayback start_url is a CDX PREFIX, so adding
+  # it here is required — widening the link_pattern alone would have been a no-op.
+  # Mirrors the same-day widening of the LIVE sibling ind_presidentofindia.yml, where the
+  # existing selector chain was verified to cover press releases unchanged (the second link,
+  # `.views-field-nothing`, carries the body plus its "Rashtrapati Bhavan : 10.08.2026"
+  # dateline; `.view-speeches-detail .field-content` is speeches-only and simply misses).
+  - presidentofindia.nic.in/press_releases
 renderer: static
 
 listing:
@@ -31,7 +39,9 @@ listing:
   #   /speeches-detail.htm?<id>   (legacy; the query IS a bare number, e.g. ?314)
   # Deliberately excludes /speeches-detail-hi.htm (the Hindi mirror of the same
   # speech — it would double every legacy row) and /speechesN.html index captures.
-  link_pattern: '/speeches(/[^/?]+$|-detail\.htm\?\d+$)'
+  # `press_releases/<slug>` added alongside the two speech forms. The Hindi mirror
+  # (/speeches-detail-hi.htm) still cannot match — the alternation is anchored.
+  link_pattern: '/(?:speeches(/[^/?]+$|-detail\.htm\?\d+$)|press_releases/[^/?]+$)'
 
 pagination:
   type: wayback

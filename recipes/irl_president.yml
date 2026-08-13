@@ -1,16 +1,51 @@
-# Ireland — president.ie speeches.
+# Ireland — president.ie, the President's media library.
+#
+# RULE 1 WIDENING 2026-08-12 (chunk A4). This took `speeches` alone. The site's own nav lists
+# six media-library sections; measured with one request each (20 items on page 1, pager `/P<n>`):
+#     speeches        20/page  <- the only one taken
+#     news-releases   20/page  <- ADDED. Real presidential output: "Connolly signs the Dublin
+#                                Airport Passenger Capacity Bill 2026", "Statement by President
+#                                Connolly on the death of Glen Hansard"
+#     publications     0 item links in the static HTML — not harvestable this way, left out
+#     photos / video / audio                                      out by RULE 1
+#     all-media        an ALTERNATE VIEW — its 5 item links mix news-releases, photos and
+#                      speeches, i.e. it is the union feed, not a sixth content set
+#
+# `diary/past-engagements` is NOT here and that is deliberate: it is real, uncovered engagement
+# content (`/diary/details/<slug>`), but its pager advances in steps of TEN while every
+# media-library section advances in twenty, and `pagination.step` is one value per recipe.
+# Verified by fetching P0/P10/P20/P30 and confirming zero overlap between consecutive pages.
+# It therefore needs its own recipe — see recipes/irl_president_diary.yml.
+#
+# LANGUAGE NOTE: news-releases carries a minority of IRISH-language items ("Déanann Uachtarán
+# Connolly…", "Críochnaíonn an tUachtarán Connolly…") alongside the English ones. The recipe
+# stays source_language: English because the stream is predominantly English; the cleaner
+# records the actual language per document.
+#
+# NOT re-scraping: widening is incremental (data/state/Ireland.json `seen`). Never --rescrape.
 source_id: irl_president
 country: Ireland
 source_language: English
 start_urls:
   - https://president.ie/en/media-library/speeches
+  - https://president.ie/en/media-library/news-releases
 renderer: static
 
 listing:
   link_selector: "a"
-  # Skip the curated index page; only real speech URLs match this pattern.
-  # Negative lookahead excludes the selected-speeches page; the slug class keeps it to the multi-character speech slugs.
-  link_pattern: '/media-library/speeches/(?!selected-speeches)[a-z][a-z-]+'
+  # Skip the curated index page; only real article URLs match this pattern.
+  # Negative lookahead excludes the selected-speeches hub; the slug class keeps it to the
+  # multi-character slugs. End-anchored so listing/pager URLs cannot slip in.
+  link_pattern: '/media-library/(?:speeches|news-releases)/(?!selected-speeches)[a-z][a-z0-9-]+/?$'
+  # SOFT-404 GUARD. president.ie answers a dead permalink with HTTP 200 and the media-library
+  # LISTING shell, so the row would be written with the title "Media Library" and the year-filter
+  # dropdown as its body. Found by the 2026-08-12 probe on
+  # …/remarks-by-president-mcaleese-at-a-garden-party-for-representatives-of-comm-1, whose
+  # `main#content` is "Media Library Search … Filter Date Select Year 2024 2023 …".
+  # The wayback sibling irl_president_wayback.yml already carried this guard; the live recipe
+  # did not. The probe reports "KEEP_IF kept N of M" so you can see it working.
+  keep_if:
+    selectors: [".c-detail-page-content"]
 
 pagination:
   type: path
@@ -20,7 +55,13 @@ pagination:
   max_pages: 120
 
 title:
-  selectors: ["h2.heading", "title"]
+  # `.c-detail-page-content h2` FIRST because `h2.heading` does NOT exist on news-release pages:
+  # the chain fell through to <title>, which is the section banner ("Media Library | News
+  # Releases | President of Ireland") on every one of them. Scoping into the article container
+  # returns the real headline and gives the IDENTICAL string on speech pages (63 chars, verified
+  # against h2.heading), so it is safe at the head of the chain.
+  # Do NOT use a bare `h2`: the engine joins ALL matches, giving "News Releases <headline>".
+  selectors: [".c-detail-page-content h2", "h2.heading", "title"]
 text:
   selectors:
     - ".c-detail-page-content"
