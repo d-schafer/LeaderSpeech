@@ -7,7 +7,17 @@
 # CDX for op.gov.gm (mimetype:application/pdf) ≈ 94 PDF captures spanning 2021–2026 (President Adama
 # Barrow). Speeches, statements, remarks, addresses (+ some non-speech PDFs the cleaner gates out).
 source_id: gmb_op_wayback
-country: The Gambia
+# ⚠ 2026-08-13: `country` corrected from "The Gambia" to "Gambia" — this is NOT cosmetic.
+# The engine derives the doc_id prefix (run.py `alpha3_for`) and the ISO3N column (recipe.py) from
+# a `pycountry.countries.lookup()` on this exact string, and pycountry REJECTS "The Gambia"
+# (so does "Gambia, The"; "Gambia" and "Republic of the Gambia" both resolve to GMB/270).
+# `alpha3_for` falls back to "XXX" SILENTLY, so this recipe had written 86 rows with doc_ids
+# XXX0001..XXX0086 and a null ISO3N. It also put this recipe on its own data/state/The Gambia.json,
+# split from gmb_op's, so the pair could not deduplicate — their seen sets overlapped on 24 URLs.
+# Repaired the same day: rows re-stamped GMB0031..GMB0116, state files merged (last_doc_num=116,
+# 92 seen URLs), data/scraped/The Gambia/ folded into data/scraped/Gambia/.
+# Engine guards tracked in issue #73. DO NOT change this string back.
+country: Gambia
 source_language: English
 content_type: pdf
 renderer: static

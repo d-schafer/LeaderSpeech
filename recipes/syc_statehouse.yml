@@ -1,42 +1,92 @@
-# Seychelles — State House / Office of the President (statehouse.gov.sc), ENGLISH.
+# Seychelles — State House / Office of the President (statehouse.gov.sc).
 # Static Apache site built with the "Nicepage" page builder (generic u-* classes, no WordPress).
-# Speeches listing /speeches, pager ?page=N (~30 pages). Speech pages are /speeches/<id>/<slug>.
-# The builder assigns positional classes that ARE stable across speech pages:
-#   * title  = the .u-text-default.u-text-1 heading (first in document order; a footer repeat comes later)
-#   * date   = the p.u-text-2 that is neither the .u-subtitle banner nor the .u-small-text copyright,
-#              text "09 July 2026 | <topic>" -> regex isolates the date
-#   * body   = the .u-sheet-1 content sheet (title/date lines leak in but the cleaner tolerates them)
-# Multilingual site (English/French/Creole via ?language=); the default /speeches is English.
-# Covers President Herminie (2025- ) back through predecessors + some VP remarks -> no speaker_default.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ────────────────────────────────────────────────
+# The recipe took ONE of the site's four article sections. Sized from each listing's own pager
+# (recipe_tools/pagecount.py --pager 'page=(\d+)', one request per section):
+#     speeches           30 pages  ~  300 items   <- the ONLY section the recipe took
+#     news              559 pages  ~5,590 items   <- 18x bigger than speeches
+#     messages           30 pages  ~  300 items
+#     cabinet-decisions  38 pages  ~  380 items
+# All four use the SAME permalink shape /<section>/<id>/<slug>, so one pattern reaches them all.
+# Probe --spread --n 12 (2026-08-13): 300 -> 5,948 links, 12/12 title, 12/12 text, 12/12 date,
+# across BOTH template variants and the whole 2011-2026 span.
+#
+# NOT an alternate view: the id space is one global auto-increment, but a section only renders
+# ITS OWN ids. /speeches/7189/<a-news-slug> returns HTTP 200 with an EMPTY article (<title> is
+# "- Speeches - State House Seychelles"), i.e. a soft-404 shell, not a second copy. Since links
+# are only ever harvested from the listings this cannot be reached in practice, so no keep_if.
+#
+# ── TWO TEMPLATE VARIANTS, and the old selectors only covered one ────────────────────────
+#   A (speeches, messages):     title <h4 class="… u-text-default u-text-1">
+#                               date  <p  class="u-text u-text-2">   "29 June 2026 | ."
+#   B (news, cabinet-decisions): title <h3 class="… u-text-custom-color-1 u-text-1">
+#                               date  <h3 class="u-text u-text-1">   "11 August 2026 | Sport"
+# The discriminator is u-text-default: the site LOGO h3 and the SECTION-NAME h3 both carry it,
+# the article title h3 does not — hence the :not(.u-text-default) guards. Verified per section.
+# The old title selector ".u-text-default.u-text-1" was unscoped, so on a news page it returned
+# the banner ("State House News Office of the President …") and the old date selector missed
+# entirely. <title> is the universal backstop: "<HEADLINE> - <Section> - State House Seychelles…".
+# Body: news/messages carry a tight .fr-view rich-text div; speeches do not, so .u-sheet-1 stays.
+#
+# ── LANGUAGE: the default listing is ALL languages, not English ──────────────────────────
+# ?language=1|2|3 = English|French|Creole and the facets ADD UP exactly (news 542+13+4 = 559;
+# speeches 21+? = 30), so they are DISJOINT documents, not translations of each other. Taking
+# the unfiltered listing therefore adds ~150 genuinely French/Creole-original documents rather
+# than duplicating anything. Kept unfiltered on RULE 1 grounds; source_language stays English
+# because the overwhelming majority is English and the cleaner records per-document language.
+# Pin ?language=1 on the start_urls if the researcher would rather have a pure-English source.
+#
+# OUT by RULE 1: /photogallery, /video-gallery, /cabinet-videos (galleries); /access-to-Information
+# and the officer-bio pages (static admin pages, no dates). /cabinet-highlights is in the nav and
+# returns 404 — a dead nav link, not a section.
+# FLAGGED, not taken: /downloads (10 pager pages, ~100 items) is a PDF register served from
+# /uploads/cabinet_downloads/<n>_<hash>.pdf. Mostly nomination forms, budget books and policy
+# frameworks, but it does hold the State of the Nation Address PDFs (2025 English + Creole).
+# It cannot join this recipe — content_type is one value per recipe — and would need a small
+# `content_type: pdf` sibling. Low value: ~3 real speeches in ~100 files. Sampled 2026-08-13.
 source_id: syc_statehouse
 country: Seychelles
 source_language: English
 renderer: static
 start_urls:
   - https://www.statehouse.gov.sc/speeches
+  - https://www.statehouse.gov.sc/news
+  - https://www.statehouse.gov.sc/messages
+  - https://www.statehouse.gov.sc/cabinet-decisions
 
 listing:
-  link_pattern: '/speeches/\d+/[a-z0-9-]+'
+  link_pattern: '/(speeches|news|messages|cabinet-decisions)/\d+/[a-z0-9-]+'
 
 pagination:
   type: query_param
   param: page
   start: 1
   step: 1
-  max_pages: 40
+  max_pages: 600          # /news alone is 559 pages; the others stop on no_new_links
 
 title:
-  selectors: [".u-text-default.u-text-1", "title"]
+  selectors:
+    - "h4.u-text-default.u-text-1"                              # variant A: speeches, messages
+    - "h3.u-text-custom-color-1.u-text-1:not(.u-text-default)"  # variant B: news, cabinet-decisions
+    - "title"
 text:
-  selectors: [".u-sheet-1", ".container"]
+  selectors: [".fr-view", ".u-sheet-1", ".container"]
 date:
-  selectors: ["p.u-text-2:not(.u-subtitle):not(.u-small-text)"]
+  selectors:
+    - "p.u-text-2:not(.u-subtitle):not(.u-small-text)"          # variant A
+    - "h3.u-text-1:not(.u-text-custom-color-1):not(.u-text-default)"  # variant B
   regex: '\d{1,2}\s+\w+\s+20\d\d'
+  regex_required: true    # a regex miss must fail loudly, not store the raw element
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — probe-validated (no full run). Seychelles State House speeches. Nicepage-built static
-  site; positional u-* selectors validated stable across pages. English. Spans President Herminie
-  (2025- ) + predecessors (Ramkalawan, Faure) and occasional VP remarks -> no speaker_default,
-  tenure crosscheck / cleaner assigns speaker. Wayback assessed separately (see outbox).
+  Seychelles State House, all four article sections (speeches, news, messages, cabinet-decisions);
+  Nicepage-built static site, positional u-* selectors, ?page=N pager. WIDENED 2026-08-13 in the
+  chunk-A5 narrowness sweep: 300 -> 6,353 links, with title/date selectors added for the second
+  template variant that the news and cabinet-decisions pages use. Spans President Herminie (2025- )
+  back through Ramkalawan and Faure plus occasional VP remarks -> no speaker_default; the cleaner's
+  tenure crosscheck assigns the speaker. NO --rescrape is needed: the newly matched URLs were never
+  in the per-country state file's seen set, so an ordinary incremental run appends them.
+  Wayback companion: syc_statehouse_wayback.

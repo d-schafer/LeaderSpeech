@@ -1,18 +1,58 @@
 # Seychelles — State House / Office of the President (statehouse.gov.sc), via the Internet Archive.
-# English-native → English column. "yes-and" to the live syc_statehouse (Nicepage static site): the
-# Archive holds the /speeches/<id>/<slug> permalinks back to 2014 (President James Michel era) plus any
-# deleted speeches, as depth-insurance against the live pager.
+# English-native → English column. Companion to the live syc_statehouse (Nicepage static site).
+#
+# ⛔ CORRECT AND WIDENED, BUT **DO NOT QUEUE IT** — it is ~99% redundant against the live recipe.
+# Measured 2026-08-13 (chunk A5), not inferred, using the fact that the article id is stable across
+# every URL generation this host has used (/<section>/<id>/<slug> AND the old <section>.php?news_id=<id>):
+#
+#     section             live ids   archive ids   archive-ONLY
+#     speeches                 292           296            12
+#     news                   5,021         5,000            30
+#     messages                 296           298             5
+#     cabinet-decisions        339           325             4
+#     TOTAL                  5,948         5,919            51
+#
+#   and the old .php generation (1,533 distinct ids, news/messages/speeches/statements.php) is the SAME
+#   id space re-served: range 1381-4518, entirely inside the live range 277-7189, with only 27 ids the
+#   live harvest lacks and ZERO below the live floor. So the whole Archive contribution is ~70 documents
+#   for ~6,000 IA fetches (~14 h at the corpus's measured 417 pages/h).
+#
+# It is kept, correct and widened, as a DELETED-CONTENT BACKSTOP — the live site is a rolling CMS and
+# this is the only way a withdrawn article survives. Run it if the live source is ever found to have
+# dropped items; otherwise leave it out of the queue. Same call, same reasoning, as arg_casarosada_wayback.
+#
+# ── RULE 1 widening (applied anyway, so a future run takes everything) ───────────────────────────
+# Old scope: /speeches only = 805 of 16,734 in-scope captures = 4.8%. The host's real article captures,
+# after removing the nav artifacts described below: news 5,138, cabinet-decisions 599, speeches 336,
+# messages 302. After widening the probe harvests 805 -> 6,064 snapshots (2011-2026), title 8/8,
+# text 8/8, date 7/8 --spread --n 8 (2026-08-13). The one dateless sample is a FOURTH, even older
+# capture generation (/speeches/2223/, h1 + .container only); left as-is because the scraper stamps
+# wayback_capture on every wayback row as the cleaner's last-resort date.
+#
+# ⚠ THE NAV-ARTIFACT TRAP (this host's speciality, and a naive widening walks straight into it).
+# Archived copies of /news/<id>/<slug> pages carry RELATIVE nav links, so the crawler resolved them
+# against the article's own directory and the Archive recorded thousands of URLs like
+#     /news/1385/speeches   /news/1385/messages   /news/1385/the-garden   /news/1385/contact-us
+# Every one of these is the site's nav vocabulary, not an article — and each such slug recurs under
+# 100-313 DIFFERENT ids (measured). A plain '/news/\d+/[a-z0-9-]+' matches all ~8,300 of them. They are
+# excluded here by an exact-match negative lookahead on that closed vocabulary. Length alone cannot do
+# it: real slugs run 32-249 chars but artifact slugs reach 60
+# ("director-general-human-resources-budget-management-and-admin"), so the lists overlap.
+# Also excluded: the /www/<section>/<id>/<slug> path-prefix duplicates (264) and ?topic_id= facet echoes.
+# OUT by RULE 1: video-gallery (615), photo-gallery (351), the honours/awards/medal register (~160).
 source_id: syc_statehouse_wayback
 country: Seychelles
 source_language: English
 renderer: static
 start_urls:
   - statehouse.gov.sc/speeches
+  - statehouse.gov.sc/news
+  - statehouse.gov.sc/messages
+  - statehouse.gov.sc/cabinet-decisions
 
 listing:
-  # /speeches/<id>/<slug> article (drops the old /speeches.php?news_id= listing and ?language=/?topic_id=
-  # facet pages, which have no /<id>/<slug>).
-  link_pattern: '/speeches/\d+/[a-z0-9][a-z0-9-]+'
+  # /<section>/<id>/<slug>, minus the relative-nav artifacts (see the header) and minus the /www/ dupes.
+  link_pattern: '^https?://(?:www\.)?statehouse\.gov\.sc(?::80)?/(?:speeches|news|messages|cabinet-decisions)/\d+/(?!(?:news|messages|speeches|downloads|contact-us|first-lady|the-president|the-vice-president|the-cabinet|the-garden|the-cemetery|the-[Bb]uilding|photo-gallery|video-gallery|cabinet-decisions|cabinet-highlights|cabinet-videos|cabinet-press-briefings|cabinet-business-documents|chief-press-secretary|chief-secretary-and-head-of-the-civil-service|deputy-cabinet-secretary-for-policy-affairs|deputy-cabinet-secretary-for-institutional-affairs|director-for-cabinet-affairs|director-general-human-resources-budget-management-and-admin|secretary-of-state-for-cabinet-affairs|secretary-of-state-for-presidential-affairs|principal-secretary-for-public-affairs|economic-adviser-to-the-president|communications-advisor-to-the-president)/?$)[a-z0-9-]{2,}/?$'
 
 pagination:
   type: wayback
@@ -23,21 +63,37 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  # h1 first: the majority of captures are the OLD layout (clean h1 speech titles); the modern Nicepage
-  # .u-text-default.u-text-1 leaks a "State House / Speeches" breadcrumb, so it's the fallback.
-  selectors: ["h1", ".u-text-default.u-text-1", "title"]
+  # h1 first: the oldest captures are a pre-Nicepage layout with clean h1 titles. Then the two modern
+  # Nicepage template variants (see syc_statehouse.yml — variant A is speeches/messages, B is
+  # news/cabinet-decisions), then <title>, which carries "<HEADLINE> - <Section> - State House …".
+  selectors:
+    - "h1"
+    - "h4.u-text-default.u-text-1"
+    - "h3.u-text-custom-color-1.u-text-1:not(.u-text-default)"
+    - ".u-text-default.u-text-1"
+    - "title"
 text:
-  selectors: [".u-sheet-1", ".container", "article"]
+  selectors: [".fr-view", ".u-sheet-1", ".container", "article"]
 date:
-  selectors: ["p.u-text-2:not(.u-subtitle):not(.u-small-text)"]
+  # Variants A and B, then the THIRD (pre-Nicepage Bootstrap) generation the Archive holds, whose
+  # article block has no date element at all — the date sits as loose text right after the h1
+  # ("… at State House 15 April 2023 | Sport"), so the container + regex is the only way to it.
+  # regex_required stops that container being stored WHOLE when the regex finds nothing
+  # (a miss with regex_required off falls back to the unfiltered blob).
+  selectors:
+    - "p.u-text-2:not(.u-subtitle):not(.u-small-text)"
+    - "h3.u-text-1:not(.u-text-custom-color-1):not(.u-text-default)"
+    - "div.col-md-12.selected_news"
   regex: '\d{1,2}\s+\w+\s+20\d\d'
+  regex_required: true
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback companion ("yes-and") to the live syc_statehouse. Nicepage-built static site; reuses
-  the live positional u-* selectors (title .u-text-default.u-text-1, body .u-sheet-1, date p.u-text-2)
-  with an h1/generic fallback for older captures. CDX ≈ 1,194 /speeches captures 2014–2026 (Michel,
-  Faure, Ramkalawan, Herminie + occasional VP remarks). NO speaker_default → cleaner's speaker pass +
-  tenure crosscheck. English (multilingual site; default /speeches is English). FULL RUN is the
-  researcher's gate.
+  Wayback backstop for Seychelles State House, all four article sections. WIDENED 2026-08-13 (chunk A5)
+  from /speeches only (4.8% of in-scope captures) to speeches+news+messages+cabinet-decisions, with an
+  exact-match negative lookahead that removes ~8,300 relative-nav artifact URLs. MEASURED AS ~99%
+  REDUNDANT against the widened live syc_statehouse — 51 archive-only article ids out of 5,919, plus 27
+  more in the old .php generation — so it is deliberately EXCLUDED from the scrape queue and kept only
+  as a deleted-content backstop. NO --rescrape if it is ever run: the newly matched URLs were never in
+  the per-country state file's seen set. FULL RUN is the researcher's gate.

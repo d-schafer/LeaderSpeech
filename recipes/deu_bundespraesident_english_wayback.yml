@@ -13,8 +13,11 @@ country: Germany
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, so NO trailing '*'. One prefix covers all presidents.
+  # CDX prefixes — engine prefix-matches, so NO trailing '*'. One prefix per section covers all
+  # presidents. ⚠ BOTH the prefixes and the link_pattern had to change to widen: a wayback
+  # start_url is a CDX PREFIX, so a pattern change alone is a no-op (the run-7 hun_keh lesson).
   - bundespraesident.de/SharedDocs/Reden/EN
+  - bundespraesident.de/SharedDocs/Berichte/EN
 
 listing:
   # Article shape: /SharedDocs/Reden/EN/<Name>/(Reden|Interviews)/<YYYY>[/<MM>]/<file>.html
@@ -26,7 +29,22 @@ listing:
   # exact URL, so admitting those forms would scrape many speeches two or three times. Precision
   # over recall was chosen deliberately: a duplicated speech corrupts the corpus, a missing one
   # merely leaves a gap the German-language sibling recipe already covers.
-  link_pattern: '/SharedDocs/Reden/EN/[^/]+/(?:Reden|Interviews)/\d{4}/.+\.html$'
+  #
+  # ⚠ WIDENED 2026-08-13 (sweep chunk A6): 267 → 540 matched identities, zero lost.
+  # A CDX enumeration of bundespraesident.de/SharedDocs (52,145 captures, 41,959 in scope) shows
+  # the ENGLISH tree has TWO article sections, not one:
+  #     Reden/EN     291 identities   (Reden 304 raw; also Interviews + Zeitungsbeitraege on the
+  #                                    German side, admitted here so an English one is not missed)
+  #     Berichte/EN  249 identities   ADDED — visit/engagement REPORTS, and they carry real prose
+  #                                    (sampled 200917-Official-Visit-Italy: #content = 2,396 chars)
+  # NOT taken, each measured or sampled first:
+  #     Termine/DE          2,682  ✘ diary stubs — a sampled page's whole article container is
+  #                                352 chars ("Mittwoch 21.06.2017 · Ansprache beim Antrittsbesuch
+  #                                beim Bundesverfassungsgericht") with no body. Same call as
+  #                                president.ie's /diary/details/ in chunk A4.
+  #     Bilder / Downloads         ✘ images and PDFs
+  #     Zitate 9, Glossareintraege ✘ pull-quotes and a glossary
+  link_pattern: '/SharedDocs/(?:Reden|Berichte)/EN/[^/]+/(?:(?:Reden|Interviews|Zeitungsbeitraege|UebersetzteReden)/)?(?:\d{4}/)?(?:\d{2}/)?[^/]+(?<!_node)\.html$'
 
 pagination:
   type: wayback

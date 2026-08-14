@@ -1,9 +1,44 @@
 # Finland — Office of the President (presidentti.fi), the ENGLISH tree /en/, via the Internet
 # Archive. presidentti.fi is native Finnish/Swedish; /en/ is the official English site, so speeches
-# land directly in the English `text` column (no translation needed). No live fin_presidentti recipe.
+# land directly in the English `text` column (no translation needed).
 #
-# The site exposes a dedicated speeches category: /en/speeches/<slug>. CDX for presidentti.fi/en ≈
-# 4,500 statuscode:200 captures spanning 2000–2026 (Halonen→Niinistö→Stubb).
+# ⚠ THE OLD HEADER SAID "No live fin_presidentti recipe". THAT WAS WRONG THEN AND IS WRONG NOW:
+# fin_presidentti (Finnish, api) has existed all along, and chunk A5 added fin_presidentti_english
+# (api, 625 English posts). This recipe's job is the ERA THOSE CANNOT REACH — the live site's floor
+# is 2024-02-28, Stubb's inauguration, because it drops the outgoing president. Everything from
+# Halonen and Niinistö is here and nowhere else.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ───────────────────────────────────────────────────────
+# Old scope: /en/(speeches|press-release)/ = 954 of 4,539 captures. The section histogram from
+# cdxbatch (presidentti.fi/en, --match prefix) is:
+#     /en/news            847   <- MISSED ENTIRELY, and the biggest article section on the host
+#     /en/category        731   (listings — out)
+#     /en/press-release   590   (taken)
+#     /en/speeches        313   (taken)
+#     /en/pictures        258   (out by RULE 1)
+#     /en/calendar        199   (sampled and REJECTED — see below)
+#     /en/blog             36
+#   plus 566 captures of the MODERN FLAT scheme /en/<slug>/, which is how the current site
+#   publishes everything and which no pattern here could match.
+# Now 954 -> 2,121 matched captures. The pattern anchors the HOST, so (?::80)? is required — the
+# old pattern anchored a PATH segment and was immune to that bug; this one would not be.
+#
+# SAMPLED AND REJECTED:
+#  * /en/calendar/<slug> (199) — engagement diary. wbsample on an archived capture: <title>/h1 are
+#    a bare event name ("Visit to Vienna"), there is NO date element anywhere, and the only text
+#    container is <body> INCLUDING the whole nav (1,696 of 1,727 page chars). Same call as
+#    Croatia's /najave/ and Latvia's /en/event/ in chunk A3 and Ireland's diary in A4.
+#  * /eng/ + /english/ (43 captures, 2000-2003, Halonen's first term) — the pre-CMS static site.
+#    Sampled: /eng/about.html is a copyright page, the rest is /eng/institution and /eng/images.
+#    Table layout, <title> "copyright", no dates. The Archive holds the shell, not the speeches.
+#  * ?nodeid=&contentlan=&culture= (~230) — the old CMS's query-string form of articles ALREADY
+#    matched under their clean permalinks. Excluding them prevents duplicate rows.
+#  * /en/tag/<slug> (254) taxonomy listings, /en/category/... listings, and the FacetWP filter URLs
+#    (?fwp_tags=, ?fwp_event_location=) — search-component URLs, out by RULE 1.
+#
+# ⚠ QUEUE ORDER: run fin_presidentti_english (live) BEFORE this recipe. The 566 flat /en/<slug>/
+# captures are the SAME URL STRINGS the live recipe harvests, and data/state/Finland.json skips on
+# the exact URL — so live-first means the copy with the exact API date is the one that lands.
 source_id: fin_presidentti_english_wayback
 country: Finland
 source_language: English
@@ -13,9 +48,11 @@ start_urls:
   - presidentti.fi/en
 
 listing:
-  # dedicated speeches category permalink (+ press-release, which carries first-person statements);
-  # the negative lookahead drops the /en/speeches/page/N/ pagination shells
-  link_pattern: '/en/(speeches|press-release)/(?!page/)[a-z0-9]'
+  # Two schemes in one pattern:
+  #  (a) the sectioned generation /en/<section>/<slug>, minus the /page/N/ pagination shells;
+  #  (b) the modern flat generation /en/<slug>, minus every non-article top-level path.
+  # Both end-anchored, so ?nodeid=/?culture=/?fwp_* query echoes cannot come in as duplicates.
+  link_pattern: '^https?://(?:www\.)?presidentti\.fi(?::80)?/en/(?:(?:speeches|press-release|news|blog)/(?!page/)[a-z0-9][a-z0-9%._-]*/?$|(?!(?:speeches|press-release|news|blog|pictures|videos|calendar|category|event_category|tag|current-affairs|curriculum-vitae|presidency|office-and-contact|home|search|wp-content|wp-json|feed|author|page|eng|english|sitemap)(?:/|$))[a-z0-9][a-z0-9%._-]*/?$)'
 
 pagination:
   type: wayback
@@ -31,14 +68,27 @@ title:
 text:
   selectors: [".entry-content", ".post-content", "article", ".content"]
 date:
-  selectors: ["time[datetime]", ".entry-date", ".date", "time"]
+  # The :not() guards the MODERN captures: the current theme ends every article with a two-card
+  # "you might also like" query loop (ul.wp-block-post-template) whose cards each carry a <time>,
+  # and the engine JOINS all matches — see fin_presidentti's date comment for the worked example.
+  # The older captures have a single time/.date and fall through to the unscoped selectors.
+  selectors:
+    - "time[datetime]:not(ul.wp-block-post-template time)"
+    - "time[datetime]"
+    - ".entry-date"
+    - ".date"
+    - "time"
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — PROBE-VALIDATED (2026-07-26, --spread --n 8): 961 snapshots in the speeches+press-release
-  subset; TITLE (h1), TEXT (.entry-content, 471–964 chars) and DATE (time[datetime]) all GREEN. The
-  /en/speeches/page/N/ pagination shells are excluded by a negative lookahead. Wayback ENGLISH tree
-  of Finland's presidency (presidentti.fi/en → English column, no translation). Sampled content
-  2014–2022 (Niinistö). Multiple presidents overall → NO speaker_default; the cleaner's tenure
-  crosscheck assigns the speaker. FULL RUN is the researcher's gate.
+  WIDENED 2026-08-13 (chunk A5): 954 -> 2,121 matched captures. Was scoped to
+  /en/(speeches|press-release)/ and missed /en/news entirely — 847 captures, the biggest article
+  section on the host — plus the 566-capture modern flat /en/<slug>/ scheme and /en/blog. Its
+  header's claim that no live recipe existed was false; the live pair (fin_presidentti Finnish,
+  fin_presidentti_english English) covers 2024-02-28 onward and THIS recipe's value is the
+  Halonen/Niinistö era before that floor. /en/calendar (199) and the 2000-2003 /eng/ static site
+  (43) were sampled and rejected with the evidence recorded in the header. Multiple presidents
+  -> NO speaker_default; the cleaner's tenure crosscheck assigns the speaker. Run AFTER
+  fin_presidentti_english so the live, exactly-dated copy of the shared flat URLs lands first.
+  NO --rescrape. FULL RUN is the researcher's gate.

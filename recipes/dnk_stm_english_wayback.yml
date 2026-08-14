@@ -3,19 +3,45 @@
 # executive leader (the monarch is ceremonial). stm.dk is Danish-native but keeps a genuine English
 # tree under /en, and its /en/the-prime-minister/speeches/<slug> archive holds the English speeches of
 # PMs Poul Nyrup Rasmussen (1993-2001), Anders Fogh Rasmussen (2001-2009) and Lars Løkke Rasmussen
-# (2009-2011, 2015-2019). English -> English column, no MT. (The Danish "taler" live under
-# /statsministeren/taler/ — a separate native-language source, not harvested here.)
+# (2009-2011, 2015-2019) and Mette Frederiksen. English -> English column, no MT. (The Danish
+# "taler" live under /statsministeren/taler/ — a separate native-language source, not harvested here.)
+#
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6). The original header said the pattern "drops the
+# /en/press/... and /en/the-government/... trees" — a RULE 1 exclusion by editorial judgement, and
+# one of them was wrong. A CDX enumeration of stm.dk/en (460 captures, the whole English tree) shows
+# only FOUR article-bearing paths on the host:
+#     the-prime-minister/speeches              258   already taken
+#     press/press-releases                      98   ADDED — the PM's own statements and joint
+#                                                    declarations sit in here alongside releases
+#     the-government/governments-since-1848     79   ✘ NOT ADDED, and SAMPLED before deciding:
+#                                                    these are cabinet-composition REGISTERS, and
+#                                                    despite living under /en/ their body is DANISH
+#                                                    ("Periode: 27.11.2001 – 18.02.2005 … Statsminister
+#                                                    … Økonomi- og erhvervsminister"). Fails the
+#                                                    three-part test on language, exactly like the
+#                                                    Armenian /en/decrees case.
+#     the-prime-ministers-office/the-unity-of-the-realm  2   ✘ static info pages
+# Coverage 256/458 = 55.9% -> ~354/458 = 77%. The remainder is the Danish register above plus
+# nav/index pages.
+# `/en/the-prime-minister/new-year-addresses-since-1940/` has ZERO archived children: it is a
+# curated INDEX into /speeches/ (Frederiksen's New Year address is a /speeches/ slug), not a
+# section — the run-7 president.lv lesson.
+# Three captures of a pre-2010 generation exist (/eng/default.htm, engelsk_a_1644.html) and are
+# too few to be worth a selector chain.
 source_id: dnk_stm_english_wayback
 country: Denmark
 source_language: English
 renderer: static
 start_urls:
+  # CDX PREFIXES, one per article-bearing path. Both had to change: with only the /speeches prefix
+  # the widened link_pattern was a measured no-op (probe stayed at 258) — the run-7 hun_keh lesson.
   - stm.dk/en/the-prime-minister/speeches
+  - stm.dk/en/press/press-releases
 
 listing:
-  # English PM speech /en/the-prime-minister/speeches/<slug> (drops the section index and the
-  # /en/press/... and /en/the-government/... trees).
-  link_pattern: '/en/the-prime-minister/speeches/[a-z0-9]'
+  # English PM speeches AND press releases; drops the section indexes, the Danish
+  # governments-since-1848 register and the /en/the-prime-ministers-office/ info pages.
+  link_pattern: '/en/(?:the-prime-minister/speeches|press/press-releases)/[a-z0-9]'
 
 pagination:
   type: wayback
@@ -28,15 +54,24 @@ pagination:
 title:
   selectors: ["h1", ".title", "title"]
 text:
-  selectors: [".rich-text", ".content", "main", "article"]
+  # `.content-rte` is the Umbraco rich-text container on the modern site (verified live: 2,131
+  # chars, n=1). It goes FIRST because `main` matches too but drags in the breadcrumb and the
+  # section banner — a probe without it resolved all 12 samples through `main`.
+  selectors: [".content-rte", ".rich-text-module", ".rich-text", ".content", "main", "article"]
 date:
   selectors: ["time", ".date", ".published"]
 
 position: prime minister
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback recovery of the ENGLISH PM speeches on stm.dk (Statsministeriet), Denmark's non-royal
-  (head-of-government) source. CDX prefix stm.dk/en ≈ 460 captures (the /en tree was crawled in 2026);
+  Wayback recovery of the ENGLISH PM speeches + press releases on stm.dk (Statsministeriet),
+  Denmark's non-royal (head-of-government) source. WIDENED 2026-08-13 (A6): 258 → 356 snapshots
+  (coverage of the /en tree 55.9% → ~77%); re-probed --spread --n 12 → title 12/12, text 12/12,
+  date 12/12, and text now resolves on `.content-rte` where every sample previously fell through
+  to `main`. ⚠ stm.dk is LIVE and now has live siblings — dnk_stm_english (258 speeches) and
+  dnk_stm_english_press (98 press releases), both authored in the same pass off the site's Umbraco
+  POST search API at zero Archive cost. Run the LIVE ones first: they carry an exact ISO date from
+  the API. NO --rescrape. CDX prefix stm.dk/en ≈ 460 captures (the /en tree was crawled in 2026);
   /en/the-prime-minister/speeches/<slug> holds the English addresses of PMs Poul Nyrup Rasmussen, Anders
   Fogh Rasmussen and Lars Løkke Rasmussen. English -> English column, no MT. The Danish-language "taler"
   (/statsministeren/taler/) are a separate native source, not harvested here. NO speaker_default (three

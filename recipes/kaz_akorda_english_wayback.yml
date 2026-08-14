@@ -1,22 +1,55 @@
-# Kazakhstan — Presidential administration (akorda.kz), the ENGLISH state-of-the-nation ADDRESSES, via
-# the Internet Archive. English translation → English column (no MT). ENGLISH sibling of the native
-# (Russian) kaz_akorda_wayback. NARROWED to /en/addresses/addresses_of_president/<slug> — the annual
-# state-of-the-nation Addresses of Presidents Nursultan Nazarbayev and Kassym-Jomart Tokayev, which
-# archive as CLEAN server-rendered HTML (probe: .text = 34,036-char 2017 Nazarbayev address). The
-# /en/speeches/<category>/<slug> tree is deliberately NOT harvested here: its older captures archive as
-# shells/section-listings (recipe .text -> 0 chars, generic recovers only ~0.8-2k of chrome), and that
-# content is already covered by the native Russian kaz_akorda_wayback (+ translation stage). See notes.
+# Kazakhstan — Presidential administration (akorda.kz), the ENGLISH article archive, via the
+# Internet Archive. English translation → English column (no MT). ENGLISH sibling of the native
+# (Russian) kaz_akorda_wayback.
+#
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6). This recipe took
+# `/en/addresses/addresses_of_president/<slug>` — **30 of 21,805 in-scope captures = 0.1%, the
+# narrowest coverage ratio found anywhere in the whole 195-recipe sweep.** akorda.kz/en is a large
+# host (28,511 raw captures) and the article space is `/en/events/`, which no recipe touched.
+#
+# WHAT THE ENUMERATION SHOWED (cdxbatch on akorda.kz/en, 2026-08-13):
+#   /en/events/<slug>                             3,141 URLs / 3,141 slugs   TAKEN
+#   /en/events/<cat>/<subcat>/<slug>              2,813 URLs / 2,802 slugs   TAKEN — and NOT an
+#       (akorda_news/meetings_and_receptions, international_community/foreign_visits, …)
+#       alternate view: 2,627 of those slugs are reachable ONLY at the deeper path.
+#   /en/special/events/…/<slug>                   5,408 slugs                ✘ EXCLUDED — 5,402 of
+#       them (99.9%) are the same slugs as /en/events/…; only 6 are special-only. A textbook
+#       alternate-views duplication, and taking it would have doubled ~5,400 fetches for 6 documents.
+#   /en/<slug>-<id>  (modern Tokayev scheme)        760 slugs                ✘ EXCLUDED — these
+#       archive as SPA SHELLS: a 2025 capture has no title, no date and no text container at all
+#       (sampled 20250922221557, 41 KB of chrome). The LIVE site renders them fine, so they belong
+#       to the live recipe kaz_akorda_english, not here. This is the "shells" limitation the old
+#       header described — it is real, but it applies to the MODERN scheme, not to /en/events/.
+#   /en/events/YYYY/MM[/DD]                       2,723 URLs                 ✘ date-archive listings
+#   /en/page/<n>, /en/allNews?…                                              ✘ pagers
+#   /en/legal_acts/<slug>                           205                      ✘ see notes
+#
+# SELECTORS RE-VERIFIED on an archived events article (capture 20190807023622):
+#   text  `.text`  = 948 chars, n=1 — the real body.  `article` does not exist on this generation.
+#   date  `.date`  = "4 June 2013" — the ARTICLE's date, six years before the capture, so it is not
+#         a crawl artifact.
+#   ⚠ title: a bare `h1` returns **"Events"** — the SECTION BANNER — on every article page. The old
+#     chain led with `h1`, so a full run would have titled several thousand rows "Events". The real
+#     headline is only in `<title>`, behind an " — Official site of the President…" suffix, so the
+#     chain now leads with the article-specific classes and falls back to a regexed `<title>`.
 source_id: kaz_akorda_english_wayback
 country: Kazakhstan
 source_language: English
 renderer: static
 start_urls:
+  # CDX PREFIXES. `/en/addresses` alone could never have reached /en/events/ however the
+  # link_pattern was written — a wayback start_url is a prefix (the run-7 hun_keh lesson).
+  - akorda.kz/en/events
   - akorda.kz/en/addresses
+  - akorda.kz/en/speeches
 
 listing:
-  # /en/addresses/addresses_of_president/<slug> article (drops the bare /en/addresses index + ?page=/
-  # ?category= facet variants, which lack the second path segment).
-  link_pattern: '/en/addresses/addresses_of_president/[a-z0-9]'
+  # /en/events/<slug> and /en/events/<cat>/<subcat>/<slug>, plus the two small curated sections.
+  # `(?!special/)` is belt-and-braces — the /en/special/ prefix sits BEFORE /events/ so it cannot
+  # match this pattern anyway, but it documents the exclusion at the point it matters.
+  # The `{14,}` floor and the trailing `$` drop the /en/events/YYYY/MM/DD day archives, the bare
+  # section indexes and the ?page= facets.
+  link_pattern: '/en/(?:events/(?:[a-z0-9_]+/){0,2}|addresses/addresses_of_president/|speeches/(?:[a-z0-9_]+/)?)[a-z0-9][-a-z0-9]{14,}/?$'
 
 pagination:
   type: wayback
@@ -25,25 +58,40 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    - "!original:.*/en/special/.*"
 
 title:
-  selectors: ["h1", ".article-title", ".title", "title"]
+  # NO bare `h1` — it is the section banner ("Events") on every article of this generation.
+  # `<title>` carries the real headline plus a site suffix, stripped by the regex.
+  selectors: [".article-title", ".news-title", "h2.title", "title"]
+  # Strip the " — Official site of the President of the Republic of Kazakhstan" suffix.
+  # ⚠ THE ENGINE TAKES `m.group(0)`, NOT group(1) — see extract.py `first_match`. So a capture
+  # group does nothing and the suffix must be excluded with a LOOKAHEAD. Both wrong forms were
+  # measured on this recipe: '^(.*?)(?:…)?$' returned the string unchanged (12/12), and
+  # '^(.+?)\s*—\s*Official …' returned headline+suffix because group(0) spans the suffix too.
+  # A miss (a title without the suffix) correctly falls back to the unfiltered <title>, so
+  # regex_required stays OFF on purpose.
+  regex: '^.+?(?=\s*[—–\-]\s*Official (?:site|website) of the President)'
 text:
-  # native kaz_akorda body container (.text) — probe-proven (34k-char address) — + generic fallback.
-  selectors: [".text", "article", ".article", ".content"]
+  # `.text` is the article body on the archived generation (verified). `article` only exists on the
+  # modern/live markup and is kept as a fallback.
+  selectors: [".text", "article", ".article", "#content"]
 date:
   selectors: [".date", "time", ".article-date"]
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — ENGLISH sibling of the native (Russian) kaz_akorda_wayback. NARROWED to the state-of-the-nation
-  ADDRESSES /en/addresses/addresses_of_president/<slug> (Presidents Nazarbayev + Tokayev). Probe-validated
-  2026-07-27 (--spread --n 8): the /en/addresses/ article extracts cleanly — TITLE(h1) "State of the
-  Nation Address", TEXT(.text) 34,036 chars, DATE(.date) 2017-01-31. CDX /en/addresses ≈ 46 captures
-  2015–2024 (annual addresses are the highest-value single speeches). NO speaker_default (Nazarbayev +
-  Tokayev) → cleaner + tenure crosscheck. The broader /en/speeches/<cat>/<slug> tree (≈314 caps) was
-  probed too but its OLDER captures archive as shells/section-listings (.text -> 0 chars; generic ~0.8-2k
-  of chrome) — DEFERRED as a follow-up needing a dedicated older-layout selector pass; that content is in
-  any case covered by the native Russian kaz_akorda_wayback + the translation stage. FULL RUN is the
-  researcher's gate.
+  ENGLISH sibling of the native (Russian) kaz_akorda_wayback. WIDENED 2026-08-13 (A6) from the
+  state-of-the-nation addresses alone (30 captures, 0.1% of the host — the narrowest ratio in the
+  sweep) to the whole /en/events/ article space: 30 → 5,952 snapshots, re-probed --spread → title
+  10/10 (clean headlines, suffix stripped), text 9/10, date 10/10, article dates 2006–2019.
+  The one text miss is a one-line appointment notice whose headline IS the content. NO speaker_default (Nazarbayev + Tokayev) →
+  cleaner + tenure crosscheck. The old header's "older captures archive as shells" warning was
+  RE-TESTED and is true only of the modern /en/<slug>-<id> SPA scheme (2021→), which is excluded
+  here and covered live instead; the /en/events/ generation archives as clean server-rendered HTML.
+  /en/legal_acts/<slug> (205 captures) is NOT taken: it is the decrees/appointments register, whose
+  live English pages carry the same generic banner title as the Armenian /en/decrees case that the
+  2026-08-10 ruling rejected — flagged here rather than bodged in, and it would need its own recipe.
+  NO --rescrape: the newly matched captures were never harvested, so an ordinary incremental run
+  appends them. FULL RUN is the researcher's gate.

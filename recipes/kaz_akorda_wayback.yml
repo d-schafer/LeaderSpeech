@@ -2,8 +2,24 @@ source_id: kaz_akorda_wayback
 country: Kazakhstan
 source_language: Russian
 start_urls:
+  # CDX PREFIXES. `/ru/speeches` alone could not reach /ru/events/ however the link_pattern was
+  # written — a wayback start_url is a prefix (the run-7 hun_keh lesson).
+  - akorda.kz/ru/events
   - akorda.kz/ru/speeches
+  - akorda.kz/ru/addresses
 renderer: static
+
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6), mirroring kaz_akorda_english_wayback. The English side of
+# this same host was measured at 0.1% coverage — 30 of 21,805 in-scope captures — because the
+# article space is `/events/`, not `/speeches/`. Everything established there applies to the
+# Russian mirror, which akorda.kz serves from the identical templates:
+#   * /(ru|en)/special/events/… is a ~99.9% DUPLICATE view of /(ru|en)/events/… (measured on /en:
+#     5,402 of 5,408 slugs shared, 6 special-only) → excluded server-side by wayback_filter.
+#   * the modern /(ru|en)/<slug>-<id> scheme archives as SPA SHELLS (no title, no date, no text
+#     container) → excluded; the LIVE kaz_akorda covers it.
+#   * /(ru|en)/events/YYYY/MM[/DD] are date-archive listings, not articles.
+#   * the deeper /events/<cat>/<subcat>/<slug> form is NOT an alternate view — on /en, 2,627 of its
+#     2,802 slugs are reachable at no other path — so both depths are taken.
 
 # WAYBACK companion to the live kaz_akorda (which covers only 2021+ Tokayev via the
 # modern /ru/<slug>-<id> scheme). This targets the PRE-2021 akorda site, whose speeches
@@ -19,18 +35,24 @@ listing:
   # Two category levels then a long HYPHENATED slug = the modern-template speech
   # pages (which carry .text + .date). This excludes category-index pages (?page=N)
   # and the old 2010-2012 underscore-slug template (different HTML, no .text/.date).
-  link_pattern: '/ru/speeches/[a-z_]+/[a-z_]+/[a-z0-9-]{12,}'
+  link_pattern: '/ru/(?:events/(?:[a-z0-9_]+/){0,2}|speeches/(?:[a-z0-9_]+/){0,2}|addresses/(?:[a-z0-9_]+/)?)[a-z0-9][-a-z0-9]{14,}/?$'
 
 pagination:
   type: wayback
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    - "!original:.*/ru/special/.*"
   wayback_collapse: urlkey
   wayback_delay: 5.0
 
 title:
   selectors: ["h2", ".news-detail__title", "title"]
+  # The archived <title> is "<headline> — Официальный сайт Президента Республики Казахстан".
+  # ⚠ The engine takes `m.group(0)`, NOT group(1) (extract.py `first_match`), so the suffix has to
+  # be excluded with a LOOKAHEAD, not a capture group. A title without the suffix simply misses the
+  # regex and falls back to the unfiltered value, which is correct — regex_required stays OFF.
+  regex: '^.+?(?=\s*[—–\-]\s*(?:Официальный сайт Президента|Official (?:site|website) of the President))'
 text:
   selectors: [".text", "#content_text", "article"]
 date:
@@ -38,3 +60,11 @@ date:
 
 position: president
 date_languages: ["ru"]
+notes: >
+  WAYBACK companion to the live kaz_akorda. WIDENED 2026-08-13 (A6) from /ru/speeches/<cat>/<cat>/
+  alone to the whole /ru/events/ + /ru/speeches/ + /ru/addresses/ article space, mirroring the
+  measurement done on the English twin (see the header): ~420 → 10,988 snapshots, re-probed
+  --spread --n 12 → title 12/12, text 12/12, date 12/12. Titles now have the site suffix stripped.
+  Russian → the translation stage fills the English columns, so this recipe belongs in the DEFERRED
+  (non-English) queue under the English-first policy. NO --rescrape: the newly matched captures
+  were never harvested. FULL RUN is the researcher's gate.

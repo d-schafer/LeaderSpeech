@@ -1,0 +1,78 @@
+# Finland — presidentti.fi, the FINNISH posts that have NO English rendering. 107 documents.
+#
+# NEW 2026-08-13. Purpose: capture the Finnish-original content that fin_presidentti_english
+# (625 posts) cannot reach, WITHOUT the ~600 duplicates that running the full Finnish recipe
+# (fin_presidentti, 725 posts) alongside it would create.
+#
+# ── WHY THIS IS EXACT AND NOT A FUZZY DEDUPE ────────────────────────────────────────────────
+# presidentti.fi runs POLYLANG, and every post in the REST response carries an authoritative
+# translation map plus its own language:
+#     "lang": "fi",  "translations": {"fi": 33972, "sv": 33977, "en": 33891}
+# So "does this Finnish post have an English twin?" is a lookup, not an inference. Measured
+# 2026-08-13: 725 Finnish posts, 625 English posts, and **107 Finnish posts whose translations
+# map has no `en` id present in the English set** — spanning 2024-03-01 to 2026-07-09.
+# (107, not 100: a few English posts have no Finnish twin either, so the counts do not net.)
+#
+# ⚠ A DATE-BASED DEDUPE WOULD NOT HAVE WORKED, and this is worth recording. On the 52 speech
+# posts, the FI and EN twins share an EXACT publish timestamp in **0 of 52** cases; same-minute
+# matches 10 of 52; same-day 45 of 47. WordPress stamps each translation when it is published,
+# so the twins drift by minutes to days, and same-day collides whenever two speeches fall on one
+# day. Polylang's id map is the only 100%-reliable key — which is why this recipe pins ids
+# rather than leaving the duplicates for a downstream pass to sort out.
+#
+# ── REGENERATING THE ID LIST (do this if the harvest looks short) ───────────────────────────
+# The list is a SNAPSHOT of 2026-08-13 and does not self-update: a Finnish post published after
+# that date, or one whose English translation is added later, will not be reflected. To refresh,
+# pull /wp-json/wp/v2/posts?categories=1,21,114&per_page=100&_fields=id,translations for all
+# pages, pull the English id set from categories=9,23,118, and keep the Finnish ids whose
+# translations.en is missing from it. Cheap: 9 API requests, no Archive.
+#
+# ⚠ RUN THIS INSTEAD OF fin_presidentti, NOT AS WELL AS IT. fin_presidentti takes all 725
+# Finnish posts and therefore re-lands the ~618 that fin_presidentti_english already holds.
+source_id: fin_presidentti_fi_only
+country: Finland
+source_language: Finnish
+renderer: static
+start_urls:
+  # `include` pins the exact Finnish-only post ids; per_page 100 + the page pager covers 107.
+  - https://www.presidentti.fi/wp-json/wp/v2/posts?per_page=100&include=2308,2637,3265,4018,4123,4567,4909,5433,6379,6576,6582,6694,6865,6967,7090,7741,7860,8489,8905,8924,9595,10149,10845,11426,11464,11903,12041,12063,12065,12075,12192,12629,12646,13027,13048,13441,13568,13648,14166,14392,14693,15105,16095,16704,16722,16734,16964,17101,17705,18144,18470,18825,19075,19796,19835,20472,21358,21485,21665,21859,22149,22474,22972,23970,24236,24334,24987,25012,25062,25302,25308,26032,26481,26689,26754,26767,27092,27724,27911,27918,28004,28027,28310,28682,28691,29001,29579,30088,30593,30804,30870,31137,31454,31738,32066,32114,32695,32919,33313,33481,33508,33885,34212,34313,34376,34455,34592
+
+listing:
+  link_pattern: 'presidentti\.fi/[^/]+/?$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 5      # 107 ids / 100 per page = 2
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    # text_field deliberately unset — WP's content.rendered is HTML; the engine fetches the page.
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".entry-content", "article"]
+date:
+  # The :not() is load-bearing — see fin_presidentti's date comment: a bare `time` also matches
+  # the two "you might also like" cards and the engine joins every match.
+  selectors: ["time:not(ul.wp-block-post-template time)", "time"]
+  attr: datetime
+
+position: president
+# ["fi"] and NOT ["en"]/["fi","en"]: the rendered dates are Finnish numeric day-first
+# ("10.6.2026"), which "en" would read as 6 October.
+date_languages: ["fi"]
+notes: >
+  NEW 2026-08-13 — the 107 presidentti.fi posts that exist in FINNISH ONLY, pinned by id so they
+  can be collected without duplicating the 618 that fin_presidentti_english already covers.
+  Identified exactly from Polylang's per-post `translations` id map (725 FI, 625 EN, 107 FI with
+  no English twin), NOT by a date or title heuristic — which would have failed: FI/EN twins share
+  an exact timestamp in 0 of 52 sampled speech posts, and same-day matching collides. Spans
+  2024-03-01 to 2026-07-09. RUN THIS INSTEAD OF fin_presidentti. The id list is a snapshot;
+  regeneration instructions are in the header (9 API requests, no Archive). Non-English, so it
+  goes to the deferred queue. NO --rescrape. FULL RUN is the researcher's gate.

@@ -12,6 +12,24 @@
 # routes the body to text_originlanguage and the translation stage fills the English `text`. (The OLD
 # 2011-2015 /en/PressOffice/News/SpeechesAndStatements scheme IS genuine English — see the separate
 # geo_president_english_wayback recipe.)
+#
+# ── RULE 1 AUDIT 2026-08-13 (chunk A5) — CHECKED CLEAN for its generation, no change made ──────
+# cdxbatch on president.gov.ge (--match domain, 19,701 in-scope captures) confirms /en/News/Article
+# IS the whole modern flat article namespace: 510 distinct slugs. Everything else on the host is
+# either (a) the OLDER /en/PressOffice/News/<Section>?p=<id> generation, which belongs to
+# geo_president_english_wayback and was widened there in the same pass (489 -> ~2,243 articles), or
+# (b) the other-language trees of THESE SAME articles, measured by slug:
+#     /ab/News/Article/  296 slugs — 296 of 296 (100%) also present under /en/  -> pure twins
+#     /ru/News/Article/  439 slugs — 431 of 439  (98%)                          -> pure twins
+#     /ge/News/Article/  483 slugs — 434 of 483  (90%)                          -> near-pure twins
+#     /ka/News/Article/  840 slugs — 470 of 840  (56%)  -> ~370 slugs EXIST ONLY IN /ka/
+# So the only real gap on this host is the /ka/ tree, and it is NOT a widening of this recipe:
+# adding /ka/ here would re-fetch the 470 shared slugs as duplicate rows (page_identity keeps the
+# path). It needs its own sibling — BANKED, not authored, because both trees are Georgian-language
+# and therefore parked under the English-first policy anyway, so authoring it now buys nothing that
+# a later pass cannot get more cheaply alongside the /ka/ selector work.
+# Note the /en/ URL is not a language: this recipe's pages serve GEORGIAN (see below), so a /ka/
+# sibling is a coverage gain, not a language gain.
 source_id: geo_president_wayback
 country: Georgia
 source_language: Georgian

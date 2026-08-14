@@ -1,0 +1,73 @@
+# Kazakhstan — Presidential administration (akorda.kz), the LIVE ENGLISH tree.
+#
+# NEW 2026-08-13 (sweep chunk A6). Kazakhstan had a live recipe only in RUSSIAN (kaz_akorda) and an
+# English one only over the Archive (kaz_akorda_english_wayback) — and the wayback recipe CANNOT
+# reach the modern content, because akorda.kz's current /en/<slug>-<id> pages archive as SPA SHELLS
+# (a 2025 capture has no title, no date and no text container at all). The LIVE pages render fine
+# server-side, so this recipe is the only route to Tokayev-era English text, and it costs the
+# Internet Archive nothing. English translation → English column, no MT stage.
+#
+# ⚠ verify_ssl: false — akorda.kz's certificate chain is missing its intermediate, so httpx raises
+# CERTIFICATE_VERIFY_FAILED. Same setting, same reason, as the Russian kaz_akorda.
+#
+# BREADTH (CLAUDE.md RULE 1): all three article-bearing English sections are taken. The Russian
+# sibling's header justified taking only /ru/speeches because "the /en/events archive mixes in
+# non-speeches" — that is the reasoning the 2026-08-10 ruling reverses: mixed sections are the
+# CLEANER's problem, and /en/events is where nearly all the content is.
+#
+# LISTING SHAPE, verified live: rows are `.card`, the link is in `h3 a`, and the date is in
+# `h5.mt-3` ("July 27, 2026"). Scoping the link to `h3 a` matters — a bare pattern also grabs the
+# sticky sidebar widgets. Same structure as the Russian tree.
+#
+# ⚠ TITLE: a bare `h1` returns the SECTION BANNER ("Events") on every article page. The headline
+# lives only in `<title>`, behind an " — Official website of the President…" suffix. The suffix is
+# stripped with a LOOKAHEAD because the engine takes `m.group(0)`, not group(1) (extract.py
+# `first_match`) — a capture group here does nothing.
+source_id: kaz_akorda_english
+country: Kazakhstan
+source_language: English
+renderer: static
+verify_ssl: false
+start_urls:
+  - https://www.akorda.kz/en/events
+  - https://www.akorda.kz/en/speeches
+  - https://www.akorda.kz/en/addresses
+
+listing:
+  link_selector: "h3 a"
+  link_pattern: '/en/[a-z0-9-]+-\d+$'
+  item_selector: ".card"
+  item_date:
+    selectors: ["h5.mt-3", "h5"]
+
+pagination:
+  type: query_param
+  param: page
+  start: 1          # ?page=0 and ?page=1 both serve page 1 — same collision as the Russian tree
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h2", "title"]
+  regex: '^.+?(?=\s*[—–\-]\s*Official (?:site|website) of the President)'
+text:
+  # The whole <article> element is the clean speech/report body (9,316 chars on the sampled
+  # AI-conference address); `.text` belongs to the older markup and is kept as a fallback.
+  selectors: ["article", ".text", "div.mt-5"]
+date:
+  # The article pages carry NO per-article date element — every date-ish node on them is a
+  # recent-news sidebar widget that would stamp ~today on every speech (the exact failure the
+  # Russian recipe documents). `time` never matches here, which is deliberate: it leaves the field
+  # empty so the listing's item_date (h5.mt-3) wins.
+  selectors: ["time"]
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13 (A6). Live ENGLISH tree of akorda.kz — events + speeches + state-of-the-nation
+  addresses. Exists because the modern /en/<slug>-<id> pages archive as SPA shells, so
+  kaz_akorda_english_wayback (which covers the 2006–2019 /en/events/ generation) cannot reach the
+  Tokayev era at all. English-native translation → English column, no translation stage; zero
+  Internet-Archive cost. NO speaker_default: the tree spans Nazarbayev and Tokayev, so the
+  cleaner's speaker pass + tenure crosscheck assign each. Date comes from the listing card, not the
+  article page — see the date block. FULL RUN is the researcher's gate.

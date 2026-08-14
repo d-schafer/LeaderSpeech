@@ -28,6 +28,23 @@ start_urls:
   - https://presedinte.md/rom/discursuri/index/2024
   - https://presedinte.md/rom/discursuri/index/2025
   - https://presedinte.md/rom/discursuri/index/2026
+  # Press releases — the second article stream, same pager, added 2026-08-13 (A6). The year index
+  # on /rom/comunicate-de-presa offers 2012 onward, two years deeper than the speeches section.
+  - https://presedinte.md/rom/comunicate-de-presa/index/2012
+  - https://presedinte.md/rom/comunicate-de-presa/index/2013
+  - https://presedinte.md/rom/comunicate-de-presa/index/2014
+  - https://presedinte.md/rom/comunicate-de-presa/index/2015
+  - https://presedinte.md/rom/comunicate-de-presa/index/2016
+  - https://presedinte.md/rom/comunicate-de-presa/index/2017
+  - https://presedinte.md/rom/comunicate-de-presa/index/2018
+  - https://presedinte.md/rom/comunicate-de-presa/index/2019
+  - https://presedinte.md/rom/comunicate-de-presa/index/2020
+  - https://presedinte.md/rom/comunicate-de-presa/index/2021
+  - https://presedinte.md/rom/comunicate-de-presa/index/2022
+  - https://presedinte.md/rom/comunicate-de-presa/index/2023
+  - https://presedinte.md/rom/comunicate-de-presa/index/2024
+  - https://presedinte.md/rom/comunicate-de-presa/index/2025
+  - https://presedinte.md/rom/comunicate-de-presa/index/2026
 
 politeness:
   # presedinte.md rate-limits by IP and enforces it by DROPPING packets, so a blocked request
@@ -70,12 +87,44 @@ pagination:
   path_format: "page:{n}"
   start: 1
   step: 1
-  max_pages: 30
+  # ⚠ 30 → 3, 2026-08-13. THIS IS A QUOTA BUDGET, NOT A PAGER GUESS, and it is the one knob that
+  # keeps this recipe runnable at all. presedinte.md enforces a CUMULATIVE per-IP quota of roughly
+  # 225-250 requests and then blackholes the client, whatever the pacing (measured 2026-08-08/10;
+  # see claude_log.md "the Moldova diagnosis was wrong"). max_pages is PER START_URL, so with 29
+  # year-listings a cap of 30 authorises up to 870 listing requests — 3.5x the quota — before a
+  # single article is fetched. At 3 it is ~87, which leaves room for the detail fetches.
+  # The 2026-08-10 fix made THE WAYBACK RECIPE THE PRIMARY ROUTE and this one a TOP-UP for the
+  # ~89 live-only recent items; that decision was recorded only as a `--max-pages 3` command-line
+  # flag in the log, so it was invisible here and the A6 widening walked straight into it. It now
+  # lives in the recipe. Run mda_presedinte_wayback FIRST, then this.
+  max_pages: 3
 
 listing:
   # Individual speeches only: /rom/discursuri/<slug>. Exclude the /discursuri/<year> index links
   # and the /discursuri/index/<year>/page:N pager links.
-  link_pattern: '/discursuri/(?!index|\d{4})[a-z]'
+  # ⚠ THE WIDENING IS NOT --spread PROBE-VALIDATED, and here is exactly why (2026-08-13).
+  # presedinte.md rate-limits by IP with a CUMULATIVE quota — roughly 225-250 requests, then it
+  # blackholes the client regardless of pacing (see mda_presedinte_wayback.yml's header, which
+  # measured this in detail on 2026-08-08). A --spread probe over 30 year-listings exceeds that
+  # by construction: it ran 38 minutes and returned nothing before being stopped.
+  # WHAT *IS* VERIFIED, without a full probe:
+  #   * /rom/comunicate-de-presa/index/2024 returns a real listing of real items under the honest
+  #     bot UA, item links shaped /rom/comunicate-de-presa/<slug> — identical to discursuri.
+  #   * the year index on /rom/comunicate-de-presa offers 2012 onward.
+  #   * the WAYBACK sibling, which uses this same widened section list and the same selectors,
+  #     re-probed at 6,564 snapshots with title 12/12, text 12/12, date 12/12.
+  # ⇢ AND NOTE `--spread` IS THE WRONG PROBE FOR THIS SOURCE. It walks every listing page of every
+  #   start_url, which is precisely the thing the quota forbids. Use a bounded probe instead:
+  #     python -m leaderspeech.text_scraper.probe --recipe recipes/mda_presedinte.yml --n 8
+  #   (no --spread), which respects max_pages: 3 and stays inside the budget.
+  #
+  # ⚠ WIDENED 2026-08-13 (sweep chunk A6): the recipe took the section literally called
+  # "Discursuri" — the RULE 1 shape. presedinte.md's nav has a second, larger article stream,
+  # `comunicate-de-presa` (press releases / "Comunicate de presă"), with the identical
+  # /rom/<section>/index/<YEAR> pager and the identical /rom/<section>/<slug> item shape,
+  # covered by no recipe. Verified live: /rom/comunicate-de-presa/index/2024 lists real items
+  # ("Președinta Maia Sandu a discutat despre situația energetică…").
+  link_pattern: '/(?:discursuri|comunicate-de-presa)/(?!index|\d{4})[a-z]'
 
 title:
   selectors: ["h1"]

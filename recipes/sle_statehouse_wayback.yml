@@ -1,20 +1,52 @@
-# Sierra Leone — State House (statehouse.gov.sl), the OLD/date-permalink WordPress posts, via the
-# Internet Archive. English-native → English column. Companion to the live sle_statehouse (whose WP REST
-# install only goes back to 2025-01): the Archive holds the date-path posts /YYYY/MM/DD/<slug> back to
-# 2018 — i.e. President Julius Maada Bio's 2018–2024 term (and a sliver of late Ernest Bai Koroma) that
-# the current install dropped.
+# Sierra Leone — State House (statehouse.gov.sl), the WordPress era via the Internet Archive.
+# English-native → English column. Companion to the live sle_statehouse (WP REST, 2025-01 →) and to
+# sle_statehouse_joomla_wayback (the pre-2018 Joomla site).
+#
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6) — the original recipe's stated scope was FALSE.
+# Its header claimed the /YYYY/MM/DD/<slug> date-permalink form covered "Bio's 2018–2024 term +
+# late Koroma". Measured against a whole-host CDX enumeration (29,103 captures), the date-permalink
+# form carries ONLY year-in-URL 2025 (201 captures) and 2026 (95) — i.e. exactly the window the LIVE
+# api recipe already holds. The 2017–2024 posts are all at ROOT-LEVEL slugs
+# (statehouse.gov.sl/<slug>/), ~1,860 distinct real slugs spread 2017:70 2018:190 2019:273 2020:192
+# 2021:227 2022:215 2023:263 2024:207 2025:188 — and NO recipe reached them.
+# Matched page identities 284 → 2,197 (+1,915). Only two identities are lost and both are junk
+# (/2025/07/07/news-post and /2025/12/12/3002, a theme demo and a numeric slug).
+#
+# TWO THEME GENERATIONS, both verified by selcheck on real captures:
+#   * 2018–2020 "inspiry" theme  (e.g. 20190219033812) — text `article` (n=1, 4,853 chars),
+#     date `.date` = "on February 18, 2019". ⚠ `.post-date` is the SIDEBAR FEED (n=5, joins five
+#     different dates) — do not use it.
+#   * 2021–2026 Astra+Elementor  (e.g. 20230505130851) — text
+#     `.elementor-widget-theme-post-content` (n=1, 1,621 chars),
+#     date `.elementor-post-info__item--type-date` = "May 5, 2023".
+#     ⚠ `article` matches n=10 here (related-post cards, the element-join trap) — it is LAST in the
+#     text chain precisely so the two Elementor selectors win first on this generation.
+#     ⚠ `.elementor-post-date` is also a related-posts feed (n=10) — not used.
+#
+# DATE: the selector chain runs FIRST and the url_regex is the fallback (extract.py: "try the
+# selector chain first, then fall back to the URL"). The original header refused a date element on
+# the grounds that "a WP re-crawl artifact would mis-date a .published element". RE-TESTED and it
+# does not hold here: the 2019-02-19 capture's `.date` reads "February 18, 2019" — the ARTICLE's
+# date, one day before the capture, not the crawl day.
 source_id: sle_statehouse_wayback
 country: Sierra Leone
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — "/20" catches every /2017…/2026/ date-path post (engine prefix-matches, normalizes www).
-  - statehouse.gov.sl/20
+  # Whole-host CDX prefix. It has to be the host, not "statehouse.gov.sl/20": a wayback start_url is
+  # a CDX PREFIX, so with "/20" no link_pattern change could ever reach the root-slug generation.
+  - statehouse.gov.sl
 
 listing:
-  # date-permalink post /<yyyy>/<mm>/<dd>/<slug> ending at the slug (drops the bare /YYYY/MM/DD/ day
-  # archives and the WordPress /feed//embed/ duplicates).
-  link_pattern: '/20\d\d/\d\d/\d\d/[a-z0-9][-a-z0-9]+/?$'
+  # Both WordPress generations in one pattern:
+  #   /<slug>/                      (2017–2024, the bulk)
+  #   /YYYY/MM/DD/<slug>/           (2025–2026, kept as a backstop for the live recipe)
+  # `^[^?]*//` anchors the match to the START of the URL — without it the 654 archived
+  # `wp-login.php?redirect_to=<article-url>` captures match on their query string.
+  # The `(?![^/]*\d{2,4}x\d{2,4})` guard drops 537 WordPress image-attachment pages
+  # (…-1024x683, …-48x32), which are photo children and out of scope by RULE 1.
+  # The {14,} floor drops the theme's demo slugs and the short static pages.
+  link_pattern: '^[^?]*//(?:www\.)?statehouse\.gov\.sl(?::80)?/(?:20\d\d/\d\d/\d\d/)?(?![^/]*\d{2,4}x\d{2,4})[a-z0-9][-a-z0-9]{14,}/?$'
 
 pagination:
   type: wayback
@@ -28,20 +60,29 @@ title:
   selectors: ["h1.entry-title", "h1", ".entry-title", "title"]
   regex: '^\s*(.+)'
 text:
-  # Astra+Elementor theme (no stable content container) → generic (trafilatura) fallback recovers body.
+  # Order matters: the two Elementor containers must be tried before `article`, which on the
+  # Elementor generation matches ten related-post cards.
   selectors: [".entry-content", ".elementor-widget-theme-post-content", "article"]
 date:
-  # url_regex ONLY: the permalink /YYYY/MM/DD/ is authoritative (a WP re-crawl artifact would mis-date a
-  # .published element on archived pages — the ken/aus lesson).
+  # Elementor-era element first, then the 2018-20 theme's, then the permalink as a last resort
+  # (only the 2025–26 URLs carry one).
+  selectors: [".elementor-post-info__item--type-date", ".date"]
   url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback recovery of the date-permalink WordPress posts on statehouse.gov.sl (President Julius
-  Maada Bio's 2018–2024 term + late Koroma), the gap the live sle_statehouse (WP REST, 2025-01→) lacks.
-  CDX prefix statehouse.gov.sl/20 ≈ 1,467 date-path captures 2017–2026. TITLE h1.entry-title; TEXT via
-  generic fallback (Elementor, no stable container); DATE from the URL permalink via url_regex. NO
-  speaker_default — Bio dominates but the window brushes Ernest Bai Koroma (president to April 2018), so
-  the cleaner's speaker pass + tenure crosscheck assign each. Posts mix speeches + presidency news →
-  document_type gate filters. FULL RUN is the researcher's gate.
+  Wayback recovery of the WordPress era of statehouse.gov.sl. WIDENED 2026-08-13 (A6): 284 → 2,197
+  matched capture identities; re-probed --spread --n 12 → title 12/12, text 11/12, date 10/12,
+  2019–2025. Every miss is a WordPress static PAGE that the slug pattern cannot distinguish from a
+  post (/secretary-to-the-president/, /youth-employment-scheme/); the site has 38 such pages and
+  they are left in per CLAUDE.md RULE 1 — the cleaner's document_type gate is what removes them. The recipe previously took only /YYYY/MM/DD/<slug>, which a whole-host
+  CDX enumeration showed is a 2025–26-only scheme duplicating the live api recipe; the 2017–2024
+  presidency (Bio's first term plus late Ernest Bai Koroma) lives at root-level slugs and was
+  reachable by nothing. Out of scope and excluded by the pattern: 537 image-attachment pages, 654
+  wp-login redirect captures, /category//author//tag//page/ listings, and the Joomla /index.php/
+  space (that is sle_statehouse_joomla_wayback). NO speaker_default — the window spans Koroma
+  (to April 2018) and Bio, so the cleaner's speaker pass + tenure crosscheck assign each. Posts mix
+  speeches, press releases and presidency news → the document_type gate filters. NO --rescrape
+  needed: these links were never harvested, so an ordinary incremental run appends them.
+  FULL RUN is the researcher's gate.

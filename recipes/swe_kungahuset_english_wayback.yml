@@ -2,20 +2,41 @@
 # kungahuset.se is native Swedish; /english/ is the official English site with a dedicated speeches
 # archive, so speeches land directly in the English `text` column (no translation needed).
 #
-# Speeches: /english/archive/speeches/<yyyy-mm-dd>-<slug>. CDX ≈ 1,187 statuscode:200 captures; the
-# slug carries the delivery date. Spans King Carl XVI Gustaf, Crown Princess Victoria, Prince Daniel,
-# Queen Silvia — slug dates 2011–2023.
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ─────────────────────────────────────────────────────
+# The section this recipe took is literally called "speeches", which is the RULE 1 shape, and
+# swe_kungahuset's header had already flagged the other three as belonging here. Measured with
+# cdxbatch on kungahuset.se/english (--match prefix): the old pattern matched 471 of 1,111 in-scope
+# captures = 42.4%, and the misses are the sibling sections —
+#     /english/archive/news           210
+#     /english/archive/press-releases   76
+#     /english/archive/telegrams        64   (condolence/congratulation telegrams: the King's words)
+# The pattern is now section-AGNOSTIC, matching swe_kungahuset's own /arkiv/<x>/<y>$ design, so it
+# also survives the Court adding or renaming a section. The start_url had to widen too — it was the
+# CDX prefix .../archive/speeches, so no pattern change alone could have reached the siblings
+# (the run-7 lesson).
+#
+# The rest of the /english/ tree is out and stays out: static royal-house bio pages (~60),
+# ?sv.target=…&sv.…route= cookie-consent widget URLs, ?start=…&end=… media-centre date filters,
+# and the .printable duplicates (now excluded by the end anchor — see below).
+#
+# Spans King Carl XVI Gustaf, Crown Princess Victoria, Prince Daniel, Queen Silvia.
+#
+# ⚠ RUN swe_kungahuset_english (LIVE, new in this pass, 780 sitemap URLs) FIRST. It harvests the
+# same /english/archive/<section>/<date>-<slug> URLs from the live sitemap, and the shared
+# data/state/Sweden.json skips on the exact URL, so live-first leaves this recipe's Archive budget
+# for what the live sitemap no longer lists.
 source_id: swe_kungahuset_english_wayback
 country: Sweden
 source_language: English
 renderer: static
 start_urls:
   # CDX prefix — engine prefix-matches, NO trailing '*'.
-  - kungahuset.se/english/archive/speeches
+  - kungahuset.se/english/archive
 
 listing:
-  # dated speech permalink: /english/archive/speeches/<yyyy-mm-dd>-<slug>
-  link_pattern: '/english/archive/speeches/\d{4}-\d{2}-\d{2}-[a-z]'
+  # dated article permalink in ANY archive section: /english/archive/<section>/<yyyy-mm-dd>-<slug>.
+  # End-anchored, which also drops the .printable twins and the ?sv.target= consent-widget echoes.
+  link_pattern: '/english/archive/[a-z-]+/\d{4}-\d{2}-\d{2}-[a-z0-9][^/?#]*$'
 
 pagination:
   type: wayback
@@ -29,18 +50,30 @@ title:
   selectors: ["h1", ".article-title", ".title", "title"]
   regex: '^\s*(.+)'
 text:
-  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
-  # the body (probe: 1,907–6,076 chars).
-  selectors: [".article-body", ".article__content"]
+  # .pagecontent is the live Sitevision body wrapper (added 2026-08-13 from the live sibling — the
+  # modern captures have it); the older captures still fall through to the engine's generic
+  # (trafilatura) recovery, which is what the previous probe was relying on.
+  selectors: [".pagecontent", ".article-body", ".article__content", "main"]
 date:
-  # authoritative date is at the start of the slug (2011-03-22-...) → named groups assemble ISO
+  # authoritative date is at the start of the slug (2011-03-22-...) → named groups assemble ISO.
+  # Section-agnostic since the 2026-08-13 widening.
   selectors: ["time[datetime]", ".article-date"]
-  url_regex: '/english/archive/speeches/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+  url_regex: '/english/archive/[a-z-]+/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
 
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback ENGLISH tree of Sweden's Royal Court (kungahuset.se/english → English column, no
-  translation). CDX prefix kungahuset.se/english/archive/speeches ≈ 1,187 statuscode:200 captures;
+  WIDENED 2026-08-13 (chunk A5) from the section literally called "speeches" (471 of 1,111 in-scope
+  captures = 42.4%) to the whole English archive — adding news 210, press-releases 76 and telegrams
+  64 — with a section-AGNOSTIC pattern mirroring swe_kungahuset's own design. The CDX start_url had
+  to widen too (it was pinned to .../archive/speeches, so no pattern change alone could reach the
+  siblings). 471 -> 978 snapshots; probe --spread --n 10 is 10/10 title, 10/10 text, 10/10 date,
+  2010-2025, across all four sections. Also added .pagecontent as the first text selector, taken
+  from the new live sibling — the modern captures carry it, so they no longer depend on the generic
+  trafilatura recovery. The .printable twins are now excluded by the end anchor. Run AFTER the new
+  LIVE swe_kungahuset_english (780 sitemap URLs), which harvests the same URLs from the live
+  sitemap and shares data/state/Sweden.json. NO --rescrape.
+  Wayback ENGLISH tree of Sweden's Royal Court (kungahuset.se/english → English column, no
+  translation). CDX prefix kungahuset.se/english/archive ≈ 1,111 in-scope captures;
   the dedicated speeches archive uses a /english/archive/speeches/<yyyy-mm-dd>-<slug> permalink → DATE
   from the slug via url_regex (unambiguous ISO). Multiple royals (King Carl XVI Gustaf, Crown Princess
   Victoria, Prince Daniel, Queen Silvia; slug dates 2011–2023) → NO speaker_default; the cleaner

@@ -1,0 +1,61 @@
+# Denmark — Prime Minister's Office / Statsministeriet (stm.dk), the LIVE English PRESS-RELEASE
+# stream. Sibling of dnk_stm_english (speeches); same Umbraco POST endpoint, different listing
+# module. It needs its own recipe because `api.body` is one value per recipe and `ModuleId` is
+# REQUIRED by the endpoint (sending null returns 0 items) — the same "one filter per recipe"
+# constraint as pagination.step.
+#
+#     POST https://stm.dk/umbraco/api/DynamicListSearchApi/search
+#     {"SearchTerm":"","currentpageid":22833,
+#      "ModuleId":"a802fbbe-b77a-4785-af9c-5ee9cb65794a", …,"Page":1}
+#     -> {"items":[…],"totalCount":98}
+#
+# The rows carry a `trumpet` label that is "Press release", "Publication" or "Statement" — i.e. the
+# stream mixes third-person releases with the PM's own joint statements, exactly the material
+# CLAUDE.md RULE 1 says to take and let the cleaner's document_type gate sort out.
+source_id: dnk_stm_english_press
+country: Denmark
+source_language: English
+renderer: static
+start_urls:
+  - "https://stm.dk/umbraco/api/DynamicListSearchApi/search"
+
+listing:
+  link_pattern: 'stm\.dk/en/press/press-releases/[a-z0-9]'
+
+pagination:
+  type: api
+  start: 1
+  step: 1
+  max_pages: 40     # 9 real pages (98 items, 12/page); the empty-page stop fires first
+  api:
+    method: POST
+    body:
+      SearchTerm: ""
+      currentpageid: 22833
+      ModuleId: "a802fbbe-b77a-4785-af9c-5ee9cb65794a"
+      GlobalPageId: null
+      Culture: "en-US"
+      DateFormat: "d"
+      Page: 1
+    body_page_field: Page
+    results_path: items
+    url_field: link
+    title_field: title
+    date_field: date
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".content-rte", ".rich-text-module", "main"]
+date:
+  selectors: ["time", ".date"]
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13 (A6). English press releases / statements / publications of the Danish Prime
+  Minister's Office, 98 items via the site's Umbraco POST search API. Companion to
+  dnk_stm_english (258 speeches) — same endpoint, different listing module. NO speaker_default:
+  the stream spans several PMs and some items are ministry-voice releases, so the cleaner's
+  speaker pass (told to follow the document over any prior) and the document_type gate decide.
+  Zero Internet-Archive cost. FULL RUN is the researcher's gate.

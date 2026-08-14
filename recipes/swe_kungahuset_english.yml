@@ -1,0 +1,60 @@
+# Sweden — the Royal Court (kungahuset.se), the OFFICIAL ENGLISH archive /english/archive/.
+#
+# NEW 2026-08-13 (chunk A5). swe_kungahuset (Swedish) deliberately left /english/archive/ out,
+# noting that "these are the ENGLISH mirror and belong to the existing swe_kungahuset_english_wayback
+# recipe (source_language is one field per recipe)". That was right about the language field and
+# wrong about the destination: swe_kungahuset_english_wayback is a WAYBACK recipe, so the LIVE
+# English tree was covered by nothing. It is right there in the same sitemap the parent already
+# fetches — sitemapshapes.py --try on this pattern matches 780 of the 35,221 <loc> entries — so it
+# costs one recipe and ZERO Internet-Archive requests, and it is ENGLISH, hence queueable now.
+#
+# Section-AGNOSTIC by design, exactly like the parent: the Court files all English text under
+# /english/archive/<section>/<YYYY-MM-DD-slug>, currently speeches, news, press-releases and
+# telegrams. Naming a section here would be the RULE 1 mistake, and matching the whole archive
+# survives the Court adding or renaming one.
+#
+# NOT a duplicate of the parent: these are separate documents at separate permalinks (the Swedish
+# original is /arkiv/tal/<date>-<slug>, this is /english/archive/speeches/<date>-<slug>), and taking
+# the official English rendering means no translation stage for these ~780 items.
+source_id: swe_kungahuset_english
+country: Sweden
+source_language: English
+renderer: static
+start_urls:
+  - https://www.kungahuset.se/
+
+listing:
+  # Every article under /english/archive/<section>/. The three-segment match excludes the section
+  # LISTING pages (they end in '/') and the .printable duplicates (which the end anchor rejects).
+  link_pattern: 'kungahuset[.]se/english/archive/[^/]+/\d{4}-\d{2}-\d{2}-[^/]+$'
+
+pagination:
+  type: sitemap
+  # Gzipped: robots -> /sitemapindex.xml -> /sitemap1.xml.gz. Needs the engine's transparent
+  # gunzip of *.xml.gz sitemaps (issue #63); the index is followed into its child automatically.
+  sitemap_urls:
+    - https://www.kungahuset.se/sitemapindex.xml
+
+title:
+  selectors: ["h1"]
+text:
+  # Sitevision CMS: the article body is the single .pagecontent wrapper; main is the wider fallback.
+  selectors: [".pagecontent", "main"]
+date:
+  # The page carries no visible/<time> date but the URL does. Named groups assemble to an
+  # unambiguous ISO date with no dateparser involved, so no locale risk on an English tree.
+  url_regex: '/english/archive/[^/]+/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+
+# Speaker deliberately LEFT BLANK: the archive mixes the King, Queen, Crown Princess, Prince
+# Daniel and others, and the title says who ("HM The King's speech at …"). Assigned downstream.
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13 (chunk A5) — the LIVE official ENGLISH archive of the Swedish Royal Court, ~780
+  sitemap URLs across speeches, news, press-releases and telegrams. Authored under the 2026-08-11
+  author-now policy after the A5 audit of swe_kungahuset_english_wayback showed the live English
+  tree had no recipe at all: the Swedish parent explicitly deferred /english/archive/ to the
+  WAYBACK sibling, which cannot cover a live site. Reuses the parent's sitemap, selectors and
+  URL-date approach verbatim; section-agnostic pattern per RULE 1. ENGLISH, so immediately
+  queueable, and it makes ZERO Internet-Archive requests. Shares data/state/Sweden.json with
+  swe_kungahuset and swe_kungahuset_english_wayback — run serially, and run this BEFORE the
+  wayback sibling. NO --rescrape. FULL RUN is the researcher's gate.

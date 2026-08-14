@@ -28,13 +28,21 @@ source_language: Romanian
 verify_ssl: false
 renderer: static
 start_urls:
+  # ⚠ WIDENED 2026-08-13 (sweep chunk A6). BOTH the prefixes and the link_pattern had to change —
+  # a wayback start_url is a CDX PREFIX, so a pattern change alone is a no-op (run-7 hun_keh).
+  # presedinte.md's nav carries a second article stream the recipe never touched:
+  # `comunicate-de-presa` (press releases), with the identical /rom/<section>/index/<YEAR> pager
+  # and the identical /rom/<section>/<slug> item shape. Verified on the LIVE site first, which
+  # costs the Archive nothing. This is CLAUDE.md RULE 1: the recipe was scoped to the section
+  # literally called "Discursuri".
   - presedinte.md/rom/discursuri
+  - presedinte.md/rom/comunicate-de-presa
 
 listing:
-  # Real speech pages only: /rom/discursuri/<slug>. Excludes the section root, the CakePHP
-  # /index/<year>/page:N pagers (with or without their ?url= tracking suffix), and anything
-  # carrying a query string.
-  link_pattern: '/rom/discursuri/(?!index($|[/?]))[a-z0-9][a-z0-9-]{15,}$'
+  # Real article pages only: /rom/(discursuri|comunicate-de-presa)/<slug>. Excludes the section
+  # roots, the CakePHP /index/<year>/page:N pagers (with or without their ?url= tracking suffix),
+  # and anything carrying a query string.
+  link_pattern: '/rom/(?:discursuri|comunicate-de-presa)/(?!index($|[/?]))[a-z0-9][a-z0-9-]{15,}$'
 
 pagination:
   type: wayback

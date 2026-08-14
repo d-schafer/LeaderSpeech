@@ -1,19 +1,34 @@
-# Cameroon — Presidency of the Republic (prc.cm), English "speeches of the president" archive, via
-# the Internet Archive. WAYBACK COMPANION to the live cmr_prc recipe (Joomla K2, ?start pager over
-# the same section): the Archive preserves the individual speech pages, giving a resilient fallback
-# and older captures for the same /en/news/speeches-of-the-president/<id>-<slug> scheme. The site is
-# natively English (Paul Biya, president since 1982) → text lands in the English `text` column.
+# Cameroon — Presidency of the Republic (prc.cm), English news archive, via the Internet Archive.
+# WAYBACK COMPANION to the live cmr_prc recipe (Joomla com_content, ?start pager over the same
+# sections): the Archive preserves the individual item pages, giving a resilient fallback and older
+# captures. The site is natively English (Paul Biya, president since 1982) → text lands in the
+# English `text` column.
+#
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6), mirroring the live recipe exactly. It took ONE of the
+# site's nav sections. The live audit sized every section from its own pager and SAMPLED each one's
+# body before deciding — see cmr_prc.yml's header for the full table and the two rejections
+# (press-releases publishes headline-only stubs across its whole archive; the-acts/* publishes
+# decrees as PDF downloads with a 188-char page body).
+# Both the start_urls AND the link_pattern had to change: a wayback start_url is a CDX PREFIX, so
+# widening the pattern alone would have been a no-op (the run-7 hun_keh lesson).
 source_id: cmr_prc_wayback
 country: Cameroon
 source_language: English
 renderer: static
 start_urls:
   - prc.cm/en/news/speeches-of-the-president
+  - prc.cm/en/news/interviews
+  - prc.cm/en/news/audiences
+  - prc.cm/en/news/travels-and-visits
+  - prc.cm/en/news/correspondences
+  - prc.cm/en/news/letters-of-credence
+  - prc.cm/en/news/press-kits
+  - prc.cm/en/the-presidency/activities-of-the-presidency
 
 listing:
-  # Individual speech pages /news/speeches-of-the-president/<numeric-id>-<slug>; the numeric id
-  # excludes the bare section/listing captures (same pattern as the live recipe).
-  link_pattern: '/news/speeches-of-the-president/\d+-'
+  # Individual item pages <section>/<numeric-id>-<slug>; the numeric id excludes the bare
+  # section/listing captures (same pattern as the live recipe).
+  link_pattern: '/en/(?:news/(?:speeches-of-the-president|interviews|audiences|letters-of-credence|travels-and-visits|press-kits|correspondences/(?:of|to)-the-head-of-state)|the-presidency/activities-of-the-presidency)/\d+-'
 
 pagination:
   type: wayback
@@ -22,23 +37,40 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    # ⚠ PRINT VIEWS. Joomla serves every item again at ?tmpl=component&print=1&layout=default,
+    # and the Archive captured them heavily — 5 of the first 12 --spread samples were print
+    # duplicates of items the recipe already takes. They are RULE 1 out-list ("print-view
+    # duplicates of pages already taken") and they were being harvested by the ORIGINAL
+    # one-section pattern too; the widening is what made them visible. Same defect, same fix, as
+    # gha_presidency_wayback's ?print=1 in run 4.
+    - "!original:.*(tmpl=component|print=1|[?&]start=|[?&]limitstart=).*"
 
 title:
   selectors: ["h2", ".itemTitle", "h1", "title"]
 text:
   selectors: [".itemFullText", "article", "main"]
 date:
-  # Machine-readable date only (the detail pages carry no reliable <time>); often None at scrape
-  # → filled by the cleaner's date pass. Do NOT add a title/body text selector (would stamp TODAY).
-  selectors: ["time[datetime]", ".itemDateCreated time[datetime]", ".created[datetime]"]
-  attr: datetime
+  # The detail pages carry NO machine-readable date (re-verified 2026-08-13: `time[datetime]`
+  # matches nothing on any section), so the date comes from the HEADLINE, which carries a
+  # "DD Month YYYY" stamp on roughly half the items. The old comment here said not to use a title
+  # selector "because it would stamp TODAY" — `regex_required: true` is exactly the guard that
+  # prevents that: a regex miss leaves the date blank instead of handing the title to dateparser.
+  # Same block as the live cmr_prc recipe.
+  selectors: ["h2", ".itemTitle", "h1"]
+  regex: '\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,12},?\s+(?:19|20)\d\d|[A-Za-z]{3,12}\s+\d{1,2}(?:st|nd|rd|th)?,?\s+(?:19|20)\d\d'
+  regex_required: true
 
 position: president
 speaker_default: Paul Biya
 date_languages: ["fr"]
 notes: >
-  DRAFT — Wayback companion to the live cmr_prc (yes-and). CDX prefix
-  prc.cm/en/news/speeches-of-the-president ≈ 250 archived speech-page captures 2014–2026 (Paul Biya).
+  Wayback companion to the live cmr_prc (yes-and). WIDENED 2026-08-13 (A6) from 1 nav section to 8,
+  mirroring the live recipe: ~250 → 676 snapshots, re-probed --spread --n 12 → title 12/12,
+  text 12/12, date 0/12 (the site has no date element and these sampled headlines carry none —
+  the cleaner's date pass plus the wayback_capture stamp are the fallback, as designed).
+  A first widened probe read 1,295 and 5 of its 12 samples were ?tmpl=component&print=1 PRINT
+  DUPLICATES — a defect the original one-section pattern already had; the wayback_filter now
+  excludes them server-side, which is where the 1,295 → 676 drop comes from.
   Natively English → English column, no translation. Title h2/.itemTitle, text .itemFullText (both
   proven on the live site); DATE often None at scrape (no machine-readable date on detail pages) →
   cleaner's date pass fills it; speaker_default Paul Biya (sole speaker of the section). Some French

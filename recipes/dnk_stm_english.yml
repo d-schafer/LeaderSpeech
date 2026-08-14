@@ -1,0 +1,78 @@
+# Denmark — Prime Minister's Office / Statsministeriet (stm.dk), the LIVE English speech archive.
+#
+# NEW 2026-08-13 (sweep chunk A6). Denmark's head of GOVERNMENT had no live recipe at all — only
+# dnk_stm_english_wayback — which is the "wayback-only country" gap chunk A5 named. stm.dk is up,
+# healthy and answers the honest bot UA with HTTP 200.
+#
+# HOW THE LISTING WORKS. The /en tree is a Vite SPA and the listing pages render ZERO item links,
+# under `static` AND under `renderer: js` (21 hrefs either way, all nav) — so a link_selector
+# recipe cannot work here however it is written. The items come from an Umbraco endpoint:
+#
+#     POST https://stm.dk/umbraco/api/DynamicListSearchApi/search
+#     {"SearchTerm":"","currentpageid":22493,
+#      "ModuleId":"ecda6dcf-479e-4b94-8094-f7f762660e8c",
+#      "GlobalPageId":null,"Culture":"en-US","DateFormat":"d","Page":1}
+#
+# which returns {"items":[…],"totalCount":258} with an absolute `link`, a clean `title`, an ISO
+# `date` and a `trumpet` document-type label per row. 12 rows/page; page 22 returns 6 and page 23
+# returns 0, so the engine's empty-page stop lands exactly on the end. `Page` accepts an integer
+# (the SPA sends a string) — verified, because the engine writes an int.
+# ⚠ `ModuleId` is REQUIRED: sending null returns 0 items, so one recipe = one listing module. The
+# press-release module is dnk_stm_english_press (98 items, same endpoint, different two ids).
+#
+# The `currentpageid`/`ModuleId` pair is the Umbraco node id of the Speeches page and the id of the
+# list component on it. They are stable content ids, not a session token, but if this recipe ever
+# returns 0 rows they are the first thing to re-capture (DevTools → Network → Fetch/XHR on
+# https://www.stm.dk/en/the-prime-minister/speeches/).
+source_id: dnk_stm_english
+country: Denmark
+source_language: English
+renderer: static
+start_urls:
+  - "https://stm.dk/umbraco/api/DynamicListSearchApi/search"
+
+listing:
+  link_pattern: 'stm\.dk/en/the-prime-minister/speeches/[a-z0-9]'
+
+pagination:
+  type: api
+  start: 1          # this API is 1-indexed
+  step: 1
+  max_pages: 60     # 22 real pages; the empty-page stop fires first
+  api:
+    method: POST
+    body:
+      SearchTerm: ""
+      currentpageid: 22493
+      ModuleId: "ecda6dcf-479e-4b94-8094-f7f762660e8c"
+      GlobalPageId: null
+      Culture: "en-US"
+      DateFormat: "d"
+      Page: 1
+    body_page_field: Page
+    results_path: items
+    url_field: link          # absolute, so no url_base is needed
+    title_field: title
+    date_field: date         # ISO 8601 ("2026-01-15T00:00:00Z")
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # Umbraco rich-text container, verified on a live speech page (2,131 chars, n=1).
+  # `main` would add the breadcrumb + section banner.
+  selectors: [".content-rte", ".rich-text-module", "main"]
+date:
+  # Fallback only — the API's ISO date wins. The page's own <time> renders US-style M/D/YYYY.
+  selectors: ["time", ".date"]
+
+position: prime minister
+# NO speaker_default: the archive spans Poul Nyrup Rasmussen, Anders Fogh Rasmussen,
+# Lars Løkke Rasmussen and Mette Frederiksen — the cleaner's speaker pass + tenure crosscheck
+# assign each.
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13 (A6). Live English speeches of the Danish Prime Minister, 258 items via the site's
+  own Umbraco POST search API (the SPA listing renders no links under either renderer, so this is
+  the only route). English-native → English column, no translation stage. Sibling
+  dnk_stm_english_press covers the 98 press releases from the same endpoint; dnk_stm_english_wayback
+  covers the Archive. Zero Internet-Archive cost. FULL RUN is the researcher's gate.

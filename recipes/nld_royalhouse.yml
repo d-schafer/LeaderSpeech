@@ -1,113 +1,174 @@
-# Netherlands - the Royal House (royal-house.nl), reigning head of state (King Willem-Alexander;
-# the archive also holds Queen Maxima and pre-2013 Queen Beatrix / Crown-Prince speeches).
-# Same Platform-Rijksoverheid "Search-UI" SPA as rijksoverheid.nl: the /documents listing renders
-# client-side (renderer: js) and its detail pages are static HTML with full text in <main>; every
-# document URL carries its date (/documents/YYYY/MM/DD/slug -> url_regex).
+# Netherlands — Royal House (royal-house.nl), the official ENGLISH site.
+# Platform-Rijksoverheid "Search-UI" SPA -> renderer: js. The Dutch site is koninklijkhuis.nl.
 #
-# WHY a synthesised start_urls list instead of a pager: the SPA's only pager is a cursor
-# ("Next page" -> ?current=n_2_n) that the engine cannot chain reliably (click is blocked by the
-# cookie overlay; next_link chains only ~1 hop). BUT the cursor token is just the page number:
-# ?type=speech&current=n_<page>_n renders page <page> directly (verified: n_1=2026 ... n_55=2004,
-# n_65 empty). So we enumerate the pages as start_urls (type: none) and let the engine render +
-# harvest each. ~60 pages x 10 -> ~600 documents back to ~2004.
+# ── RULE 1 AUDIT + WIDENING 2026-08-13 (chunk A5) ───────────────────────────────────────────
+# Two separate findings, and the first one is the more interesting:
 #
-# speaker_default is intentionally omitted: the type=speech set mixes King Willem-Alexander, Queen
-# Maxima and (pre-2013) Queen Beatrix, so the cleaner's speaker pass + tenure crosscheck assign the
-# speaker from the title and keep the reigning head of state. A few non-speech royal reports leak
-# through the imperfect type facet and are dropped by the cleaner's document-type gate.
+# 1. **`?type=speech` NEVER FILTERED ANYTHING.** The recipe's 64 start_urls all carried it and it
+#    is a CLIENT-SIDE facet the server-rendered HTML ignores. Measured by fetching cursor pages 1
+#    and 20 with and without it: the item sets are IDENTICAL (10 vs 10, zero on either side only),
+#    and the "filtered" page 1 contains "Final Report on the Provenance Research of Colonial
+#    Objects" and "Conclusions and recommendations …", which are plainly not speeches. Binary-search
+#    of the last non-empty cursor page gives 56 for BOTH. So the recipe was already harvesting the
+#    whole /documents set — by accident. The parameter is removed: it bought nothing, and it would
+#    silently narrow the recipe to a third of its content the day the SPA starts honouring it
+#    server-side.
+#
+# 2. **Two whole sections were missing.** The site's own /sitemap lists a `/latest` tree beside
+#    `/documents`. Sized by binary-searching each cursor pager (10 items/page):
+#        /documents          56 pages  ~560 items   <- the only section taken
+#        /latest/news        37 pages  ~370 items   <- MISSED, its own /latest/news/Y/M/D/ namespace
+#        /latest/activities   4 pages  ~ 40 items   <- MISSED
+#        /latest/speeches    55 pages  ~550 items   <- NOT ADDED, and deliberately: it is an
+#            ALTERNATE INDEX, not a section. Every item link on it points at /documents/Y/M/D/<slug>
+#            (checked page 1: all 8 sampled links). Adding it would only re-harvest /documents.
+#    That last line is the gov.ro alternate-views test doing its job in the cheapest possible form.
+#
+# WHY 104 START_URLS AND NOT A PAGER: the cursor is `?current=n_<N>_n`, and neither pagination knob
+# can build it — `query_param` writes `?param=<int>` and `path` appends `/<suffix>` to the path.
+# `next_link` is out too: from page 2 on, nav.pagination holds TWO `a.screen-reader-only` anchors and
+# the FIRST is "Previous page" (verified: page 40's first such anchor is n_39_n), so the engine would
+# walk backwards. The pages are enumerated with a small margin over the measured last page.
 source_id: nld_royalhouse
 country: Netherlands
 source_language: English
 renderer: js
 start_urls:
-  - https://www.royal-house.nl/documents?type=speech&current=n_1_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_2_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_3_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_4_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_5_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_6_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_7_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_8_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_9_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_10_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_11_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_12_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_13_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_14_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_15_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_16_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_17_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_18_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_19_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_20_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_21_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_22_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_23_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_24_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_25_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_26_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_27_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_28_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_29_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_30_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_31_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_32_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_33_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_34_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_35_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_36_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_37_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_38_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_39_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_40_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_41_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_42_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_43_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_44_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_45_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_46_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_47_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_48_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_49_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_50_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_51_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_52_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_53_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_54_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_55_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_56_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_57_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_58_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_59_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_60_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_61_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_62_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_63_n
-  - https://www.royal-house.nl/documents?type=speech&current=n_64_n
-
-pagination:
-  type: none          # each start_url is one fully-rendered listing page (cursor pages enumerated)
+  - https://www.royal-house.nl/documents?current=n_1_n
+  - https://www.royal-house.nl/documents?current=n_2_n
+  - https://www.royal-house.nl/documents?current=n_3_n
+  - https://www.royal-house.nl/documents?current=n_4_n
+  - https://www.royal-house.nl/documents?current=n_5_n
+  - https://www.royal-house.nl/documents?current=n_6_n
+  - https://www.royal-house.nl/documents?current=n_7_n
+  - https://www.royal-house.nl/documents?current=n_8_n
+  - https://www.royal-house.nl/documents?current=n_9_n
+  - https://www.royal-house.nl/documents?current=n_10_n
+  - https://www.royal-house.nl/documents?current=n_11_n
+  - https://www.royal-house.nl/documents?current=n_12_n
+  - https://www.royal-house.nl/documents?current=n_13_n
+  - https://www.royal-house.nl/documents?current=n_14_n
+  - https://www.royal-house.nl/documents?current=n_15_n
+  - https://www.royal-house.nl/documents?current=n_16_n
+  - https://www.royal-house.nl/documents?current=n_17_n
+  - https://www.royal-house.nl/documents?current=n_18_n
+  - https://www.royal-house.nl/documents?current=n_19_n
+  - https://www.royal-house.nl/documents?current=n_20_n
+  - https://www.royal-house.nl/documents?current=n_21_n
+  - https://www.royal-house.nl/documents?current=n_22_n
+  - https://www.royal-house.nl/documents?current=n_23_n
+  - https://www.royal-house.nl/documents?current=n_24_n
+  - https://www.royal-house.nl/documents?current=n_25_n
+  - https://www.royal-house.nl/documents?current=n_26_n
+  - https://www.royal-house.nl/documents?current=n_27_n
+  - https://www.royal-house.nl/documents?current=n_28_n
+  - https://www.royal-house.nl/documents?current=n_29_n
+  - https://www.royal-house.nl/documents?current=n_30_n
+  - https://www.royal-house.nl/documents?current=n_31_n
+  - https://www.royal-house.nl/documents?current=n_32_n
+  - https://www.royal-house.nl/documents?current=n_33_n
+  - https://www.royal-house.nl/documents?current=n_34_n
+  - https://www.royal-house.nl/documents?current=n_35_n
+  - https://www.royal-house.nl/documents?current=n_36_n
+  - https://www.royal-house.nl/documents?current=n_37_n
+  - https://www.royal-house.nl/documents?current=n_38_n
+  - https://www.royal-house.nl/documents?current=n_39_n
+  - https://www.royal-house.nl/documents?current=n_40_n
+  - https://www.royal-house.nl/documents?current=n_41_n
+  - https://www.royal-house.nl/documents?current=n_42_n
+  - https://www.royal-house.nl/documents?current=n_43_n
+  - https://www.royal-house.nl/documents?current=n_44_n
+  - https://www.royal-house.nl/documents?current=n_45_n
+  - https://www.royal-house.nl/documents?current=n_46_n
+  - https://www.royal-house.nl/documents?current=n_47_n
+  - https://www.royal-house.nl/documents?current=n_48_n
+  - https://www.royal-house.nl/documents?current=n_49_n
+  - https://www.royal-house.nl/documents?current=n_50_n
+  - https://www.royal-house.nl/documents?current=n_51_n
+  - https://www.royal-house.nl/documents?current=n_52_n
+  - https://www.royal-house.nl/documents?current=n_53_n
+  - https://www.royal-house.nl/documents?current=n_54_n
+  - https://www.royal-house.nl/documents?current=n_55_n
+  - https://www.royal-house.nl/documents?current=n_56_n
+  - https://www.royal-house.nl/documents?current=n_57_n
+  - https://www.royal-house.nl/documents?current=n_58_n
+  - https://www.royal-house.nl/latest/news?current=n_1_n
+  - https://www.royal-house.nl/latest/news?current=n_2_n
+  - https://www.royal-house.nl/latest/news?current=n_3_n
+  - https://www.royal-house.nl/latest/news?current=n_4_n
+  - https://www.royal-house.nl/latest/news?current=n_5_n
+  - https://www.royal-house.nl/latest/news?current=n_6_n
+  - https://www.royal-house.nl/latest/news?current=n_7_n
+  - https://www.royal-house.nl/latest/news?current=n_8_n
+  - https://www.royal-house.nl/latest/news?current=n_9_n
+  - https://www.royal-house.nl/latest/news?current=n_10_n
+  - https://www.royal-house.nl/latest/news?current=n_11_n
+  - https://www.royal-house.nl/latest/news?current=n_12_n
+  - https://www.royal-house.nl/latest/news?current=n_13_n
+  - https://www.royal-house.nl/latest/news?current=n_14_n
+  - https://www.royal-house.nl/latest/news?current=n_15_n
+  - https://www.royal-house.nl/latest/news?current=n_16_n
+  - https://www.royal-house.nl/latest/news?current=n_17_n
+  - https://www.royal-house.nl/latest/news?current=n_18_n
+  - https://www.royal-house.nl/latest/news?current=n_19_n
+  - https://www.royal-house.nl/latest/news?current=n_20_n
+  - https://www.royal-house.nl/latest/news?current=n_21_n
+  - https://www.royal-house.nl/latest/news?current=n_22_n
+  - https://www.royal-house.nl/latest/news?current=n_23_n
+  - https://www.royal-house.nl/latest/news?current=n_24_n
+  - https://www.royal-house.nl/latest/news?current=n_25_n
+  - https://www.royal-house.nl/latest/news?current=n_26_n
+  - https://www.royal-house.nl/latest/news?current=n_27_n
+  - https://www.royal-house.nl/latest/news?current=n_28_n
+  - https://www.royal-house.nl/latest/news?current=n_29_n
+  - https://www.royal-house.nl/latest/news?current=n_30_n
+  - https://www.royal-house.nl/latest/news?current=n_31_n
+  - https://www.royal-house.nl/latest/news?current=n_32_n
+  - https://www.royal-house.nl/latest/news?current=n_33_n
+  - https://www.royal-house.nl/latest/news?current=n_34_n
+  - https://www.royal-house.nl/latest/news?current=n_35_n
+  - https://www.royal-house.nl/latest/news?current=n_36_n
+  - https://www.royal-house.nl/latest/news?current=n_37_n
+  - https://www.royal-house.nl/latest/news?current=n_38_n
+  - https://www.royal-house.nl/latest/news?current=n_39_n
+  - https://www.royal-house.nl/latest/news?current=n_40_n
+  - https://www.royal-house.nl/latest/activities?current=n_1_n
+  - https://www.royal-house.nl/latest/activities?current=n_2_n
+  - https://www.royal-house.nl/latest/activities?current=n_3_n
+  - https://www.royal-house.nl/latest/activities?current=n_4_n
+  - https://www.royal-house.nl/latest/activities?current=n_5_n
+  - https://www.royal-house.nl/latest/activities?current=n_6_n
 
 listing:
-  link_selector: ".sui-results-container a, .search-block__results a"
-  link_pattern: '/documents/\d{4}/\d{2}/\d{2}/'
+  link_pattern: '/(documents|latest/(news|activities))/\d{4}/\d{2}/\d{2}/'
+
+pagination:
+  type: none      # each cursor page is its own start_url — see the header
 
 title:
   selectors: ["h1"]
 text:
   selectors: ["main article", "main"]
 date:
-  url_regex: '/documents/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+  # The permalink carries an unambiguous ISO date in named groups, which the engine assembles
+  # directly (no dateparser, no locale ambiguity). Covers all three namespaces.
+  url_regex: '/(?:documents|latest/(?:news|activities))/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
 
-position: king
-date_languages: ["en", "nl"]
+# No speaker_default: the site publishes for the whole Royal House — King Willem-Alexander,
+# Queen Máxima, Princess Beatrix and others — so the cleaner's speaker pass must decide.
+date_languages: ["en"]
 notes: >
-  DRAFT - probe-validated (no full run). Netherlands Royal House via royal-house.nl
-  /documents?type=speech. Platform-Rijksoverheid Search-UI SPA -> renderer: js; the cursor pager
-  is not chainable, so the ~60 cursor pages (?current=n_<page>_n) are enumerated as start_urls
-  (type: none), covering ~2004->present (King Willem-Alexander 2013-, plus Queen Maxima and pre-2013
-  Beatrix/Crown-Prince). Detail pages static; text from <main>; date from the document URL.
-  speaker_default omitted (mixed royals) - cleaner assigns speaker + keeps the head of state; the
-  document-type gate drops the few non-speech royal reports the type facet leaks. Speeches are in
-  their delivery language (mostly English, some German/French/Dutch on state visits). FULL RUN
-  pending (js render of ~60 listing pages + detail pages).
+  WIDENED 2026-08-13 (chunk A5). Two findings. (1) The `?type=speech` filter on all 64 old
+  start_urls was a CLIENT-SIDE facet the server ignores — cursor pages 1 and 20 return byte-identical
+  item sets with and without it, and the "filtered" list contains the Provenance Research report —
+  so it was removed; it bought nothing and would have silently narrowed the recipe the day the SPA
+  started honouring it. (2) The site's own /sitemap shows a /latest tree beside /documents:
+  /latest/news (37 cursor pages, ~370 items) and /latest/activities (~40) were missing entirely and
+  are now taken. /latest/speeches (55 pages) was checked and deliberately NOT added — every item on
+  it links to /documents/Y/M/D/<slug>, so it is an alternate index, not a section. Section depths
+  measured by binary-searching each cursor pager; start_urls carry a small margin over the last
+  non-empty page. Some documents are German/French renderings of the same speech (the site
+  publishes state-visit texts in the host language); they are distinct documents with their own
+  permalinks, and the cleaner records per-document language. renderer: js, so budget on measured
+  headless-Chromium rates, not the 4,467 pages/h static-live figure. NO --rescrape.
+  FULL RUN is the researcher's gate.

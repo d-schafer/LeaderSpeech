@@ -25,13 +25,36 @@ source_id: deu_bundespraesident
 country: Germany
 source_language: German
 start_urls:
+  # ⚠ WIDENED 2026-08-13 (sweep chunk A6). Two separate gaps were closed.
+  # (1) SECTIONS: the recipe read one listing. bundespraesident.de/DE/reden-und-aktuelles/ has
+  #     four article-bearing children (Reden und Interviews, Berichte, Publikationen,
+  #     Presse/Pressemitteilungen) plus Termine and Mediathek, which are out of scope.
+  # (2) DEPTH: the per-president archive trees this recipe's own header flagged as a follow-up
+  #     ("~40 years of German head-of-state speeches, now unblocked by #56") are now start_urls.
   - https://www.bundespraesident.de/DE/reden-und-aktuelles/reden-und-interviews/reden-und-interviews_node.html
+  - https://www.bundespraesident.de/DE/reden-und-aktuelles/berichte/berichte_node.html
+  - https://www.bundespraesident.de/DE/reden-und-aktuelles/presse/pressemitteilungen/pressemitteilungen_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/richard-von-weizsaecker/reden/reden_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/roman-herzog/reden/reden_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/johannes-rau/reden/reden_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/horst-koehler/reden/reden_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/christian-wulff/reden/reden_node.html
+  - https://www.bundespraesident.de/DE/amt-und-aufgaben/ehemalige-bundespraesidenten/joachim-gauck/reden/reden_node.html
 renderer: static
 
 listing:
   # After <base href> resolution these are absolute bundespraesident.de/SharedDocs/... URLs;
-  # the pattern keeps speech/interview articles and drops nav/section links.
-  link_pattern: 'SharedDocs/Reden/DE/.+/(Reden|Interviews)/.+\.html$'
+  # the pattern keeps articles and drops nav/section links.
+  # ⚠ `Zeitungsbeitraege` (the president's signed newspaper op-eds) was MISSING — the listing
+  # links them right alongside Reden and Interviews, e.g.
+  # SharedDocs/Reden/DE/Frank-Walter-Steinmeier/Zeitungsbeitraege/2026/260721-FAZ-gemeinsamer-Namensbeitrag-DEU-FIN.html
+  # so the old pattern silently dropped a whole document type. Berichte and Pressemitteilungen
+  # come with the new start_urls above; both were sampled and carry real prose (1,726 and 912
+  # chars respectively) — see deu_bundespraesident_wayback.yml's header for the measurements.
+  # `(?<!_node)` keeps section-index pages out.
+  # The `?nn=<id>` tail is admitted because the ehemalige-bundespraesidenten listings serve EVERY
+  # link that way and nothing else — without it those six pages contribute zero.
+  link_pattern: 'SharedDocs/(?:Reden/DE/[^/]+/(?:Reden|Interviews|Zeitungsbeitraege|UebersetzteReden)|Berichte/DE/[^/]+|Pressemitteilungen/DE)/.+(?<!_node)\.html(?:\?nn=\d+)?$'
 
 pagination:
   type: none
@@ -48,9 +71,25 @@ date:
   selectors: [".c-article__topline-wrapper .is-date [aria-hidden]"]
 
 position: president
-speaker_default: Frank-Walter Steinmeier
+# ⚠ speaker_default REMOVED 2026-08-13 with the widening. It was "Frank-Walter Steinmeier", which
+# was safe while the recipe read only the current listing — but the start_urls now include the
+# archive trees of Weizsäcker, Herzog, Rau, Köhler, Wulff and Gauck, so a hardcoded default would
+# have stamped Steinmeier's name on forty years of other presidents' speeches. The speaker is in
+# the URL path (SharedDocs/Reden/DE/<Name>/…) and the cleaner's speaker pass + tenure crosscheck
+# assign it from country + date.
 date_languages: ["de"]
 notes: >
+  WIDENED 2026-08-13 (A6): 9 → 39 links, re-probed --spread → title/text/date 6/6. From one
+  section to nine start_urls (Reden+Interviews, Berichte, Pressemitteilungen, and the six
+  former-president archive trees this recipe's own header had flagged as a follow-up), plus the
+  `Zeitungsbeitraege` document type the pattern had silently dropped. speaker_default REMOVED —
+  see the comment on it. ⚠ THE LIVE SITE STAYS SHALLOW BY CONSTRUCTION and this was re-tested,
+  not inherited: the GSB `?gtp=` chunk token is still unsynthesisable, AND the paginated
+  Aktuellessuche form (SiteGlobals/Forms/Suche/Aktuellessuche/…?documentType_=speech) returns
+  HTTP 403 to the honest bot UA *and* to a browser UA, so there is no reachable pager at all. The
+  ehemalige-bundespraesidenten pages list only ~3 curated highlights each. The DEEP archive is
+  therefore the wayback siblings' job, and they now hold it: deu_bundespraesident_wayback 2,018 →
+  4,278 snapshots and deu_bundespraesident_english_wayback 267 → 513. NO --rescrape needed.
   DRAFT — proof for issue #56 (<base href>). Probe-validated: the reden-und-interviews
   listing yields ~9 recent Steinmeier reden/interviews, all resolving to
   https://www.bundespraesident.de/SharedDocs/Reden/DE/... (NOT the Fehlerseite), with title

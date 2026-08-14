@@ -6,15 +6,29 @@
 # later site; the audit shows its scraped years as 2025-2026. Koroma's presidency lived on
 # the earlier Joomla site and was not reachable by any recipe.
 #
-# TWO JOOMLA ROUTES TO THE SAME ARTICLES, both taken because the Archive captured different
-# subsets through each:
-#     /index.php/presidents-speeches/<id>-<slug>                         ~232 captures
-#     /index.php/component/content/article/34-news-articles/<id>-<slug> 1,224 captures
-# The numeric <id> prefix is Joomla's article id, so the two routes overlap only where the
-# same id appears twice — and the engine dedupes by URL, not by id, so a small number of
-# duplicate rows is possible and is the price of covering both. Category 34 is
-# "news-articles"; the other observed categories (42-slideshow-article, 41-press-release,
-# 44-state-house-chief-of-staff) are tiny and mostly not speech.
+# JOOMLA ROUTES TO THE SAME ARTICLES. The numeric <id> prefix is Joomla's article id, and this
+# site's menu re-serves ONE article under many routes — the alternate-views trap at scale. So the
+# route list is chosen by MEASURED marginal id contribution, not by name. Counted 2026-08-13 over a
+# whole-host CDX enumeration (29,103 captures, 1,442 distinct Joomla article ids):
+#
+#     route                                             urls   NEW ids over the original pattern
+#     component/content/article/34-news-articles        1,192    0  (the original pattern)
+#     presidents-speeches                                 276    0  (the original pattern)
+#     press-release                                       265  +71   ← ADDED
+#     component/content/article/<id>-<slug>  (no cat)      47  +40   ← ADDED (best ratio on the host)
+#     state-house-blog                                    100  +24   ← ADDED
+#     component/content/article/44-state-house-chief-…      7   +7   ← ADDED
+#     component/content/article/41-press-release            2   +2   ← ADDED
+#     useful-links / contact / the-vice-president /       220/159/136/129/121/121/104/92/91/65/…
+#       foreign-missions / office-of-the-chief-of-staff /       0–6 new ids EACH   ← NOT ADDED
+#       the-president / state-house-headlines-archive /
+#       investment-guide / citizens-corner / presidential-cabinet / …
+#
+# Result: ids 1,284 → 1,426 (+142, i.e. 90% of the 158-id ceiling) for 421 extra fetches. The
+# fourteen pure menu-alias routes would cost ~1,400 more fetches for the last 16 ids and write
+# ~1,400 duplicate rows — the Georgia/Seychelles call from chunk A5, applied here.
+# ⚠ MEASURED COST OF WHAT IS TAKEN: 1,889 fetches for 1,426 ids ≈ 463 duplicate rows (the original
+# pattern already carried 184 of them). Accepted; recorded so nobody re-derives it.
 #
 # NOT TAKEN, and worth recording so it is not re-investigated: this host is dominated by
 # junk. Of 29,287 unique status-200 captures, ~3,200 are Joomla search-component URLs
@@ -29,9 +43,11 @@ start_urls:
   - statehouse.gov.sl/index.php
 
 listing:
-  # Both routes, each anchored on the numeric Joomla article id so section and index
-  # captures cannot match. `^[^?]*` bars the search-component query strings.
-  link_pattern: '^[^?]*/index\.php/(?:presidents-speeches|component/content/article/34-news-articles)/\d+-[a-z0-9][-a-z0-9]*/?$'
+  # Every route measured to carry article ids the others do not, each anchored on the numeric
+  # Joomla article id so section and index captures cannot match. `^[^?]*` bars the
+  # search-component query strings. WIDENED 2026-08-13 (A6): 1,468 → 1,889 captures, 1,284 → 1,426
+  # distinct article ids.
+  link_pattern: '^[^?]*/index\.php/(?:presidents-speeches|press-release|state-house-blog|component/content/article(?:/34-news-articles|/44-state-house-chief-of-staff-|/41-press-release)?)/\d+-[a-z0-9][-a-z0-9]*/?$'
 
 pagination:
   type: wayback
@@ -75,7 +91,10 @@ notes: >
   DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Ernest Bai Koroma's
   presidency, which is 155 of Sierra Leone's 172 unmatched audit rows and was reachable by no
   existing recipe: sle_statehouse_wayback covers only the later WordPress permalink scheme.
-  Two Joomla routes to the article space; probe harvests 1,468 captures, 2012-2017, and
+  WIDENED 2026-08-13 (sweep chunk A6) from 2 routes to 7, chosen by measured marginal article-id
+  contribution (table in the header): 1,468 → 1,889 captures, 1,284 → 1,426 distinct Joomla
+  article ids. Re-probed --spread --n 12 → title 12/12, text 12/12, date 5/12, and the sampled
+  span now reaches 2007-12-22 (the pre-widening header said 2012-2017).
   title + text resolve on a recipe selector on 12 of 12 sampled pages. The date comes from
   the State House press dateline inside the article table because the site offers nothing
   else — no date element, no Joomla create stamp, no date in the URL — and `regex_required`

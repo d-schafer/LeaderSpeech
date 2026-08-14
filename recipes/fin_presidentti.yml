@@ -1,4 +1,31 @@
-# Finland — President of the Republic (presidentti.fi), "Puheet" (speeches).
+# Finland — President of the Republic (presidentti.fi), FINNISH-language newsroom.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ───────────────────────────────────────────────
+# This recipe filtered on ONE category, `puhe` (21) = 52 of the site's 1,994 posts = 2.6%.
+# recipe_tools/wpjson.py on the REST root gives the whole vocabulary, and it is trilingual —
+# every post carries exactly one category and the nine categories are three parallel sets:
+#     FI   uutinen 1 = 356   tiedote 114 = 318   puhe 21 = 52     -> 726
+#     SV   nyhet  14 = 344   pressmeddelande 116 = 250  tal 25 = 52
+#     EN   news    9 = 323   press-release 118 = 251  speech 23 = 52
+# So the recipe took the section literally called "speeches" and left the news and press-release
+# streams — 674 further FINNISH posts, 13x what it held — untouched. Now categories=1,21,114:
+# 52 -> 725 posts (x-wp-total, 2024-02-28 -> present).
+#
+# The existing header's note that 21/23/25 hold the SAME 52 speeches is CORRECT and unchanged —
+# they are translations, so only ONE language's categories may be taken here. The three FINNISH
+# ids are the right set for a source_language: Finnish recipe.
+#
+# ⚠ ALSO FIXED: a latent date bug that the 52-speech validation did not expose. `time` matches
+# THREE elements on every article — the article's own date plus TWO "you might also like" cards
+# in a wp-block-post-template query loop at the foot of the page — and the engine JOINS all
+# matches, so the stored value was three ISO datetimes concatenated, the second and third being
+# the crawl-day dates of unrelated posts. This is the run-5 `.date` sidebar-feed trap exactly.
+# Scoped with :not(ul.wp-block-post-template time); bare `time` stays as the fallback.
+#
+# OUT: the `event` CPT (128 items) is the weekly engagement diary — title "Viikko 32 –
+# Tasavallan presidentin ohjelma", body a wp-block-event-date-picker widget, no prose. Sampled
+# 2026-08-13 and rejected, same call as Croatia's /najave/ and Latvia's /en/event/ in chunk A3.
+# Also out: `gallery` (231) by RULE 1, `blog` (0 items).
 #
 # WHY api AND NOT AN HTML LISTING: presidentti.fi is WordPress with a JS front end. The
 # speech listing is a HASH-FRAGMENT SPA — /puheet/ and /category/puhe/ both redirect to
@@ -12,10 +39,11 @@ source_id: fin_presidentti
 country: Finland
 source_language: Finnish
 start_urls:
-  # categories=21 is "Puheet" (Finnish speeches). Find ids via
-  # /wp-json/wp/v2/categories?per_page=100 — they are stable but worth re-checking if the
-  # harvest ever empties. 100 is WordPress's max per_page.
-  - https://www.presidentti.fi/wp-json/wp/v2/posts?categories=21&per_page=100
+  # The three FINNISH categories: 1 uutinen (news), 114 tiedote (press release), 21 puhe
+  # (speech). Find ids via /wp-json/wp/v2/categories?per_page=100 — they are stable but worth
+  # re-checking if the harvest ever empties. 100 is WordPress's max per_page.
+  # Do NOT add 9/118/23 (EN) or 14/116/25 (SV): those are the same posts in another language.
+  - https://www.presidentti.fi/wp-json/wp/v2/posts?categories=1,21,114&per_page=100
 renderer: static
 
 listing:
@@ -26,7 +54,7 @@ pagination:
   param: page       # WordPress pages with ?page=N and returns HTTP 400
   start: 1          # ("rest_post_invalid_page_number") once you run past the end, which
   step: 1           # the engine logs and treats as "stop here" — expected, not a failure.
-  max_pages: 10
+  max_pages: 20     # 725 posts / 100 per page = 8 pages; headroom for growth
   api:
     # "." = the response IS the array. WordPress returns a bare JSON list at the root, and
     # a dotted path cannot address one (it needs at least one key). Engine support for this
@@ -53,7 +81,13 @@ date:
   #   "1.7.2026"  -> 2026-07-01 with ["fi"] / 2026-01-07 otherwise
   # The datetime ATTRIBUTE is ISO 8601, so it is unambiguous in any locale and cannot drift.
   # The api's `date` field (also ISO) is the engine's fallback if this ever stops matching.
-  selectors: ["time"]
+  #
+  # THE :not() IS LOAD-BEARING — see the header. Every article page ends with a two-card
+  # "you might also like" query loop (ul.wp-block-post-template), each card carrying its own
+  # <time>, so a bare `time` matches 3 elements and the engine joins ALL of them:
+  #   '2026-05-08T20:46:23+03:00 2026-08-10T16:16:21+03:00 2026-08-10T11:42:52+03:00'
+  # i.e. the article's real date followed by two crawl-day dates from unrelated posts.
+  selectors: ["time:not(ul.wp-block-post-template time)", "time"]
   attr: datetime
 
 position: president
@@ -68,12 +102,20 @@ position: president
 # Finnish day-first dates month-first (see above).
 date_languages: ["fi"]
 notes: >
-  Probe-validated. 52 speeches, coverage 2024-03-01 .. 2026-06-10 — i.e. Alexander Stubb's
-  term to date and nothing earlier: the floor is his inauguration, so Niinistö (2012-2024)
-  is gone from the live site and would need a wayback companion. Listing is REST-only (the
-  HTML listing is a hash-fragment SPA; RSS carries just 10 of 52); speech pages are static.
-  Categories 21 (puhe/FI), 23 (speech/EN) and 25 (tal/SV) each hold the SAME 52 speeches —
-  they are translations of one another, so scraping more than one would duplicate every row.
-  Finnish (21) is the original per project convention; the translation stage fills English.
+  WIDENED 2026-08-13 (chunk A5) from the single `puhe` category (52 posts, 2.6% of the site)
+  to all three FINNISH categories — uutinen 356 + tiedote 318 + puhe 52 = 725 posts,
+  2024-02-28 -> present. Also fixed a latent date bug the 52-speech validation never exposed:
+  a bare `time` selector joined the article's date to TWO related-posts cards, so the stored
+  value was three ISO datetimes (see the date field's comment). Coverage floor is Alexander
+  Stubb's inauguration — Niinistö (2012-2024) is gone from the live site; the wayback companion
+  fin_presidentti_english_wayback holds that era. Listing is REST-only (the HTML listing is a
+  hash-fragment SPA; RSS carries only the latest 10); article pages are static HTML.
+  Categories 21/23/25 (puhe/speech/tal) hold the SAME 52 speeches and 1/9/14 + 114/118/116 are
+  likewise FI/EN/SV renderings of one content set, so exactly one language's trio may be taken
+  here. ⚠ SEE fin_presidentti_english: it is this same content set in its OFFICIAL ENGLISH
+  rendering (625 posts, no translation step needed) and is the one to run under the English-first
+  policy. RUN ONE OR THE OTHER, NOT BOTH — the per-country state file skips on the exact URL and
+  the FI and EN permalinks differ, so running both would land ~600 duplicate documents.
+  NO --rescrape: the newly matched URLs were never in the state file's seen set.
   Finland's president is the head of state with real foreign-policy powers but the PM leads
   the government (valtioneuvosto.fi) — a separate source, not in master_sources.

@@ -1,26 +1,51 @@
 # Serbia — President of the Republic of Serbia (predsednik.rs), Aleksandar Vučić.
-# Static HTML WordPress site with ?page=N pagination. The Serbian Latin-script
-# section (/lat/pres-centar/vesti, "news/vesti") is the fullest speech archive
-# (~1,970 items over ~165 pages, back to ~2017), far deeper than the English
-# section (/en/press-center/news, ~288 items from 2020). Text left in Serbian;
-# the downstream translation stage populates the English text/title columns.
+# Static HTML site with ?page=N pagination. Text left in Serbian; the downstream
+# translation stage populates the English text/title columns.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ────────────────────────────────────────
+# The recipe took ONE of the press centre's four content sections, and NOT the biggest.
+# Sized from each listing's own pager (recipe_tools/pagecount.py --pager 'page=(\d+)'):
+#     vesti (news)                167 pages  ~2,004 items   <- the only section taken
+#     saopstenja (press releases) 214 pages  ~2,568 items   <- BIGGER, and missed entirely
+#     najave-obavestenja          (announcements and notices)
+#     najbolje-iz-srbije          (the best from Serbia)
+# So the old scope was ~2,004 of ~4,600 = 44%.
+#
+# NOT alternate views — tested the gov.ro way: a saopstenja slug
+# (/lat/pres-centar/saopstenja/drzava-palestina-potvrdjuje-ucesce-na-specijalizovanoj-izlozbi-expo-2027-u-beogradu)
+# returns HTTP 404 under /lat/pres-centar/vesti/. Distinct content sets. The existing
+# selectors carry over verbatim: on that press release h1.single-title gives the headline,
+# .single-content 1,108 chars of prose, .single-content .date "02.07.2026. - 14:01".
+#
+# OUT by RULE 1: /lat/pres-centar/galerija (photo gallery),
+# /lat/predsednik/ukazi-o-odlikovanjima (the decorations register — an honours register, which
+# the 2026-08-10 legal-instruments ruling still excludes), /lat/pres-centar/javne-nabavke
+# (public procurement notices) and the static /lat/generalni-sekretarijat/* office pages.
+#
+# ⚠ A HEADER CLAIM CORRECTED: this file said the English section is "shallow (~288 items)".
+# That counted /en/press-center/news alone. With press-releases (372), announcements (36) and
+# the-best-from-serbia (12) the live English tree is ~708 items — enough to be worth its own
+# recipe, and it is ENGLISH, so srb_predsednik_english was authored in the same pass.
 source_id: srb_predsednik
 country: Serbia
 source_language: Serbian
 start_urls:
   - https://www.predsednik.rs/lat/pres-centar/vesti
+  - https://www.predsednik.rs/lat/pres-centar/saopstenja
+  - https://www.predsednik.rs/lat/pres-centar/najave-obavestenja
+  - https://www.predsednik.rs/lat/pres-centar/najbolje-iz-srbije
 renderer: static
 
 listing:
   link_selector: "a"
-  link_pattern: '/lat/pres-centar/vesti/[^"]+'
+  link_pattern: '/lat/pres-centar/(vesti|saopstenja|najave-obavestenja|najbolje-iz-srbije)/[^"]+'
 
 pagination:
   type: query_param
   param: page
   start: 1
   step: 1
-  max_pages: 170   # listing self-terminates ~page 165 (0 links); 170 is a safe cap
+  max_pages: 250   # saopstenja is the deepest at ~214 pages; the others self-terminate earlier
 
 title:
   selectors: ["h1.single-title", "h1", "title"]
@@ -37,10 +62,15 @@ context:
 position: president
 date_languages: ["sr"]
 notes: >
-  predsednik.rs (WordPress). Fullest archive is the Serbian Latin news section
-  /lat/pres-centar/vesti with ?page=N pagination (12 items/page, ~165 pages,
-  ~1,972 items back to 2014). An English section exists (/en/press-center/news)
-  but is shallow (~288 items, 2020+). Title is h1.single-title; body is
+  WIDENED 2026-08-13 (chunk A5) from the single news section /lat/pres-centar/vesti
+  (~2,004 items, 44% of the press centre) to all four content sections — adding
+  saopstenja (~2,568 items, BIGGER than the section the recipe took),
+  najave-obavestenja and najbolje-iz-srbije. Verified NOT alternate views: a
+  saopstenja slug 404s under /vesti/. Existing selectors carry over verbatim.
+  max_pages raised 170 -> 250 because saopstenja is ~214 pages. NO --rescrape:
+  the newly matched URLs were never in the Serbia state file's seen set.
+  predsednik.rs. Serbian Latin script, ?page=N pagination (12 items/page).
+  Title is h1.single-title; body is
   .single-content; the article date is the first .date inside .single-content
   (DD.MM.YYYY. - HH:MM). Speaker is deliberately LEFT BLANK (no speaker_default):
   the archive spans TWO presidents — Aleksandar Vučić (since 31 May 2017) and his

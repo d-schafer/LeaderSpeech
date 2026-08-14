@@ -1,0 +1,71 @@
+# Serbia — President of the Republic of Serbia (predsednik.rs), the OFFICIAL ENGLISH tree.
+#
+# NEW 2026-08-13 (chunk A5). Serbia had a Serbian-Latin live recipe (srb_predsednik) and a
+# wayback-only English recipe (srb_predsednik_english_wayback); the LIVE English tree had none.
+# srb_predsednik's header dismissed it as "shallow (~288 items)" — that counted /en/press-center/news
+# alone. Sized from each listing's own pager (pagecount.py --pager 'page=(\d+)'):
+#     news                24 pages   press-releases      31 pages
+#     announcements        3 pages   the-best-from-serbia 1 page
+# i.e. ~708 items, not 288. That is worth its own recipe, it lands straight in the English column
+# with no translation step, and it is queueable now under the English-first policy.
+#
+# NOT alternate views of each other: tested the gov.ro way on the Serbian side, where a
+# saopstenja slug 404s under /vesti/. The four English sections mirror the four Serbian ones.
+#
+# ⚠ THIS IS THE SAME CONTENT SET AS srb_predsednik, IN ANOTHER LANGUAGE — but unlike Finland's
+# pair the two are NOT interchangeable: the Serbian tree is ~7,700 items and the English ~708,
+# so English is a curated subset. Running BOTH is defensible here (the Serbian side carries ~7,000
+# documents that have no English rendering at all); it will duplicate the ~700 that overlap, since
+# data/state/Serbia.json skips on the exact URL and /lat/... and /en/... differ. Researcher's call.
+# If only one is run, run this one first under the English-first policy.
+source_id: srb_predsednik_english
+country: Serbia
+source_language: English
+renderer: static
+start_urls:
+  - https://www.predsednik.rs/en/press-center/news
+  - https://www.predsednik.rs/en/press-center/press-releases
+  - https://www.predsednik.rs/en/press-center/announcements
+  - https://www.predsednik.rs/en/press-center/the-best-from-serbia
+
+listing:
+  link_selector: "a"
+  link_pattern: '/en/press-center/(news|press-releases|announcements|the-best-from-serbia)/[^"]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 60    # deepest English section is ~31 pages; the rest self-terminate earlier
+
+title:
+  selectors: ["h1.single-title", "h1", "title"]
+text:
+  selectors: [".single-content", "article.single-item", "article", "main"]
+date:
+  # The article date is the first .date inside .single-content (it sits before the title);
+  # scoping to .single-content avoids the sidebar "latest news" dates. The English pages keep
+  # the Serbian day-first format "22.04.2024. - 22:34", which is why date_languages stays ["sr"].
+  selectors: [".single-content .date", ".single-content > .date"]
+context:
+  selectors: ["h2.single-subtitle"]
+
+position: president
+# ⚠ ["sr"] IS CORRECT EVEN THOUGH THIS IS THE ENGLISH TREE — do not "fix" it to ["en"].
+# The English pages render the date as "22.04.2024. - 22:34", i.e. day-first; with "en" dateparser
+# would read 04.05.2024 as 5 April instead of 4 May. dateparser lets the first matching locale win,
+# so ["sr","en"] is wrong too.
+date_languages: ["sr"]
+# No speaker_default: the archive spans Aleksandar Vučić (since 2017-05-31) and Tomislav Nikolić
+# (2012-2017), so the cleaner's tenure crosscheck must assign the speaker from country+date.
+notes: >
+  NEW 2026-08-13 (chunk A5) — the OFFICIAL ENGLISH press centre of predsednik.rs, ~708 items across
+  news, press-releases, announcements and the-best-from-serbia. Authored in the same pass as the
+  srb_predsednik widening under the 2026-08-11 author-now policy, after the RULE 1 audit showed the
+  parent's "English is shallow (~288 items)" note counted only one of the four English sections.
+  Selectors verified on an English article (h1.single-title, .single-content 40,297 chars on the
+  2024 UNSC address, .single-content .date). ENGLISH, so immediately queueable and needs no
+  translation stage; makes zero Internet-Archive requests. Shares data/state/Serbia.json with
+  srb_predsednik and srb_predsednik_english_wayback — run serially. NO --rescrape.
+  FULL RUN is the researcher's gate.

@@ -11,18 +11,54 @@
 # No wayback_to bound: the companion live recipe (rou_presidency) covers only the CURRENT president
 # (Nicușor Dan, 2025- ) and needs a user-launched Chrome, so this archive harvest is the primary
 # Iohannis-era source and should collect its full 2016-2023 span.
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ─────────────────────────────────────────────────────
+# The recipe took the section literally called "discursuri" — 468 of 17,335 in-scope captures on
+# the host = 2.7%, the narrowest ratio in chunk A5. presidency.ro files its articles as
+# /ro/<root>/<subsection>/<slug> under three roots, and `discursuri` is one subsection of one root.
+# Section histogram from the CDX enumeration (recipe_tools/segments.py on the saved list):
+#     media/comunicate-de-presa        1,411     presedinte/agenda-presedintelui  1,291
+#     media/agenda-presedintelui         823     media/politica-externa             540
+#     media/discursuri                   477  <- the ONLY one taken
+#     media/declaratii-de-presa          287     media/mesaje                       277
+#     media/decrete-si-acte-oficiale     276     presa/securitate-nationala-si-aparare 118
+#     presa/puternici-prin-educatie       51     media/diaspora                      39
+#     presa/sanatate                      38     ... 94 distinct <root>/<subsection> keys in all
+# All of these are speeches, press statements, messages and foreign-policy addresses — squarely in
+# scope. decrete-si-acte-oficiale is kept under the 2026-08-10 legal-instruments ruling: each item
+# has its own title, its own slug-dated permalink and Romanian body text, so it passes the
+# three-part test (unlike president.am/en/decrees, which failed all three).
+#
+# BOTH ROOTS ARE TAKEN even though they share a subsection name. Checked rather than assumed:
+# `agenda-presedintelui` appears under media/ (823) and presedinte/ (1,291), and across the two the
+# 2,109 URLs carry 1,607 DISTINCT slugs — so the overlap is ~24%, not the 100% that would make one
+# an alternate view of the other. Taking both costs ~500 duplicate pairs and gains ~780 documents;
+# on RULE 1's own logic (a missed section is permanent, a duplicate is cheap and detectable by
+# date+title) that trade goes to coverage.
+#
+# OUT: media/album-foto (64) and the galleries, by RULE 1.
+#
+# BANKED, NOT AUTHORED — the pre-2015 query-string CMS. ~2,400 captures of
+# `?_RID=det&tb=date&id=<N>` / `index.php?_RID=det&tb=date&id=<N>` / `?_RID=fdet&id=<N>`, i.e. the
+# Băsescu-era site (presidency.ro's only reach before Iohannis). It is a completely different
+# template and needs its own selector chain and its own probe, so it is a sibling recipe rather
+# than a widening. Non-English, so it is parked behind the English-first policy either way.
 source_id: rou_presidency_wayback
 country: Romania
 source_language: Romanian
 renderer: static
 start_urls:
-  # CDX prefix — the engine prefix-matches (no trailing '*').
-  - presidency.ro/ro/media/discursuri
+  # CDX prefixes — the engine prefix-matches (no trailing '*'). Three roots, because a wayback
+  # start_url is a CDX PREFIX: widening the pattern alone would have been a no-op (run-7 lesson).
+  - presidency.ro/ro/media
+  - presidency.ro/ro/presedinte
+  - presidency.ro/ro/presa
 
 listing:
-  # Require a real article slug (>=10 chars) after discursuri/, excluding the bare listing page and
-  # its year-filter captures. Slugs sometimes carry %E2%80 (smart-quote) encoding, so [^/] not [a-z].
-  link_pattern: '/ro/media/discursuri/[^/]{10,}'
+  # /ro/<root>/<subsection>/<slug>, subsection-AGNOSTIC per RULE 1 so it survives the Presidency
+  # adding or renaming one. Require a real article slug (>=12 chars) to exclude the bare listing
+  # pages and their year-filter captures; slugs carry %E2%80 (smart-quote/non-breaking-hyphen)
+  # encoding, so [^/] not [a-z]. album-foto is excluded by name.
+  link_pattern: '/ro/(?:media|presedinte|presa)/(?!album-foto/|galerie)[a-z0-9-]+/[^/?#]{12,}$'
 
 pagination:
   type: wayback
@@ -45,15 +81,36 @@ date:
   # than a confidently-wrong year. These selectors intentionally miss on the archived layout;
   # the article date comes from the cleaner's corrected-date pass (occasion/date stated in-text),
   # constrained to Iohannis's 2014-2024 term. -> recipe_status: partial.
-  selectors: ["time.published", ".news-date"]
+  #
+  # ⚠ FIXED 2026-08-13 (chunk A5) — 0/12 to 12/12, and the paragraph above stays because its
+  # WARNING about time.published is still correct; what was wrong is the conclusion that no usable
+  # date exists. It does: the article container div.box-page OPENS with the delivery date
+  # ("11 Mai 2017 „Mr. President of the European Commission, …"), in Romanian month names, which is
+  # why date_languages is ["ro"]. It is loose text, not an element, so it can only be reached as
+  # container + regex — and regex_required is what makes that safe, failing loudly instead of
+  # storing 8,000 chars of speech as the date. div.box-page is the ARTICLE container, so this does
+  # not pick up the div.menu-featured sidebar feed ("29 Oct 2018 Primirea Președintelui …"),
+  # which is the run-5 pmo.gov.sg trap sitting right next to it on the same page.
+  selectors: ["time.published", ".news-date", "div.box-page"]
+  regex: '\d{1,2}\s+[A-Za-zăâîșțĂÂÎȘȚ]+\s+20\d\d'
+  regex_required: true
 
 position: president
-speaker_default: Klaus Iohannis
+# speaker_default REMOVED 2026-08-13 with the widening. It was justified as "the whole CDX window
+# is his term, 2014-2024", which was true of the /ro/media/discursuri prefix alone. The widened
+# harvest spans three roots and ~5,800 captures, so it can reach outside Iohannis's term — and a
+# hardcoded speaker is a silent mislabel, not a visible gap. Now that the date field works 12/12
+# (see above), the cleaner's tenure crosscheck can assign the speaker from country+date, which is
+# the project's standard for any multi-president window.
 date_languages: ["ro"]
 notes: >
-  PARTIAL — probe-validated (no full run): title (h2) + text (.news-details) GREEN over 474
-  archived captures; DATE is the known-weak field. Iohannis-era discursuri via the Internet
-  Archive (2016-2023, ~314 slugs). speaker_default Klaus Iohannis (the whole CDX window is his
+  WIDENED AND REPAIRED 2026-08-13 (chunk A5): 468 -> 5,837 snapshots (2.7% -> the whole
+  /ro/{media,presedinte,presa}/<subsection>/ article space), and probe --spread --n 12 is now
+  12/12 title, 12/12 text and 12/12 DATE, spanning 2015-2023. The date was 0/12 and documented as
+  unfixable; div.box-page opens with the Romanian-language delivery date and container+regex with
+  regex_required reads it exactly. That in turn made it safe to REMOVE speaker_default, which the
+  wider window would otherwise have turned into a silent mislabel. Superseded text follows.
+  Iohannis-era discursuri via the Internet Archive (2016-2023, ~314 slugs). speaker_default Klaus Iohannis (the whole CDX window is his
   term, 2014-2024); tenure crosscheck corrects strays. presidency.ro publishes NO reliable
   machine-readable article date in the archived HTML — .link-big-date is a crawl/JS artifact
   (garbage on re-crawls) and the URL slugs carry no date — so dates are DEFERRED to the cleaner's

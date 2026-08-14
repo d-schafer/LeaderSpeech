@@ -1,0 +1,86 @@
+# Finland — President of the Republic (presidentti.fi), the OFFICIAL ENGLISH newsroom.
+#
+# NEW 2026-08-13 (chunk A5). presidentti.fi publishes every newsroom item in three parallel
+# languages, each as its own post with its own permalink and its own category:
+#     FI   uutinen 1 = 356   tiedote 114 = 318   puhe 21 = 52     (-> fin_presidentti)
+#     SV   nyhet  14 = 344   pressmeddelande 116 = 250  tal 25 = 52
+#     EN   news    9 = 323   press-release 118 = 251  speech 23 = 52   <- THIS RECIPE, 625 posts
+# Until now only the FINNISH tree had a live recipe, and only its `puhe` category at that. The
+# official English rendering was reachable through NO live recipe — just fin_presidentti_english_wayback,
+# which covers a different, older URL generation. This lands straight in the English column with
+# NO translation step, which is why it exists under the English-first policy.
+#
+# ⚠ RUN THIS **OR** fin_presidentti, NOT BOTH. They are the same ~625 documents in two renderings.
+# data/state/Finland.json skips on the exact URL string and the FI and EN permalinks differ
+# (/tasavallan-presidentti-…-puhe-… vs /en/speech-by-president-…), so running both lands ~600
+# duplicate documents that nothing downstream would collapse. The English one is preferred: same
+# content, target language, no machine translation.
+#
+# WHY api AND NOT AN HTML LISTING (inherited from fin_presidentti, re-verified): presidentti.fi is
+# WordPress with a JS front end. /en/current-affairs/speeches/ and the other section listings are
+# HASH-FRAGMENT SPAs whose static HTML carries no article links, and their ?page=2 is a 404. The
+# REST API is the one route to the full set. The article PAGES are plain server-rendered HTML, so
+# the JSON supplies the links and the engine fetches each page for clean prose.
+source_id: fin_presidentti_english
+country: Finland
+source_language: English
+start_urls:
+  # 9 news, 118 press-release, 23 speech. Find ids via /wp-json/wp/v2/categories?per_page=100.
+  # Do NOT add the FI (1/114/21) or SV (14/116/25) ids: those are the same posts in another language.
+  - https://www.presidentti.fi/wp-json/wp/v2/posts?categories=9,23,118&per_page=100
+renderer: static
+
+listing:
+  link_pattern: 'presidentti\.fi/en/[^/]+/?$'
+
+pagination:
+  type: api
+  param: page       # WordPress pages with ?page=N and returns HTTP 400
+  start: 1          # ("rest_post_invalid_page_number") once you run past the end, which
+  step: 1           # the engine logs and treats as "stop here" — expected, not a failure.
+  max_pages: 20     # 625 posts / 100 per page = 7 pages; headroom for growth
+  api:
+    # "." = the response IS the array (WordPress returns a bare JSON list at the root).
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    # text_field deliberately unset: WP's content.rendered is HTML, so setting it would store
+    # markup as the body AND skip the page fetch. The JSON supplies url/title/date only.
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".entry-content", "article"]
+date:
+  # THE :not() IS LOAD-BEARING. Every article page ends with a two-card "you might also like"
+  # query loop (ul.wp-block-post-template), each card carrying its own <time>, and the engine
+  # JOINS every matching element — a bare `time` returns the article's date followed by two
+  # crawl-day dates from unrelated posts. Same trap as run 5's pmo.gov.sg `.date` sidebar feed.
+  selectors: ["time:not(ul.wp-block-post-template time)", "time"]
+  # attr: datetime IS THE POINT — do not drop it to read the element's text.
+  # <time datetime="2026-07-30T12:27:42+03:00">30.7.2026</time>
+  attr: datetime
+
+position: president
+# speaker_default deliberately omitted, same reasoning as fin_presidentti: the site floor is
+# Alexander Stubb's own inauguration day, which shows the site drops the outgoing president, so a
+# hard-coded speaker would silently mislabel the NEXT president. The tenure crosscheck assigns it
+# from country+date and cannot go stale.
+#
+# ⚠ ["fi"] IS CORRECT EVEN THOUGH THIS IS THE ENGLISH TREE — do not "fix" it to ["en"].
+# The English pages still render the date in Finnish numeric day-first style ("30.7.2026"), so if
+# the datetime attribute ever disappears and the fallback reads element TEXT, "en" would parse
+# 10.6.2026 as 6 October instead of 10 June. dateparser lets the first matching locale win, so
+# ["fi","en"] is wrong too.
+date_languages: ["fi"]
+notes: >
+  NEW 2026-08-13 (chunk A5) — the official ENGLISH newsroom of presidentti.fi, 625 posts across
+  categories news (323), press-release (251) and speech (52), 2024-02-28 -> present. Authored in
+  the same pass as the fin_presidentti widening under the 2026-08-11 author-now policy: the RULE 1
+  audit that found the parent taking 1 of 9 categories also showed a whole official English tree
+  covered by no live recipe. ENGLISH, so immediately queueable and needs no translation stage.
+  ⚠ RUN THIS OR fin_presidentti, NOT BOTH — same content set in two renderings, and the shared
+  Finland state file dedupes on the exact URL, which differs between them. Coverage floor is
+  Stubb's inauguration; Niinistö (2012-2024) is gone from the live site and is the wayback
+  companion's job. NO --rescrape. FULL RUN is the researcher's gate.

@@ -1,21 +1,49 @@
-# Netherlands — the Royal House official site royal-house.nl (the ENGLISH domain; the Dutch site is
-# koninklijkhuis.nl), via the Internet Archive. English-native → text lands directly in the English
-# `text` column (no translation needed). No live recipe yet.
+# Netherlands — Royal House (royal-house.nl), the official ENGLISH site, via the Internet Archive.
+# English-native -> English column, no translation. Companion to the live nld_royalhouse.
 #
-# Speeches: /documents/speeches/<yyyy>/<mm>/<dd>/<slug>. CDX ≈ 545 statuscode:200 captures; the URL
-# path carries the delivery date. Spans King Willem-Alexander, Queen Máxima, Queen Beatrix (Speech
-# from the Throne) — content 1999–2026.
+# ── RULE 1 AUDIT + WIDENING 2026-08-13 (chunk A5) ────────────────────────────────────────────
+# Old scope: /documents/speeches/<Y>/<M>/<D>/<slug> = 1,081 of 3,219 in-scope captures = 33.6%.
+# The host publishes dated permalinks under several prefixes, and grouping every capture by its
+# (year, month, day, slug) key — offline, from the saved CDX list — separates the real sections
+# from the faceted breadcrumb duplicates cleanly:
+#
+#   CANONICAL, all taken:
+#     /documents/<Y>/<M>/<D>/<slug>          551 keys, 1999-2026   <- the modern flat scheme
+#     /latest/news/<Y>/<M>/<D>/<slug>        425 keys              <- missed entirely
+#     /latest/activities/<Y>/<M>/<D>/<slug>   33 keys, 0% overlap with /latest/news
+#
+#   100% DUPLICATES, all excluded (the gov.ro alternate-views trap, measured not guessed):
+#     /members-royal-house/<person>/news/…   289 keys — 289 of 289 also under /latest/news
+#     /topics/<topic>/news/…                 134 keys — 134 of 134 also under /latest/news
+#     /photos/news/…                          41 keys —  41 of  41 also under /latest/news
+#     /members-royal-house|topics|photos/documents/speeches/…
+#                                            492 keys — 492 of 492 also under /documents[/speeches]
+#     */documents/publications/…               3 keys —   3 of   3 also under /documents
+#   The site builds a breadcrumb-flavoured URL for every facet an article can be reached through,
+#   so ~960 of the "missing" captures are one content set seen from five angles.
+#
+# ⚠ AND /documents/speeches/ ITSELF IS NOW EXCLUDED — that is the deliberate part. It is a SECOND
+# URL GENERATION of the same documents, not a section: 540 keys, of which 521 also exist under the
+# flat /documents/ form, which spans the full 1999-2026 range on its own. Keeping both would fetch
+# ~521 documents twice and write ~521 duplicate ROWS, because data/state/Netherlands.json skips on
+# the exact URL string and the two forms differ. Dropping it costs 19 documents that exist only in
+# the /speeches/ form. Taking the flat form also makes this recipe compose with the live one: the
+# live nld_royalhouse harvests exactly these /documents/<Y>/<M>/<D>/<slug> URLs back to 2006, so
+# running LIVE FIRST makes the archive run skip them and spend its budget on 1999-2005 and on
+# anything since deleted — which is the whole point of a wayback companion.
 source_id: nld_royalhouse_wayback
 country: Netherlands
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, NO trailing '*'.
-  - royal-house.nl/documents/speeches
+  # CDX prefix — the whole (small) host, because the sections sit under three different roots.
+  - royal-house.nl
 
 listing:
-  # dated speech permalink: /documents/speeches/<yyyy>/<mm>/<dd>/<slug>
-  link_pattern: '/documents/speeches/\d{4}/\d{2}/\d{2}/[a-z]'
+  # Dated permalinks under the three canonical roots only. Month/day are \d{1,2}: the older
+  # captures use single digits (/topics/…/news/2013/2/12/…). End-anchored so ?-suffixed echoes
+  # cannot come in as duplicates. (?::80)? because the host is anchored here.
+  link_pattern: '^https?://(?:www\.)?royal-house\.nl(?::80)?/(?:documents|latest/news|latest/activities)/\d{4}/\d{1,2}/\d{1,2}/[a-z0-9][^/?#]*/?$'
 
 pagination:
   type: wayback
@@ -27,25 +55,29 @@ pagination:
 
 title:
   selectors: ["h1", ".article__title", ".title", "title"]
-  regex: '^\s*(.+)'
 text:
-  # recipe containers miss the archived layout → the engine's generic (trafilatura) fallback recovers
-  # the full speech body (probe: 5,686–19,081 chars). Broad article/.content omitted so they can't
-  # grab nav before the fallback.
-  selectors: [".article__content", ".rich-text"]
+  # The last two are the 2015-19 capture generation, which has no <main> and no .rich-text —
+  # its body is #content (inside #main). Found because two /latest/news samples came back with
+  # NO text at all after the widening; the modern selectors simply do not exist on those pages.
+  selectors: ["main article", ".article__content", ".rich-text", "main", "#content", "#main"]
 date:
-  # authoritative date is in the URL path (/speeches/1999/09/21/...) → named groups assemble ISO
+  # The permalink carries the date; named groups mean the engine assembles ISO directly, with no
+  # dateparser and no locale ambiguity. \d{1,2} for the single-digit older captures.
+  url_regex: '/(?:documents|latest/(?:news|activities))/(?P<year>\d{4})/(?P<month>\d{1,2})/(?P<day>\d{1,2})/'
   selectors: ["time[datetime]", ".article__date"]
-  url_regex: '/documents/speeches/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
 
+# No speaker_default: the site publishes for the whole Royal House (King Willem-Alexander,
+# Queen Máxima, Princess Beatrix and others), so the cleaner's speaker pass must decide.
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback recovery of the Netherlands Royal House ENGLISH site (royal-house.nl → English
-  column, no translation; the Dutch site is koninklijkhuis.nl). CDX prefix
-  royal-house.nl/documents/speeches ≈ 545 statuscode:200 captures 1999–2026. link_pattern keeps the
-  dated /documents/speeches/<yyyy>/<mm>/<dd>/<slug> permalink; DATE comes from that URL path via
-  url_regex (unambiguous ISO). Multiple royals (King Willem-Alexander, Queen Máxima, Queen Beatrix) →
-  NO speaker_default; the cleaner assigns the speaker. PROBE-VALIDATED (2026-07-26, --spread --n 8):
-  540 snapshots; TITLE (h1) clean (e.g. "Speech from the Throne 1999", "Speech by Princess Máxima at
-  the conference..."), DATE from the URL path via url_regex (1999-09-21 …), TEXT via the generic
-  (trafilatura) fallback (5,686–19,081 chars, full speeches). FULL RUN is the researcher's gate.
+  RULE 1 AUDIT + WIDENING 2026-08-13 (chunk A5). Was scoped to /documents/speeches/ = 33.6% of
+  in-scope captures. Now takes the three CANONICAL dated-permalink roots — /documents (551 keys,
+  reaching back to 1999, six years earlier than the live site's floor), /latest/news (425) and
+  /latest/activities (33) — and EXCLUDES ~960 captures proved to be 100% faceted duplicates
+  (/members-royal-house/<person>/news, /topics/<topic>/news, /photos/news, the */documents/speeches
+  facets and */documents/publications), each verified by grouping captures on their (date, slug)
+  key rather than by assumption. /documents/speeches/ itself is excluded as a second URL GENERATION
+  of the same documents (540 keys, 521 shared with the flat form) — keeping it would write ~521
+  duplicate rows for 19 extra documents. Run AFTER the live nld_royalhouse: it harvests the same
+  flat /documents/<Y>/<M>/<D>/<slug> URLs, so live-first lets this recipe spend its Archive budget
+  on 1999-2005 and on deleted items. NO --rescrape. FULL RUN is the researcher's gate.

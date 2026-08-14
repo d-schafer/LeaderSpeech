@@ -1,5 +1,28 @@
 # Trinidad and Tobago — Office of the President (otp.tt), via the Internet Archive.
-# English-native → English column. GREENFIELD (no live recipe). WordPress; posts are flat single-segment
+#
+# ── RULE 1 AUDIT + :80 CHECK 2026-08-13 (chunk A5) — CHECKED CLEAN on breadth ────────────────
+# A5 owned one of the seven remaining `:80` checks and this was it. recipe_tools/port80.py
+# tto_otp_wayback --sections, one CDX enumeration doing both jobs:
+#   captures enumerated 1,081 | carrying ':80' 35 | matched now 845 | with (?::80)? 849
+#   ---> NEW page identities 4, already-covered 0.
+# So `:80` is a MEASURED NO-OP here, and all four gained identities are non-articles
+# (/contacting-the-president/, /galleries/, /restorative-justice/, /trinidad-and-tobago/).
+# Added anyway because the fix is monotone-safe by construction — CDX emits one row per urlkey
+# and filter_entries_for_recipe dedupes on page_identity, which strips the port.
+#
+# BREADTH: the 232 remaining misses are entirely non-content — /author/<name>/ archives (61),
+# sitemap-pt-*.html (56), /category/<x>/ listings (16), the site root, and the rest are
+# /<article-slug>/<image-id>/ WordPress ATTACHMENT pages (the second path segment is why the
+# pattern already excludes them). Nothing substantive is left out: the recipe takes the whole
+# flat post namespace, which is how this WordPress site publishes everything.
+#
+# ⚠ THE HEADER'S "GREENFIELD (no live recipe)" CLAIM WAS TRUE WHEN WRITTEN AND IS NOW FALSE —
+# the same audit found otp.tt live, healthy and serving an open WP REST API with 869 posts, so
+# **tto_otp** was authored in the same pass. RUN tto_otp FIRST: the two share
+# data/state/Trinidad and Tobago.json and the same flat /slug/ URLs, and the live api carries an
+# exact ISO date, so live-first makes the well-dated copy the one that lands.
+#
+# WordPress; posts are flat single-segment
 # slugs otp.tt/<slug>/. Covers Presidents Paula-Mae Weekes (2018–2023) and Christine Kangaloo (2023– );
 # the President of T&T is the ceremonial head of state (the PM is head of government) — INCLUDED per the
 # session scope (a president, not a monarchy). The office publishes messages, speeches and remarks
@@ -14,7 +37,7 @@ start_urls:
 listing:
   # single-segment WordPress post otp.tt/<slug>/ — this excludes /author/<x>/page/N/ paginators and the
   # /<slug>/<image-attachment>/ pages (both have a second path segment).
-  link_pattern: '^https?://(?:www\.)?otp\.tt/[a-z0-9][a-z0-9-]+/$'
+  link_pattern: '^https?://(?:www\.)?otp\.tt(?::80)?/[a-z0-9][a-z0-9-]+/$'
 
 pagination:
   type: wayback
@@ -35,7 +58,14 @@ date:
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — GREENFIELD Wayback recovery of otp.tt (T&T Office of the President; Presidents Paula-Mae Weekes
+  RULE 1 AUDIT 2026-08-13 (chunk A5) — CHECKED CLEAN on breadth, 845 -> 849 captures from the
+  (?::80)? fix (a measured no-op: 4 new identities, all non-articles, 0 already covered). The 232
+  remaining misses are author archives, sitemaps, category listings and image-attachment pages,
+  all out by RULE 1. The recipe already took the whole flat post namespace. NOT no-change though:
+  the same audit found otp.tt LIVE with an open WP REST API and 869 posts, so the live recipe
+  tto_otp was authored alongside it — run tto_otp FIRST (shared state file, same flat URLs, and
+  the api carries an exact ISO date the archived pages sometimes lack). NO --rescrape.
+  Wayback recovery of otp.tt (T&T Office of the President; Presidents Paula-Mae Weekes
   2018–2023, Christine Kangaloo 2023– ). CDX (otp.tt, domain) ≈ 1,085 captures 2014–2026. WordPress flat
   posts; link_pattern keeps single-segment /<slug>/ (drops /author/ paginators + image-attachment
   sub-pages). TITLE h1.entry-title; TEXT .entry-content / generic fallback; DATE <time datetime>. NO

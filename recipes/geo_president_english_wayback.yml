@@ -19,10 +19,36 @@ start_urls:
   # link_pattern isolates the SpeechesAndStatements?p= permalinks from the other /News sections.
   - president.gov.ge/en/PressOffice/News
 
+# ── RULE 1 WIDENING 2026-08-13 (chunk A5) ─────────────────────────────────────────────────────
+# The recipe took the section literally called SpeechesAndStatements — 1,106 of 19,701 in-scope
+# captures on the host = 5.6%. president.gov.ge addresses every PressOffice article by a GLOBAL
+# ?p=<id>, reachable under a section path or under the bare /en/PressOffice/News root, so the
+# breadth question is "which ids do we reach", not "which URLs". Counted from the CDX enumeration:
+#
+#   distinct ENGLISH ?p= ids, by section path
+#     /Releases              1,501      /SpeechesAndStatements   489
+#     /MeetingsAndVisits       189      /Briefings                60
+#     /Interviews               19      /Initiatives               2
+#     bare /en/PressOffice/News root  1,619
+#   union of all forms       2,260      <- every English article the Archive holds
+#
+#   sections only  2,243 ids = 99.2% of the union, from 2,824 URLs
+#   root only      1,619 ids = 71.6% of the union, from 1,726 URLs
+#   both           2,260 ids           from 4,550 URLs (2,290 redundant fetches)
+#
+# So the SECTION forms are taken and the bare root form is deliberately EXCLUDED: it costs 17
+# articles and saves ~1,726 duplicate fetches and rows, because page_identity keeps the path, so
+# /en/PressOffice/News?p=X and /en/PressOffice/News/Releases?p=X are two documents to the engine.
+# 489 -> ~2,243 reachable articles.
+#
+# The section list is taken as [A-Za-z]+ rather than an alternation, per RULE 1 — the six sections
+# above are what the Archive holds today and the pattern survives the site adding another.
+# ?p= is REQUIRED, which excludes the ?i=1&a=<yyyymm> date-archive LISTINGS (209+163 captures).
+# Out of scope, and separate recipes if ever wanted: the /ka/, /ge/, /ru/ and /ab/ language trees.
 listing:
   # individual speech permalink: ...SpeechesAndStatements?p=<id>[&i=<n>] (excludes the bare listing and
   # the ?a=<id> filter captures)
-  link_pattern: '/en/PressOffice/News/SpeechesAndStatements\?p=\d+'
+  link_pattern: '/en/PressOffice/News/[A-Za-z]+/?\?(?=[^#]*\bp=\d+)'
 
 pagination:
   type: wayback
@@ -39,14 +65,23 @@ title:
   selectors: [".Title", "title"]
   regex: '^\s*(.+)'
 text:
-  # old-template body container is unclassed → the generic (trafilatura) fallback is the workhorse
-  # (recovers 4.7k–20.7k chars of ENGLISH speech, nav stripped); the modern containers are kept in
-  # case a late-2013+ capture uses them.
-  selectors: [".InsideNewsBox", ".news-text", ".content", "article"]
+  # ⚠ BOTH DOCUMENTED CLAIMS BELOW WERE WRONG, and the probe proved it: the old header said the body
+  # container is "unclassed → the generic (trafilatura) fallback is the workhorse" and that there is
+  # "no reliable machine-readable date on the old template". On 10 --spread samples spanning
+  # 2011-2015 the ENTIRE text chain and the ENTIRE date chain matched NOTHING — this recipe would
+  # have written ~2,800 title-only rows.
+  # It is an ASP.NET table-layout site and both fields have a dedicated container:
+  #   div.Description  = the article prose (4,395 chars on the sampled 2009 Saakashvili statement)
+  #   div.Date         = "9/9/2009"
+  # .InsideNewsBox does not exist on these captures. Do NOT add `td` as a fallback — it joins to
+  # the navigation (the element-join trap).
+  selectors: [".Description", ".InsideNewsBox", "div.News", ".news-text", ".content", "article"]
 date:
-  # no reliable machine-readable date on the old template → deferred to the cleaner's corrected-date
-  # pass (+ wayback_capture backstop)
-  selectors: ["time", ".article-date", ".date", ".news-date"]
+  # div.Date is US-style M/D/YYYY, which is why date_languages stays ["en"]. regex_required so a
+  # miss fails loudly instead of storing the container whole.
+  selectors: [".Date", "time", ".article-date", ".date", ".news-date"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+  regex_required: true
 
 position: president
 date_languages: ["en"]

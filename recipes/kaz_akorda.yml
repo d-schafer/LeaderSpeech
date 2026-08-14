@@ -2,15 +2,26 @@ source_id: kaz_akorda
 country: Kazakhstan
 source_language: Russian
 start_urls:
+  - https://www.akorda.kz/ru/events
   - https://www.akorda.kz/ru/speeches
+  - https://www.akorda.kz/ru/addresses
 renderer: static
 verify_ssl: false
 
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6) from /ru/speeches alone to the site's three
+# article-bearing nav sections (События / Выступления / Послания). The old note below
+# justified the single section on the grounds that "the /en/events archive mixes in
+# non-speeches" — that is exactly the reasoning CLAUDE.md RULE 1 and the 2026-08-10
+# ruling reverse: a mixed section is the CLEANER's problem (its document_type gate),
+# and /events is where nearly all of this host's content lives. The English sibling
+# kaz_akorda_english (new, same pass) harvests 870 links from the same three sections
+# against ~200 for speeches-only. /ru/legal_acts and /ru/archive are NOT taken: the
+# first is the decrees/appointments register (the Armenian /en/decrees case), the
+# second is a year-index hub, not a content set.
+#
 # Official site of the President of Kazakhstan (Akorda), President Tokayev. We
-# scrape the RUSSIAN /ru/speeches listing: it is the deepest speech-SPECIFIC
-# listing (~200 speeches vs only ~30 on /en, and the /en/events archive mixes in
-# non-speeches). Russian text -> source_language Russian -> downstream translate
-# step fills English. verify_ssl:false: the akorda.kz cert chain is missing its
+# scrape the RUSSIAN tree. Russian text -> source_language Russian -> downstream
+# translate step fills English. verify_ssl:false: the akorda.kz cert chain is missing its
 # intermediate (CERTIFICATE_VERIFY_FAILED to httpx). PAGER QUIRK: ?page=0 and
 # ?page=1 both serve page 1 -> start:1 (same collision as Jordan). Listing rows are
 # ".card" with the article link in "h3 a" (scoping to h3 excludes sticky sidebar
@@ -32,7 +43,8 @@ pagination:
   param: page
   start: 1
   step: 1
-  max_pages: 40
+  max_pages: 400   # raised from 40 with the widening: /ru/events is far deeper than /ru/speeches,
+                   # and the engine's no_new_links / empty_page guards are the real stop.
 
 title:
   selectors: ["h2", "title"]

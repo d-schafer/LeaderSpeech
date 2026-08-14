@@ -19,14 +19,37 @@ source_id: deu_bundespraesident_wayback
 country: Germany
 source_language: German
 start_urls:
-  # CDX prefix — engine prefix-matches, so NO trailing '*'. One prefix covers all presidents.
+  # CDX prefixes — engine prefix-matches, so NO trailing '*'. One prefix per section, covering all
+  # presidents. ⚠ BOTH the prefixes and the link_pattern had to change: a wayback start_url is a
+  # CDX PREFIX, so a pattern change alone is a no-op (the run-7 hun_keh lesson).
   - bundespraesident.de/SharedDocs/Reden/DE
+  - bundespraesident.de/SharedDocs/Berichte/DE
+  - bundespraesident.de/SharedDocs/Pressemitteilungen/DE
 renderer: static
 
 listing:
   # Article shape: /SharedDocs/Reden/DE/<Name>/(Reden|Interviews)/<YYYY>/<MM>/<file>.html.
   # Requiring the /YYYY/MM/ segment excludes the section/index (_node.html) captures.
-  link_pattern: '/SharedDocs/Reden/DE/[^/]+/(?:Reden|Interviews)/\d{4}/\d{2}/.+\.html'
+  #
+  # ⚠ WIDENED 2026-08-13 (sweep chunk A6): 2,018 → 4,635 matched identities. A CDX enumeration of
+  # bundespraesident.de/SharedDocs (52,145 captures, 41,959 in scope) found three article sections
+  # where the recipe took part of one:
+  #     Reden/DE           2,300 identities  (was 2,018 — the old pattern also missed the
+  #                                           Zeitungsbeitraege 27 and UebersetzteReden 34
+  #                                           document types, and required a /MM/ segment that
+  #                                           the post-2020 URLs dropped)
+  #     Berichte/DE        1,357  ADDED — visit/engagement reports with real prose (sampled
+  #                                       100707-Antrittesbesuch-EU-Parlament: #content 1,726 chars)
+  #     Pressemitteilungen/DE 978  ADDED — press releases (sampled 141117-Gratulation-Johannis:
+  #                                        #content 912 chars)
+  # The 36 identities the OLD pattern matched and this one does not are all MALFORMED archived
+  # URLs (…Rede.html%E2%80%99, …Rede.html23, …-Ministerpraesidenten.htmlretrieved:) — the trailing
+  # `$` anchor is what drops them, and that is a fix, not a loss.
+  # NOT taken, sampled first: Termine/DE (2,682) is the appointments DIARY — a sampled page's whole
+  # article container is 352 chars of date + event title with no body, the same call as
+  # president.ie's /diary/details/ in chunk A4. Bilder/Downloads are images and PDFs; Zitate (9)
+  # are pull-quotes; Glossareintraege (54) a glossary.
+  link_pattern: '/SharedDocs/(?:Reden|Berichte)/DE/[^/]+/(?:(?:Reden|Interviews|Zeitungsbeitraege|UebersetzteReden)/)?(?:\d{4}/)?(?:\d{2}/)?[^/]+(?<!_node)\.html$|/SharedDocs/Pressemitteilungen/DE/\d{4}/\d{2}/[^/]+(?<!_node)\.html$'
 
 pagination:
   type: wayback

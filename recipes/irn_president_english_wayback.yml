@@ -30,7 +30,15 @@
 # `keep_if` below drops the bodyless ones at scrape time; the cleaner's document_type gate
 # then sifts news from speech.
 source_id: irn_president_english_wayback
-country: Iran
+# ⚠ 2026-08-13: `country` aligned from "Iran" to "Iran, Islamic Republic of" to match the two
+# sibling Iranian recipes (irn_khamenei_english_wayback, irn_leader). The engine keys
+# data/state/<Country>.json on this exact string, so two spellings would have given Iran two state
+# files, two `seen_urls` sets and two doc_id counters. Both spellings resolve to IRN/364 in
+# pycountry, so no doc_id or ISO3N damage was possible here — and THIS recipe was chosen as the one
+# to change precisely because it has never run: the alignment therefore cost zero data migration,
+# where changing the other two would have meant rewriting the country column in 8,996 existing rows.
+# Engine guards tracked in issue #73.
+country: Iran, Islamic Republic of
 source_language: English
 renderer: static
 start_urls:

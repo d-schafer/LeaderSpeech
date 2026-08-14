@@ -1,0 +1,73 @@
+# Trinidad and Tobago — Office of the President (otp.tt), LIVE.
+#
+# NEW 2026-08-13 (chunk A5). Trinidad and Tobago had a wayback-only recipe (tto_otp_wayback) and
+# NO live recipe, even though otp.tt is up, healthy and serves an open WordPress REST API. That is
+# a gap the narrowness sweep is not designed to catch — the audit measures how much of a host a
+# pattern reaches, not whether the host has a live recipe at all — so it is recorded here.
+#
+# RULE 1: the whole `posts` namespace is taken, with NO category filter. recipe_tools/wpjson.py on
+# the REST root shows one flat post type (posts = 869) and 17 categories that OVERLAP on it:
+#     news 721, messages-and-speeches 255, other-events 227, appointments 134, media-releases 119,
+#     presentation-of-credentials 90, courtesy-calls 78, featured 10, publications 3,
+#     photos/multimedia/videos 2 each, blog/uncategorized 0.
+# Filtering on `messages-and-speeches` would be the classic RULE 1 error — it is 255 of 869, and
+# the president's messages also appear under news and media-releases. The other post types are
+# `page` (25 static pages) and `attachment` (4,434 media items), neither of which is content.
+#
+# WHY api AND NOT AN HTML LISTING: /category/news/ paginates, but the REST API gives the complete
+# flat set in 9 requests with an exact ISO date per item, which the ARTICLE PAGES DO NOT CARRY —
+# see the date field below. The article pages are plain server-rendered HTML, so the JSON supplies
+# url/title/date and the engine fetches each page for clean prose.
+source_id: tto_otp
+country: Trinidad and Tobago
+source_language: English
+renderer: static
+start_urls:
+  - https://otp.tt/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  # Flat single-segment permalinks. `%` is allowed because some slugs are percent-encoded
+  # (one 2026 title is set in mathematical-bold unicode, so its slug is all %-escapes).
+  link_pattern: '^https?://(?:www\.)?otp\.tt/[^/]+/?$'
+
+pagination:
+  type: api
+  param: page       # WordPress returns HTTP 400 ("rest_post_invalid_page_number") past the end,
+  start: 1          # which the engine logs and treats as "stop here" — expected, not a failure.
+  step: 1
+  max_pages: 20     # 869 posts / 100 per page = 9; headroom for growth
+  api:
+    results_path: "."     # WordPress returns a bare JSON list at the root
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    # text_field deliberately unset: WP's content.rendered is HTML, so setting it would store
+    # markup as the body AND skip the page fetch entirely.
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", "article", ".elementor-widget-container", ".content"]
+date:
+  # ⚠ THESE ALL MISS ON THE LIVE PAGES AND THAT IS EXPECTED, NOT A DEFECT. The theme prints no
+  # date on an article — verified on the 2018 inaugural address: time.entry-date, time,
+  # .posted-on time and .published all return nothing. The date comes from the api's `date` field,
+  # which the scrape loop uses to fill any field the page extraction missed, and it is an exact
+  # ISO timestamp. The chain is kept because a field needs at least one selector or a url_regex,
+  # and because the archived captures of the same pages (tto_otp_wayback) DO carry time.entry-date.
+  selectors: ["time.entry-date", "time", ".posted-on time", ".published"]
+
+position: president
+# No speaker_default: the window spans Paula-Mae Weekes (2018-2023), Christine Kangaloo (2023- )
+# and acting presidents (e.g. Senate President Wade Mark, sworn in 2026-08-08), and items are also
+# issued in the Office's own voice. The cleaner's tenure crosscheck assigns the speaker.
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13 (chunk A5) — the LIVE Office of the President of Trinidad and Tobago. 869 posts,
+  2018-03-19 (Paula-Mae Weekes's inaugural address) -> present, taken as one flat namespace with no
+  category filter. Authored because the A5 :80/RULE 1 audit of tto_otp_wayback found the wayback
+  recipe correct but the country's only recipe — otp.tt is live and exposes an open WP REST API.
+  ENGLISH, so immediately queueable, and it makes zero Internet-Archive requests. The article pages
+  carry NO date element; the api's ISO `date` supplies it. Run BEFORE tto_otp_wayback: the two
+  share data/state/Trinidad and Tobago.json and the same flat /slug/ URLs, so live-first means the
+  exactly-dated copy lands. NO --rescrape. FULL RUN is the researcher's gate.

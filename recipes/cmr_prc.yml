@@ -1,20 +1,73 @@
-# Cameroon — Presidency of the Republic (prc.cm), English speeches archive (Joomla K2).
+# Cameroon — Presidency of the Republic (prc.cm), English news archive (Joomla com_content).
+#
+# ⚠ WIDENED 2026-08-13 (sweep chunk A6). The recipe took ONE of the site's own nav sections,
+# `speeches-of-the-president` (~96 items). Every candidate section was SIZED from its pager and
+# then SAMPLED for body text before being added or rejected — because on this host half of them
+# are headline-only stubs:
+#
+#   section                                     items   sampled body   verdict
+#   news/speeches-of-the-president                 96    3,207 chars   already taken
+#   news/audiences                                128    1,549         ADDED
+#   news/travels-and-visits                       104    1,174         ADDED
+#   news/correspondences/to-the-head-of-state      88      174         ADDED (messages from other
+#                                                                       heads of state to Biya)
+#   news/correspondences/of-the-head-of-state      32      157         ADDED (Biya's own messages)
+#   news/letters-of-credence                       24    1,443         ADDED
+#   the-presidency/activities-of-the-presidency     6    1,670         ADDED
+#   news/press-kits                                 6      127         ADDED (marginal, 6 items)
+#   news/interviews                                 0        —         ADDED (English section is
+#                                                                       currently empty; kept so it
+#                                                                       is picked up if refilled)
+#   news/press-releases                           128       70         ✘ NOT ADDED — see below
+#   news/the-acts/{decrees,laws,ordinances,       967      188         ✘ NOT ADDED — see below
+#     orders,decisions,circulars}
+#
+# ✘ press-releases — HEADLINE-ONLY, and this was measured across the WHOLE pager, not guessed:
+#   start=0 → 70 chars, start=40 → 71, start=80 → 143, start=120 → 150. Every one is the headline
+#   plus "Print Tweet < Prev Next >". The English press-release stream publishes no body. Harvesting
+#   it would write 128 rows of pure title. (Run 7's Croatia /najave/ lesson, same shape.)
+#
+# ✘ the-acts/* — the LEGAL-INSTRUMENT block, sampled per the 2026-08-10 ruling and FLAGGED, NOT
+#   TAKEN. It passes two of the three tests (each item has its own title and a date, both in the
+#   slug: "decree-2026-262-of-30-july-2026-to-authorize-a-loan-agreement…") but fails on substance:
+#   the page body is the title plus a "Download the Decree (PDF)" link and nothing else
+#   (article = 188 chars). The text is in the PDF. That is a `content_type: pdf` recipe of its own —
+#   the researcher's "separate project" case — so it is recorded here rather than bodged in.
+#   Sizes: decrees 728, laws 184, orders 32, ordinances 16, circulars 6, decisions 1.
+#
+# ALTERNATE-VIEWS CHECK (done, and it is the run-7 Croatia trap, not the gov.ro one): Joomla serves
+# any item under any section route — /en/news/speeches-of-the-president/8371-<a-press-release-slug>
+# returns 200 with the right title. But URL resolvability is NOT harvest coverage: each LISTING
+# emits only its own items, under its own path prefix, so the sections are disjoint content sets
+# and the widening produces no duplicates.
 source_id: cmr_prc
 country: Cameroon
 source_language: English
 start_urls:
   - https://www.prc.cm/en/news/speeches-of-the-president
+  - https://www.prc.cm/en/news/interviews
+  - https://www.prc.cm/en/news/audiences
+  - https://www.prc.cm/en/news/travels-and-visits
+  - https://www.prc.cm/en/news/correspondences/of-the-head-of-state
+  - https://www.prc.cm/en/news/correspondences/to-the-head-of-state
+  - https://www.prc.cm/en/news/letters-of-credence
+  - https://www.prc.cm/en/news/press-kits
+  - https://www.prc.cm/en/the-presidency/activities-of-the-presidency
 renderer: static
 
 listing:
-  link_selector: "a[href*='/news/speeches-of-the-president/']"
-  link_pattern: '/news/speeches-of-the-president/\d+-'
+  # The old `link_selector: a[href*='/news/speeches-of-the-president/']` is REMOVED — it hard-wired
+  # the one-section scope and would have silently defeated every start_url added above.
+  link_pattern: '/en/(?:news/(?:speeches-of-the-president|interviews|audiences|letters-of-credence|travels-and-visits|press-kits|correspondences/(?:of|to)-the-head-of-state)|the-presidency/activities-of-the-presidency)/\d+-'
 
 pagination:
   type: query_param
   param: start
   start: 0
-  step: 8            # page size is 8 — step 10 SKIPS 2 speeches/page (verified)
+  step: 8            # page size is 8 — VERIFIED again 2026-08-13 on every added section
+                     # (?start=0 and ?start=8 return 8 items each with zero overlap).
+                     # `audiences` ignores ?start and renders all 128 on one page; the engine's
+                     # no_new_links guard stops it after the second request.
   max_pages: 200     # engine auto-stops when a page yields no new links (~archive end)
 
 title:
@@ -22,24 +75,33 @@ title:
 text:
   selectors: [".itemFullText", "article", "main"]
 date:
-  # Machine-readable date ONLY. There is none on the detail pages, so this yields
-  # None (by design) — see the notes. Do NOT add an h2/body text selector here: the
-  # engine returns the whole title on a regex-miss, and parse_date then stamps TODAY
-  # as a garbage date for the ~50% of speeches whose title has no explicit date.
-  selectors: ["time[datetime]", ".itemDateCreated time[datetime]", ".created[datetime]"]
-  attr: datetime
+  # The detail pages carry NO machine-readable date — re-verified 2026-08-13, `time[datetime]`
+  # matches nothing on any section — so the date comes from the HEADLINE, which carries a
+  # "DD Month YYYY" (or "Month DD, YYYY") stamp on roughly half the items.
+  # The original header said a title regex was unsafe "because the engine returns the whole title
+  # on a regex-miss and parse_date then guesses TODAY's date", and asked for "an engine strict
+  # date-regex option (return None on miss)". THAT OPTION ALREADY EXISTS: `regex_required: true`
+  # (used by cze_hrad_english_wayback and sle_statehouse_joomla_wayback). With it a miss leaves the
+  # date blank, which is exactly the behaviour the note wanted.
+  selectors: ["h2", ".itemTitle", "h1"]
+  regex: '\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,12},?\s+(?:19|20)\d\d|[A-Za-z]{3,12}\s+\d{1,2}(?:st|nd|rd|th)?,?\s+(?:19|20)\d\d'
+  regex_required: true
 
 position: president
 speaker_default: Paul Biya
-date_languages: ["fr"]
+date_languages: ["en", "fr"]
 notes: >
-  Presidency of Cameroon, /en speeches-of-the-president (Joomla K2). Probe-verified
-  title (h2) + text (article) + speaker_default Paul Biya across the full archive
-  (~90 English speeches, ids ~8251..1155, ~2012-2026; ?start offset pager, step 8).
-  DATE is intentionally None at scrape time: the detail pages carry NO machine-readable
-  date (no <time>/meta/created attr) and the URL id is a Joomla item id (not a date).
-  ~50% of titles contain "DD Month YYYY", but a title date-regex is unsafe here — the
-  engine returns the whole title on a regex-miss and parse_date then guesses TODAY's
-  date. Dates are instead filled downstream by clean_structure_metadata's GPT date
-  pass. An engine "strict date-regex" option (return None on miss) would let ~50% be
-  dated safely at scrape time. French appears in some titles/bodies (date_languages fr).
+  Presidency of Cameroon, the /en news tree (Joomla com_content, ?start offset pager, step 8).
+  WIDENED 2026-08-13 (A6) from 1 nav section to 9: 96 → 450 harvested links, re-probed
+  --spread --n 12 → title 12/12, text 12/12, date 2/12 (dates come only from headlines that carry
+  one — see the date block; the bodies carry an inline "on 14 June 2022" that the cleaner's
+  corrected-date pass reads, which is this recipe's documented date strategy). Every candidate section was
+  sized from its own pager and sampled for body text first; press-releases (128) and the-acts
+  (967) are DELIBERATELY EXCLUDED with the evidence recorded in the header — the first publishes
+  headline-only stubs across its whole archive, the second publishes decrees as PDF downloads and
+  needs a content_type:pdf recipe of its own. speaker_default Paul Biya (his presidency spans the
+  entire site); `correspondences/to-the-head-of-state` carries messages written BY other heads of
+  state, so the cleaner's speaker pass — which is told to follow the document over the default —
+  reassigns those. DATE now resolves from the headline via a regex_required title regex instead of
+  being left None for the cleaner's GPT pass. NO --rescrape needed: the newly matched sections were
+  never harvested, so an ordinary incremental run appends them. FULL RUN is the researcher's gate.

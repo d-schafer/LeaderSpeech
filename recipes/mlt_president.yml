@@ -1,16 +1,36 @@
 # Malta — President of the Republic (president.gov.mt), LIVE site. WordPress + Elementor behind
-# Cloudflare bot-management: httpx = 403, and Playwright's own Chromium (headless AND headful) is
-# fingerprint-blocked on the speech DETAIL pages (CF-1020 "Sorry, you have been blocked"). A REAL
-# Chrome passes, so this recipe uses renderer: cdp — it attaches over DevTools to a Chrome the
-# researcher launches:
+# Cloudflare. httpx is still 403 (bot UA and browser UA alike), so a browser renderer is required.
+#
+# ⚠ RENDERER CHANGED cdp -> js ON 2026-08-12, BECAUSE THE DOCUMENTED BLOCK NO LONGER HOLDS.
+# The previous header said: "Playwright's own Chromium (headless AND headful) is fingerprint-
+# blocked on the speech DETAIL pages (CF-1020 'Sorry, you have been blocked'). A REAL Chrome
+# passes, so this recipe uses renderer: cdp" — attaching over DevTools to a Chrome the researcher
+# launches by hand. RE-TESTED 2026-08-12 and it is simply not true any more: headless Chromium
+# loads both the listing (468 KB, 9 speech cards) and a DETAIL page
+# (…/the-presidents-address-during-bastille-days-celebration/ — h1 is the real speech title,
+# 8,163 chars of body). Cloudflare bot-management is re-tuned by the vendor over time, so a
+# fingerprint block is a DATED observation, not a property of the site.
+# This matters operationally, not just cosmetically: `cdp` needs a human to launch Chrome with
+# --remote-debugging-port and cannot run in an unattended queue, so the recipe was effectively
+# unrunnable. Under `js` it is an ordinary queue entry.
+# If CF ever re-tightens, the fallback is unchanged:
 #     & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-cdp"
-# then run the probe/scrape (endpoint defaults to http://localhost:9222; override via cdp_endpoint
-# or the LEADERSPEECH_CDP_ENDPOINT env var). Validated: via CDP the detail pages return full text.
-# A probe-green Wayback companion (mlt_president_wayback) covers history without a live browser.
+#   then set renderer: cdp (endpoint defaults to http://localhost:9222; override via cdp_endpoint
+#   or LEADERSPEECH_CDP_ENDPOINT).
+#
+# SIZE, MEASURED 2026-08-12 by walking the pager under js: 9 speeches per page, 14 pages,
+# **121 speeches total** — page 14 has 4 and page 15 is empty, a clean natural stop. Note the
+# site RE-SERVES PAGE 1 verbatim for out-of-range page numbers (verified: /speeches/50/ and
+# /speeches/100/ are byte-equal to page 1), which the engine's `no_new_links` guard catches.
+# The stored harvest of 18 was NOT a max_pages cap (40 was never reached) — it was the cdp
+# session dying after page 2 on 2026-07-19. So this is 18 of 121; a plain incremental run picks
+# up the other 103. NO --rescrape needed: unharvested links were never added to `seen_urls`.
+#
+# A probe-green Wayback companion (mlt_president_wayback, 519 links) covers the deeper history.
 source_id: mlt_president
 country: Malta
 source_language: English
-renderer: cdp
+renderer: js
 
 start_urls:
   - https://president.gov.mt/speeches/

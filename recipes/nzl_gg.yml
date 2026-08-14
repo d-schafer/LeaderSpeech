@@ -6,10 +6,44 @@
 source_id: nzl_gg
 country: New Zealand
 source_language: English
-# gg.govt.nz's Cloudflare "Just a moment" challenge CRASHES the engine's headless Chromium
-# (Page.goto: Page crashed). A real Chrome clears it, so use renderer: cdp — launch Chrome with
-# --remote-debugging-port=9222 (see docs/recipes.md) and the engine attaches over CDP.
-renderer: cdp
+# ⚠ RENDERER REVERTED cdp -> js ON 2026-08-12 — the crash it was working around is gone.
+# The note here said: "gg.govt.nz's Cloudflare 'Just a moment' challenge CRASHES the engine's
+# headless Chromium (Page.goto: Page crashed). A real Chrome clears it, so use renderer: cdp."
+# RE-TESTED 2026-08-12: headless Chromium loads the listing (330 KB, ~30 speech links a page)
+# and a DETAIL page (…/matariki-reception-2026 — h1 "Matariki Reception 2026", real body, and
+# `time` = "Thursday, 9 July 2026") with no crash and no challenge. Note the header ABOVE this
+# one always said `js` — the two contradicted each other, which is itself the tell that one of
+# them was a dated observation. Cloudflare posture changes; re-test it rather than inherit it.
+# This matters operationally: `cdp` needs a human to launch Chrome with --remote-debugging-port
+# and cannot run unattended, so the recipe was not queueable. Under `js` it is.
+# Fallback if CF re-tightens: launch Chrome with --remote-debugging-port=9222 and set
+# renderer: cdp (see docs/recipes.md).
+#
+# SIZE, MEASURED 2026-08-12 by walking the pager under js: ~30 speeches per page and the Drupal
+# pager's own "last" link is page 64 (0-indexed) => **~1,950 speeches**. Walked pages 0-13
+# (417 distinct links, zero repeats) and confirmed page 40 still returns 31 items while page 80
+# returns 0. The stored harvest of 60 was NOT a max_pages cap (100 was never reached) — it was
+# the renderer failing on 2026-07-19, when four consecutive probes recorded
+# `links_found=0, stop_reason=listing_fetch_failed`. So this is 60 of ~1,950, the largest single
+# under-harvest found in the sweep so far. A plain incremental run picks up the rest:
+# NO --rescrape needed, because unharvested links were never added to `seen_urls`.
+#
+# ⏱ SLOW, AND THE SCRAPE IS DEFERRED (researcher's call 2026-08-12: "lower priority, let's do it
+# at some point"). gg.govt.nz serves a Cloudflare interstitial on EVERY navigation: measured
+# ~38 s/page = ~94 pages/h, against the corpus's 4,467 pages/h for STATIC live fetches. At
+# ~2,015 page-loads that is **~21 h, and treat it as a floor** — the host gets slower under
+# sustained crawling (a 73-load --spread probe was still going after 55 minutes). Size any queue
+# entry for this recipe on measured `js` rates, never on lograte.py's static figure.
+#
+# ⚠ NOT YET FULLY PROBE-VALIDATED UNDER `js`. The --spread probe was killed at 1 h+ when the
+# source was deferred, so the evidence for this repair is: a manual pager walk (417 distinct
+# links over pages 0-13 with zero repeats; page 40 returns 31 items, page 80 returns 0) plus a
+# jsinspect check of one detail page (h1 "Matariki Reception 2026", `time` "Thursday, 9 July
+# 2026", real body). Size and renderer are settled; **run `probe --spread` before the full run**
+# to confirm field extraction end-to-end — in particular the `time` selector, since these pages
+# carry SEVERAL <time> elements (issue date, last-updated, and a "Latest publications" sidebar)
+# and the engine joins every match.
+renderer: js
 start_urls:
   - https://gg.govt.nz/publications/speeches
 
