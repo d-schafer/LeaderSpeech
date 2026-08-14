@@ -1,27 +1,73 @@
-# Mexico — gob.mx presidency archive (estenographic versions of presidential events).
-# Static HTML, query-param pagination (?page=N), Spanish dates.
-# The archive leads with the current presidency and pages back through AMLO.
+# Mexico — gob.mx presidency archive. Static HTML, query-param pagination (?page=N), Spanish dates.
+#
+# ── ⚠ THIS RECIPE WAS HARVESTING NOTHING — REPAIRED 2026-08-13 (chunk A7) ───────────────────────
+# It took ONE section, `articulos`, and that section is now EMPTY. Measured by walking the pager:
+# /presidencia/es/archivo/articulos?filter_origin=archive returns HTTP 200 with a rendered page
+# titled "Blog | Archivo | Presidencia de la República" and **zero** /presidencia/articulos/<slug>
+# links, on page 1 and every page after it. gob.mx has moved the presidency's output to `prensa`.
+# So this was not merely narrow: as written it collected 0 rows, and the 30 rows in the index are
+# a fossil of the pre-migration site.
+#
+# ── ⚠⚠ AND THE EMPTY SECTION IS A MISSING-CORPUS PROBLEM, NOT JUST A DEAD PATTERN ───────────────
+# Researcher note, 2026-08-14: the AMLO speeches were ALREADY SCRAPED FROM EXACTLY THIS URL for an
+# earlier project — see `_examples_code/scrape_mexico.R`, which walks
+#   https://www.gob.mx/presidencia/es/archivo/articulos?filter_origin=archive&idiom=es&order=DESC&page=
+# from page 1 to **page 293** and pulled **thousands** of versión-estenográfica speeches, which
+# were then translated. That listing is now 0 pages deep. So the ~2,000+ AMLO documents have been
+# deleted or relocated since Sheinbaum took office, and the live site is NOT the route to them.
+# ⇒ THIS IS AN OPEN QUESTION TO COME BACK TO, not something to solve inside this recipe:
+#   1. The researcher HAS the old scrape, with URLs and translations. Merging it in and skipping
+#      those URLs is likely cheaper and better than re-scraping — the URLs are the natural join
+#      key (the old script stores each link in a `list` column and writes links_list293.txt).
+#   2. Whatever is genuinely gone would have to come from the Archive
+#      (mex_presidencia_wayback), which is why that recipe's ?idiom= dedupe matters so much.
+#   3. Until then, treat the Mexico SPANISH pair as LOW PRIORITY. The researcher had not intended
+#      to write a Spanish-language Mexico recipe yet — the current focus is English-language and
+#      wayback sources. These two recipes are correct and parked in the deferred queue.
+# Nothing here is blocked on that decision; this recipe now harvests the CURRENT presidency
+# correctly, which it did not before.
+#
+# ── RULE 1 WIDENING, MEASURED ───────────────────────────────────────────────────────────────────
+#     /presidencia/prensa/<slug>       1,161 items (131 pager pages)  ** ADDED — the live stream **
+#     /presidencia/articulos/<slug>        0 items today              kept, in case it refills
+#     /presidencia/documentos/<slug>      37 items                    ** ADDED **
+# The `prensa` items are the same document class the recipe was built for and use the IDENTICAL
+# selectors — verified on "Presidenta Claudia Sheinbaum encabeza inicio de la Jornada Nacional de
+# Reforestación 2026": .bottom-buffer title, .article-body 4,782 chars, `section p` giving
+# "Presidencia de la República | 09 de agosto de 2026 | Comunicado".
+# `documentos` is MIXED — most of its 37 items are procurement notices ("adquisición de equipo de
+# respaldo de protección eléctrica"), but it also holds real official statements such as
+# "declaración-conjunta-méxico-francia". Taken per RULE 1, with the cleaner's document_type gate
+# as the filter; it is 37 pages, so the cost of being wrong is trivial.
+#
+# NOT ADDED — the "English" tree. gob.mx offers /presidencia/en/archivo/prensa, and it is NOT a
+# separate document set: it re-serves the SAME Spanish slugs with `?idiom=en` appended (sampled
+# page 2: /presidencia/prensa/el-objetivo-es-presentar-…-presidenta?idiom=en). That is a UI
+# language toggle, the alternate-views trap, not an English edition.
 source_id: mex_presidencia
 country: Mexico
 source_language: Spanish
 start_urls:
+  - https://www.gob.mx/presidencia/es/archivo/prensa?filter_origin=archive&idiom=es&order=DESC
   - https://www.gob.mx/presidencia/es/archivo/articulos?filter_origin=archive&idiom=es&order=DESC
+  - https://www.gob.mx/presidencia/es/archivo/documentos?filter_origin=archive&idiom=es&order=DESC
 renderer: static
 
 listing:
-  link_selector: "article a"
-  link_pattern: "/articulos/"
+  # `link_selector: "article a"` was REMOVED: it is an unnecessary extra assumption about the
+  # listing's markup, and the pattern below is specific enough on its own. gob.mx wraps its
+  # listing hrefs in escaped quotes — the engine sanitizes those.
+  link_pattern: '/presidencia/(?:prensa|articulos|documentos)/[a-z0-9]'
 
 pagination:
   type: query_param
   param: page
   start: 1
   step: 1
-  # The filter_origin=archive listing covers the CURRENT presidency only (Sheinbaum, from
-  # 2024-10): page ~105 reaches 2024-10-23 and page ~200 is empty. max_pages 50 truncated it at
-  # ~2025-09 (11 of ~22 months), so raise to 130 to capture her full term. AMLO (2018-2024) is
-  # NOT in this archive — see the mex_presidencia_wayback companion.
-  max_pages: 130
+  # Measured by walking each listing to exhaustion: prensa runs out at page 130 (1,161 items),
+  # documentos at page 5. 200 leaves headroom for the current presidency to keep publishing;
+  # the engine's ordinary stop conditions end each listing well before this bound.
+  max_pages: 200
 
 title:
   selectors: [".bottom-buffer", "h1", "title"]
@@ -35,5 +81,15 @@ context:
 position: president
 date_languages: ["es"]
 notes: >
-  gob.mx wraps its listing hrefs in escaped quotes — the engine sanitizes those.
-  speaker left blank; filled later from context/title + leader-tenure key.
+  gob.mx presidency. REPAIRED + WIDENED 2026-08-13, Session A CHUNK A7. The recipe took the single
+  section `articulos`, which gob.mx has since emptied — walking its pager returns ZERO article
+  links on every page, so as written this recipe collected nothing. Switched to the live stream
+  `prensa` (1,161 items, 131 pages, identical selectors, verified) and added `documentos` (37,
+  mixed procurement + joint declarations); `articulos` is kept in the pattern in case it refills.
+  The /presidencia/en/ tree was checked and is NOT an English edition — it re-serves the same
+  Spanish slugs with ?idiom=en, a UI toggle.
+  speaker left blank; filled later from context/title + the leader-tenure key. This listing covers
+  the CURRENT presidency (Sheinbaum, from 2024-10); AMLO 2018-2024 is the mex_presidencia_wayback
+  companion's job.
+  SPANISH -> DEFERRED queue. An incremental run picks up only newly matched URLs; no --rescrape is
+  needed or wanted. FULL RUN is the researcher's gate.

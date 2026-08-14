@@ -1,0 +1,88 @@
+# Uganda — State House (statehouse.go.ug), the office of President Yoweri Museveni.
+#
+# ── WHY THIS RECIPE EXISTS (Session A CHUNK A7, 2026-08-13) ─────────────────────────────────────
+# Uganda was a WAYBACK-ONLY country: uga_statehouse_wayback held 126 rows and there was no live
+# recipe at all. statehouse.go.ug is up, healthy and running WordPress with an OPEN REST API, so
+# this costs the Internet Archive nothing and is ~7x the archived harvest.
+#
+# ── RULE 1 BREADTH, audited the way an `api` recipe has to be ───────────────────────────────────
+# An api recipe has no link_pattern to measure, so breadth was checked by enumerating the WHOLE
+# WordPress REST root (recipe_tools/wpjson.py):
+#     post          rest_base=posts    924   <- this recipe takes ALL of them
+#     page          46 (static About/Contact)   attachment 7,823 (media)   dlm_download 1
+#     cabinet-members 0   wp_navigation 1   elementor_library/templates/etc 401 or 0
+# There are NO content-bearing custom post types (contrast Kenya's hidden 445-row
+# `speeches_remarks` CPT). So `posts` IS the whole content set.
+#
+# ⚠ AND THE CATEGORY VOCABULARY IS THE RULE 1 TRAP IN ITS PUREST FORM. statehouse.go.ug has 100
+# categories, one of which is literally called `speeches` — and it holds **14** of the 924 posts.
+# Filtering on it would have thrown away 98.5% of the site, including `presidential-statements`
+# (23), `communique` (36), `presidential-initiatives` (64), `bills-signed` (10), `state-visits`
+# (13) and `international-conferences` (21). The categories are TOPICAL TAGS applied on top of one
+# flat stream, not a partition of it. NO category filter is set here, deliberately: we take all
+# 924 posts and let the cleaner's document_type gate drop the third-person news items.
+#
+# CONTENT CAVEAT (same as Ghana): posts mix verbatim addresses with third-person news about the
+# President. That is the cleaner's problem, not the harvest's.
+source_id: uga_statehouse
+country: Uganda
+source_language: English
+# ⚠ `_fields=` IS LOAD-BEARING, NOT AN OPTIMISATION. The bare
+# /wp-json/wp/v2/posts?per_page=100 response is NOT VALID JSON on this install: it is prefixed
+# with a raw PHP notice —
+#     <br /><b>Warning</b>:  Array to string conversion in
+#     <b>/home/shgo/public_html/wp-includes/formatting.php</b> on line <b>1128</b><br />
+#     [{"id":15972,…
+# so json.loads fails and the recipe harvests ZERO links while the endpoint answers HTTP 200 with
+# a 3 MB body. Restricting the response to the four fields this recipe actually reads drops the
+# field that triggers the notice, and the body parses cleanly. x-wp-total: 924, 10 pages.
+start_urls:
+  - https://statehouse.go.ug/wp-json/wp/v2/posts?per_page=100&_fields=id,date,link,title
+
+renderer: static
+
+listing:
+  link_pattern: 'statehouse\.go\.ug/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 30        # 924 / 100 ≈ 10 pages; headroom for growth
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date           # ISO 8601, carried onto the row
+    # text_field unset on purpose: content.rendered is raw HTML and the engine does not strip
+    # tags, so the body is taken from the fetched page instead.
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  # The theme is Hello Elementor: .entry-content / .post-content / main do NOT exist, and a bare
+  # `article` matches EIGHT elements (the related-posts grid) — the element-join trap. The single
+  # article body is the Elementor post-content widget.
+  selectors: [".elementor-widget-theme-post-content", ".entry-content", ".post-content"]
+date:
+  selectors: ["time", ".entry-date"]
+  attr: datetime
+
+position: president
+speaker_default: Yoweri Museveni
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-13, Session A CHUNK A7. Uganda State House (statehouse.go.ug) live WordPress REST —
+  924 posts, against the 126 rows the wayback-only sibling holds. Found while auditing
+  uga_statehouse_wayback: Uganda had NO live recipe, and this host is one of the four
+  open-REST-API WordPress sites flagged by livegap.py, so it is the cheapest possible win and
+  costs the Archive nothing.
+  RULE 1: the site has a category literally called `speeches` holding 14 of 924 posts — no
+  category filter is used, deliberately; see the header. Body from the Elementor post-content
+  widget (a bare `article` joins the related-posts grid). Date carried from the WP JSON `date`
+  field. speaker_default Museveni is safe: he has been president since 1986 and the site is
+  single-administration.
+  ⚠ statehouse.go.ug sits behind Cloudflare and intermittently answers HTTP 520 — one of three
+  sampled fetches did, and the retry succeeded. Expect a few retries in a full run rather than a
+  hard block. ENGLISH -> queueable now. FULL RUN is the researcher's gate.

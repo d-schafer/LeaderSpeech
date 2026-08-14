@@ -29,14 +29,50 @@ title:
 text:
   selectors: [".field--name-body", ".field-name-body", ".field-body", "article", "main"]
 date:
-  selectors: ["time", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
+  # See the live sibling: `main .date-display-single` leads because the bare class is a sidebar
+  # agenda feed on some renderings (six joined dates), the run-5 trap.
+  selectors: ["time", "main .date-display-single", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
 
 position: monarch
 date_languages: ["en"]
+
+# ── RULE 1 AUDIT 2026-08-13, Session A CHUNK A7 — CHECKED CLEAN, not widened ────────────────────
+# cdxbatch on monarchie.be/en: 642 raw captures -> 573 in scope; this pattern matches 106 = 18.5%.
+# The low ratio is fully explained, and each missed shape was SAMPLED rather than assumed:
+#   112  /en/node/N        Drupal aliases — NOT article aliases. /en/node/14408 is the "Search an
+#                          event" view; /en/node/14941 is the biography page "La Reine Fabiola"
+#                          (no body field at all). Not speeches.
+#   109  /en/file/<img>    image derivatives — out by RULE 1.
+#    67  /en/<root-slug>   PHOTO-GALLERY CAPTION pages. Sampled three (/en/15042019,
+#                          /en/national-day-0, /en/working-visit-to-the-defence-staff-…): 310–469
+#                          chars, no h1, no date, body reading "Gallery: The King / Caption:
+#                          15.04.2019". They 404 on the live site today. Out by RULE 1.
+#    53  /en/monarchy/…    institutional pages (royal-household, civil-list, protocol).
+#     +  /en/for-children, /en/heritage, /en/royal-family/history, /en/search, /en/media_colorbox.
+# The live pager was also walked to exhaustion (101 items, 11 pages) and /en/agenda/agenda proved
+# to be an EMPTY forward calendar, so there is no second English listing to add.
+#
+# ⚠ THE BELGIAN GAP IS LANGUAGE AND CHRONOLOGY, NOT SECTIONS. Two findings from the same audit:
+#  1. The live FRENCH tree holds 260 speeches vs 101 here — now covered by the new
+#     bel_monarchie_fr.yml, which also documents the ~101-document overlap.
+#  2. The ARCHIVED French tree is 35,053 captures against this one's 642, and it contains TWO
+#     older speech generations that reach the ALBERT II reign (1993–2013), for which we currently
+#     hold nothing at all:
+#         /fr/actuel/discours/archives/<slug>            95 captures (Drupal, ~2010–2013)
+#         /fr/activities/speeches/speeches_detail.php?…  258 captures (the earlier ASP site)
+#     (the sibling counts under /fr/actuel/discours/{feed,all,The%20King,Princess%20Astrid,…} are
+#     faceted LISTINGS, not articles — the run-5 listing-dominated-denominator shape).
+#     BANKED, not authored: it needs its own selector chains for two pre-Drupal generations, and
+#     it is a third Belgian recipe outside A7's list. Everything needed to start is in this note.
 notes: >
-  DRAFT — Wayback companion to the live bel_monarchie (yes-and). CDX prefix monarchie.be/en ≈ 642
-  English captures 2004–2026; speech detail pages under /en/agenda/<slug> (the 2004 captures are
-  mostly institutional /en/family//monarchy/what pages, excluded by link_pattern). Genuine English →
-  English column, no translation. Two speakers (King Philippe, Queen Mathilde) → no speaker_default;
-  the cleaner assigns per document. Selectors reused from the live recipe; PROBE and adjust for the
-  older archived Drupal layouts. FULL RUN is the researcher's gate.
+  Wayback companion to the live bel_monarchie (yes-and). CDX prefix monarchie.be/en ≈ 642 English
+  captures 2004–2026; speech detail pages under /en/agenda/<slug>. Genuine English → English
+  column, no translation. Two speakers (King Philippe, Queen Mathilde) → no speaker_default; the
+  cleaner assigns per document.
+  RULE 1 AUDIT 2026-08-13 (chunk A7): CHECKED CLEAN at 18.5% coverage — every missed shape
+  itemised and sampled in the comment block above (node aliases, image files, photo-gallery
+  caption pages, institutional pages). Date selector scoped to `main` at the same time.
+  Two banked findings: the live FRENCH tree (260 speeches, now bel_monarchie_fr) and the ARCHIVED
+  French tree's two pre-2013 generations, which are the only route to King Albert II.
+  An incremental run picks up only newly matched URLs; no --rescrape is needed or wanted.
+  FULL RUN is the researcher's gate.

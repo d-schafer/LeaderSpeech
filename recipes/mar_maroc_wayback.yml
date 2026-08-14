@@ -1,24 +1,82 @@
-# Morocco — maroc.ma royal speeches (HM King Mohammed VI, head of state), via the Internet Archive.
-# The official ENGLISH translation → text lands directly in the English `text` column (no MT). "yes-and"
-# companion to the live mar_maroc: the live recipe covers the CURRENT /en/royal-speeches-and-messages/
-# royal-speeches/<slug> scheme (2012–2025); the Archive additionally holds the OLD /en/royal-speeches/
-# <slug> permalink (2013–2024, e.g. /en/royal-speeches/full-text-hm-kings-speech-70th-session-un-general
-# -assembly) that the current portal relocated — so this recovers the older royal speeches. Companion
+# Morocco — maroc.ma royal speeches, messages and royal-activity statements (HM King Mohammed VI,
+# head of state), via the Internet Archive. The official ENGLISH translation → text lands directly
+# in the English `text` column (no MT). "yes-and" companion to the live mar_maroc. Companion
 # Arabic original is mar_diplomatie.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) — 166 → ~1,900 matched captures ───────────────────────
+# CDX enumeration of the whole maroc.ma/en tree (31,667 raw captures → 15,040 in scope) showed the
+# old pattern reached **1.1%** of it. Section histogram of /en/<section>/:
+#
+#     20,862  news                 general MAP-agency news wire — NOT harvested, see below
+#      1,785  evenements  \
+#        526  eventos      >      event-calendar listing pages, URL shape /en/<x>/YYYY-MM-DD
+#        372  events      /
+#      1,748  royal-activities     ** THE FIND — added **
+#        941  search               out by RULE 1
+#        382  princely-activities  royal family other than the King — NOT harvested, see below
+#        260  culture-of-morocco   static portal pages
+#        179  photos               out by RULE 1
+#        171  royal-speeches       the ONLY section the recipe used to take
+#         88  content              static portal pages — SAMPLED and rejected, see below
+#         80  actualites           French-language twins under /en/ — wrong-language, out
+#         49  tags / 46 taxonomy   listing pages
+#         31  royal-speeches-and-messages   the MODERN scheme (incl. a /letter/ sub-section)
+#          3  discours-du-roi \    legacy French-NAMED paths carrying ENGLISH content
+#          1  discours-royaux /    (e.g. /en/discours-du-roi/fulltext-royal-speech-nation-40th-…)
+#
+# `/en/royal-activities/<slug>` is 1,748 captures spanning 2013–2025 of exactly the material RULE 1
+# names: "full-speech-hm-king-28th-african-…", "royal-message-2nd-world-forum-human-rights",
+# "statement-hm-king-mohammed-vi-…", "message-condolences-…", "throne-day-congratulatory-message-…".
+# 1,330 of the 1,747 slugs begin "hm-". Sampled four captures across 2013–2024: all English, all
+# real bodies (1,208–8,117 chars), all carrying a clean `.date`.
+#
+# ── TWO SECTIONS DELIBERATELY LEFT OUT, both sampled ────────────────────────────────────────────
+# * `/en/news/` (20,862) is the portal's general national news wire — the sampled items are
+#   women's AFCON football, tourism-office promotion, expat arrival statistics. Not the King
+#   speaking and not a government statement. Flagged for the researcher rather than taken.
+# * `/en/princely-activities/` (382) covers royal family members OTHER than the head of state
+#   (Princess Lalla, the Crown Prince). It would also silently poison this recipe's
+#   `speaker_default: King Mohammed VI` — the 2026-08-13 run-10 trap. Worth its own recipe if the
+#   researcher wants the wider royal family.
+# * `/en/content/<slug>` (88) SAMPLED and rejected: static portal furniture ("Accessibility",
+#   "List of Government", "Youth Day 2013") — no h1, no date element, no article body.
+#
+# ── THE HEADER CLAIM THAT WAS FALSE: THIS RECIPE HAD NO DATE ────────────────────────────────────
+# The old header said the page's only <time> tags are a related-news sidebar and killed the `date`
+# field outright. That is true of the MODERN theme only. The archived OLD theme (2013–2019, which
+# is most of what this recipe now reaches) carries `div.date` = "Monday 9 October 2017" inside
+# `.discours-footer` / `.activity-details`, i.e. the real article date. Verified that `.date` does
+# NOT match on the modern captures at all (so it cannot pick up the sidebar), and that the modern
+# theme's `time[datetime]` is garbage there anyway — one sampled capture reads "2029-09-02".
+# So `date: [".date"]` is a strict improvement: it dates the old generation and stays silent on
+# the new one, where the cleaner + wayback_capture backstop still apply.
+#
+# ── THREE ARTICLE TEMPLATES, one selector chain ─────────────────────────────────────────────────
+#   modern  /royal-speeches-and-messages/…   .c-wysiwyg          (same as the live recipe)
+#   old     /royal-speeches/<slug>           .discours-details   (div#node-N.discours-details)
+#   old     /royal-activities/<slug>         .activity-details   (div#node-N.activity-details)
+# The `p`-scoped forms are listed first because the bare containers also swallow the headline and
+# a "105 / 106" item counter.
 source_id: mar_maroc_wayback
 country: Morocco
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix catches BOTH the old /en/royal-speeches/<slug> and the new
-  # /en/royal-speeches-and-messages/royal-speeches/<slug> permalinks.
+  # CDX PREFIXES. Note the first one also covers the modern
+  # /en/royal-speeches-and-messages/{royal-speeches,royal-messages,letter}/<slug> scheme, because
+  # a CDX prefix query is a plain string prefix — verified against a 2025 capture.
   - maroc.ma/en/royal-speeches
+  - maroc.ma/en/royal-activities
+  - maroc.ma/en/discours-du-roi
+  - maroc.ma/en/discours-royaux
 
 listing:
-  # final royal-speeches article slug (both schemes end .../royal-speeches/<slug>); the mimetype filter
-  # below drops the stray /royal-speeches/sites/.../main.js asset, and the ?field_type…&page= listing
-  # pager has no '/' after royal-speeches so it can't match.
-  link_pattern: '/royal-speeches/[a-z][a-z0-9-]{4,}'
+  # Final article slug under any of the royal sections, in any of the naming generations.
+  # Anchored with $ so the /en/royal-activities/sites/all/libraries/*.js and /misc/ajax.js
+  # relative-path artifacts (17 captures) cannot match, and so the ?field_type…&page= listing
+  # pager cannot either. Deliberately NOT host-anchored, which keeps the http://…:80/ captures
+  # of the pre-HTTPS era in scope (the 2026-08-11 `:80` finding).
+  link_pattern: '/en/(?:royal-speeches-and-messages/)?(?:royal-speeches|royal-messages|royal-activities|letter|discours-du-roi|discours-royaux)/[a-z][a-z0-9-]{4,}/?$'
 
 pagination:
   type: wayback
@@ -28,24 +86,46 @@ pagination:
     - "statuscode:200"
     - "mimetype:text/html"
 
+# SOFT-404 GUARD. maroc.ma answers a dead article path with HTTP 200 + the SECTION LISTING, and
+# the Archive holds such captures — the first probe of this widening surfaced
+# /en/royal-speeches/speech-his-majesty-king-nation-occasion-60th-anniversary- (note the truncated
+# trailing hyphen), which returned title "Royal speeches | Maroc.ma", zero body chars, and a
+# `.date` of 2021-11-29 taken off the listing's FIRST CARD. Without this guard that would have
+# become a plausible-looking, wholly fake row. keep_if ORs its selectors, so requiring any one of
+# the three article containers is the general guard across all three themes.
+keep_if:
+  selectors: [".c-wysiwyg", ".discours-details", ".activity-details"]
+
 title:
   selectors: ["h1", "title"]
 text:
-  selectors: [".c-wysiwyg", "section.wrapper--c-wysiwyg", "article"]
+  selectors:
+    - ".c-wysiwyg"                # modern theme (2024– ), same as the live recipe
+    - ".discours-details p"       # old theme, royal speeches/messages
+    - ".activity-details p"       # old theme, royal activities
+    - ".discours-details"
+    - ".activity-details"
+    - "section.wrapper--c-wysiwyg"
 date:
-  # The article page's only <time> tags are a "related actualités" sidebar (they mis-date the article —
-  # the mar_maroc / Kazakhstan trap), and there is no listing card in a wayback harvest. Deliberately
-  # DEAD selector (mirrors the live mar_maroc): never matches, so date falls to the cleaner's
-  # corrected-date pass (from the body's occasion) + the wayback_capture backstop.
-  selectors: ["nonexistent-article-date"]
+  # See the header: real article date on the OLD theme, no match at all on the modern one.
+  selectors: [".date"]
 
 position: king
 speaker_default: King Mohammed VI
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback companion ("yes-and") to the live mar_maroc. Recovers the OLD maroc.ma
-  /en/royal-speeches/<slug> permalink (2013–2024) that the current portal moved under
-  /royal-speeches-and-messages/. Official English translation of the King's speeches → English column.
-  Body via .c-wysiwyg / generic fallback; speaker_default King Mohammed VI (single monarch the whole
-  span). DATE deferred to the cleaner + wayback_capture (the detail page's only <time> is a related-news
-  sidebar). CDX ≈ 279 captures 2013–2026. FULL RUN is the researcher's gate.
+  DRAFT — Wayback companion ("yes-and") to the live mar_maroc. Official English translation of the
+  King's speeches, messages and royal-activity statements → English column, no MT.
+  RULE 1 WIDENING 2026-08-13 (chunk A7): 166 -> ~1,900 matched captures; coverage of maroc.ma/en
+  1.1% -> ~13% (the remaining 87% is the general news wire, event calendars and search/tag
+  listings, all itemised in the header). The find is /en/royal-activities/ (1,748 captures,
+  2013-2025), which no recipe reached. Two older French-NAMED but English-CONTENT generations
+  (/en/discours-du-roi, /en/discours-royaux) added at the same time.
+  ALSO FIXED: the header's claim that this site has no usable date was false for the archived old
+  theme — div.date carries "Monday 9 October 2017" and does not match on the modern theme, so it
+  is a strict improvement.
+  NOT harvested, with the evidence in the header: /en/news (general MAP news wire),
+  /en/princely-activities (non-head-of-state, and it would poison speaker_default), /en/content
+  (static portal pages, sampled).
+  An incremental run picks up only the newly matched URLs (per-country state file); no --rescrape
+  is needed or wanted. FULL RUN is the researcher's gate.

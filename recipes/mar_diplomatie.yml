@@ -21,8 +21,15 @@ start_urls:
 
 listing:
   item_selector: ".card"
-  # Royal-speech article slugs start with جلالة الملك ("His Majesty the King") -> %D8%AC%D9%84%D8%A7%D9%84%D8%A9.
-  link_pattern: '%D8%AC%D9%84%D8%A7%D9%84%D8%A9'
+  # Royal-speech article slugs contain جلالة ("His Majesty").
+  # ⚠ FIXED 2026-08-13 (chunk A7) — THE SITE SERVES TWO URL ENCODINGS AND THE PATTERN ONLY KNEW
+  # ONE. diplomatie.ma emits percent-encoded slugs
+  # (/ar/%D8%AC%D9%84%D8%A7%D9%84%D8%A9-%D8%A7%D9%84%D9%85%D9%84%D9%83-…) AND RAW-ARABIC slugs
+  # (/ar/صاحب-الجلالة-الملك-محمد-السادس-يوجه-خطابا-ساميا-إلى-الأمة-بمناسبة-عيد-العرش-المجيد) in the
+  # SAME anchor list on the same page — the newer items are unencoded. A pattern written only in
+  # %-escapes silently drops every raw-Arabic one, which is the est_president
+  # naming-generation failure in a different alphabet.
+  link_pattern: '%D8%AC%D9%84%D8%A7%D9%84%D8%A9|جلالة'
   item_title:
     selectors: [".card a", "a"]
 

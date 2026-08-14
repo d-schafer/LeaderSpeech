@@ -1,17 +1,70 @@
-# Burundi — Présidence de la République du Burundi, official speeches.
-# WordPress category archive with /page/{n}/ pagination; speech detail pages are
-# /YYYY/MM/DD/<slug>/.
+# Burundi — Présidence de la République du Burundi.
+# WordPress category archive with /page/{n}/ pagination; detail pages are /YYYY/MM/DD/<slug>/.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) — 221 → see probe ─────────────────────────────────────
+# The recipe was scoped to the category literally called `discours`. WordPress's own REST root
+# (recipe_tools/wpjson.py, zero cost, no Archive involved) puts that in proportion:
+#     post = 4,763 total.  `discours` = 221 of them = 4.6%.
+# The category vocabulary, with what happened to each:
+#     1,747  presidence-info                            ** ADDED — the presidency's own stream **
+#       993  nouvelles                                  ** ADDED **
+#       231  premiere-dame                              ** ADDED **
+#       221  discours              the only one taken before
+#       152  comptes-rendus-du-conseil-des-ministre     ** ADDED — Council of Ministers records **
+#       112  vice-presidence                            ** ADDED **
+#        90  communiques                                ** ADDED **
+#    ~1,900  decrets + decrets-2015…2026 + lois-promulguees-*   FLAGGED, NOT TAKEN — see below
+#        39  videos                                     OUT by RULE 1
+#
+# ── THE LEGAL BLOCK: THE TEXT IS IN A PDF, SO AN HTML RECIPE CANNOT TAKE IT ─────────────────────
+# Under the 2026-08-10 ruling a legal block is in scope IF each item has its own title, a date, and
+# text in the recipe's source_language. Burundi's decrees pass the first two comfortably — unlike
+# the Armenian `/en/decrees` case that set the precedent, each has a real per-item title and a date
+# in both the permalink and the listing:
+#     /2026/08/12/decret-n100-107-du-12-aout-2026-portant-revocation-dun-officier-de-la-police-…
+#     /2026/08/12/decret-n-100-104-du-12-aout-2026-portant-nomination-dun-consul-general-…
+#     /2014/06/03/loi-n120-du-3-juin-2014-portant-revision-de-la-loi-…-portant-code-electoral
+# ⚠ BUT THEY FAIL ON TEXT, and that was only caught by reading the BODY rather than the metadata.
+# The page carries NO legal text at all — it is an embedded PDF viewer. Measured:
+#     decret-n100-107 …           HTML body = **257 chars**: the title, twice, + "Download Read more"
+#     loi-n120 … code-electoral   HTML body = **234 chars**: the title + "Loading… Taking too long?
+#                                  Reload document | Open in new tab | Télécharger [2.78 MB]"
+# So harvesting this block with the present recipe would write ~1,900 rows whose `text` is their
+# own title. This is the same shape as prc.cm's `the-acts/*` (run 10): passes title AND date, and
+# still fails because the text is in a linked PDF.
+# ⇒ TAKING IT PROPERLY MEANS ITS OWN `content_type: pdf` RECIPE pointed at the linked PDFs, not a
+#   widening here — and that is before the researcher's other qualifier ("thousands of pages of
+#   clearly legal boilerplate is a separate project") is even reached. The sampled decrees are
+#   appointment, revocation and nomination orders; the `lois-promulguees-*` items are substantive
+#   statute text, which may be the more interesting half if it is ever picked up.
+# ⚠ DO NOT "fix" this by deleting the lookahead below and adding the decrees category: that gets
+#   the URLs and none of the text.
+#
+# ⓘ THE LOOKAHEAD EARNS ITS KEEP EVEN THOUGH THE DECREE CATEGORIES ARE NOT IN start_urls:
+# presidence.gov.bi renders a sidebar block carrying three `loi-…` links (Code Electoral, Loi
+# Communale, Loi sur les Partis Politiques) on EVERY category page, including
+# comptes-rendus-du-conseil-des-ministre. Without the lookahead those three would leak into the
+# harvest from any listing.
 source_id: bdi_presidence
 country: Burundi
 source_language: French
 start_urls:
+  - https://presidence.gov.bi/category/presidence-info/
+  - https://presidence.gov.bi/category/nouvelles/
   - https://presidence.gov.bi/category/discours/
-  - https://presidence.gov.bi/category/nouvelles/presidence-info/discours/
+  - https://presidence.gov.bi/category/communiques/
+  - https://presidence.gov.bi/category/comptes-rendus-du-conseil-des-ministre/
+  - https://presidence.gov.bi/category/premiere-dame/
+  - https://presidence.gov.bi/category/vice-presidence/
 renderer: static
 
 listing:
   link_selector: "article a, h2 a, h3 a"
-  link_pattern: '^https?://presidence\.gov\.bi/\d{4}/\d{2}/\d{2}/[^/?#]+/?$'
+  # The negative lookahead is the legal-block exclusion described in the header. It is belt AND
+  # braces: the decree categories are not in start_urls either, but a decree cross-posted into
+  # `presidence-info` would otherwise leak in, and having the rule in ONE visible place is what
+  # makes the decision reversible in a single edit.
+  link_pattern: '^https?://presidence\.gov\.bi/\d{4}/\d{2}/\d{2}/(?!decret|loi-|ordonnance)[^/?#]+/?$'
 
 pagination:
   type: path

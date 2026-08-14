@@ -17,14 +17,24 @@ source_id: mar_maroc
 country: Morocco
 source_language: English
 start_urls:
+  # RULE 1 widening 2026-08-13 (chunk A7): the portal's "Royal Speeches and Messages" menu has
+  # TWO article sections and this recipe took one. Measured by walking each Drupal pager to
+  # exhaustion: royal-speeches 61 items (7 pages), royal-messages **78** items (9 pages) — the
+  # section that was excluded is the LARGER of the two. Identical card markup (.item-text /
+  # .item-time) and identical article template (.c-wysiwyg = 10,011 chars on the sampled
+  # message). Alternate-views test done: a royal-messages slug requested under /royal-speeches/
+  # does NOT resolve to the article, it 200-redirects to the section listing, so the two sets
+  # are disjoint, not two views of one set.
   - https://maroc.ma/en/royal-speeches-and-messages/royal-speeches
+  - https://maroc.ma/en/royal-speeches-and-messages/royal-messages
 renderer: static
 
 listing:
   item_selector: ".item-text"
-  # Match only the final /royal-speeches/<slug> article links (not the bare listing, not
-  # /royal-messages, not the ?page= pager).
-  link_pattern: '/royal-speeches/[a-z0-9]'
+  # Match the final /royal-speeches/<slug> and /royal-messages/<slug> article links (not the bare
+  # section listings, whose URLs end at ".../royal-speeches" with no following segment, and not
+  # the ?page= pager).
+  link_pattern: '/royal-(?:speeches|messages)/[a-z0-9]'
   item_date:
     selectors: [".item-time .date-time-line span", ".item-time"]
 
@@ -39,6 +49,13 @@ pagination:
   step: 1
   max_pages: 50
 
+# SOFT-404 GUARD. maroc.ma answers an unknown article path with HTTP 200 + the SECTION LISTING
+# (verified: /royal-speeches/<a-messages-slug> returns the "Royal Speeches | Maroc.ma" listing,
+# not a 404). Without this, any stale link would be written as a row titled "Royal Speeches".
+# The listing page has no .c-wysiwyg, so requiring it is the cheap general guard.
+keep_if:
+  selectors: [".c-wysiwyg"]
+
 title:
   selectors: ["h1", "title"]
 text:
@@ -51,9 +68,18 @@ position: king
 speaker_default: King Mohammed VI
 date_languages: ["fr"]   # numeric DD-MM-YYYY on this site -> "fr" forces day-first parsing
 notes: >
-  DRAFT — probe-validated (no full run). Morocco royal speeches (King Mohammed VI) via
-  maroc.ma /en (official English translation; source_language English). Static Drupal, bot-UA
-  OK. Body from .c-wysiwyg; date carried from the listing card's .item-time (DD-MM-YYYY,
-  day-first via the "fr" hint) because the detail page's only <time> tags are a related-news
-  sidebar. Companion source mar_diplomatie takes the Arabic original from diplomatie.ma.
-  FULL RUN pending.
+  DRAFT — probe-validated (no full run). Morocco royal speeches AND royal messages (King
+  Mohammed VI) via maroc.ma /en (official English translation; source_language English). Static
+  Drupal, bot-UA OK. Body from .c-wysiwyg; date carried from the listing card's .item-time
+  (DD-MM-YYYY, day-first via the "fr" hint) because the detail page's only <time> tags are a
+  related-news sidebar. Companion source mar_diplomatie takes the Arabic original from
+  diplomatie.ma.
+  RULE 1 WIDENING 2026-08-13 (chunk A7): 61 -> 139 links. The recipe took /royal-speeches/ only
+  and its own comment said so ("not /royal-messages"); royal-messages is 78 items, LARGER than
+  the section that was taken, same template, disjoint content. A soft-404 keep_if was added at
+  the same time. NOT harvested, and why: maroc.ma/en/news (the portal's general news wire) is
+  MAP-agency national news — the six most recent items when sampled were women's AFCON football,
+  tourism-office promotion and expat arrival statistics, none of them the King speaking or a
+  government statement. Flagged for the researcher rather than taken.
+  An incremental run picks up only the newly matched URLs (per-country state file); no
+  --rescrape is needed or wanted.

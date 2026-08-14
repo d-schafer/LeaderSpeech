@@ -1,62 +1,95 @@
-# The Gambia — Office of the President (op.gov.gm), the speech PDFs, via the Internet Archive.
-# English-native → text lands directly in the English `text` column. The live gmb_op recipe is PARTIAL
-# (broken ?page=N pager, only ~3 of ~9 Barrow years, stale since May 2024). The presidency publishes
-# each speech as a PDF under /sites/default/files/…; the Archive holds them, so this recipe recovers
-# the full set via content_type: pdf over wayback. "yes-and" to the live recipe.
+# The Gambia — Office of the President (op.gov.gm), via the Internet Archive.
+# "yes-and" companion to the live gmb_op: it recovers the PDFs and articles the live site has
+# dropped, and the 2017-2021 and post-May-2024 stretches the live listing never covered.
 #
-# CDX for op.gov.gm (mimetype:application/pdf) ≈ 94 PDF captures spanning 2021–2026 (President Adama
-# Barrow). Speeches, statements, remarks, addresses (+ some non-speech PDFs the cleaner gates out).
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) ───────────────────────────────────────────────────────
+# cdxbatch on op.gov.gm: 2,850 raw captures -> 2,333 in scope. The recipe took ONLY
+# /sites/default/files/**.pdf. The same widening that the live sibling needed applies here, for the
+# same reason: the site's HTML articles ARE the speeches, and the old header's claim that they are
+# stubs was tested and found false (see gmb_op.yml — the Presidential Inaugural Address is 18,930
+# chars of HTML, the 2021 State of the Nation Address 58,391).
+# Top-level shapes on the host:
+#     1,357  index.php?…            the pre-Drupal JOOMLA site — SAMPLED AND REJECTED, see below
+#       575  /node/N                Drupal canonical ids — ALIASES of the slug URLs, excluded
+#       ~400 /<root-slug>           the HTML articles (president-…, statement-…, speech-…) ** ADDED **
+#       122  /taxonomy/term/N       listings
+#        38  /articles-grid         a listing
+#         +  /sites/default/files/**.pdf   the only thing previously taken
+#
+# SAMPLED AND REJECTED — the Joomla generation. Only 41 of the 1,357 index.php captures carry an
+# `id=`; the rest are the bare front controller. A sampled article
+# (index.php?option=com_content&view=article&id=103, captured 2012, i.e. the Jammeh era) is 1,618
+# chars of pure navigation — "About Us / Vision and Mission / Functions / Organization Structure /
+# APRC MANIFESTO 2001" — with `<title>` reading "***Office of the President***" on every page and
+# no date element anywhere. It fails all three parts of the in-scope test (own title, date, body).
+# EXCLUDED — /node/N. These are Drupal's canonical ids for the very articles the slug URLs serve.
+# `page_identity` normalises scheme/host/port/trailing slash but KEEPS the path, so taking both
+# forms would fetch and write each article twice.
 source_id: gmb_op_wayback
-# ⚠ 2026-08-13: `country` corrected from "The Gambia" to "Gambia" — this is NOT cosmetic.
-# The engine derives the doc_id prefix (run.py `alpha3_for`) and the ISO3N column (recipe.py) from
-# a `pycountry.countries.lookup()` on this exact string, and pycountry REJECTS "The Gambia"
-# (so does "Gambia, The"; "Gambia" and "Republic of the Gambia" both resolve to GMB/270).
-# `alpha3_for` falls back to "XXX" SILENTLY, so this recipe had written 86 rows with doc_ids
-# XXX0001..XXX0086 and a null ISO3N. It also put this recipe on its own data/state/The Gambia.json,
-# split from gmb_op's, so the pair could not deduplicate — their seen sets overlapped on 24 URLs.
-# Repaired the same day: rows re-stamped GMB0031..GMB0116, state files merged (last_doc_num=116,
-# 92 seen URLs), data/scraped/The Gambia/ folded into data/scraped/Gambia/.
-# Engine guards tracked in issue #73. DO NOT change this string back.
 country: Gambia
 source_language: English
-content_type: pdf
 renderer: static
+# `auto` (was `pdf`): the harvest now mixes PDF attachments and HTML article pages, and the engine
+# routes each by URL / Content-Type. See gmb_op.yml for the full explanation of the dual shape.
+content_type: auto
 start_urls:
-  # CDX prefix — engine prefix-matches (urlkey normalizes www), NO trailing '*'.
-  - op.gov.gm/sites/default/files
+  - op.gov.gm
 
 listing:
-  # keep the bare PDF object under the uploads tree
-  link_pattern: '/sites/default/files/.+\.pdf$'
+  # PDFs, plus the root-level HTML article slugs. The `{5,}` hyphen-segment requirement separates
+  # articles from the site's nav pages, which sit at the same depth but top out at three segments
+  # (communications-and-media, office-chief-staff, digital-newsletters, policy-delivery).
+  # Anchored with `$` so /node/N, /taxonomy/term/N, ?page= echoes and the Joomla query URLs cannot
+  # match.
+  link_pattern: '/sites/default/files/.+\.pdf$|^https?://(?:www\.)?op\.gov\.gm(?::80)?/(?:[a-z0-9]+-){5,}[a-z0-9]+$'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
   wayback_collapse: urlkey
   wayback_filter:
-    - "mimetype:application/pdf"
     - "statuscode:200"
 
-# PDFs have no DOM: title falls back to the PDF's first line; date is deferred to the cleaner's
-# corrected-date pass (+ wayback_capture) because the filename date format is inconsistent
-# (DDMMYYYY prefix vs a /YYYY-MM/ folder).
-title: {}
-text: {}
-date: {}
+title:
+  # HTML rows: `article h2` is the real headline. A bare `h1` is the site banner "OFFICE OF THE
+  # PRESIDENT" on every article and must never lead this chain.
+  # PDF rows: no DOM, so the url_regex supplies the filename stem.
+  selectors: ["article h2", "title"]
+  url_regex: '/([^/]+)\.pdf'
+text:
+  # `.field--name-body` is excluded on purpose: it matches SEVEN elements on this theme and joins
+  # the banner into the speech. `.node__content` is the single article container.
+  selectors: [".node__content", "article"]
+date:
+  # PDF filenames are prefixed MMDDYYYY (US order — VERIFIED, not assumed: 11182022 and 10272022
+  # both have a >12 second field, so it can only be MMDD). The HTML pages carry no date element of
+  # any kind and their slugs carry no date, so those rows land BLANK for the cleaner's
+  # corrected-date pass, backed by the wayback_capture stamp.
+  # ⚠ MEASURED: the --spread --n 10 probe dated 0 of 10, because the archive holds mostly HTML
+  # articles and only the PDFs carry a filename date. That is a real limitation of this source,
+  # not a selector bug — it was chased: no <time>, no .submitted, no .field--name-post-date and
+  # nothing matching [class*=date] exists on the page. Several slugs DO spell a date in words
+  # ("1st-cabinet-meeting-2022-held-thursday-13th-january-2022") but too inconsistently to regex,
+  # and a wrong date is worse than a blank one.
+  url_regex: '/(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)'
 
 position: president
 speaker_default: Adama Barrow
 date_languages: ["en"]
 notes: >
-  DRAFT — PDF-over-wayback recovery of Gambia's presidency speeches (op.gov.gm, English-native →
-  English column, no translation). CDX (op.gov.gm, mimetype:application/pdf) ≈ 94 PDF captures
-  2021–2026 (President Adama Barrow, in office since 2017). content_type: pdf downloads each archived
-  PDF and extracts text (pdfminer), mirroring bra_biblioteca_wayback. wayback_filter keeps only the PDF
-  binaries. speaker_default Adama Barrow (single-president window). TITLE from the PDF's first line;
-  DATE deferred to the cleaner + wayback_capture (filename date format is inconsistent). Some non-speech
-  PDFs (biodata, newsletters, communiqués) are harvested → the cleaner's document-type gate drops them.
-  Companion to the PARTIAL live gmb_op (broken pager). PROBE-VALIDATED (2026-07-26, --spread --n 6): 93
-  PDF snapshots; TEXT extracts (Barrow speeches 5,963–9,204 chars; e.g. "Statement by His Excellency
-  Adama Barrow…"); speaker_default Adama Barrow. TITLE is the PDF's first line (weak, e.g. "SPEECH BY"
-  / "STATEMENT") → the cleaner derives a better title from the body. State-House newsletters (100k+
-  chars) are among the PDFs → cleaner's document-type gate drops them. FULL RUN is the researcher's gate.
+  Wayback companion to the live gmb_op. WIDENED 2026-08-13, Session A CHUNK A7: the recipe took
+  only PDF attachments; it now also takes the ~400 root-slug HTML articles, which are the actual
+  speech texts (the live sibling's header claim that they are stubs was re-tested and is false).
+  content_type moved from `pdf` to `auto` so both shapes coexist.
+  SAMPLED AND REJECTED: the pre-Drupal Joomla generation (index.php?option=com_content&…, 1,357
+  captures, only 41 with an id) — a 2012 sample is 1,618 chars of navigation, titled
+  "***Office of the President***" on every page, with no date. EXCLUDED as duplicates: /node/N,
+  which are Drupal aliases of the same articles.
+  ⚠ speaker_default Adama Barrow is safe for the DRUPAL era only. The rejected Joomla captures are
+  Yahya Jammeh's presidency; if that generation is ever picked up it needs its own recipe without
+  this default.
+  The country-string bug fixed 2026-08-13 means this recipe and gmb_op share one
+  data/state/Gambia.json `seen_urls` set, so the pair now deduplicates against each other — 24 URLs
+  they both reach will no longer be fetched twice.
+  An incremental run picks up only newly matched URLs; no --rescrape is needed or wanted.
+  ENGLISH -> queueable now. FULL RUN is the researcher's gate.

@@ -1,44 +1,143 @@
 # Spain — La Moncloa / President of the Government (Prime Minister), via the Internet Archive.
-# The ADDED head-of-government source (PM Pedro Sánchez; the master's casareal.es is the ceremonial
-# King). lamoncloa.gob.es is ASP.NET/SharePoint: the /presidente/intervenciones/ listing paginates
-# ONLY via __doPostBack (a JS postback — ?pagina=/?page= are ignored, no sitemap, no per-year listing),
-# so the live listing can't be enumerated. But the individual .aspx pages are clean and the Archive
-# holds them well: CDX for lamoncloa.gob.es/presidente/intervenciones/Paginas = 2183 dated captures
-# spanning 2014-2026 (Rajoy 2014-2018, Sánchez 2018- ). The speech URL embeds the date:
-# /Paginas/YYYY/YYYYMMDD-<slug>.aspx -> date via url_regex (unambiguous ISO). Title h1; body .customWidth.
+# The head-of-GOVERNMENT source (esp_casareal is the ceremonial King). lamoncloa.gob.es is
+# ASP.NET/SharePoint: the listings paginate ONLY via __doPostBack (a JS postback — ?pagina= /
+# ?page= are ignored, no sitemap, no per-year listing), so the live site cannot be enumerated,
+# but the individual .aspx pages are clean and the Archive holds them well.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) ───────────────────────────────────────────────────────
+# The old recipe took ONE section — `presidente/intervenciones` — and inside it required a filename
+# beginning with EIGHT digits and a hyphen. Both halves were too narrow.
+#
+# (a) SECTIONS. cdxbatch, two prefixes:
+#     lamoncloa.gob.es/presidente          16,159 raw captures
+#         9,232 + 1,239  presidente/actividades      ** ADDED — 4x the section that was taken **
+#         2,192 +   169  presidente/intervenciones   the only one previously covered
+#         1,063 +   196  presidente/agenda           OUT — the PM's DIARY. Same call as Ireland's
+#                                                    /en/diary/details/ (assessed low value 2026-08-12):
+#                                                    URL shape is a daily calendar page
+#                                                    (agenda.aspx?d=<date>, YYMMDD-agendapresidente.aspx).
+#           84         presidente/presidentes        OUT — biographies
+#     lamoncloa.gob.es/consejodeministros  11,453 raw captures
+#         3,195 + 1,187  consejodeministros/resumenes    BANKED, see below
+#         1,634 +   360  consejodeministros/referencias  ** ADDED — the formal Council record **
+#           928 +   134  consejodeministros/ruedas       ** ADDED — the post-Council PRESS CONFERENCES **
+#
+#     `ruedas` is the find of this recipe. Sampled:
+#     /consejodeministros/ruedas/paginas/1996/r0512960.aspx is a **44,000-character verbatim
+#     transcript of the 5 December 1996 post-Council press conference**, with `.date` = "5.12.1996".
+#     The recipe's own header claimed a 2014-2026 span; this section reaches back to 1996 (the Aznar
+#     government), which is nearly two extra decades of Spanish executive speech.
+#
+# (b) FILENAMES — a naming-generation miss INSIDE the covered section. Grouping the 2,147
+#     intervenciones captures by filename shows **1,553 of them do not start with eight digits**,
+#     so the old `\d{8}-` requirement could never see them. The real filenames are a zoo across
+#     eras and there is no usable regularity: `p0707050.aspx` (2005), `pren20080228`, `prdi20140331`,
+#     `prar20221007-sanchezelsiglodeeuropa`, `mpr210122`, `presidente-casa-arquitectura`,
+#     `interv-pte-cluster-ind-tecn-Kunshan`, `20250107-sanchez-acto-espana-en-libertad`. The pattern
+#     now takes ANY .aspx/.htm file directly under a section's <year> folder and excludes the two
+#     known listing filenames instead.
+#
+# BANKED, not taken: `consejodeministros/resumenes` (4,382 captures, 2006-2013, filenames
+# `<DDMMYY>-Consejo.aspx` and an older `/ConsejodeMinistros/Resumenes/<year>/*.htm` generation).
+# It is the SUMMARY of each Council meeting and may well be a condensed alternate view of
+# `referencias` for the overlapping years — the alternate-views test has NOT been run on it, and at
+# 4,382 captures (~6 h of Archive budget) it is not worth taking on a guess. Run the test first:
+# take one `resumenes/Paginas/2008/<date>consejo.aspx` and the `referencias/Paginas/2008/refc<date>.aspx`
+# of the same date and compare bodies.
+#
+# NOTE ON THE LIVE SITE: lamoncloa.gob.es did not answer at all from this session's egress
+# (MSU-campus route, 130.18.79.11) — both www and the bare host timed out after 21 s. `livegap.py
+# --check` recorded HTTP 200 from a different route days earlier, so that is a ROUTE-SPECIFIC
+# observation, not a property of the site.
 source_id: esp_lamoncloa_wayback
 country: Spain
 source_language: Spanish
 renderer: static
 start_urls:
-  - lamoncloa.gob.es/presidente/intervenciones/Paginas
+  # CDX PREFIXES — a wayback start_url is a prefix, so the pattern alone could not have reached
+  # the new sections (the run-7 lesson). Lower-case prefixes are used because CDX prefix matching
+  # is case-insensitive on the urlkey, which is what brings in the /Presidente/ and
+  # /ConsejodeMinistros/ capitalised captures too.
+  - lamoncloa.gob.es/presidente/intervenciones
+  - lamoncloa.gob.es/presidente/actividades
+  - lamoncloa.gob.es/consejodeministros/ruedas
+  - lamoncloa.gob.es/consejodeministros/referencias
 
 listing:
-  link_pattern: '/intervenciones/Paginas/\d{4}/\d{8}-[^?]+\.aspx$'
+  # `(?i)` because this host serves every path segment in two casings (/presidente/ and
+  # /Presidente/, /Paginas/ and /paginas/). Python requires a global inline flag at position 0,
+  # which is where it is.
+  # Any .aspx/.htm article directly under a section's <year> folder, minus the two listing
+  # filenames. A trailing query is admitted deliberately — see wayback_noise_params below and the
+  # English sibling's header for the measurement that forced it.
+  link_pattern: '(?i)/(?:presidente/(?:intervenciones|actividades)|consejodeministros/(?:ruedas|referencias))/paginas/\d{4}/(?!index\.|prsp\.)[^/?]+\.(?:aspx|htm)(?:\?|$)'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
+  wayback_collapse: urlkey
   wayback_filter:
     - "statuscode:200"
+    - "mimetype:text/html"
+  # Same SharePoint UI toggles as the English sibling — see esp_lamoncloa_english_wayback.yml.
+  # Without these the ?qfr= / ?mode= / ?gal*= variants become duplicate rows of the same speech.
+  wayback_noise_params: ["qfr", "gfe", "mode", "galf1er", "galf2r", "galv2r"]
 
 title:
+  # ⚠ On the `ruedas` section h1 is the GENERIC "Rueda de Prensa" on every page — it is the
+  # document type, not a headline. The <title> carries the date ("La Moncloa. 05/12/1996. Rueda de
+  # Prensa [Consejo de Ministros/Transcripciones]"), and the `date` field below picks the real date
+  # up independently, so the cleaner has what it needs. Left as-is rather than reordering, because
+  # on intervenciones and actividades h1 IS the real headline.
   selectors: ["h1", "title"]
 text:
-  selectors: [".customWidth", ".contentPage", "article", "main"]
+  # `.column-content` is the article container on BOTH modern template generations of this host
+  # and is now FIRST. The old chain led with `.customWidth`, which is the WHOLE PAGE — measured
+  # at 6,080 chars against a 4,673-char article, opening "Idioma Castellano Català Galego Euskara
+  # Valencià English Search … Home President Biography Speeches News".
+  # `.customWidth` was REMOVED from the chain on 2026-08-13, not merely demoted. On the
+  # 2015-2017 Rajoy-era `actividades` template there is no wrapper div at all — the only
+  # container that matches anything is `.customWidth`, and it equals the whole page (5,143 of
+  # the page's 5,472 chars, opening "Inicio Mapa del sitio Contacto web"). Leaving it in the
+  # chain guarantees nav-polluted rows for that generation, because the engine's generic
+  # extractor only runs when the chain returns NOTHING. Removing it lets trafilatura handle
+  # that template, and the probe reports when it does.
+  selectors: [".column-content", "#MainContent", "main", ".contentPage", "article"]
 date:
-  # .date carries the article date "28.5.2024" (DD.M.YYYY, day-first) on all years — preferred over
-  # the URL, whose date format is INCONSISTENT (2024+ = YYYYMMDD, 2021-and-earlier = DDMMYYYY, e.g.
-  # /2021/13052021-...). date_languages ["es"] parses it day-first.
+  # .date carries the article date, "28.5.2024" / "5.12.1996" (day-first) on the modern templates.
+  # date_languages ["es"] parses it day-first.
   selectors: [".date", "[class*=fecha]"]
   regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+  # FALLBACK for the 2014-2017 templates, which carry NO date element anywhere on the page
+  # (verified on both a `referencias` and an `actividades` capture: the only container that
+  # matches anything at all is `body`). Many of this host's filenames embed an unambiguous
+  # YYYYMMDD — refc20140110, cmrp20160129, prar20221007-…, 20250107-sanchez-… — and the engine
+  # only reaches url_regex when no selector matched, so this cannot override a real .date.
+  # `(?!\d)` and the [01]/[0-3] classes matter: one filename in the wild is `202240221-sanchez-
+  # marruecos.aspx`, and a bare \d{8} would read it as month 40. They also stop the /Paginas/<year>/
+  # folder from matching, since a bare year is followed by "/", not four more digits.
+  # NOT covered on purpose: the `actividades` DDMMYY form (010515-rajoynadal.aspx) — a two-digit
+  # year is ambiguous and a wrong date is worse than a blank one, so those fall to the cleaner's
+  # corrected-date pass and the wayback_capture backstop.
+  url_regex: '(?P<year>20\d{2})(?P<month>[01]\d)(?P<day>[0-3]\d)(?!\d)'
 
 position: prime minister
 date_languages: ["es"]
 notes: >
-  DRAFT — probe-validated (no full run). La Moncloa (Spanish PM) via the Internet Archive
-  (2014-2026, ~2183 dated intervenciones). Pure-wayback: the live listing paginates only via
-  ASP.NET __doPostBack (un-crawlable), no sitemap. Date from the /Paginas/YYYY/YYYYMMDD-slug.aspx
-  permalink (url_regex). Rajoy + Sánchez -> no speaker_default, tenure crosscheck. Spanish;
-  translation stage fills English. A live renderer:js + click recipe is a possible future upgrade
-  for current speeches.
+  La Moncloa (Spanish PM) via the Internet Archive. Aznar, Zapatero, Rajoy and Sánchez -> no
+  speaker_default, tenure crosscheck. Spanish; the translation stage fills the English columns.
+  RULE 1 WIDENING 2026-08-13 (chunk A7), two independent narrownesses fixed at once: the recipe
+  took ONE section (`presidente/intervenciones`) while `presidente/actividades` is 4x larger and
+  the Council of Ministers' `ruedas` (post-Council PRESS-CONFERENCE transcripts) and `referencias`
+  sat uncovered; and INSIDE the covered section its `\d{8}-` filename requirement could not match
+  1,553 of the 2,147 captures, because this host's filenames vary wildly by era
+  (p0707050 / pren20080228 / prdi20140331 / prar20221007-… / mpr210122 / interv-pte-…).
+  The chronological gain is the headline: the header claimed 2014-2026, and `ruedas` reaches
+  1996 — a sampled capture is a 44,000-char verbatim transcript of the 5 Dec 1996 press conference.
+  EXTRACTION FIXED in the same pass: the text chain led with `.customWidth`, the whole page
+  including the language switcher and nav; `.column-content` is the real article container on both
+  template generations.
+  BANKED: `consejodeministros/resumenes` (4,382 captures) pending an alternate-views test against
+  `referencias` — instructions in the header.
+  SPANISH -> DEFERRED queue. An incremental run picks up only newly matched URLs; no --rescrape is
+  needed for the widening. FULL RUN is the researcher's gate.

@@ -1,0 +1,86 @@
+# Belgium — The Belgian Monarchy (King Philippe / Queen Mathilde / Princess Astrid), FRENCH tree.
+#
+# ── WHY THIS RECIPE EXISTS (Session A CHUNK A7, 2026-08-13) ─────────────────────────────────────
+# The A7 audit of bel_monarchie found no section narrowness — monarchie.be has exactly one article
+# stream and the English recipe already takes all of it. The gap is LANGUAGE, and it is large:
+#
+#     /fr/monarchie/discours    260 speeches   (26 pager pages, walked to exhaustion)
+#     /nl/monarchie/toespraken  259 speeches
+#     /en/monarchy/speeches     101 speeches   <- everything we hold for Belgium
+#
+# Every speech is ONE Drupal node carrying per-language translations, each with its own slug:
+#   * an English article links to its /fr/agenda/<fr-slug> and /nl/agenda/<nl-slug> twins from its
+#     own language switcher;
+#   * a French slug requested under /en/agenda/ returns a hard 404, so the trees are separate
+#     node sets, not a single set served under three prefixes (the alternate-views test PASSES —
+#     these are genuinely different URLs holding different text).
+# Sampled 12 English speeches spread across the whole list: 12 of 12 have a French twin and 12 of
+# 12 have a Dutch twin. So the English set is a strict SUBSET of the French one AS DOCUMENTS, and
+# roughly 159 Belgian royal speeches exist in no English rendering at all.
+#
+# ✅ RESEARCHER DECISION, 2026-08-14: **RUN BOTH.** This is the Finland shape, and the call is to
+# take the full 260 French documents alongside the 101 English ones, accepting that ~101 of them
+# arrive twice — once as the official English rendering and once as machine-translated French.
+# What that means downstream, so nobody re-derives it:
+#   * Nothing dedupes across recipes. The per-country state file skips on the EXACT URL string,
+#     and /en/agenda/<en-slug> vs /fr/agenda/<fr-slug> are different strings; `page_identity`
+#     normalises scheme/host/port/trailing slash but is only used INSIDE a wayback harvest.
+#   * So ~101 duplicate DOCUMENTS will exist in the corpus, distinguishable by source_id
+#     (bel_monarchie vs bel_monarchie_fr) and by source_language.
+#   * The English row is the better one for those 101 (official wording, not MT). If a dedupe
+#     pass is ever run, prefer bel_monarchie and keep bel_monarchie_fr only where no English twin
+#     exists — that is the ~159 speeches which are the whole point of this recipe. The twins are
+#     machine-pairable without guesswork: every article links its own translations from the
+#     language switcher, so one fetch per English article yields the exact French slug to drop.
+# The rejected alternatives, kept because the reasoning is what makes the choice reversible:
+#   (b) FRENCH ONLY — 260 documents, no duplicates, but 101 speeches lose their official English
+#       wording to machine translation;
+#   (c) ENGLISH ONLY (the pre-2026-08-13 state) — 101 documents, 159 speeches permanently missing.
+# DUTCH is deliberately NOT given a recipe: at 259 items it is the same document set as French,
+# so it would be pure duplication on top of either choice.
+#
+# NON-ENGLISH -> queues/sweep/deferred/ under the 2026-08-10 English-first policy.
+source_id: bel_monarchie_fr
+country: Belgium
+source_language: French
+start_urls:
+  - https://www.monarchie.be/fr/monarchie/discours
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # Same shape as the English sibling. Excludes the /fr/agenda/agenda calendar index.
+  link_pattern: '/fr/(?:agenda|monarchie/discours)/(?!agenda$)[a-z0-9][a-z0-9-]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+  max_pages: 60          # measured: the listing runs out after page 26
+
+title:
+  selectors: ["h1.page-title", "h1", "title"]
+text:
+  # `.field--name-body` (double dash) is in the English recipe's chain and matches NOTHING on
+  # this site in either language — the working class is the single-dash Drupal 7 form. Kept
+  # first for symmetry with the sibling; `.field-name-body` is what actually fires (6,889 chars
+  # on the sampled 2026 address to the nation's authorities).
+  selectors: [".field--name-body", ".field-name-body", ".field-body", "article", "main"]
+date:
+  # MUST be scoped to `main`. The bare `.date-display-single` joins SIX elements on the French
+  # template — the article date followed by a sidebar agenda feed ("28 janvier 2026 31 juillet
+  # 2026 23 juillet 2026 …"), the run-5 sidebar trap. Scoped, it returns "28 janvier 2026".
+  selectors: ["main .date-display-single", ".date-display-single", ".field--name-field-date"]
+
+position: monarch
+date_languages: ["fr"]
+notes: >
+  NEW 2026-08-13, Session A CHUNK A7. The FRENCH tree of monarchie.be — 260 speeches against the
+  101 in the English sibling bel_monarchie, on a host whose sections are already fully covered.
+  Three speakers (King Philippe, Queen Mathilde, Princess Astrid) so NO speaker_default; the
+  cleaner assigns per document. Date must be scoped to `main` (the bare class is a sidebar feed
+  on this template). FRENCH -> deferred queue.
+  ⚠ Overlaps bel_monarchie by ~101 documents (measured: 12 of 12 sampled English speeches have a
+  French twin) — see the header for the researcher decision that has to be made before both are
+  run together. FULL RUN is the researcher's gate.

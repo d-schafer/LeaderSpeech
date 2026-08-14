@@ -8,13 +8,47 @@
 source_id: mex_presidencia_wayback
 country: Mexico
 source_language: Spanish
+#
+# ── ⚠ WHY THIS RECIPE MAY MATTER MORE THAN IT LOOKS (researcher note, 2026-08-14) ───────────────
+# The AMLO corpus was ALREADY SCRAPED from the LIVE site for an earlier project — see
+# `_examples_code/scrape_mexico.R`, which walked
+#   .../presidencia/es/archivo/articulos?filter_origin=archive&idiom=es&order=DESC&page=
+# from page 1 to **page 293** and pulled **thousands** of versión-estenográfica speeches, since
+# translated. As of 2026-08-13 that listing walks to **zero** items: the AMLO material has been
+# deleted or relocated since Sheinbaum took office. The live route to it no longer exists, so the
+# Internet Archive is the only remaining public one — which is what this recipe is.
+# BUT: the researcher still holds the old scrape WITH ITS URLs, so merging that in and skipping
+# those URLs is probably cheaper and better than re-fetching them from the Archive. Decide that
+# BEFORE spending ~4 h of Archive budget here. Parked, low priority: the current focus is
+# English-language and wayback sources, and a Spanish Mexico recipe was not yet intended.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) ───────────────────────────────────────────────────────
+# The recipe was scoped to `version-estenografica` — the stenographic transcripts — and that is one
+# document type inside a much larger stream. cdxbatch on the prefix www.gob.mx/presidencia/prensa:
+#     16,866 raw captures -> 16,416 in scope, ALL of them /presidencia/prensa/<slug>.
+# That is the presidency's press stream across the AMLO term, and no recipe touched it. It is now
+# taken alongside the transcripts. (The whole-host prefix www.gob.mx/presidencia could not be
+# enumerated in one go — it blew past cdxbatch's 60,000 cap and the Archive then refused the
+# year-by-year retry with WinError 10061. The per-section prefix is the right granularity here.)
+#
+# ⚠ WHY `wayback_noise_params` MATTERS ON THIS HOST MORE THAN ANYWHERE ELSE IN THE SWEEP.
+# Of the 16,866 captures, **6,593 differ from another capture only by `?idiom=`** — gob.mx's
+# UI language toggle, which re-serves the identical Spanish article. Another few hundred carry
+# ?tab=, ?state=, ?sref= or ?hootPostID= (a Hootsuite share tag). None of those names are in the
+# engine's generic denylist, so without this list roughly 40% of the harvest would have been
+# duplicate ROWS of articles already collected — about 6,900 wasted Archive fetches and 6,900
+# duplicate documents. The knob was added to the engine on 2026-08-13 for La Moncloa; this is its
+# highest-value user.
 start_urls:
   - www.gob.mx/presidencia/es/articulos/version-estenografica
   - www.gob.mx/presidencia/articulos/version-estenografica
+  - www.gob.mx/presidencia/prensa
 renderer: static
 
 listing:
-  link_pattern: 'version-estenografica'
+  # The transcripts (…/articulos/version-estenografica-…) AND the press stream
+  # (/presidencia/prensa/<slug>). The trailing character class keeps the bare section listings out.
+  link_pattern: '/presidencia/(?:[a-z]{2}/)?(?:articulos|prensa)/[a-z0-9]'
 
 pagination:
   type: wayback
@@ -22,6 +56,8 @@ pagination:
   wayback_from: "20181201"   # AMLO inauguration
   wayback_to: "20241001"     # Sheinbaum inauguration — the live recipe covers from here
   wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # See the header — `idiom` alone accounts for 6,593 of this host's 16,866 captures.
+  wayback_noise_params: ["idiom", "tab", "state", "sref", "hootpostid"]
 
 title:
   selectors: [".bottom-buffer", "h1", "title"]

@@ -381,6 +381,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         recipe.listing.link_pattern,
         start_urls=recipe.start_urls,
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
+        extra_noise_params=recipe.pagination.wayback_noise_params or (),
     )
 
 

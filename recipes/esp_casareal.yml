@@ -1,40 +1,92 @@
-# Spain — Casa de S.M. el Rey (casareal.es), the master's listed source: King Felipe VI (2014- ).
-# ASP.NET/SharePoint but — unlike La Moncloa — the discursos listing paginates via a GET pager
-# ?pageSize=N&page=N (server-rendered, crawlable). Speeches are actividades_discursos_detalle.aspx?data=<ID>.
+# Spain — Casa de S.M. el Rey (casareal.es): King Felipe VI (2014- ) and the Royal Family.
+# ASP.NET/SharePoint but — unlike La Moncloa — the listings paginate via a GET pager
+# ?pageSize=N&page=N (server-rendered, crawlable). Items are <section>_detalle.aspx?data=<ID>.
 # Title h1; date .date ("Teatro Campoamor. Oviedo, 22.10.2024" -> regex DD.MM.YYYY, day-first, es);
-# body is unclassed divs so the generic extractor recovers it. The listing carries ALL royal-family
-# discursos (King, Queen, Princess of Asturias) -> no speaker_default; the cleaner's speaker pass keeps
-# the King's (head of state) and can drop the rest.
+# the body is unclassed divs, so the engine's generic extractor recovers it (2,126 chars on a
+# sampled activity report). The listings carry ALL royal-family items (King, Queen, Princess of
+# Asturias, Infanta Sofía) -> no speaker_default; the cleaner's speaker pass keeps the King's.
+#
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) ───────────────────────────────────────────────────────
+# The recipe took ONE of the site's article streams — `discursos`. Its own nav ("Actividades y
+# agenda" + "Área de prensa") lists four more. Each was sized by walking its pager to exhaustion
+# and sampled before a decision:
+#
+#   ADDED  actividades_actividades_detalle.aspx?data=N   the King's activity reports. Sampled
+#          (data=17057, "Entrega de trofeos de la 44ª Copa del Rey de Vela"): a real 2,126-char
+#          third-person report of what the King said and did. Press-release class — IN by RULE 1,
+#          and the cleaner's document_type gate is what decides per item.
+#   ADDED  area_prensa_comunicados_interior.aspx?data=N  77 items. The Royal Household's official
+#          COMMUNIQUÉS — e.g. "Comunicado de la Casa de S.M. el Rey sobre el relevo de Don Jaime
+#          Alfonsín Alfonso como Jefe de la Casa". Clean h1 and a SINGLE .date. Textbook
+#          official_statement.
+#   OUT    actividades_viajes_detalle.aspx?data=N        581 items, and they are TRIP ITINERARIES,
+#          not documents. Sampled data=881: one page carrying THIRTEEN separate `.date` elements
+#          ("Santiago de Cali. Colombia, 07.08.2026", "Aeropuerto Internacional Alfonso Bonilla
+#          Aragón…", …) — i.e. a hub listing every engagement of a multi-day state visit. Same
+#          call as Ireland's /en/diary/details/ and La Moncloa's presidente/agenda.
+#   OUT    actividades_agenda-prevista.aspx              the FORWARD diary.
+#   OUT    memoria_actividades.aspx                      the annual report PDF index.
+#
+# ⚠ A NOTE ON `.date` ON THE NEWLY ADDED `actividades` PAGES. Unlike a discurso or a comunicado,
+# an activity page carries several `.date` elements (8 on the sampled one) because each photo
+# caption repeats the venue+date line. That is safe here ONLY because the field `regex` below
+# reduces the joined value to its FIRST DD.MM.YYYY, and the first `.date` in DOM order is the
+# article's own header line. If that regex is ever removed, this field silently becomes the
+# eight-dates-joined mess that bit Kazakhstan and Singapore.
 source_id: esp_casareal
 country: Spain
 source_language: Spanish
 renderer: static
 start_urls:
   - https://www.casareal.es/ES/Actividades/Paginas/actividades_discursos.aspx?pageSize=20
+  - https://www.casareal.es/ES/actividades/Paginas/actividades_listado.aspx?pageSize=20
+  - https://www.casareal.es/ES/AreaPrensa/Paginas/area_prensa_comunicados.aspx?pageSize=20
 
 listing:
-  link_pattern: 'discursos_detalle\.aspx\?data=\d+'
+  # NOTE `actividades_actividades_detalle` really does repeat the word — that is the site's own
+  # filename, not a typo. `viajes_detalle` is deliberately absent (see the header).
+  link_pattern: '(?:discursos_detalle|actividades_actividades_detalle|area_prensa_comunicados_interior)\.aspx\?data=\d+'
 
 pagination:
   type: query_param
   param: page
   start: 1
   step: 1
-  max_pages: 400
+  # pageSize is pinned at 20 in each start_url because the site IGNORES a larger value: at
+  # pageSize=100 the comunicados listing returned the same 77 rows for page=1, 2 and 3 (the pager
+  # stops advancing), whereas at pageSize=20 it walks cleanly to exhaustion.
+  # `actividades` is by far the deepest of the three listings, hence the high cap; the engine's
+  # ordinary stop conditions (pager_404 / empty_page / no_new_links) end each listing, and
+  # `stop_reason: max_pages` would surface in the index as links_status: capped if this bound
+  # ever actually bit.
+  max_pages: 2000
 
 title:
   selectors: ["h1", "title"]
 text:
-  # unclassed body -> generic extractor recovers it when these miss.
+  # The article body is unclassed divs on every section of this host — none of these four match,
+  # verified on a discurso, an actividad and a comunicado — so the engine's generic extractor is
+  # what actually recovers the text (2,126 chars on the sampled activity report). They are kept as
+  # cheap insurance for a future redesign, and NOT a whole-page container like La Moncloa's
+  # `.customWidth`, which would defeat that fallback.
   selectors: [".customWidth", ".contenido", "article", "main"]
 date:
+  # The regex is LOAD-BEARING on the actividades pages — see the header.
   selectors: [".date", "[class*=fecha]", "[class*=date]"]
   regex: '\d{1,2}\.\d{1,2}\.\d{4}'
 
 date_languages: ["es"]
 notes: >
-  DRAFT — probe-validated (no full run). Casa Real discursos (casareal.es) via the GET pager
-  ?pageSize=20&page=N. King Felipe VI (+ older Juan Carlos if the data-id archive reaches back);
-  the listing also holds Queen/Princess discursos -> no speaker_default, the cleaner's speaker pass
-  keeps the King. Date from .date (regex DD.MM.YYYY, day-first, es); body via the generic extractor
-  (unclassed markup). Spanish; translation stage fills English.
+  Casa Real (casareal.es) via the GET pager ?pageSize=20&page=N. King Felipe VI (+ Queen Letizia,
+  the Princess of Asturias and the Infanta Sofía on the same listings) -> no speaker_default; the
+  cleaner's speaker pass keeps the head of state. Date from .date (regex DD.MM.YYYY, day-first,
+  es); body via the generic extractor (unclassed markup). Spanish; translation stage fills English.
+  RULE 1 WIDENING 2026-08-13 (chunk A7): the recipe took the section called `discursos` while the
+  site's own nav offers four more streams. Added the King's ACTIVITY REPORTS
+  (actividades_actividades_detalle, the deepest listing on the host) and the Royal Household's
+  official COMMUNIQUÉS (area_prensa_comunicados_interior, 77 items). Rejected after sampling:
+  `viajes` (581 items) are multi-day TRIP ITINERARIES carrying thirteen separate .date elements on
+  one page, not documents — the same call as Ireland's diary; plus the forward agenda and the
+  annual-report index.
+  SPANISH -> DEFERRED queue. An incremental run picks up only newly matched URLs; no --rescrape is
+  needed or wanted. FULL RUN is the researcher's gate.

@@ -481,6 +481,37 @@ def test_dedupe_never_collapses_query_ADDRESSED_pages():
     assert len(wayback.filter_entries_for_recipe(ge, r"SpeechesAndStatements")) == 2
 
 
+def test_recipe_can_add_its_own_noise_params():
+    """`pagination.wayback_noise_params` — for a CMS that invents its own UI toggles.
+
+    La Moncloa's SharePoint serves ONE Council-of-Ministers article as
+    `…council.aspx`, `…council.aspx?qfr=130` and `…council.aspx?mode=Dark`. None of those
+    names are in the engine's generic denylist, so without this knob the three captures
+    become three rows of the same speech — and the recipe cannot simply anchor the pattern
+    at `.aspx$` instead, because 97 of that host's articles were archived ONLY in a
+    query-carrying form.
+    """
+    base = "https://www.lamoncloa.gob.es/lang/en/gobierno/councilministers/Paginas/2019/20190823council.aspx"
+    entries = [_e(base), _e(base + "?qfr=130"), _e(base + "?mode=Dark")]
+
+    assert len(wayback.filter_entries_for_recipe(entries, r"councilministers")) == 3
+    kept = wayback.filter_entries_for_recipe(
+        entries, r"councilministers", extra_noise_params=["qfr", "mode"])
+    assert [k["original"] for k in kept] == [base]
+
+    # and it must NOT reach across into query-ADDRESSED sites: a name that is not listed
+    # still separates two documents.
+    ie = [_e(f"http://www.president.ie/index.php?speech={i}") for i in (204, 205)]
+    assert len(wayback.filter_entries_for_recipe(
+        ie, r"index\.php", extra_noise_params=["qfr", "mode"])) == 2
+
+
+def test_page_identity_extra_noise_params_are_case_insensitive():
+    a = wayback.page_identity("https://x.gov/a.aspx?Mode=Dark", extra_noise_params=["mode"])
+    b = wayback.page_identity("https://x.gov/a.aspx")
+    assert a == b
+
+
 def test_page_identity_normalizes_scheme_www_port_and_trailing_slash():
     a = wayback.page_identity("http://www.president.gov.by:80/en/events/speech-1/")
     b = wayback.page_identity("https://president.gov.by/en/events/speech-1")

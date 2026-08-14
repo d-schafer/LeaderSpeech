@@ -1,71 +1,104 @@
-# The Gambia — Office of the President (op.gov.gm), "Speeches".
+# The Gambia — Office of the President (op.gov.gm), "Speeches and Statements" + "Media Release".
 #
-# The speeches are PDFs, not web pages. /speeches is a Drupal *body field* holding a
-# hand-maintained <ul> of <h2><a> links straight to /sites/default/files/*.pdf — there is
-# no speech HTML anywhere. (Checked the sibling /<slug> article pages that also appear on
-# that listing: they are stubs — the sampled one had a 46-character body reading "OFFICE OF
-# THE PRESIDENT REPUBLIC OF THE GAMBIA" and no PDF link. They are not the speeches.)
-# Verified the PDFs extract cleanly: 7.7k chars of real text off the sample.
+# ── ⚠ THE HEADER CLAIM THAT WAS FALSE, AND IT COST HALF THIS SOURCE ─────────────────────────────
+# The previous version of this file said, as verified fact:
+#     "there is no speech HTML anywhere. (Checked the sibling /<slug> article pages that also
+#      appear on that listing: they are stubs — the sampled one had a 46-character body reading
+#      'OFFICE OF THE PRESIDENT REPUBLIC OF THE GAMBIA' and no PDF link. They are not the
+#      speeches.)"
+# Re-tested 2026-08-13 on the /<slug> pages whose titles are plainly speeches:
+#     /presidential-inaugural-address-president-adama-barrow          18,930 chars
+#     /state-nation-address-2021-legislative-year-…-adama-barrow      58,391 chars
+# Both are the complete verbatim text. One stub was sampled and generalised to the whole tree.
+# There are 30 such HTML articles on the /speeches listing alongside the 58 PDFs, and they include
+# the Inaugural Address, both State of the Nation Addresses, the New Year and Christmas messages —
+# i.e. the highest-value documents this source has. This is the RULE 1 / re-test-the-claim lesson
+# in one recipe: 58 -> ~88 documents, and the ~30 that were missing were the important ones.
 #
-# COVERAGE IS PARTIAL AND THE SOURCE LOOKS STALE — see `notes`. This is a real but small
-# slice of Barrow's presidency, not the archive.
+# ── HOW ONE RECIPE HOLDS BOTH PDFs AND HTML ─────────────────────────────────────────────────────
+# `content_type: auto` (was `pdf`): the engine treats a page as HTML unless the URL or the
+# Content-Type says PDF, so the two shapes coexist. Consequently:
+#   * `title` has BOTH a selector chain (fires on the HTML rows) and the PDF `url_regex`
+#     (fires on the PDF rows, where there is no DOM for a selector to match).
+#   * `text` likewise: selectors for HTML, the extracted PDF text otherwise.
+#   * `date` stays url_regex-only — see below.
+#
+# ⚠ POISONED TITLE on the HTML pages: a bare `h1` returns the site banner "OFFICE OF THE
+# PRESIDENT" on EVERY article. `article h2` is the real headline ("Presidential Inaugural Address
+# by President Adama Barrow"); `<title>` is the same plus a 54-char site suffix and is the fallback.
+# ⚠ `.field--name-body` matches SEVEN elements here (19,240 joined chars incl. the banner) — the
+# element-join trap. `.node__content` is the single article container (18,875 chars).
+# ⚠ The HTML pages carry NO date element of any kind (no <time>, no .submitted, no
+# .field--name-post-date, nothing matching [class*=date]) and their slugs carry no date, so those
+# rows land with a BLANK date for the cleaner's corrected-date pass. That is honest: most of these
+# bodies open with "DELIVERED ON 19TH JANUARY 2022 AT THE INDEPENDENCE STADIUM, BAKAU".
 source_id: gmb_op
 country: Gambia
 source_language: English
 start_urls:
   - https://op.gov.gm/speeches
+  # RULE 1: a section literally called "Media Release" in the site's own nav, covered by nothing.
+  - https://op.gov.gm/media-release
 renderer: static
-# Every harvested URL is a PDF; the engine downloads bytes and text-extracts with pdfminer
-# instead of BeautifulSoup. `auto` would also work (the URLs end in .pdf) but `pdf` states
-# the intent and survives a filename that loses its extension.
-content_type: pdf
+content_type: auto
 
 listing:
-  link_pattern: '/sites/default/files/.*\.pdf'
+  # Two shapes, deliberately:
+  #   1. the PDF speeches, /sites/default/files/**.pdf
+  #   2. the HTML articles at ROOT-LEVEL slugs. The `{5,}` hyphen-segment requirement is what
+  #      separates them from the site's nav pages, which live at the same depth: every article
+  #      slug has 6+ segments (presidential-inaugural-address-president-adama-barrow), while the
+  #      nav tops out at three (communications-and-media, office-chief-staff, digital-newsletters,
+  #      policy-delivery, cabinet-office). Measured on the listing: 30 articles, 0 nav pages.
+  link_pattern: '/sites/default/files/.*\.pdf|^https?://op\.gov\.gm/(?:[a-z0-9]+-){5,}[a-z0-9]+$'
 
 pagination:
   # `none` IS CORRECT — do not "improve" this by adding query_param/?page=.
-  # Verified: /speeches?page=0,1,2,5,20 all return the byte-identical page (len=64587, the
-  # same 58 PDFs). The site ignores the parameter entirely, which is indistinguishable from
-  # a one-page archive unless you check. It IS a one-page archive: all 58 speeches are on it.
-  # (If a pager ever appears, the engine will now warn "served N links but NONE were new"
-  # rather than silently truncating — issue #53.)
+  # Verified: /speeches?page=0,1,2,5,20 all return the byte-identical page (the same 58 PDFs and
+  # 30 articles). The site ignores the parameter entirely, which is indistinguishable from a
+  # one-page archive unless you check. It IS a one-page archive.
   type: none
 
 title:
-  # No DOM to select from. The listing's <a> text carries the real, well-formed title
-  # ("Statement Delivered By His Excellency ... Held On 6th December 2022") but the engine
-  # cannot carry listing metadata onto a PDF row, so the filename stem is the best proxy.
-  # It stays PERCENT-ENCODED (…/11182022%20H.E%20Barrow%20Trade%20National%20…) — ugly but
-  # informative and recoverable. Deliberately NOT left to the PDF's first line: these PDFs
-  # open with a boilerplate letterhead ("HIS EXCELLENCY, THE PRESIDENT OF THE REPUBLIC OF
-  # THE GAMBIA,"), so every row would get a near-identical, useless title. The real title
-  # sits ~5 lines into the PDF text for the cleaning stage to lift.
+  # HTML rows: `article h2`. PDF rows: no DOM, so the chain cannot match and the url_regex below
+  # supplies the filename stem. It stays PERCENT-ENCODED (…/11182022%20H.E%20Barrow%20Trade%20…) —
+  # ugly but informative and recoverable. Deliberately NOT left to the PDF's first line: these PDFs
+  # open with a boilerplate letterhead, so every row would get a near-identical, useless title.
+  # NOTE a bare `h1` is the site banner on the HTML pages and must not be in this chain.
+  selectors: ["article h2", "title"]
   url_regex: '/([^/]+)\.pdf'
-text: {}   # the PDF body itself; no selector applies (content_type: pdf)
+text:
+  # HTML rows only; PDF rows use the extracted PDF text. `.field--name-body` is excluded because
+  # it matches seven elements and joins the banner in with the speech.
+  selectors: [".node__content", "article"]
 date:
-  # Filenames are prefixed MMDDYYYY — US-order, unusually for West Africa. VERIFIED, not
+  # PDF filenames are prefixed MMDDYYYY — US-order, unusually for West Africa. VERIFIED, not
   # assumed: 11182022 and 10272022 both have a >12 second field, so it can only be MMDD.
-  # Named groups assemble an unambiguous ISO date, so dateparser's locale ambiguity never
-  # applies here.
-  # The regex anchors the 8 digits to a '/' and requires a trailing separator, which keeps
-  # it off the '2024-02/' upload directories (only 4 consecutive digits) and off mid-name
-  # digit runs like "…OUTBREAK 100922.pdf" and "EngFinalCommunique03022022.pdf".
-  # Coverage: 41 of 58 PDFs (70%) get a date this way; the other 17 have no parseable date
-  # in the filename and will land with a BLANK date for the cleaner to fill. A blank date is
-  # honest; guessing one from the PDF body would mis-stamp any speech that quotes a date.
+  # Named groups assemble an unambiguous ISO date, so dateparser's locale ambiguity never applies.
+  # The regex anchors the 8 digits to a '/' and requires a trailing separator, which keeps it off
+  # the '2024-02/' upload directories (only 4 consecutive digits) and off mid-name digit runs like
+  # "…OUTBREAK 100922.pdf". It also cannot fire on the HTML slugs, which have no 8-digit run after
+  # a '/'.
+  # Coverage: 41 of 58 PDFs (70%); the other 17, and all 30 HTML articles, land with a BLANK date
+  # for the cleaner. A blank date is honest; guessing one from the body would mis-stamp any speech
+  # that quotes a date.
   url_regex: '/(?P<month>\d{2})(?P<day>\d{2})(?P<year>20\d{2})(?:%20|\s|_|-)'
 
 position: president
 speaker_default: Adama Barrow
 date_languages: ["en"]
 notes: >
-  PARTIAL, and stale. Probe-validated: 58 speech PDFs on a single page (no pager — ?page=N
-  is ignored and re-serves page 1). Dated 2021-06-23 .. 2024-05-05 (2021:3, 2022:15,
-  2023:7, 2024:15) for 41 of 58; the remaining 17 filenames carry no parseable date.
-  Adama Barrow has been president since Jan 2017 and still is, so this source covers roughly
-  3 of ~9 years and has published NOTHING since May 2024 — treat it as a sample, not an
-  archive. speaker_default is safe here precisely because the range is short and entirely
-  Barrow's. Follow-ups worth a look: a wayback companion for 2017-2021 and for the
-  post-2024 gap; and op.gov.gm/newsletters / the /<slug> news tree if the President's
-  Office ever starts publishing speech text as HTML.
+  The Gambia, Office of the President. WIDENED 2026-08-13, Session A CHUNK A7: 58 -> see probe.
+  The recipe took only the PDF attachments on /speeches, on the strength of a header claim that
+  the sibling /<slug> HTML pages "are stubs … not the speeches". That claim was FALSE and had
+  been generalised from a single sample: the Presidential Inaugural Address is 18,930 chars of
+  HTML and the 2021 State of the Nation Address is 58,391, and there are 30 such articles on the
+  same listing. `content_type` moved from `pdf` to `auto` so both shapes coexist in one recipe.
+  Also added the nav section "Media Release", covered by nothing.
+  COVERAGE IS STILL PARTIAL AND THE SOURCE IS STALE: Adama Barrow has been president since Jan
+  2017 and the PDF stream published nothing after May 2024, so this remains a sample of his term
+  rather than an archive. gmb_op_wayback is the companion for the gaps.
+  Note the country-string bug fixed 2026-08-13 means this recipe and gmb_op_wayback now share one
+  data/state/Gambia.json `seen_urls` set, so the pair finally deduplicates against each other.
+  An incremental run picks up only newly matched URLs; no --rescrape is needed or wanted.
+  ENGLISH -> queueable now. FULL RUN is the researcher's gate.

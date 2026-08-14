@@ -1,18 +1,69 @@
 # Uganda — State House / Office of the President (statehouse.go.ug), via the Internet Archive.
-# English-native → English column. GREENFIELD (no live recipe): the site's dedicated speeches section
-# uses a dated permalink /media/speeches/<yyyy>/<mm>/<dd>/<slug>. Covers President Yoweri Museveni
-# (in office since 1986) across 2013–2020+ — real historical depth.
+# English-native → English column. Covers President Yoweri Museveni (in office since 1986).
+#
+# ── RULE 1 WIDENING + AN EXTRACTION FIX, 2026-08-13 (chunk A7) ──────────────────────────────────
+# cdxbatch on statehouse.go.ug: 22,277 raw captures → 7,737 in scope. The old pattern, scoped to
+# the section literally called `speeches`, matched **118 = 1.5%** — one of the narrowest ratios in
+# the whole sweep. The site's Drupal generation (~2010–2016) publishes FOUR dated sections under
+# the same /media/<section>/YYYY/MM/DD/<slug> permalink, with the identical template:
+#
+#     /media/news/                  ~1,512 article captures   <- 12x bigger than the section taken
+#     /media/speeches/                 118 (the only one covered)
+#     /media/press-releases/     \
+#     /media/presidential-statements/  ~204 between them
+#
+# All four added. Sampled across sections and years: same theme, same h1, same date element, and
+# real bodies (1,676–20,000 chars).
+#
+# ── ⚠ THE EXTRACTION WAS ALSO WRONG, AND THE OLD HEADER RECORDED THE SYMPTOM AS A VIRTUE ────────
+# It said 'TEXT(.content) 16k–46k chars (full addresses)'. Those numbers are the BUG. On this
+# Drupal theme a bare `.content` matches NINE elements and the engine joins all of them, so every
+# row got the whole navigation column plus the sidebar — measured on one 2011 capture: `.content`
+# = 9 elements / 15,057 chars, while the article itself is `.node .content` = 1,676 chars. The
+# preceding chain entries (`.entry-content`, `.news-detail-content`, `article`) match NOTHING on
+# this theme, so `.content` fired on every page.
+# ⇒ `text` is now scoped to `.node .content`, and the bare `.content` is REMOVED.
+# ⇒ THIS IS THE ONE CASE WHERE --rescrape IS WARRANTED: the ~126 rows already collected carry the
+#   nav-polluted text. Per the standing rule, rescrape only because the EXTRACTION was wrong —
+#   the WIDENING alone would not justify it (the per-country state file makes an ordinary
+#   incremental run fetch only the newly matched URLs).
+# The same trap sits one element away in the DATE field: a bare `.date` also joins EIGHT elements
+# here ("Wednesday 14th December 2011 30th July 2020 25th July 2020 …", the sidebar feed), which
+# is why the date stays on the URL permalink, now generalised across the four sections.
+#
+# ── WHAT IS DELIBERATELY NOT HARVESTED ──────────────────────────────────────────────────────────
+# * `statehouse.go.ug/<slug>/` (895 captures) is the MODERN WordPress generation. It is covered
+#   live and in full by the new uga_statehouse.yml (924 posts via the WP REST API), so taking it
+#   here would mostly re-fetch pages we already have from a far cheaper source.
+# * The 2004–2009 PHP generation — `news.detail.php?newsId=N` (665 captures), `news.php?catId&item`
+#   (121), `news_detail.php?id` (36), `details.php?newsId` (35) — is REAL Museveni-era content and
+#   is BANKED, not taken. Sampled: it is a nested-table layout where `td` joins to 64,524 chars
+#   (the pmindia element-join trap), `<title>` is the site name on every page, and there is no
+#   date element at all. It needs its own recipe with body-regex title/date, not a widening here.
+# * /taxonomy/term/N/all (498), /category/<x>/<y> (243), /bgb?index&offset (497) and the
+#   /media/<section>/YYYY/MM/DD date-only forms are LISTINGS — excluded by the trailing [a-z].
 source_id: uga_statehouse_wayback
 country: Uganda
 source_language: English
 renderer: static
 start_urls:
+  # CDX prefixes — one per dated section. A wayback start_url is a prefix, so widening the
+  # link_pattern alone would have been a no-op (the run-7 lesson).
+  - statehouse.go.ug/media/news
   - statehouse.go.ug/media/speeches
+  - statehouse.go.ug/media/press-releases
+  - statehouse.go.ug/media/presidential-statements
 
 listing:
-  # dated speech article /media/speeches/<yyyy>/<mm>/<dd>/<slug> (drops the /media/speeches/<yyyy>/<mm>/
-  # <dd>?page=N day-listing pages, which have no slug — those are the 2021 crawl-storm captures).
-  link_pattern: '/media/speeches/20\d\d/\d\d/\d\d/[a-z]'
+  # Dated article permalink in any of the four sections. The trailing [a-z] drops the
+  # /media/<section>/YYYY/MM/DD day-listing captures, which carry no slug; `[^?]*$` drops the
+  # ?page=N echoes of an article we already have.
+  # ⚠ THE ?page= EXCLUSION WAS MEASURED, NOT ASSUMED (the keh.hu &pnr= lesson, where an
+  # identical-looking suffix turned out to paginate the article body itself). Of the 1,964
+  # matching captures, 107 carry a query — 106 `?page=N`, 1 `?fbclid=` — and grouping by slug
+  # shows 1,817 identities seen clean, 12 seen with a query, and **ZERO seen ONLY with a query**.
+  # So nothing is lost and 107 duplicate archive fetches are saved.
+  link_pattern: '/media/(?:news|speeches|press-releases|presidential-statements)/20\d\d/\d\d/\d\d/[a-z][^?]*$'
 
 pagination:
   type: wayback
@@ -23,21 +74,33 @@ pagination:
     - "mimetype:text/html"
 
 title:
+  # NOTE `.title` is deliberately absent: on this theme it is a sidebar headline block that
+  # returns the same "President Museveni officiates at the 17th Anniversary of the Atiak
+  # Massacre" on every page — the poisoned-title shape.
   selectors: ["h1", ".entry-title", ".news-detail-content h1", "title"]
 text:
-  selectors: [".entry-content", ".news-detail-content", "article", ".content"]
+  # `.node .content` MUST stay scoped — see the header. The bare `.content` is a nine-element
+  # join of the whole page chrome.
+  selectors: [".node .content", ".entry-content", ".news-detail-content", "article"]
 date:
-  # url_regex ONLY — the /media/speeches/YYYY/MM/DD/ permalink is authoritative.
-  url_regex: '/media/speeches/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+  # url_regex ONLY — the /media/<section>/YYYY/MM/DD/ permalink is authoritative, and the page's
+  # `.date` class is a sidebar feed (eight joined dates).
+  url_regex: '/media/(?:news|speeches|press-releases|presidential-statements)/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
 
 position: president
 date_languages: ["en"]
 notes: >
-  DRAFT — GREENFIELD Wayback recovery of statehouse.go.ug speeches (President Yoweri Museveni,
-  1986– ). PROBE-VALIDATED (2026-07-27, --spread --n 8): 127 /media/speeches/<yyyy>/<mm>/<dd>/<slug>
-  snapshots; TITLE(h1) clean ("State of the Nation Address 2013"; "President Museveni's 54th Independence
-  Day Speech"), TEXT(.content) 16k–46k chars (full addresses), DATE from the URL permalink via url_regex,
-  2011–2022. (The 2021 crawl-storm of ?page=N day-listings is excluded by the link_pattern.) NO
-  speaker_default (Museveni dominates + occasional VP/official remarks) → cleaner's speaker pass + tenure
-  crosscheck. The 2023+ site uses a different flat-slug scheme (not covered here). FULL RUN is the
-  researcher's gate.
+  Wayback recovery of statehouse.go.ug's Drupal-era dated sections (President Yoweri Museveni).
+  RULE 1 WIDENING 2026-08-13 (chunk A7): 118 -> see probe; coverage of the host 1.5% -> much
+  higher. The recipe was scoped to the section literally called `speeches` while /media/news/
+  carries roughly 12x as many article captures under the identical permalink and template, and
+  /media/press-releases/ + /media/presidential-statements/ sat uncovered beside them.
+  ⚠ EXTRACTION FIX IN THE SAME PASS, and this one needs a --rescrape: the text selector fell
+  through to a bare `.content`, which matches NINE elements on this theme, so the ~126 rows
+  already collected hold the site navigation rather than the speech. Now scoped to `.node
+  .content` (1,676 chars vs 15,057 on the measured capture). This is the standing exception to
+  the no-rescrape rule — the extraction was wrong, not merely narrow.
+  A live sibling now exists: uga_statehouse.yml (WP REST, 924 posts), which is why the modern
+  root-slug generation is left out of this recipe. The 2004-2009 PHP generation is banked in the
+  header. NO speaker_default (Museveni dominates, with occasional VP/official remarks).
+  FULL RUN is the researcher's gate.

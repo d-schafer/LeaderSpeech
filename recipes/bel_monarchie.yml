@@ -26,7 +26,12 @@ title:
 text:
   selectors: [".field--name-body", ".field-name-body", ".field-body", "article", "main"]
 date:
-  selectors: ["time", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
+  # `main .date-display-single` leads because the class is ALSO used by a sidebar
+  # "agenda" block on some renderings — on the French twin of one sampled article the bare
+  # class joins SIX elements ("28 janvier 2026 31 juillet 2026 23 juillet 2026 …"), the
+  # run-5 sidebar-feed trap. Scoped to `main` it returns exactly the article's own date.
+  # The bare class is kept after it as the fallback for older templates.
+  selectors: ["time", "main .date-display-single", ".date-display-single", ".field--name-field-date", ".date", "span[class*='date']"]
 
 position: monarch
 date_languages: ["en"]
@@ -35,3 +40,17 @@ notes: >
   /en/agenda/<slug>. link_pattern excludes the /en/agenda/agenda index page. Probed
   2026-07-06: 100 links; --spread title/text/date OK across 2016–2026. Two speakers
   (King Philippe, Queen Mathilde) — no speaker_default; the cleaner assigns per document.
+  RULE 1 AUDIT 2026-08-13, Session A CHUNK A7 — CHECKED CLEAN, not widened. monarchie.be has
+  exactly ONE article stream, /en/agenda/<slug>, and the only listing that exposes it is this
+  one. Verified: /en/agenda/agenda is a FORWARD calendar that is currently empty (23 anchors,
+  all chrome); /en/activities-belgium is a static "how to invite the King" page, not a listing;
+  the site map's remaining entries (royal-office, royal-household, civil-list, protocol,
+  heritage, for-children, photos & videos) are informational or gallery pages. The pager was
+  walked to exhaustion: 101 items over 11 pages, which is what the recipe already harvests.
+  ⚠ THE REAL BELGIAN GAP IS LANGUAGE, NOT SECTIONS — see bel_monarchie_fr.yml. The FRENCH tree
+  holds 260 speeches and the DUTCH 259, against 101 here, and every speech is ONE Drupal node
+  with per-language translations (proved by the article's own language switcher, and by a French
+  slug returning 404 under /en/). 12 of 12 sampled English speeches have both a French and a
+  Dutch twin, so the English set is a strict SUBSET of the French one as documents, and ~159
+  Belgian royal speeches exist in no English rendering at all.
+  An incremental run picks up only newly matched URLs; no --rescrape is needed or wanted.

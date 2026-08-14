@@ -269,6 +269,14 @@ class Pagination(BaseModel):
     # denylist of parameters is ignored and query-ADDRESSED pages (index.php?speech=204)
     # keep their identifying params. Set False to fetch every query variant separately.
     wayback_dedupe_noise_params: bool = True
+    # Extra query parameter NAMES (case-insensitive) that this SITE uses as on-page UI
+    # toggles, added to the engine's built-in denylist for the dedupe above. The built-in
+    # list is deliberately generic (utm_*, fbclid, ?print, ?amp …); some CMSes invent their
+    # own. e.g. La Moncloa's SharePoint serves the same article as `…council.aspx`,
+    # `…council.aspx?qfr=130` and `…council.aspx?mode=Dark`.
+    # ⚠ Only list parameters that do NOT change which document is served — a parameter that
+    # ADDRESSES the article (index.php?speech=204) would collapse the whole source to one row.
+    wayback_noise_params: Optional[list[str]] = None
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 

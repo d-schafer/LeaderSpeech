@@ -1,23 +1,76 @@
-# Spain — La Moncloa / President of the Government (PM), the ENGLISH tree /lang/en/, via the Internet
-# Archive. ENGLISH sibling of the native esp_lamoncloa_wayback (Spanish). The English intervenciones
-# land directly in the English `text` column (no translation needed). "yes-and" to the native recipe.
+# Spain — La Moncloa (the President of the Government / PM), ENGLISH tree, via the Internet
+# Archive. Genuine official English → straight into the English text column, no MT. "yes-and"
+# sibling of the native-language esp_lamoncloa_wayback.
 #
-# The live listing paginates only via __doPostBack (see the native recipe), so pure-wayback. The
-# English dated speech pages are archived cleanly: CDX for
-# lamoncloa.gob.es/lang/en/presidente/intervenciones ≈ 198 statuscode:200 English captures spanning
-# 2008–2026 (Zapatero 2008 investiture; Rajoy 2011–2018; Sánchez 2018– ).
+# ── RULE 1 WIDENING 2026-08-13 (chunk A7) — 191 → see probe ─────────────────────────────────────
+# cdxbatch on lamoncloa.gob.es/lang/en: 18,163 raw captures. The old pattern, scoped to the
+# section called `intervenciones` ("speeches"), matched **191 = 1.1%**.
+#
+# ⚠ READ THE DENOMINATOR BEFORE THE RATIO (the run-5 lesson). 10,708 of those captures — 59% of
+# the host — are `Paginas/PageNotFoundError.aspx?requestUrl=…` SOFT-404 pages. The honest
+# denominator is the ~6,200 captures that sit under a real /<area>/<section>/Paginas/ path, and
+# their histogram is:
+#
+#     3,047  gobierno/news                government news, English            ** ADDED **
+#     1,944  presidente/news              the President's news                ** ADDED **
+#       461  gobierno/councilministers    Council of Ministers references AND
+#                                         post-Council press conferences      ** ADDED **
+#       201  presidente/intervenciones    the only section previously taken
+#       147  presidente/videos            OUT — RULE 1 (video)
+#       113  presidente/photogalleries    OUT — RULE 1 (photo)
+#        92  brexit/*                     OUT — citizen guidance leaflets
+#        66  gobierno/bylegislature       OUT — legislature index pages
+#        43  gobierno/gabinete            OUT — minister profile pages
+#        17  espana/leyfundamental        OUT — the text of the Constitution
+#         8  presidente/presidents        OUT — presidential biographies
+#
+# Sampled before adding: presidente/news carries a real h1 headline, a `.date` of
+# "Friday 10 September 2010" and a 4,673-char English body; councilministers the same shape
+# ("Moncloa Palace, Madrid, Thursday 15 November 2012"). Both are the identical SharePoint
+# template as intervenciones.
+#
+# ── TWO EXTRACTION DEFECTS FIXED IN THE SAME PASS ───────────────────────────────────────────────
+# 1. `.customWidth` led the text chain and is the WHOLE PAGE BODY — measured at 6,080 chars on a
+#    page whose article is 4,673, and it opens "Idioma Castellano Català Galego Euskara Valencià
+#    English Search … Home President Biography Speeches News V…". Every row would have carried the
+#    language switcher and the nav column. The article container is `div#MainContent`, whose class
+#    list includes `column-content`.
+# 2. The site was REDESIGNED and `#MainContent` does not exist on the 2026 captures. `.column-
+#    content` survives BOTH generations — verified at 60,333 chars on Zapatero's 2008 investiture
+#    speech (old template) and 12,425 chars on a July 2026 speech (new template). It leads the
+#    chain, with `#MainContent` and `main` behind it. `.customWidth` is NOT kept as a backstop:
+#    the engine's generic extractor only runs when the chain returns NOTHING, so a whole-page
+#    selector at the end of a chain does not protect against an unseen template, it GUARANTEES a
+#    nav-polluted row for one.
+#
+# ── NOTE ON THE LIVE SITE ───────────────────────────────────────────────────────────────────────
+# lamoncloa.gob.es did not answer at all from this session's egress (MSU-campus route,
+# 130.18.79.11): both https://www.lamoncloa.gob.es/ and the bare host timed out after 21 s, and a
+# triage call returned WinError 10054. `livegap.py --check` recorded it as HTTP 200 from a
+# different route days earlier, so this is a ROUTE-SPECIFIC observation, not a property of the
+# site — worth re-testing before anyone concludes the host is down or writes a live recipe off.
 source_id: esp_lamoncloa_english_wayback
 country: Spain
 source_language: English
 renderer: static
 start_urls:
-  # CDX prefix — engine prefix-matches, NO trailing '*'.
-  - lamoncloa.gob.es/lang/en/presidente/intervenciones/Paginas
+  # CDX PREFIXES — one per section. A wayback start_url is a prefix, so widening the
+  # link_pattern alone would have been a no-op (the run-7 lesson).
+  - lamoncloa.gob.es/lang/en/presidente/intervenciones
+  - lamoncloa.gob.es/lang/en/presidente/news
+  - lamoncloa.gob.es/lang/en/gobierno/news
+  - lamoncloa.gob.es/lang/en/gobierno/councilministers
 
 listing:
-  # dated speech permalink: /lang/en/presidente/intervenciones/Paginas/<year>/<slug>.aspx
-  # ([^?]+ tolerates/excludes any trailing ?qfr= query the archive recorded)
-  link_pattern: '/lang/en/presidente/intervenciones/Paginas/\d{4}/[^?]+\.aspx'
+  # `[Pp]aginas` because the host serves both spellings of the SharePoint folder.
+  # ⚠ THE PATTERN DELIBERATELY ALLOWS A TRAILING QUERY, and that was measured, not assumed.
+  # Grouping the 5,472 matching captures by filename gives 4,238 identities seen clean, 1,234
+  # seen with a query and **97 seen ONLY with a query** (mostly 2019-20 councilministers items
+  # archived as `…council.aspx?qfr=130`). Anchoring at `\.aspx$` — the tidy-looking choice, and
+  # the right one on Uganda in this same chunk — would silently drop those 97 real articles.
+  # The duplicate side of that trade is handled by `wayback_noise_params` below, not by the
+  # pattern.
+  link_pattern: '/lang/en/(?:presidente|gobierno)/(?:intervenciones|news|councilministers)/[Pp]aginas/\d{4}/[^?/]+\.aspx(?:\?|$)'
 
 pagination:
   type: wayback
@@ -26,29 +79,43 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+  # This SharePoint install re-serves the SAME article under several UI-toggle parameters:
+  # ?qfr=130 and ?gfe=1 (list-filter state), ?mode=Dark (the dark-mode switch), and the
+  # ?galf1er / ?galf2r / ?galv2r gallery-filter family. None are in the engine's generic
+  # denylist, so without this the 1,234 query-carrying captures would become 1,234 duplicate
+  # ROWS of speeches we already have. Engine support added 2026-08-13 with this recipe.
+  wayback_noise_params: ["qfr", "gfe", "mode", "galf1er", "galf2r", "galv2r"]
 
 title:
-  # reuse the native esp_lamoncloa_wayback selectors (same SharePoint template)
   selectors: ["h1", "title"]
 text:
-  selectors: [".customWidth", ".contentPage", "article", "main"]
+  # `.column-content` FIRST — it is the article container on BOTH template generations.
+  # `.customWidth` is NOT in the chain: it is the whole page (6,080 chars against a 4,673-char
+  # article) and, because the engine's generic extractor only runs when the chain returns
+  # NOTHING, keeping it as a "backstop" would guarantee nav-polluted rows on any template the
+  # three real containers miss. Better to fall through to trafilatura. See the header.
+  selectors: [".column-content", "#MainContent", "main"]
 date:
-  # .date carries "28.5.2024" (DD.M.YYYY day-first); the URL's 8-digit date is inconsistent across
-  # years (2024+ YYYYMMDD vs 2021- DDMMYYYY), so prefer the on-page value. date_languages es: the
-  # numeric date string is language-independent, so it parses on the English pages too.
+  # `.date` carries e.g. "Lower House of Parliament, Tuesday 8 April 2008" on the old template
+  # and "2026.7.27" on the new one; dateparser handles both.
   selectors: [".date", "[class*=fecha]"]
-  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
 
-position: prime minister
-date_languages: ["es"]
+position: prime_minister
+date_languages: ["en"]
 notes: >
-  DRAFT — Wayback ENGLISH sibling of the native esp_lamoncloa_wayback (yes-and; genuine English →
-  English column, no translation). CDX prefix lamoncloa.gob.es/lang/en/presidente/intervenciones ≈ 198
-  statuscode:200 captures 2008–2026 (Zapatero 2008 investiture, Rajoy 2011–2018, Sánchez 2018– ).
-  link_pattern keeps the dated /lang/en/…/Paginas/<year>/<slug>.aspx permalink. Reuses the native
-  recipe's h1/.customWidth/.date selectors (same SharePoint template). Multiple PMs → NO
-  speaker_default; the cleaner's tenure crosscheck assigns the speaker. PROBE-VALIDATED (2026-07-26,
-  --spread --n 6): 189 snapshots; GENUINE English — TITLE(h1) clean (e.g. "Speech by José Luis
-  Rodríguez Zapatero at investiture debate", "Speech by Acting President at the Gates Foundation
-  'Goalkeepers' event"), TEXT(.customWidth) 5,947–61,301 chars, DATE(.date) working (some fall to the
-  cleaner). FULL RUN is the researcher's gate.
+  Wayback ENGLISH sibling of the native esp_lamoncloa_wayback (yes-and; genuine English → English
+  column, no translation). Covers Zapatero, Rajoy and Sánchez.
+  RULE 1 WIDENING 2026-08-13 (chunk A7): 191 -> see probe; the recipe took the section called
+  `intervenciones` (201 captures) while `gobierno/news` (3,047), `presidente/news` (1,944) and
+  `gobierno/councilministers` (461, which includes the post-Council press-conference transcripts)
+  sat uncovered on the identical SharePoint template. The headline 1.1% ratio was misleading in
+  the usual way: 10,708 of the host's 18,163 captures are PageNotFoundError soft-404s.
+  TWO EXTRACTION DEFECTS FIXED at the same time — the text chain led with `.customWidth`, which is
+  the entire page including the language switcher and nav, and the site has since been redesigned
+  so the old `#MainContent` no longer exists. `.column-content` works on both generations.
+  ENGINE: this recipe is the first user of `pagination.wayback_noise_params`, added the same day —
+  the site's ?qfr= / ?gfe= / ?mode= / ?gal*= UI toggles are not in the engine's generic denylist,
+  and the pattern has to admit query-carrying URLs because 97 articles were archived only that way.
+  An incremental run picks up only newly matched URLs; no --rescrape is needed for the WIDENING,
+  but note the pre-existing rows carry nav-polluted text from the old `.customWidth` chain.
+  ENGLISH -> queueable now. FULL RUN is the researcher's gate.

@@ -298,13 +298,16 @@ NOISE_PARAMS = frozenset({
 NOISE_PARAM_PREFIXES = ("utm_", "at_", "pk_", "piwik_", "tspd_", "__cf")
 
 
-def page_identity(url: str) -> str:
+def page_identity(url: str, extra_noise_params: Iterable[str] = ()) -> str:
     """A key that is equal for two URLs serving the SAME document.
 
     Normalizes scheme, `www.`, port and trailing slash, and drops only the query
-    parameters in :data:`NOISE_PARAMS` / :data:`NOISE_PARAM_PREFIXES`. Meaningful
-    parameters are kept, so query-addressed sites stay fully distinct.
+    parameters in :data:`NOISE_PARAMS` / :data:`NOISE_PARAM_PREFIXES`, plus any names
+    in `extra_noise_params` (the recipe's `pagination.wayback_noise_params`, for a CMS
+    that invents its own UI toggles). Meaningful parameters are kept, so query-addressed
+    sites stay fully distinct.
     """
+    extra = {p.lower() for p in extra_noise_params}
     pr = urlparse(url)
     host = pr.netloc.split(":")[0].lower()
     if host.startswith("www."):
@@ -314,7 +317,8 @@ def page_identity(url: str) -> str:
     path = re.sub(r"/comment-page-\d+$", "", path)
     kept = [
         (k, v) for k, v in parse_qsl(pr.query, keep_blank_values=True)
-        if k.lower() not in NOISE_PARAMS and not k.lower().startswith(NOISE_PARAM_PREFIXES)
+        if k.lower() not in NOISE_PARAMS and k.lower() not in extra
+        and not k.lower().startswith(NOISE_PARAM_PREFIXES)
     ]
     return host + path + ("?" + urlencode(sorted(kept)) if kept else "")
 
@@ -324,6 +328,7 @@ def filter_entries_for_recipe(
     link_pattern: Optional[str] = None,
     start_urls: Iterable[str] = (),
     dedupe_noise_params: bool = True,
+    extra_noise_params: Iterable[str] = (),
 ) -> list[dict]:
     """Filter CDX captures down to speech pages — country-agnostic.
 
@@ -338,7 +343,10 @@ def filter_entries_for_recipe(
       * `dedupe_noise_params` (on by default) keeps only the FIRST capture of each
         distinct page, ignoring tracking/UI query parameters — see :func:`page_identity`.
         Set it False to fetch every query variant as its own document.
+      * `extra_noise_params` (the recipe's `pagination.wayback_noise_params`) adds
+        site-specific UI-toggle parameter names to that denylist.
     """
+    extra_noise_params = tuple(extra_noise_params or ())
     pattern = re.compile(link_pattern) if link_pattern else None
     listing_paths = {_url_path(u) for u in start_urls}
     out: list[dict] = []
@@ -349,7 +357,8 @@ def filter_entries_for_recipe(
         original = entry.get("original")
         if not original:
             continue
-        key = page_identity(original) if dedupe_noise_params else original
+        key = (page_identity(original, extra_noise_params)
+               if dedupe_noise_params else original)
         if key in seen:
             # A second capture of a page we already have (usually the same article with a
             # ?utm_source= / ?comment= suffix). Count it so the run log can show the saving.
@@ -421,6 +430,7 @@ def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
     return filter_entries_for_recipe(
         entries, extend_link_pattern(recipe, ext), start_urls=[prefix],
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
+        extra_noise_params=recipe.pagination.wayback_noise_params or (),
     )
 
 
