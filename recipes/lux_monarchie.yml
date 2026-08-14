@@ -18,6 +18,27 @@ renderer: static
 # Tailwind grid col (matched via [class~='xl:col-span-4']). Title h1, body .prose
 # (intro + body). Grand Duke Henri abdicated to Guillaume in Oct 2025 -> speaker left
 # to the tenure crosscheck (no default). date_languages fr.
+#
+# RULE 1 AUDIT 2026-08-14 (sweep chunk A8) — CHECKED CLEAN on breadth, plus one new sibling.
+# /fr/actualites looks like the RULE 1 shape (one section) and is not: the nav's fifteen-odd
+# "categories" (Discours, Communiqués, Audiences, Conférences, Commémorations, Culture, ...) are
+# Drupal FACETS over this same feed — every one is `/fr/actualites?f[0]=categories:NN`, not a
+# separate URL space — so the unfiltered feed already IS the union. That also sharpens the older
+# note above that "no working discours-only filter" exists: the filter works fine, it simply
+# filters this same list. Nothing to widen to in French.
+#   * ⚠ THE OTHER THREE LANGUAGE TREES ARE EMPTY SHELLS — measured, and worth recording because
+#     the language switcher makes them look like three uncovered siblings. The site advertises
+#     /en/news, /de/aktuelles and /lu/noriichten alongside /fr/actualites, and each returns HTTP
+#     200 with the full nav, the language switcher and all fifteen category facets — and ZERO
+#     article links. Checked three ways on the English tree: the bare listing, `?page=1`, and a
+#     category facet all yield 0 article anchors, and `jsinspect.py --renderer js` yields 0 as
+#     well, so it is not a JS-rendering problem. /de/aktuelles and /lu/noriichten yield 0 the same
+#     way. An English recipe (lux_monarchie_english.yml) was authored against the English tree on
+#     2026-08-14 and DELETED the same day once it probed 0 links. The Court publishes in French
+#     only; the French feed here is the whole source. Do not re-derive this.
+#   * Tool note: `pagecount.py` reports this feed as 8 pages. That is the WINDOWED pager
+#     ("1 2 3 … 8 ›"), not the archive size — the 200+-page estimate above stands. pagecount reads
+#     the highest pager link on ONE page, so it under-reports any windowed pager.
 listing:
   link_selector: "a[href*='/fr/actualites/']"
   link_pattern: '/fr/actualites/[a-z0-9-]+$'

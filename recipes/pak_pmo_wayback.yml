@@ -2,24 +2,55 @@
 # WHY WAYBACK-ONLY: pmo.gov.pk is unreachable from outside Pakistan — the host
 # accepts no TCP connection on 443/80 (curl times out, http=000; confirmed geo-/
 # firewall-blocked, not a UA/WAF issue), so there is no live path to author against.
-# The Internet Archive, however, holds ~1,300 captures of the site's HTML news detail
-# pages (news_details.php?news_id=N, 2013-2026, spanning the Nawaz Sharif, Abbasi,
-# Imran Khan and Shehbaz Sharif governments) with clean title/body/date selectors.
-# (The archive also has the PM's set-piece addresses, but those are PDF/.doc only ->
-# out of scope for the HTML engine; the news_details pages carry the press text.)
+# The Internet Archive holds ~5,500 in-scope captures of the site's HTML detail pages
+# (2013-2026, spanning the Nawaz Sharif, Abbasi, Imran Khan and Shehbaz Sharif
+# governments) with clean title/body/date selectors.
+#
+# RULE 1 WIDENING 2026-08-14 (sweep chunk A8). The recipe took ONE of the site's four
+# article endpoints and reached 1,319 of 11,818... no: 1,319 of 5,495 in-scope captures =
+# 24.0%. Full CDX enumeration (`recipe_tools/cdxbatch.py --hosts pmo.gov.pk`):
+#     3,302  press_release_detailes.php?pr_id=N     <- 2.5x BIGGER than the section taken
+#     1,319  news_details.php?news_id=N             <- all the recipe had
+#       338  messageDetail.php?message_id=N         <- PM's Eid/national-day MESSAGES
+#        89  pm_speech_details.php?speech_id=N      <- the PM's SPEECHES
+# All four now taken; coverage 24.0% -> ~92% of in-scope captures.
+#
+# ⚠ THE HEADER CLAIM THIS REPLACES WAS FALSE, and it cost the source its best documents.
+# It said "the PM's set-piece addresses are PDF/.doc only -> out of scope for the HTML
+# engine". `pm_speech_details.php` is plain HTML and carries FULL transcripts, sampled
+# 2026-08-14: speech_id=1 is Nawaz Sharif's 14 Aug 2013 Independence Day address (10.2k
+# chars), 55 is his remarks with President Ghani in Kabul, 99 is Imran Khan's address to
+# the Second Belt and Road Forum. Every one of the four endpoints renders the SAME
+# template, so the existing selectors work verbatim — verified with selcheck.py on
+# archived captures (#right-header-title / #right-content-body / #right-header-datetime).
+#
+# SAMPLED AND REJECTED: youth.pmo.gov.pk (newsDetails.php?id=N, 72 + 14 captures, and 54
+# WordPress ?p=N) — the PM's Youth Programme loan/laptop/skills portal. Its "news" is APP
+# wire copy about programme officials ("PM youth business loans given to around 6000
+# persons ... Ms Leila Khan, Chairperson PMYP"), not PM communications.
+#
+# INCREMENTAL, NOT A RESCRAPE: the extraction was already correct on the pages we hold;
+# an ordinary run appends only the newly-matched URLs. Do NOT use --rescrape.
 source_id: pak_pmo_wayback
 country: Pakistan
 source_language: English
 start_urls:
-  # CDX prefix WITHOUT the ".php": prefix-matches /news_details.php?news_id=N, but its
-  # path (/news_details) differs from the article path (/news_details.php) so the engine's
-  # listing-index drop doesn't swallow every article.
+  # CDX prefixes deliberately TRUNCATED before the ".php": each prefix-matches its
+  # article URLs, but its path (/news_details) differs from the article path
+  # (/news_details.php) so the engine's listing-index drop doesn't swallow every article.
   - pmo.gov.pk/news_details
+  - pmo.gov.pk/press_release_detaile
+  - pmo.gov.pk/messageDetai
+  - pmo.gov.pk/pm_speech_detail
 renderer: static
 
 listing:
-  # Each PM news/press item is news_details.php?news_id=<N>.
-  link_pattern: 'news_details\.php\?news_id=\d+'
+  # The site's four article endpoints. Host deliberately NOT anchored: most pre-2019
+  # captures are `www.pmo.gov.pk:80/...` and a host anchor would refuse them (the `:80`
+  # trap — CDX collapses on urlkey, which strips the port, and hands back the :80 form
+  # for any article first captured before the HTTPS switch). No other host on the domain
+  # uses these endpoint names, so leaving it unanchored costs nothing.
+  link_pattern: '(?:news_details\.php\?news_id|press_release_detailes\.php\?pr_id|messageDetail\.php\?message_id|pm_speech_details\.php\?speech_id)=\d+'
 
 pagination:
   type: wayback
@@ -38,9 +69,12 @@ position: prime minister
 date_languages: ["en"]
 notes: >
   Wayback-only (see header): pmo.gov.pk is geo/firewall-blocked (no TCP from outside PK),
-  so there is no live recipe to pair this with. Harvests the archived HTML news_details.php
-  pages (~1,300 captures, 2013-2026, multiple PM tenures) — title #right-header-title, body
-  #right-content-body, date #right-header-datetime. These are third-person press notes
+  so there is no live recipe to pair this with. WIDENED 2026-08-14 (A8) from ONE endpoint
+  to all FOUR — news_details (1,319 captures), press_release_detailes (3,302),
+  messageDetail (338) and pm_speech_details (89); 24.0% -> ~92% of in-scope captures, and
+  the pm_speech_details block the old header wrote off as "PDF/.doc only" is HTML and holds
+  the full addresses. All four share one template, so the selectors are unchanged —
+  title #right-header-title, body #right-content-body, date #right-header-datetime. These are third-person press notes
   ("Prime Minister ... said that ...") = official_statement, which the cleaner's gate keeps;
   the document_type classifier separates true speeches/interviews from routine notices, and
   the speaker/leader-tenure crosscheck assigns the sitting PM (Nawaz Sharif 2013-2017,

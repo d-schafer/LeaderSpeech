@@ -1,20 +1,52 @@
 # Slovenia — President (old up-rs.si domain), via the Internet Archive. ENGLISH edition.
 # The president's office moved to predsednica-slo.si in 2022 (Pirc Musar); the PREDECESSORS lived on
-# up-rs.si, a Lotus Domino site. CDX for the up-rs.si domain = 5000+ statuscode:200 captures spanning
-# 2001-2023. Speech documents are at /up-rs/uprs-eng.nsf/dokumentiweb/<UNID> (the English edition;
-# ~986 doc captures) — clean pages: title h1, an h2 dateline "Ljubljana, 28.1.2009 | speech" (carries
-# the DD.MM.YYYY date AND the doc type), body .inner-page-content. Spans presidents Drnovšek
-# (2002-2007), Türk (2007-2012), Pahor (2012-2022) -> no speaker_default. English edition -> straight
-# into English columns. Bounded by wayback_to so it doesn't overlap the live svn_predsednica.
+# up-rs.si, a Lotus Domino site. Speech documents are addressed <database>.nsf/<view>/<UNID>.
+# Spans presidents Drnovšek (2002-2007), Türk (2007-2012), Pahor (2012-2022) -> no speaker_default.
+# English edition -> straight into English columns. Bounded by wayback_to so it doesn't overlap the
+# live svn_predsednica.
+#
+# RULE 1 WIDENING 2026-08-14 (sweep chunk A8). The recipe matched 264 of 18,431 in-scope captures
+# = 1.4%. Enumerated with `recipe_tools/cdxbatch.py --hosts up-rs.si`; the host runs FOUR Domino
+# databases, two Slovenian and two English:
+#     uprs.nsf       (Slovenian)  objave 6,958 + dokumentiweb 1,999 UNIDs  -> svn_up_rs_slo_wayback
+#     uprs-slo.nsf   (Slovenian, on posta.up-rs.si)  objave 3,094         -> a 100% MIRROR, excluded
+#     uprs-eng.nsf   (English)    pages 689 + dokumentiweb 219 UNIDs      -> THIS RECIPE
+#     uprs-ang.nsf   (English, 2005-2007)  dokumentiweb 177 UNIDs         -> svn_up_rs_ang_wayback
+#
+# ⚠ THE VIEW NAMES ARE NOT ALTERNATE VIEWS — measured, because in Domino they easily could be.
+# One document is addressable as <db>.nsf/<any view>/<UNID>, so `pages/` and `dokumentiweb/` looked
+# like the classic alternate-views trap. Grouping every archived UNID by (database, view) offline
+# settles it for free: pages 689 and dokumentiweb 219 share exactly ONE UNID (0%), and the union of
+# all English UNIDs is 1,083 — they are two successive generations of the site, not two renderings
+# of one set. The same test is what proved uprs-slo.nsf a mirror: it shares 3,084 UNIDs with
+# uprs.nsf/objave = 100% of the smaller.
+#
+# TWO TEMPLATES, so the field chains carry both:
+#   dokumentiweb (Drnovšek/Türk era) — title h1, body .inner-page-content, dateline in an h2
+#                                      ("Ljubljana, 28.1.2009 | speech")
+#   pages        (Pahor era)         — title h1, body #content-full, dateline .place-date
+#                                      ("Ljubljana, 6. 12. 2018 | press release")
+# `regex_required: true` on the date matters here: h2 does not exist on the Pahor template and
+# .place-date does not exist on the older one, so without it a chain miss would fall back to the
+# unfiltered element text and stamp a row with whatever the winning selector happened to hold.
+#
+# INCREMENTAL, NOT A RESCRAPE: the widening only adds newly-matched URLs. Do NOT use --rescrape.
 source_id: svn_up_rs_wayback
 country: Slovenia
 source_language: English
 renderer: static
 start_urls:
-  - up-rs.si/up-rs/uprs-eng.nsf/dokumentiweb
+  # CDX PREFIXES. The old value stopped at `.../dokumentiweb`, so no link_pattern change alone
+  # could ever have reached the `pages/` view — widening the pattern without widening these is a
+  # no-op on a wayback recipe.
+  - up-rs.si/up-rs/uprs-eng.nsf
 
 listing:
-  link_pattern: 'uprs-eng\.nsf/dokumentiweb/[0-9A-F]{20,}'
+  # <database>.nsf/<view>/<32-hex UNID>. The view name is left OPEN — so a further English view is
+  # picked up rather than silently dropped — with the media views excluded by name: an open
+  # view name first harvested `fotovideoweb/<UNID>/$File/M_barbara_turk.JPG` (a photo attachment)
+  # and `popups/<UNID>`, both of which probe as title-only rows.
+  link_pattern: 'uprs-eng\.nsf/(?!fotovideoweb|foto|video|popups)[a-z-]+/[0-9A-F]{20,}'
 
 pagination:
   type: wayback
@@ -26,18 +58,26 @@ pagination:
 title:
   selectors: ["h1", "title"]
 text:
-  selectors: [".inner-page-content", ".yui-b"]
+  selectors: [".inner-page-content", "#content-full", ".yui-b"]
 date:
-  # h2 dateline "Ljubljana, 28.1.2009  |  speech" -> DD.MM.YYYY
-  selectors: ["h2"]
+  # h2 dateline "Ljubljana, 28.1.2009 | speech" (dokumentiweb) or .place-date
+  # "Ljubljana, 6. 12. 2018 | press release" (pages) -> D.M.YYYY either way.
+  selectors: ["h2", ".place-date"]
   regex: '\d{1,2}\.\s?\d{1,2}\.\s?20\d\d'
+  regex_required: true
 
 position: president
 date_languages: ["sl"]
 notes: >
-  DRAFT — probe-validated (no full run). Slovenia President predecessors (Drnovšek/Türk/Pahor,
-  2001-2022) via the archived up-rs.si Lotus Domino ENGLISH edition (uprs-eng.nsf/dokumentiweb,
-  ~986 docs). Title h1, date from the h2 dateline (DD.MM.YYYY), body .inner-page-content. No
-  speaker_default (multiple presidents) -> tenure crosscheck. English edition -> no translation
-  needed. wayback_to 20221201 keeps it clear of the live svn_predsednica (Pirc Musar). A parallel
-  Slovenian edition exists at uprs.nsf/dokumenti if fuller coverage is wanted later.
+  Slovenia President predecessors (Drnovšek/Türk/Pahor, 2001-2022) via the archived up-rs.si Lotus
+  Domino ENGLISH database uprs-eng.nsf. WIDENED 2026-08-14 (A8): was the `dokumentiweb` view only
+  (264 captures, 1.4% of the host); now both English views on that database, dokumentiweb + pages
+  (1,083 distinct UNIDs, measured disjoint — see the header). Title h1; body .inner-page-content
+  (older) or #content-full (Pahor theme); date from the h2 / .place-date dateline, D.M.YYYY, with
+  regex_required so a template mismatch yields no date rather than a wrong one. No speaker_default
+  (three presidents) -> tenure crosscheck. English edition -> no translation needed. wayback_to
+  20221201 keeps it clear of the live svn_predsednica (Pirc Musar). Two SIBLING recipes were split
+  out of the same enumeration rather than folded in here, because each has a different
+  source_language or date convention: svn_up_rs_ang_wayback (the 2005-2007 English database, whose
+  dateline is MM/DD/YYYY) and svn_up_rs_slo_wayback (the Slovenian database, ~8,900 UNIDs).
+  Incremental run only — never --rescrape.

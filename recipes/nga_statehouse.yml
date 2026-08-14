@@ -1,10 +1,41 @@
-# Nigeria — State House, speeches and remarks.
-# WordPress category archive with /page/{n}/ pagination.
+# Nigeria — State House (statehouse.gov.ng). WordPress category archives, /page/{n}/ pagination.
+#
+# RULE 1 WIDENING 2026-08-14 (sweep chunk A8). The recipe took ONE category, `speeches`, which the
+# WP REST root prices at 272 posts of the site's 4,701. Measured with
+# `recipe_tools/wpjson.py https://statehouse.gov.ng`:
+#     post total = 4,701     categories: news 3,370 | press-releases 3,335 | daily 994 |
+#                            speeches 272 | factcheck 27 | banners 6 | uncategorized 3
+# The category counts sum well past 4,701 because a post is routinely filed under both `news` and
+# `press-releases` — these are TAXONOMIES over one flat root-level slug namespace, not separate
+# URL spaces, so adding them cannot duplicate a row: every category serves the same
+# `https://statehouse.gov.ng/<slug>/` permalink and the engine dedupes on URL. (That also means the
+# alternate-views test does not apply here — there is only one view.)
+# All five content categories are now seeded. `banners` (6) and `uncategorized` (3) are left out as
+# homepage furniture. Probe: 272 -> 4,683 links, 2015-06-29 .. 2026-06-12, 12/12 title+date,
+# 11/12 text.
+#
+# ⚠ THIS RECIPE FORCED AN ENGINE FIX (paginate.py, 2026-08-14). The first widened probe harvested
+# 4,362 and warned "listing page 1 served 11 link(s) but NONE were new": the pager's early-stop
+# guard was judged against every link the RECIPE had collected, not against the listing being
+# walked, so `press-releases` — whose page 1 is entirely duplicated by `news` — was abandoned at
+# page 1 and every post filed only there was silently dropped. The guard now tracks each start_url
+# separately (global dedupe is untouched), which is what took the harvest to 4,683. Any earlier
+# widening onto overlapping taxonomies is worth re-probing for the same reason.
+#
+# The live site reaches 2015-06-29, so the claim in nga_statehouse_wayback's header that "the live
+# site only goes back to its ~2019 rebuild" is false — see that recipe.
+#
+# INCREMENTAL, NOT A RESCRAPE: the widening only adds newly-matched URLs; the per-country state
+# file (data/state/Nigeria.json) already holds the ~80 rows we have. Do NOT use --rescrape.
 source_id: nga_statehouse
 country: Nigeria
 source_language: English
 start_urls:
   - https://statehouse.gov.ng/category/speeches
+  - https://statehouse.gov.ng/category/news
+  - https://statehouse.gov.ng/category/press-releases
+  - https://statehouse.gov.ng/category/daily
+  - https://statehouse.gov.ng/category/factcheck
 renderer: static
 
 listing:
@@ -29,6 +60,12 @@ date:
 position: president
 date_languages: ["en"]
 notes: >
-  State House speeches category (WordPress). Pagination is path-based at
-  /category/speeches/page/{n}/ and speech links are root-level slugs from
-  the category listing cards.
+  State House, all five content categories (WordPress). Pagination is path-based at
+  /category/<cat>/page/{n}/ and article links are root-level slugs from the listing cards.
+  WIDENED 2026-08-14 (A8): was `speeches` only = 272 of 4,701 posts; now speeches + news +
+  press-releases + daily (Villa Updates) + factcheck -> 4,683 links, 2015-06-29..2026-06-12,
+  12/12 title+date and 11/12 text. Pager depths measured with pagecount.py: news 281 pages, press-releases 278,
+  daily 83, speeches 23, factcheck 3. Categories are taxonomies over ONE slug namespace, so the
+  overlap between `news` and `press-releases` costs nothing (URL dedupe). Incremental run only —
+  never --rescrape. NOTE `position: president` is a per-recipe default and the widened stream
+  carries ministerial and spokesman items; the cleaner's speaker/position pass is what sorts them.

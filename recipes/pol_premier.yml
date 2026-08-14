@@ -7,6 +7,26 @@
 # Morawiecki 2017-2023, back to the portal's ~2019 launch) -> no speaker_default, tenure crosscheck.
 # This is the KPRM wire (Chancellery news), broader than PM speeches; the cleaner's document_type
 # gate keeps the speeches/statements and drops the rest.
+#
+# RULE 1 AUDIT 2026-08-14 (sweep chunk A8) — CHECKED CLEAN, with two findings banked.
+# `triage.py` on both the Chancellery landing page and the wydarzenia listing enumerates the whole
+# nav: /web/premier/wydarzenia is the ONLY article stream. Every other /web/premier/<slug> in the
+# nav is a standing institutional page (premier, o-kancelarii, kierownictwo-kprm5, gabinet-
+# polityczny, organizacja-kprm, sklad-rady-ministrow, sekretariaty-departamenty-biura2, majatek-i-
+# budzet, mapa-strony, kontakt4, dostepnosc, ...), which is exactly what `.art-prev a` already
+# keeps the harvest away from. Nothing to widen to in Polish.
+#   * BANKED — an ENGLISH sister site exists at gov.pl/web/primeminister (the "EN - English" link
+#     in the header) and it has NO article stream: /web/primeminister/news and /wydarzenia both
+#     redirect to the gov.pl root, and the landing page's own links are all standing pages. What it
+#     DOES have is two speech pages — /expose (Tusk's inaugural address) and
+#     /expose-of-previous-prime-ministers2, a hub linking previous PMs' exposés (Morawiecki and
+#     others). An exposé is the single highest-value document a PM site holds, and these are in
+#     ENGLISH. That is a `pagination: url_list` recipe of a handful of pages, not a widening here —
+#     left for a session with room to walk the hub and verify each target.
+#   * OPERATIONAL: gov.pl reset the connection on one honest-bot-UA request during this audit
+#     (WinError 10054) and served the same URL fine to a browser UA moments later — then the
+#     recipe probed green on the honest UA. Transient, not a UA block; do NOT add a user_agent
+#     override on the strength of a single reset.
 source_id: pol_premier
 country: Poland
 source_language: Polish

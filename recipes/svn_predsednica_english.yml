@@ -1,0 +1,66 @@
+# Slovenia — President of the Republic, Nataša Pirc Musar (2022- ), the ENGLISH edition.
+#
+# NEW 2026-08-14 (sweep chunk A8). svn_predsednica covers the Slovenian tree at /sl/objave/; the
+# site runs an English tree at /en/news/ that no recipe touched. Found by following the language
+# switcher in the page nav (`SL | EN`) — note /en/objave/... 404s: the English tree renames the
+# path segment, so guessing the URL from the Slovenian one fails and the switcher is what answers.
+#
+# SIZE, `pagecount.py --pager 'start=(\d+)'` on /en/news/all (the pager value is an OFFSET, step
+# 16): last start 288 -> 19 pages, ~304 items. A curated English selection of the ~1,184 Slovenian
+# items, not a full translation.
+#
+# `/en/news` is the "In the spotlight" front page; `/en/news/all` is the complete list and is what
+# is seeded. The other nav entries (/en/events, /en/emphases/...) are standing pages — the podcast
+# and forum hubs, the term's objectives — not article streams.
+#
+# ⚠ OVERLAPS svn_predsednica by construction: same events, two languages. Same standing question
+# as Finland (fin_presentti vs fin_presidentti_english); answered "run BOTH" for Belgium on
+# 2026-08-14. Recorded, not decided here. Under the English-first policy this one is queueable now
+# and the Slovenian one is not.
+#
+# TEXT is left to the generic extractor deliberately, exactly as in the Slovenian sibling: the
+# page's only article container is `article.news-detail`, and it wraps the photo-gallery block
+# ("Foto: ... Prenesi fotografijo") and the breadcrumb trail along with the prose, while trafilatura
+# returns the body clean. Checked with selcheck.py --dom rather than assumed.
+source_id: svn_predsednica_english
+country: Slovenia
+source_language: English
+renderer: static
+start_urls:
+  - https://www.predsednica-slo.si/en/news/all
+
+listing:
+  # Articles at /en/news/<slug>; the section tabs (all, rss) excluded by whole-segment lookahead.
+  link_pattern: '/en/news/(?!(?:all|rss)(?:[/?#]|$))[a-z0-9-]{8,}'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 16
+  max_pages: 100   # 19 needed today
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # Intentionally left to miss -> generic extractor. See the header.
+  selectors: [".news-single", ".article-body"]
+date:
+  # "Publish date  Sofia, Republic of Bulgaria, 10 Jun 2026" -> English D Mon YYYY. The label and
+  # the place both sit in the same element, so the regex is what isolates the date; without
+  # regex_required a miss would hand dateparser the whole string, which resolves to TODAY.
+  selectors: ["[class*=date]", "[class*=datum]"]
+  regex: '\d{1,2}\s+[A-Za-z]{3,9}\s+(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+speaker_default: Nataša Pirc Musar
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8), found while auditing svn_predsednica: the president's site has
+  an English tree at /en/news/ (~304 items over 19 pager pages) covered by no recipe, and Slovenia
+  held 80 scraped rows before this chunk. Title h1; body via the generic extractor (the only
+  container also holds the gallery and breadcrumbs); date from the "Publish date" element, English
+  D Mon YYYY, regex_required so the label+place prefix cannot be parsed as today. ENGLISH ->
+  immediately queueable. Shares data/state/Slovenia.json with the other five Slovenian recipes;
+  order any queue live-before-archive and keep the non-English ones in queues/sweep/deferred/.

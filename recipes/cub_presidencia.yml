@@ -8,6 +8,28 @@
 # we enumerate the 79 month pages as start_urls with pagination.type: none — the engine
 # then harvests each month's speech links via listing.link_pattern.
 # Spanish; president is Miguel Diaz-Canel.
+# RULE 1 WIDENING 2026-08-14 (sweep chunk A8). The recipe took ONLY
+# /es/presidencia/intervenciones/ and missed /es/noticias/ — the presidency's entire news stream,
+# which `triage.py` on the site root surfaced in one request. Both streams are now seeded through
+# their year/MONTH archive pages (101 months, 2018-04 .. 2026-08) because the host has no article
+# sitemap and no working page pager; link_selector and link_pattern widened to admit both.
+# ⚠ REFRESH THE MONTH TAIL when re-running in a later month.
+#
+# ⚠ THE /en/ TREE IS NOT ENGLISH — measured 2026-08-14, and this is worth recording because the
+# site advertises it as "English" and it looks like a free English source. presidencia.gob.cu
+# serves /en/news/ with the SAME Spanish content under an English URL prefix: a
+# `cub_presidencia_english` recipe was authored, probed **866 links spanning 2018-04-29 ..
+# 2026-08-10 with 8/8 title, text and date**, and every sampled title came back Spanish
+# ("Asistió presidente cubano a jornada final del Seminario…", "Dos hermanos hablan del mundo
+# posible"), with the body likewise ("El Primer Secretario del Comité Central del Partido
+# Comunista de Cuba y Presidente de la República, Miguel Díaz-Canel Bermúdez, sostuvo…"). Under
+# `source_language: English` that would have gone straight into the English columns untranslated
+# and skipped the translation stage. The recipe was DELETED the same day. Taking it as Spanish
+# instead is no better — it is the same articles under a second path, and page_identity keeps the
+# path, so it would write every row twice. Do not re-derive this.
+#
+# OPERATIONAL: gob.cu began answering HTTP 403 partway through a 101-page month-archive walk from
+# outside Cuba (after ~65 pages, 3 retries each). It is slow and it rate-limits; pace a full run.
 source_id: cub_presidencia
 country: Cuba
 source_language: Spanish
@@ -92,12 +114,115 @@ start_urls:
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/5/
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/6/
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/7/
+  - https://www.presidencia.gob.cu/es/noticias/2018/4/
+  - https://www.presidencia.gob.cu/es/noticias/2018/5/
+  - https://www.presidencia.gob.cu/es/noticias/2018/6/
+  - https://www.presidencia.gob.cu/es/noticias/2018/7/
+  - https://www.presidencia.gob.cu/es/noticias/2018/8/
+  - https://www.presidencia.gob.cu/es/noticias/2018/9/
+  - https://www.presidencia.gob.cu/es/noticias/2018/10/
+  - https://www.presidencia.gob.cu/es/noticias/2018/11/
+  - https://www.presidencia.gob.cu/es/noticias/2018/12/
+  - https://www.presidencia.gob.cu/es/noticias/2019/1/
+  - https://www.presidencia.gob.cu/es/noticias/2019/2/
+  - https://www.presidencia.gob.cu/es/noticias/2019/3/
+  - https://www.presidencia.gob.cu/es/noticias/2019/4/
+  - https://www.presidencia.gob.cu/es/noticias/2019/5/
+  - https://www.presidencia.gob.cu/es/noticias/2019/6/
+  - https://www.presidencia.gob.cu/es/noticias/2019/7/
+  - https://www.presidencia.gob.cu/es/noticias/2019/8/
+  - https://www.presidencia.gob.cu/es/noticias/2019/9/
+  - https://www.presidencia.gob.cu/es/noticias/2019/10/
+  - https://www.presidencia.gob.cu/es/noticias/2019/11/
+  - https://www.presidencia.gob.cu/es/noticias/2019/12/
+  - https://www.presidencia.gob.cu/es/noticias/2020/1/
+  - https://www.presidencia.gob.cu/es/noticias/2020/2/
+  - https://www.presidencia.gob.cu/es/noticias/2020/3/
+  - https://www.presidencia.gob.cu/es/noticias/2020/4/
+  - https://www.presidencia.gob.cu/es/noticias/2020/5/
+  - https://www.presidencia.gob.cu/es/noticias/2020/6/
+  - https://www.presidencia.gob.cu/es/noticias/2020/7/
+  - https://www.presidencia.gob.cu/es/noticias/2020/8/
+  - https://www.presidencia.gob.cu/es/noticias/2020/9/
+  - https://www.presidencia.gob.cu/es/noticias/2020/10/
+  - https://www.presidencia.gob.cu/es/noticias/2020/11/
+  - https://www.presidencia.gob.cu/es/noticias/2020/12/
+  - https://www.presidencia.gob.cu/es/noticias/2021/1/
+  - https://www.presidencia.gob.cu/es/noticias/2021/2/
+  - https://www.presidencia.gob.cu/es/noticias/2021/3/
+  - https://www.presidencia.gob.cu/es/noticias/2021/4/
+  - https://www.presidencia.gob.cu/es/noticias/2021/5/
+  - https://www.presidencia.gob.cu/es/noticias/2021/6/
+  - https://www.presidencia.gob.cu/es/noticias/2021/7/
+  - https://www.presidencia.gob.cu/es/noticias/2021/8/
+  - https://www.presidencia.gob.cu/es/noticias/2021/9/
+  - https://www.presidencia.gob.cu/es/noticias/2021/10/
+  - https://www.presidencia.gob.cu/es/noticias/2021/11/
+  - https://www.presidencia.gob.cu/es/noticias/2021/12/
+  - https://www.presidencia.gob.cu/es/noticias/2022/1/
+  - https://www.presidencia.gob.cu/es/noticias/2022/2/
+  - https://www.presidencia.gob.cu/es/noticias/2022/3/
+  - https://www.presidencia.gob.cu/es/noticias/2022/4/
+  - https://www.presidencia.gob.cu/es/noticias/2022/5/
+  - https://www.presidencia.gob.cu/es/noticias/2022/6/
+  - https://www.presidencia.gob.cu/es/noticias/2022/7/
+  - https://www.presidencia.gob.cu/es/noticias/2022/8/
+  - https://www.presidencia.gob.cu/es/noticias/2022/9/
+  - https://www.presidencia.gob.cu/es/noticias/2022/10/
+  - https://www.presidencia.gob.cu/es/noticias/2022/11/
+  - https://www.presidencia.gob.cu/es/noticias/2022/12/
+  - https://www.presidencia.gob.cu/es/noticias/2023/1/
+  - https://www.presidencia.gob.cu/es/noticias/2023/2/
+  - https://www.presidencia.gob.cu/es/noticias/2023/3/
+  - https://www.presidencia.gob.cu/es/noticias/2023/4/
+  - https://www.presidencia.gob.cu/es/noticias/2023/5/
+  - https://www.presidencia.gob.cu/es/noticias/2023/6/
+  - https://www.presidencia.gob.cu/es/noticias/2023/7/
+  - https://www.presidencia.gob.cu/es/noticias/2023/8/
+  - https://www.presidencia.gob.cu/es/noticias/2023/9/
+  - https://www.presidencia.gob.cu/es/noticias/2023/10/
+  - https://www.presidencia.gob.cu/es/noticias/2023/11/
+  - https://www.presidencia.gob.cu/es/noticias/2023/12/
+  - https://www.presidencia.gob.cu/es/noticias/2024/1/
+  - https://www.presidencia.gob.cu/es/noticias/2024/2/
+  - https://www.presidencia.gob.cu/es/noticias/2024/3/
+  - https://www.presidencia.gob.cu/es/noticias/2024/4/
+  - https://www.presidencia.gob.cu/es/noticias/2024/5/
+  - https://www.presidencia.gob.cu/es/noticias/2024/6/
+  - https://www.presidencia.gob.cu/es/noticias/2024/7/
+  - https://www.presidencia.gob.cu/es/noticias/2024/8/
+  - https://www.presidencia.gob.cu/es/noticias/2024/9/
+  - https://www.presidencia.gob.cu/es/noticias/2024/10/
+  - https://www.presidencia.gob.cu/es/noticias/2024/11/
+  - https://www.presidencia.gob.cu/es/noticias/2024/12/
+  - https://www.presidencia.gob.cu/es/noticias/2025/1/
+  - https://www.presidencia.gob.cu/es/noticias/2025/2/
+  - https://www.presidencia.gob.cu/es/noticias/2025/3/
+  - https://www.presidencia.gob.cu/es/noticias/2025/4/
+  - https://www.presidencia.gob.cu/es/noticias/2025/5/
+  - https://www.presidencia.gob.cu/es/noticias/2025/6/
+  - https://www.presidencia.gob.cu/es/noticias/2025/7/
+  - https://www.presidencia.gob.cu/es/noticias/2025/8/
+  - https://www.presidencia.gob.cu/es/noticias/2025/9/
+  - https://www.presidencia.gob.cu/es/noticias/2025/10/
+  - https://www.presidencia.gob.cu/es/noticias/2025/11/
+  - https://www.presidencia.gob.cu/es/noticias/2025/12/
+  - https://www.presidencia.gob.cu/es/noticias/2026/1/
+  - https://www.presidencia.gob.cu/es/noticias/2026/2/
+  - https://www.presidencia.gob.cu/es/noticias/2026/3/
+  - https://www.presidencia.gob.cu/es/noticias/2026/4/
+  - https://www.presidencia.gob.cu/es/noticias/2026/5/
+  - https://www.presidencia.gob.cu/es/noticias/2026/6/
+  - https://www.presidencia.gob.cu/es/noticias/2026/7/
+  - https://www.presidencia.gob.cu/es/noticias/2026/8/
 
 listing:
-  link_selector: "a[href*='/intervenciones/']"
+  # Two streams now: /es/presidencia/intervenciones/<slug>/ and /es/noticias/<slug>/,
+  # so the selector can no longer be scoped to one of them.
+  link_selector: "a[href*='/intervenciones/'], a[href*='/es/noticias/']"
   # speech slug pages: /intervenciones/<slug>/ ; exclude category/author and the
   # year & year/month archive index pages (which are the start_url listing pages).
-  link_pattern: '/es/presidencia/intervenciones/(?!category/|author/|\d{4}/)[a-z0-9][a-z0-9-]{10,}/?$'
+  link_pattern: '/es/(?:presidencia/intervenciones|noticias)/(?!category/|author/|\d{4}/)[a-z0-9][a-z0-9-]{10,}/?$'
 
 pagination:
   type: none

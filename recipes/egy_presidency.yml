@@ -16,6 +16,15 @@
 #     cards and is reachable — each card carries the article link + date + title. So the listing
 #     is that endpoint (synthesisable pageNumber pagination), and the date/title are carried off
 #     the CARD (issue #55 metadata) as a fallback, while the body comes from the article page.
+#
+# RULE 1 AUDIT 2026-08-14 (sweep chunk A8) — CHECKED CLEAN on breadth, one new sibling.
+# The start_url already carries `categoryId=-1`, i.e. ALL categories of presidential activity —
+# the broadest the endpoint offers, so there is no sibling section to add on the Arabic side. What
+# the audit did find is a LANGUAGE, not a section: the same endpoint takes `culture`, and
+# `culture=en-US` returns the identical card feed pointing at /en/ articles. That is now
+# recipes/egy_presidency_english.yml, and it is ENGLISH so it can be queued immediately while this
+# one waits for the non-English pass. The link_pattern below gained an /en/ exclusion so the two
+# recipes cannot harvest each other's tree.
 source_id: egy_presidency
 country: Egypt
 source_language: Arabic
@@ -27,7 +36,9 @@ start_urls:
   - https://www.presidency.eg/Surface/News/GetAll?categoryId=-1&culture=ar-EG&pageNumber=1
 
 listing:
-  link_pattern: '/news\d+'
+  # `/en/` excluded so this recipe can never pick up the English tree, which since 2026-08-14 has
+  # its own recipe (egy_presidency_english) — source_language is one field per recipe.
+  link_pattern: '^(?!.*/en/).*news\d+'
   # Carry the title off each listing card (#55) as a light fallback. (The article page's own
   # h1/.details-brief/.news-date are primary and reliable — verified all resolving — so no
   # item_date is needed; the card's .card-date does not render under the js listing anyway.)

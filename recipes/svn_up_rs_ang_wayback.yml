@@ -1,0 +1,64 @@
+# Slovenia — President, the 2005-2007 ENGLISH edition of the old up-rs.si Lotus Domino site.
+#
+# NEW 2026-08-14, split out of the chunk-A8 enumeration of up-rs.si (see svn_up_rs_wayback's
+# header for the full four-database picture). up-rs.si ran TWO English databases in succession:
+#   uprs-ang.nsf  2005-2007, 177 distinct UNIDs   <- THIS RECIPE  (ang = angleščina)
+#   uprs-eng.nsf  2007-2022, 1,083 distinct UNIDs <- svn_up_rs_wayback
+# They share 2 UNIDs out of 177, i.e. they are successive generations, not two views of one set.
+#
+# WHY ITS OWN RECIPE RATHER THAN A WIDENING — the date convention differs, and `date_languages`
+# is one field per recipe. This generation datelines its articles "Brdo by Kranj, 10/02/2007 |
+# press release", and that is MONTH-FIRST: sampling ten captures, the first date-shaped string on
+# the page includes 05/18/2006, 01/22/2007 and 08/31/2006, all of which have a second component
+# > 12. Under the parent's `date_languages: ["sl"]` the engine reads 10/02/2007 as 10 February;
+# under ["en"] it reads 2 October, which is right. (Verified against the engine's own
+# extract.parse_date, not assumed.)
+#
+# TEMPLATE: a table-layout Domino page. Title h1. Body div#vsebina — NOT `td`, which the engine
+# would join across every cell and return the whole page including the nav (3,038 chars vs the
+# article's 1,435). The dateline sits inside #vsebina, so the date is a regex over the body;
+# `regex_required: true` keeps a page without one from being stamped with the body text, and it
+# also keeps the right-hand column's Slovenian-format news feed (td#desniStolpec, DD.MM.YYYY)
+# out of reach — that column is a sidebar feed, the classic wrong-date trap.
+#
+# Era: President Janez Drnovšek (2002-2007), so a speaker_default is safe here where the parent
+# recipe spans three presidents and carries none.
+source_id: svn_up_rs_ang_wayback
+country: Slovenia
+source_language: English
+renderer: static
+start_urls:
+  - up-rs.si/up-rs/uprs-ang.nsf
+
+listing:
+  link_pattern: 'uprs-ang\.nsf/(?!fotovideoweb|foto|video|popups)[a-z-]+/[0-9A-F]{20,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["#vsebina"]
+date:
+  # "Brdo by Kranj, 10/02/2007  |  press release" -> MM/DD/YYYY (see the header).
+  selectors: ["#vsebina"]
+  regex: '\d{1,2}/\d{1,2}/(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+speaker_default: Janez Drnovšek
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8), authored out of the up-rs.si CDX enumeration that widened
+  svn_up_rs_wayback. The 2005-2007 English Domino database uprs-ang.nsf (177 distinct UNIDs,
+  captures in 2005/2006/2007), covering President Drnovšek — a period the sibling English recipe
+  does not reach. Separate recipe because the dateline is MM/DD/YYYY here and DD.MM.YYYY on the
+  later generation, and date_languages is one value per recipe. Title h1, body #vsebina, date by
+  regex over the body with regex_required. Nav sections on these pages are news archive / press
+  releases / speeches / statements / interviews — all one URL space, so there is nothing further
+  to widen to.

@@ -236,6 +236,11 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 _note(stats, "listing_fetch_failed", early=True)
             continue
 
+        # Links this START_URL has served, as opposed to `seen`, which is every link the
+        # recipe has collected from any start_url. The early-stop guard below has to be
+        # judged per listing: see the comment at the `gained_here == 0` test.
+        seen_here: set[str] = set()
+
         for page_idx in range(hard_cap):
             value = pg.start + page_idx * pg.step
             if pg.type == PaginationType.query_param:
@@ -261,8 +266,19 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 break
             page_links = extract_links(html, page_url, recipe.listing,
                                        meta, recipe.date_languages)
-            gained = add(page_links)
-            if gained == 0:
+            add(page_links)
+            # Judge the stop against THIS listing's own history, not the global `seen`.
+            # The guard asks "is this pager advancing?", which is a property of the listing
+            # alone. Testing it against every link the recipe has collected conflates that
+            # with "this listing overlaps one we already walked" — and on a site whose
+            # sections are TAXONOMIES over one namespace (a WordPress category archive, say)
+            # the overlap is total: statehouse.gov.ng files most posts under both `news` and
+            # `press-releases`, so seeding both stopped `press-releases` dead at page 1 and
+            # silently dropped every post filed ONLY there. Global dedupe is unaffected —
+            # `add` still refuses a duplicate, so nothing is fetched twice.
+            gained_here = sum(1 for u in page_links if u not in seen_here)
+            seen_here.update(page_links)
+            if gained_here == 0:
                 # Two very different endings that used to look identical: a page with no
                 # links at all (we ran past the last page -- correct, stop), versus a page
                 # that served links we have ALL seen before (the site is probably ignoring

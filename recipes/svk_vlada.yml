@@ -6,6 +6,20 @@
 # ("01.07.2026", DD.MM.YYYY); body the <article> content column. Feed spans PMs (Fico 2023- , and
 # back through the site's history) -> no speaker_default, tenure crosscheck. Government wire ->
 # cleaner's document_type gate keeps PM speeches/statements ("prihovor"/"prejav") and drops routine PR.
+#
+# RULE 1 AUDIT 2026-08-14 (sweep chunk A8) — CHECKED CLEAN. `triage.py` on the press-release index
+# enumerates the whole nav: /tlacove-spravy/ is the site's ONLY article stream. Everything else is
+# institutional — /vlada-sr/{predseda-vlady,clenovia-vlady,historia-vlad-sr,zbor-poradcov,
+# poradne-organy,splnomocnenci-vlady,podpora-regionov} are standing pages, /urad/{dokumenty,
+# dotacie,vyrocne-spravy,rezerva,vizia} are document and grant registers, and /medialny-servis/ is
+# accreditation and press contacts (ziadost-o-rozhovor, kontakt-pre-media, akreditacie), not an
+# interview archive despite the name. /vlada-sr/rokovania-vlady/ is the cabinet-meeting agenda
+# register: it fails the three-part in-scope test on its own — no per-item title of its own, and
+# the substance is in attached documents rather than the HTML body. Nothing to widen to.
+# NO ENGLISH TREE: /en/ returns 404, so unlike its Slovenian and Luxembourgish counterparts in this
+# chunk there is no English sibling to author here.
+# Size, `pagecount.py --pager 'strana(\d+)'`: last pager page 51 -> ~510 items, comfortably inside
+# max_pages: 400 (the pager is one page per 10 items and 400 pages is ~4,000).
 source_id: svk_vlada
 country: Slovakia
 source_language: Slovak

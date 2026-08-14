@@ -1,0 +1,65 @@
+# Egypt — Presidency of the Republic (presidency.eg), the ENGLISH edition.
+#
+# NEW 2026-08-14 (sweep chunk A8), found while auditing egy_presidency: the site's infinite-scroll
+# AJAX endpoint takes a `culture` parameter, and switching it from ar-EG to en-US returns the same
+# cards pointing at /en/ articles. Verified 2026-08-14 — the endpoint answers 200 to plain httpx
+# with eight article cards, e.g.
+#   https://www.presidency.eg/en/قسم-الأخبار/أخبار-رئاسية/news1282026-2/
+# (the path segments stay Arabic; the `/en/` prefix and the English body are what differ). Egypt
+# held 80 scraped rows before this chunk.
+#
+# CLOUDFLARE — same shape as the Arabic sibling, so read its header too. The LISTING endpoint is
+# reachable to a plain client, but the article DETAIL pages are 403 to httpx and need a real
+# headless Chromium, so `renderer: js` is REQUIRED. A `user_agent` override does NOT help: the
+# block is a TLS/JS fingerprint, not the UA. Egypt's Cloudflare is the "light" case (a managed
+# challenge headless Chromium clears cleanly, no re-challenge on paginated access), so a full js
+# crawl is viable — but budget it on measured js rates, not the static-live figure.
+#
+# ⚠ OVERLAPS egy_presidency: the same presidential news in two languages. The standing
+# Finland/Belgium question; "run BOTH" was the Belgian answer on 2026-08-14. Under the
+# English-first policy this recipe is queueable now and the Arabic one is not.
+source_id: egy_presidency_english
+country: Egypt
+source_language: English
+renderer: js
+start_urls:
+  # culture=en-US is the only change from the Arabic recipe. categoryId=-1 = ALL categories of
+  # presidential activity, which is already the broadest the endpoint offers. pageNumber=1 MUST be
+  # present — the endpoint 404s without it; query_param below overrides it to 2,3,… for later pages.
+  - https://www.presidency.eg/Surface/News/GetAll?categoryId=-1&culture=en-US&pageNumber=1
+
+listing:
+  # `/en/` anchored so this recipe can never harvest the Arabic tree that egy_presidency covers.
+  link_pattern: '/en/.*news\d+'
+  item_selector: '.card-container'
+  item_title: { selectors: ['.card-title'] }
+
+pagination:
+  type: query_param
+  param: pageNumber
+  start: 1
+  step: 1
+  max_pages: 400        # 8 cards/page; the engine stops when a page yields no new links.
+
+title:
+  selectors: ["h1", ".details-title"]
+text:
+  selectors: [".details-brief", "article", "main"]
+date:
+  selectors: [".news-date", ".card-date", "time"]
+
+position: president
+# speaker_default omitted for the same reason as the Arabic sibling: categoryId=-1 is el-Sisi-
+# centred but mixes his own remarks with third-person event coverage, so the cleaner's speaker
+# pass + tenure crosscheck assign the speaker.
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8). The ENGLISH edition of presidency.eg, reached by flipping the
+  listing endpoint's `culture` parameter to en-US — the Arabic recipe's own AJAX endpoint was
+  already the whole discovery, nobody had tried the other culture. renderer: js REQUIRED
+  (Cloudflare 403s httpx on the article pages; a browser clears it, a user_agent override does
+  not). Listing via /Surface/News/GetAll with pageNumber pagination; title carried off the card as
+  a fallback, body from the article page (.details-brief). Coverage ~2020->present (current site
+  structure); pre-2020 would need Wayback. News-mixed -> the cleaner's gate keeps the speeches and
+  official statements. ENGLISH -> immediately queueable, unlike its Arabic sibling. Shares
+  data/state/Egypt.json with egy_presidency.

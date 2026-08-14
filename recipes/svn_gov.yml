@@ -4,6 +4,19 @@
 # /novice/YYYY-MM-DD-<slug> -> date via url_regex (unambiguous ISO). Title h1; body article.news-page.
 # This is the WHOLE government wire (all ministries), so the cleaner's document_type + speaker pass
 # does the heavy lifting of keeping the PM's speeches/statements; no position hint (mixed offices).
+#
+# RULE 1 AUDIT 2026-08-14 (sweep chunk A8) — CHECKED CLEAN on breadth, one correction and one
+# sibling. /novice/ is not a section, it is gov.si's single site-wide news namespace: every
+# ministry, agency and the Government itself publishes into it, and `triage.py` on the index shows
+# the nav's other entries are not article streams (podrocja = topic pages, drzavni-organi = the
+# org chart, zbirke = registries, dogodki = a 10-item forward calendar). There is nothing to widen
+# to in Slovenian.
+#   * CORRECTION: `pagecount.py --pager 'start=(\d+)'` puts the last pager offset at 38,760, i.e.
+#     1,939 pages of 20 -> ~38,780 items. `max_pages: 2000` cleared that by 61 pages, which is not
+#     headroom on a wire growing ~10 items a day; raised to 3,000.
+#   * NEW SIBLING: the site runs a full ENGLISH mirror at /en/news/ (~7,020 items) that no recipe
+#     covered -> recipes/svn_gov_english.yml. Same selectors, same pager, immediately queueable
+#     under the English-first policy where this Slovenian recipe is not.
 source_id: svn_gov
 country: Slovenia
 source_language: Slovenian
@@ -22,7 +35,7 @@ pagination:
   param: start
   start: 0
   step: 20
-  max_pages: 2000
+  max_pages: 3000
 
 title:
   selectors: ["h1", "title"]

@@ -1,13 +1,54 @@
-# Nigeria — State House, ARCHIVED speeches for President Buhari's FIRST term (2015-2019). The live
-# site (recipes/nga_statehouse.yml) only goes back to its ~2019 rebuild, so Buhari 2015-2019 lives
-# only on the old Joomla site (www.statehouse.gov.ng/index.php/news/<id>-<slug>) via the Internet
-# Archive: CDX shows ~517 speech/address/statement captures. This is a Wayback COMPANION to the
-# live recipe, never a replacement.
+# Nigeria — State House, the OLD JOOMLA SITE (2015-2019), via the Internet Archive.
+# A Wayback COMPANION to recipes/nga_statehouse.yml, never a replacement.
 #
-# DATE NOTE: the old Joomla article pages carry NO date element and no in-body date, so the scrape
-# yields title + full text with a BLANK date; the clean_structure_metadata corrected-date pass
-# derives the date from the speech content downstream. (A future engine option to fall back to the
-# Wayback capture timestamp would date these directly — see the engine follow-up issue.)
+# ⚠ THE HEADER CLAIM THIS REPLACES WAS FALSE. It said the live site "only goes back to its ~2019
+# rebuild, so Buhari 2015-2019 lives only on the old Joomla site". The live recipe, widened on
+# 2026-08-14, probes back to 2015-06-29 and harvests 4,683 links. The recipe is still right, but
+# for a different and better-evidenced reason, below.
+#
+# WHY THIS RECIPE STILL EARNS ITS ARCHIVE BUDGET — measured 2026-08-14, offline, by comparing the
+# archived slug set against the live harvest (no fetches):
+#     archived shape            slugs   also live   gone from the live site
+#     /<slug> (root)            4,755      97%              121
+#     /news/<slug>              2,273      99%               22
+#     /daily/<slug>               931      88%              109
+#     /press-releases/<slug>      210     100%                0
+#     /speeches/<slug>             13     100%                0
+#     index.php/news/<id>-<slug>  707       0%              706   <- THIS RECIPE
+# The Joomla generation is the one part of the archive the live site no longer serves. Slug
+# matching alone overstates that (WordPress migrations re-slug), so it was re-checked by TOKEN
+# overlap: 665 of the 707 Joomla articles have no live post sharing >=70% of their slug tokens.
+#
+# AND WHY THE REST IS DELIBERATELY LEFT OUT — it would be duplication, not coverage. The engine's
+# page_identity keeps the PATH, so an archived /news/<slug> is not deduplicated against the live
+# /<slug> it mirrors: admitting that shape would fetch 2,273 archived pages to recover ~22 real
+# documents and write ~2,251 duplicate rows. This is why the recipe's coverage ratio against the
+# whole host reads 6.0% and is nonetheless correct — 94% of statehouse.gov.ng's captures are the
+# modern WordPress site, which the live recipe now takes directly at ~50x the speed and no Archive
+# cost. A low ratio is a question, not a finding.
+#
+# RULE 1 WIDENING 2026-08-14 — inside the Joomla generation there WAS a real miss. Joomla serves an
+# article both flat and under its category, and the old pattern required the id immediately after
+# `news/`, so every category-path article was invisible. Counting IDs rather than URLs:
+#     /index.php/news/<id>-              709 ids  (all the recipe had)
+#     /wife-of-the-president/<id>-        32 ids, 31 unreachable flat
+#     /news-a-z/<id>-                     29 ids, 29 unreachable flat
+#     /other-news/<id>-                   25 ids, 23 unreachable flat
+#     /vice-president/<id>-               25 ids, 24 unreachable flat
+#     /speeches/<id>-                     21 ids, 20 unreachable flat   <- the section named "speeches"
+#     /federal-executive-council/<id>-     3 ids,  3 unreachable flat
+# 130 distinct article ids reachable ONLY under a category path — so these are NOT alternate views,
+# and one segment of optional category in the pattern picks them all up.
+#
+# DATE WINDOW CHECKED, NOT INHERITED: CDX before 2015-05-29 holds only category listing pages and
+# their RSS/Atom feeds from a single 2014-06-06 crawl — no article captures — so the window and the
+# Buhari speaker_default are both safe.
+#
+# DATE NOTE: the Joomla article pages carry no date element and no in-body date, so rows land with
+# a BLANK date and the cleaner's corrected-date pass derives it from the speech content. Every
+# wayback row also carries `wayback_capture` as a last-resort fallback.
+#
+# INCREMENTAL, NOT A RESCRAPE.
 source_id: nga_statehouse_wayback
 country: Nigeria
 source_language: English
@@ -16,15 +57,15 @@ start_urls:
   - statehouse.gov.ng/index.php/news
 
 listing:
-  # Old Joomla article URLs: /index.php/news/<numeric-id>-<slug>. Require the numeric id so category
-  # /listing pages are excluded.
-  link_pattern: 'index\.php/news/\d+-'
+  # /index.php/news/[<category>/]<numeric-id>-<slug>. The numeric id is required so the category
+  # listing pages (…/news/speeches, …/news/other-news?start=30) are excluded.
+  link_pattern: 'index\.php/news/(?:[a-z][a-z-]+/)?\d+-'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
-  wayback_from: "20150529"   # Buhari inauguration
-  wayback_to: "20190401"     # before the live recipe's ~2019 floor
+  wayback_from: "20150529"   # Buhari inauguration; verified no article captures precede it
+  wayback_to: "20190401"     # the Joomla site's end; the live recipe covers WordPress
   wayback_filter: ["statuscode:200", "mimetype:text/html"]
 
 title:
@@ -40,10 +81,13 @@ position: president
 speaker_default: Muhammadu Buhari
 date_languages: ["en"]
 notes: >
-  DRAFT — Wayback companion to nga_statehouse.yml (never a replacement). Buhari FIRST term
-  (2015-2019), the old Joomla statehouse.gov.ng/index.php/news/<id>-<slug> pages (~517 CDX
-  speech captures). NEW master row needed. Title .item-page h2, text .item-page (both confirmed on
-  archived pages). The old pages carry NO date -> the scrape leaves date blank and the cleaner's
-  corrected-date pass fills it from the speech content (Buhari is the sole speaker of the era, so
-  speaker_default is set and the tenure crosscheck is unaffected by the missing date). ENGINE
-  FOLLOW-UP: falling back to the Wayback capture timestamp would date these directly. FULL RUN pending.
+  Wayback companion to nga_statehouse.yml (never a replacement). Buhari FIRST term (2015-2019),
+  the old Joomla statehouse.gov.ng/index.php/news pages. AUDITED AND WIDENED 2026-08-14 (A8):
+  the pattern now admits one optional category segment, which adds 130 article ids reachable only
+  as /news/<category>/<id>-<slug> — among them the category literally named `speeches`. Breadth
+  against the whole host is 6.0% and that is CORRECT: the other 94% is the modern WordPress site
+  the live recipe covers, and 665 of this recipe's 707 articles have no live counterpart at all
+  (token-overlap test). Title .item-page h2, text .item-page. The old pages carry NO date -> the
+  cleaner's corrected-date pass fills it from the speech content (Buhari is the sole speaker of the
+  era, so speaker_default is set and the tenure crosscheck is unaffected by the missing date).
+  Incremental run only — never --rescrape.

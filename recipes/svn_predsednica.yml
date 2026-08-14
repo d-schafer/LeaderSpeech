@@ -4,23 +4,50 @@
 # the generic extractor (the site's article container isn't a stable class); date is a Slovenian
 # "Datum objave 30. 5. 2026" label (present on most pages) -> regex D. M. YYYY, date_languages sl.
 # Predecessors (Pahor 2012-2022, Türk 2007-2012) are on the OLD up-rs.si domain -> svn_up_rs_wayback.
+#
+# RULE 1 WIDENING 2026-08-14 (sweep chunk A8). The recipe took the section called `govori`
+# ("speeches") — the exact shape RULE 1 exists to catch. The site's own nav lists six streams, sized
+# with `pagecount.py --pager 'start=(\d+)'` (the pager value is a ?start= OFFSET, step 16, so divide
+# by 16 for pages):
+#     vse                     start=1,168  ->  ~1,184 items   "Vse novice", the union view
+#     aktivnosti-v-sloveniji  start=  880  ->  ~  896
+#     govori                  start=  368  ->  ~  384         <- all the recipe had
+#     mednarodne-aktivnosti   start=  288  ->  ~  304
+#     poslanice               start=   48  ->  ~   64         (messages: new year, statehood day)
+#     moc-dejstev             1 page       ->  ~   10         (the office's own fact-checks)
+# The five sections sum to ~1,658 against `vse`'s ~1,184, i.e. items carry more than one category
+# (the listing cards show "Aktivnosti v Sloveniji, Mednarodne aktivnosti" on one item) — one flat
+# slug namespace under /sl/objave/, so seeding every stream cannot duplicate a row.
+# `vse` is seeded FIRST and the sections after it, as a belt-and-braces guard: nothing depends on
+# `vse` really being the complete union.
+#
+# INCREMENTAL, NOT A RESCRAPE — the state file's seen-URL set means only new links are fetched.
 source_id: svn_predsednica
 country: Slovenia
 source_language: Slovenian
 renderer: static
 start_urls:
+  - https://www.predsednica-slo.si/sl/objave/vse
+  - https://www.predsednica-slo.si/sl/objave/aktivnosti-v-sloveniji
   - https://www.predsednica-slo.si/sl/objave/govori
+  - https://www.predsednica-slo.si/sl/objave/mednarodne-aktivnosti
+  - https://www.predsednica-slo.si/sl/objave/poslanice
+  - https://www.predsednica-slo.si/sl/objave/moc-dejstev
 
 listing:
-  # articles under /sl/objave/<slug>, excluding the category tabs (vse/govori/poslanice/...).
-  link_pattern: '/sl/objave/(?!vse|govori|poslanice|aktivnosti|mednarodne|intervjuji|novinarska)[a-z0-9-]{8,}'
+  # Articles under /sl/objave/<slug>, excluding the category tabs themselves. The exclusion is
+  # anchored to the WHOLE segment: the old lookahead was a bare prefix list, so a real article
+  # slugged /sl/objave/aktivnosti-<something> would have been thrown away with the tab it
+  # resembles.
+  link_pattern: '/sl/objave/(?!(?:vse|govori|poslanice|moc-dejstev|rss|intervjuji|aktivnosti-v-sloveniji|mednarodne-aktivnosti|novinarska-sredisce)(?:[/?#]|$))[a-z0-9-]{8,}'
 
 pagination:
   type: query_param
   param: start
   start: 0
   step: 16
-  max_pages: 40
+  # 74 pages for `vse` and 56 for the largest section; 200 leaves room for the archive to grow.
+  max_pages: 200
 
 title:
   selectors: ["h1", "title"]
@@ -35,7 +62,13 @@ position: president
 speaker_default: Nataša Pirc Musar
 date_languages: ["sl"]
 notes: >
-  DRAFT — probe-validated (no full run). Slovenia President Pirc Musar speeches (/sl/objave/govori),
-  ?start= pager step 16. speaker_default Nataša Pirc Musar (2022- ); body via the generic extractor;
-  date from the "Datum objave" label (regex D. M. YYYY, may miss on some pages -> cleaner fills).
-  Predecessors -> svn_up_rs_wayback. Slovenian; translation stage fills English.
+  Slovenia President Pirc Musar, ?start= pager step 16. WIDENED 2026-08-14 (A8): was the section
+  called `govori` ("speeches") alone, ~384 items; now all six streams -> 1,178 links, 12/12 title
+  and 11/12 date. speaker_default Nataša Pirc Musar (2022- ); date from the "Datum objave" label
+  (regex D. M. YYYY, misses on a few pages -> cleaner fills). TEXT is deliberately left to the
+  generic extractor and that was re-checked rather than inherited: the page does have a container,
+  article.news-detail, but it wraps the photo-gallery block and the breadcrumb trail with the prose
+  (1,150 chars against trafilatura's 4,203 on the same kind of page), so the generic extractor is
+  the better body. Predecessors -> svn_up_rs_slo_wayback / svn_up_rs_wayback. A NEW English sibling
+  was authored from the same audit: svn_predsednica_english (/en/news/all, ~304 items). Slovenian;
+  translation stage fills English. Incremental run only — never --rescrape.

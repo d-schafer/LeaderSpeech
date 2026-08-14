@@ -1,0 +1,58 @@
+# Slovenia — Government of Slovenia / Prime Minister (gov.si), the ENGLISH edition.
+#
+# NEW 2026-08-14 (sweep chunk A8). svn_gov covers the Slovenian wire at /novice/; the site runs a
+# full English mirror at /en/news/ that no recipe touched. Same CMS, same URL grammar
+# (/en/news/YYYY-MM-DD-<slug>), same pager (?start=N, step 20), and the Slovenian recipe's
+# selectors work on it verbatim — verified with selcheck.py on a live article (h1 title,
+# article.news-page .content body at 2,120 chars, url_regex date).
+#
+# SIZE, measured with `pagecount.py --pager 'start=(\d+)'` (the pager value is an OFFSET, so
+# divide by the step of 20):
+#     /novice/   last start 38,760  -> 1,939 pages, ~38,780 items   (Slovenian, svn_gov)
+#     /en/news/  last start  7,000  ->   351 pages, ~ 7,020 items   (English, THIS RECIPE)
+# The English edition is a curated ~18% subset, not a complete translation.
+#
+# ⚠ IT OVERLAPS svn_gov BY CONSTRUCTION — these are the same government items in two languages,
+# so running both lands the English ones twice: once here in the English columns, once as a
+# Slovenian row whose English columns the translate stage fills. That is the same question left
+# open for Finland (fin_presidentti vs fin_presidentti_english) and answered "run BOTH" for
+# Belgium on 2026-08-14. It is recorded rather than decided here; under the English-first policy
+# this recipe is queueable NOW and svn_gov is not, so the two will not collide in the near term.
+#
+# Whole-of-government wire (every ministry), so no speaker_default and no position — the cleaner's
+# document_type + speaker pass is what keeps PM Golob's and other leaders' items.
+source_id: svn_gov_english
+country: Slovenia
+source_language: English
+renderer: static
+start_urls:
+  - https://www.gov.si/en/news/
+
+listing:
+  link_pattern: '/en/news/\d{4}-\d{2}-\d{2}-[a-z0-9-]+'
+
+pagination:
+  type: query_param
+  param: start
+  start: 0
+  step: 20
+  max_pages: 600   # 351 needed today; headroom for growth
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: ["article.news-page .content", "article.news-page", ".article-cols"]
+date:
+  url_regex: '/en/news/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-'
+
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8), found by triaging gov.si while auditing svn_gov: the site has a
+  full English news tree at /en/news/ (~7,020 items, 351 pager pages) that no recipe covered, and
+  Slovenia held only 80 scraped rows. Date comes from the permalink (url_regex, unambiguous ISO),
+  so there is no dateparser ambiguity. Broad government wire -> no speaker_default / no position.
+  ENGLISH, therefore immediately queueable under the English-first policy. Shares
+  data/state/Slovenia.json with svn_gov, svn_predsednica, svn_up_rs_wayback,
+  svn_up_rs_ang_wayback and svn_up_rs_slo_wayback — order any queue live-before-archive, and keep
+  the non-English Slovenian recipes in queues/sweep/deferred/ (same folder + same country is the
+  runner's hard error). Overlaps svn_gov in content — see the header.

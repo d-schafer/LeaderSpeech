@@ -7,6 +7,48 @@
 # The /article/ namespace is the whole news feed (speeches + other), so the cleaner's document_type
 # gate does the speech/non-speech split. Body via the generic extractor (archived pages wrap the
 # text in nav chrome); date from the .date/time element (DD.MM.YYYY, Slovak).
+#
+# ⚠ TITLE DEFECT FOUND AND FIXED 2026-08-14 (sweep chunk A8) — this was worth more than any
+# widening on this host. The chain began `h1.article__title, article h1, h1, title`, which is the
+# MODERN theme; on the 2016-2022 captures — the bulk of the 3,300 — neither of the first two
+# selectors exists and the bare `h1` is a NAV heading. A 2021 capture of
+# /article/11-september-podla-prezidentky-zmeni-svet... titles as "Oficiálny program Oficiálny
+# program" (the engine joins both matching elements). That theme puts the headline in
+# `.article-detail h2`, now inserted ahead of the bare h1. Verified with selcheck.py on archived
+# captures in both language trees.
+#
+# RULE 1 AUDIT 2026-08-14. Coverage of the old pattern was 3,265 of 16,119 in-scope captures =
+# 20.3%. Enumerated with cdxbatch; what the other 80% actually is, and what was done about it:
+#
+#   1,976  archiv.prezident.sk/zuzana-caputova/article/<slug>/  -> EXCLUDED, a 100% MIRROR.
+#          All 2,011 of its distinct slugs also exist at prezident.sk/article/<slug>/ — measured
+#          offline by set intersection, zero archive-only. page_identity keeps host+path, so a
+#          mirror on another host is NOT deduplicated: taking it would write 2,011 duplicate rows.
+#     349  prezident.sk/en/article/<slug>/  -> its own recipe, svk_prezident_english_wayback
+#          (source_language is one field per recipe).
+#     968  the pre-2015 query-addressed news generations, as distinct IDENTITIES not URLs:
+#            ?spravy-tlacoveho-oddelenia&news_id=N (+ ?rok-2004/5/6&news_id=N, ?press-department&)
+#            swift_data/scripts/news_list/news_list_spravy_big.php?news_id=N   (503 ids)
+#            news_big_audio.php?news_id=N                                      ( 78 ids)
+#          The first two share 314 ids, so they are partly views of one another. BANKED, not
+#          taken: these are TRAP-shaped (query-addressed, so the engine drops any capture whose
+#          path equals a start_url path) and need the truncated-prefix + wayback_filter idiom.
+#     287  show.php?id=N (155) + show.php?idz=N (132) — the oldest generation. BANKED.
+#     247  press-room/N/ — BANKED.
+#   ~3,011 archiv.prezident.sk/<president>/index<hex>.html?<slug> — the STATIC MIRROR of the
+#          pre-2019 site, and the biggest single prize left on this host: gasparovic 1,899 slugs,
+#          ivan-gasparovic 754, andrej-kiska 132, schuster 121, rudolf-schuster 105 (after
+#          dropping ?nahlad-foto&gallery_id= photo queries). Slugs are descriptive and include
+#          speeches and interviews outright ("prihovor-prezidenta-sr-ivana-gasparovica-na-
+#          technickej-univerzite-vo-zvolene-18-9-2012", "rozhovor-s-prezidentom-sr-..."), several
+#          carrying the date in the slug itself. This reaches presidents Schuster (1999-2004) and
+#          Gašparovič (2004-2014), for whom we hold nothing at all.
+#          BANKED DELIBERATELY, and the reason is a design question, not laziness: the article
+#          identity is the QUERY slug while the PATH is a content-hash filename, so one document
+#          appears under many index<hex>.html names — the engine's page_identity keeps the path
+#          and would write it once per mirror file. `gasparovic` vs `ivan-gasparovic` and
+#          `schuster` vs `rudolf-schuster` also look like two copies of one tree each. That wants
+#          its own recipe and its own dedupe decision, not a widening here.
 source_id: svk_prezident_wayback
 country: Slovakia
 source_language: Slovak
@@ -24,7 +66,9 @@ pagination:
     - "statuscode:200"
 
 title:
-  selectors: ["h1.article__title", "article h1", "h1", "title"]
+  # `.article-detail h2` is the 2016-2022 theme's headline and MUST precede the bare h1, which on
+  # that theme is a nav heading ("Oficiálny program"). See the title-defect note in the header.
+  selectors: ["h1.article__title", ".article-detail h2", "article h1", "h1", "title"]
 text:
   # Archived pages mix nav with the body; the generic extractor recovers clean prose when these miss.
   selectors: [".article__content", ".article-detail__content"]
@@ -35,8 +79,15 @@ date:
 position: president
 date_languages: ["sk"]
 notes: >
-  DRAFT — probe-validated (no full run). Pure-wayback (live SPA un-crawlable). prezident.sk/article/
-  2015-2026, ~3322 captures, presidents Kiska/Čaputová/Pellegrini -> no speaker_default, tenure
-  crosscheck. /article/ is the full news feed -> cleaner's document_type gate keeps the speeches
-  (prejavy). Body via the generic extractor; date DD.MM.YYYY (date_languages sk). Slovak; translation
+  Pure-wayback (live SPA un-crawlable). prezident.sk/article/ 2015-2026, ~3,300 captures, presidents
+  Kiska/Čaputová/Pellegrini -> no speaker_default, tenure crosscheck. /article/ is the full news feed
+  -> cleaner's document_type gate keeps the speeches (prejavy). Body via the generic extractor; date
+  DD.MM.YYYY (date_languages sk). AUDITED 2026-08-14 (A8): breadth of the /article/ namespace is
+  correct and the recipe's 20.3% host ratio is explained in full in the header — the largest single
+  "miss" is a 100% mirror on archiv.prezident.sk, measured, and excluded. The real win this pass is
+  a TITLE FIX: archived 2016-2022 rows were titling as the nav heading "Oficiálny program". ⚠ THIS
+  IS A --rescrape CANDIDATE if any rows were already collected under the old title chain — check
+  data/scraped/Slovakia/svk_prezident_wayback.csv before an incremental run; the index reports 80
+  rows, which is a --limit spot-check, not a full run. Four older generations plus the ~3,011-slug
+  Gašparovič/Schuster static mirror are BANKED with counts in the header. Slovak; translation
   stage fills English.

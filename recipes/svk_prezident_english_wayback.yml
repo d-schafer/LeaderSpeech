@@ -1,0 +1,59 @@
+# Slovakia — President (prezident.sk), the ENGLISH tree, via the Internet Archive.
+#
+# NEW 2026-08-14 (sweep chunk A8), split out of the prezident.sk enumeration that audited
+# svk_prezident_wayback. The site runs a full English mirror at /en/article/<slug>/ — 349 distinct
+# slugs, captures spanning 2016-2026 with the bulk in 2019-2022 (Čaputová) — covered by no recipe.
+# Its own recipe rather than a widening because `source_language` is one field per recipe.
+#
+# Pure-wayback for the same reason as the Slovak sibling: the live prezident.sk listing is an SPA
+# with no server pager, no sitemap, no RSS and no reachable AJAX endpoint, so it cannot be
+# enumerated live. See svk_prezident_wayback's header.
+#
+# SELECTORS ARE THE 2016-2022 THEME'S, verified with selcheck.py on archived captures — and the
+# bare `h1` is deliberately NOT first: on this theme it is a nav/footer heading ("Newsletter" on
+# the English pages, "Oficiálny program" on the Slovak ones), so a chain led by h1 titles every row
+# with furniture. The headline is `.article-detail h2`; the body column is `.article-detail`, which
+# also carries the breadcrumb and the dateline, so the body is taken from its paragraphs.
+#
+# archiv.prezident.sk/zuzana-caputova/en/article/ (11 slugs) is NOT seeded: all 11 also exist here,
+# i.e. it is a mirror, and the engine's page_identity keeps host+path so it would duplicate.
+source_id: svk_prezident_english_wayback
+country: Slovakia
+source_language: English
+renderer: static
+start_urls:
+  - prezident.sk/en/article/
+
+listing:
+  link_pattern: 'prezident\.sk/en/article/[a-z0-9-]{8,}'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: [".article-detail h2", "h1.article__title", "article h1", "title"]
+text:
+  # `.article-detail p` keeps the prose and leaves out the breadcrumb and the dateline that sit in
+  # the same column; the generic extractor takes over if the theme changes under us.
+  selectors: [".article-detail p", ".article__content", ".article-detail__content"]
+date:
+  # "03.12.2019, 00:00". `[class*=date]` also matches the newsletter form's wrapper, and the engine
+  # joins every match, so the regex is what isolates the date — regex_required keeps a theme
+  # mismatch from stamping the row with the joined blob.
+  selectors: [".date", "[class*=date]", "time", ".datum"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8). The ENGLISH tree of prezident.sk (349 distinct article slugs,
+  2016-2026), found by enumerating the host while auditing svk_prezident_wayback — Slovakia held
+  80 scraped rows before this chunk. Pure-wayback (the live listing is an un-enumerable SPA). No
+  speaker_default: the window spans Kiska, Čaputová and Pellegrini, so the tenure crosscheck
+  assigns the speaker. ENGLISH -> immediately queueable. Shares data/state/Slovakia.json with
+  svk_prezident_wayback and svk_vlada, so order any queue live-before-archive.

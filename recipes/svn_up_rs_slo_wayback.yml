@@ -1,0 +1,81 @@
+# Slovenia — President, the SLOVENIAN edition of the old up-rs.si Lotus Domino site, via the
+# Internet Archive. Covers Drnovšek (2002-2007), Türk (2007-2012) and Pahor (2012-2022); the
+# office moved to predsednica-slo.si in Dec 2022 (Pirc Musar), which the live svn_predsednica has.
+#
+# NEW 2026-08-14, split out of the chunk-A8 enumeration of up-rs.si. That host runs four Domino
+# databases and the existing recipe covered one view of one of them (1.4% of 18,431 in-scope
+# captures). Distinct UNIDs per database, measured from the saved CDX list:
+#     uprs.nsf      objave 6,958 + dokumentiweb 1,999   <- THIS RECIPE, ~8,900 documents
+#     uprs-slo.nsf  objave 3,094  (on posta.up-rs.si)   <- EXCLUDED, a 100% mirror
+#     uprs-eng.nsf  1,083                               <- svn_up_rs_wayback (English)
+#     uprs-ang.nsf  177                                 <- svn_up_rs_ang_wayback (English)
+#
+# ⚠ posta.up-rs.si/WEB_UP-RS/uprs-slo.nsf IS THE SAME CONTENT and is deliberately not harvested.
+# It shares 3,084 UNIDs with uprs.nsf/objave = 100% of the smaller set. Taking both would write
+# every one of those documents twice, because the engine's page_identity keeps the path: a mirror
+# on another host is not deduplicated for you. This is the alternate-views trap in its cheapest
+# form — grouping archived UNIDs by (database, view) settles it offline, with no fetches at all.
+#
+# THREE TEMPLATES, all three in the field chains:
+#   dokumentiweb, Domino table layout (2004-2006) — title h1, body #vsebina, dateline inside it
+#   dokumentiweb, later theme                     — title h1, body .inner-page-content, h2 dateline
+#   objave (Pahor theme)                          — title h1, body #content-full, .place-date
+#                          ("Letno gledališče Studenec, Dob, 21. 5. 2019 | napovednik")
+#
+# `regex_required: true` is not optional here: the raw dateline string parses under dateparser to
+# TODAY's month and day with the article's year (verified — "Ljubljana, 6. 12. 2018 | press
+# release" -> 2018-08-14), so a regex miss falling through to the unfiltered element would
+# silently date the whole corpus wrong.
+#
+# ⚠ THE DATE REGEX IS DELIBERATELY DOTS-ONLY, AND THAT COSTS THE OLDEST SUBSET ITS DATE.
+# The 2004-2006 pages dateline in SLASHES and month-first — sampling twelve captures across the
+# view, the two slash-dated ones are 02/19/2004 and 06/21/2006, both with a second component > 12
+# (the other ten are Slovenian-style dots: 26.9.2008, 22.3.2011, 3.9.2012 ...). `date_languages`
+# is ONE value per recipe, so a regex admitting both would hand 09/07/2005 to a day-first parser
+# and silently return 9 July for 7 September. Matching dots only means those pages arrive with an
+# EMPTY date, which the cleaner's corrected-date pass fills from the speech text — a blank date is
+# honest, a wrong one corrupts a time series. (The English side of this era is a separate recipe,
+# svn_up_rs_ang_wayback, precisely because there the slash format is the ONLY one and can safely
+# take date_languages: ["en"].)
+source_id: svn_up_rs_slo_wayback
+country: Slovenia
+source_language: Slovenian
+renderer: static
+start_urls:
+  # CDX prefix. Deliberately NOT the bare host: that would pull in the posta.up-rs.si mirror and
+  # both English databases.
+  - up-rs.si/up-rs/uprs.nsf
+
+listing:
+  # <database>.nsf/<view>/<32-hex UNID>, media views excluded by name (an open view name harvests
+  # fotovideoweb photo attachments and popups, both title-only rows — seen on the English sibling).
+  link_pattern: 'uprs\.nsf/(?!fotovideoweb|foto|video|popups)[a-z-]+/[0-9A-F]{20,}'
+
+pagination:
+  type: wayback
+  wayback_to: "20221201"   # keeps it clear of the live svn_predsednica (Pirc Musar)
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".inner-page-content", "#content-full", "#vsebina", ".yui-b"]
+date:
+  selectors: ["h2", ".place-date", "#vsebina"]
+  regex: '\d{1,2}\.\s?\d{1,2}\.\s?(?:19|20)\d\d'
+  regex_required: true
+
+position: president
+date_languages: ["sl"]
+notes: >
+  NEW 2026-08-14 (sweep chunk A8). The SLOVENIAN Domino database on the archived up-rs.si
+  (uprs.nsf), ~8,900 distinct documents across the objave and dokumentiweb views, spanning
+  presidents Drnovšek, Türk and Pahor (2002-2022) — no speaker_default, the tenure crosscheck
+  assigns the speaker. Slovenia held 80 scraped rows before this chunk, so this is the country's
+  largest single source by a wide margin. The posta.up-rs.si/uprs-slo.nsf mirror is excluded on a
+  measured 100% UNID overlap. Non-English, so its queue entry belongs in queues/sweep/deferred/
+  under the English-first policy. Shares data/state/Slovenia.json with svn_gov, svn_predsednica,
+  svn_up_rs_wayback and svn_up_rs_ang_wayback — order any queue live-before-archive.

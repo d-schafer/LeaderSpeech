@@ -296,6 +296,50 @@ def test_query_param_pager_ignored_by_site_is_flagged(caplog):
     assert "ignoring the 'page' pager" in caplog.text
 
 
+def test_overlapping_start_urls_each_paginate_to_their_own_end(caplog):
+    """A second start_url whose page 1 duplicates the first listing must still be walked.
+
+    The RULE 1 widening case: a WordPress site whose sections are TAXONOMIES over one slug
+    namespace files most posts under two categories at once (statehouse.gov.ng: `news` and
+    `press-releases`). Judging the 'pager is not advancing' guard against the recipe's whole
+    collected set stopped the second category at page 1 and silently dropped every post
+    filed ONLY there."""
+
+    class TwoOverlappingCategories:
+        # cat-a: items 1,2  |  cat-b: page 1 repeats item 1, page 2 has the unique item 3
+        pages = {
+            "https://example.org/cat-a/1": '<a href="/s/1">a1</a>',
+            "https://example.org/cat-a/2": '<a href="/s/2">a2</a>',
+            "https://example.org/cat-a/3": "",
+            "https://example.org/cat-b/1": '<a href="/s/1">b1 (already seen via cat-a)</a>',
+            "https://example.org/cat-b/2": '<a href="/s/3">b2 (unique to cat-b)</a>',
+            "https://example.org/cat-b/3": "",
+        }
+
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url):
+            self.urls.append(url)
+            return self.pages[url]
+
+    r = _recipe(type="path", start=1, step=1, max_pages=10)
+    r.start_urls = ["https://example.org/cat-a", "https://example.org/cat-b"]
+    f = TwoOverlappingCategories()
+    stats = {}
+    with caplog.at_level("WARNING", logger="leaderspeech.text_scraper.paginate"):
+        links = paginate.harvest_links(r, f, stats=stats)
+
+    # /s/3 is reachable only through cat-b's SECOND page.
+    assert links == ["https://example.org/s/1", "https://example.org/s/2",
+                     "https://example.org/s/3"]
+    # cat-b was walked to its own empty page, not abandoned at page 1.
+    assert f.urls[-1] == "https://example.org/cat-b/3"
+    assert stats["stopped_early"] is False
+    assert stats["stop_reason"] == "empty_page"
+    assert caplog.text == ""
+
+
 def test_query_param_empty_page_ends_normally(caplog):
     """Running off the end of the results (a page with no links at all) is the normal
     terminator and stays quiet."""
