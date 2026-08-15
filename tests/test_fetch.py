@@ -1,6 +1,7 @@
 """Header construction: browser-like defaults that clear WAFs, plus the opt-in
 User-Agent override for sites that hard-block the honest bot UA."""
 
+import httpx
 import pytest
 
 from leaderspeech.text_scraper.fetch import USER_AGENT, Fetcher, build_headers
@@ -216,3 +217,43 @@ def test_recycle_is_noop_without_the_knob_and_for_non_js():
     stat = Fetcher(renderer="static")
     assert stat._recycle_context() is False
     stat.close()
+
+
+# --- <meta charset> sniffing when the HTTP header omits it (2026-08-14) --------------------
+
+def test_decode_html_prefers_header_charset_over_meta():
+    """The server is authoritative about its own bytes: an explicit header charset wins."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    body = "Príhovor prezidenta".encode("utf-8")
+    resp = httpx.Response(
+        200, content=body,
+        headers={"content-type": "text/html; charset=utf-8"},
+        request=httpx.Request("GET", "https://example.org/"))
+    assert decode_html(resp) == "Príhovor prezidenta"
+
+
+def test_decode_html_reads_meta_charset_when_the_header_is_silent():
+    """The archiv.prezident.sk case: windows-1250 bytes, `text/html` with no charset, and the
+    document declaring its encoding in a <meta http-equiv>. httpx alone decodes this to
+    mojibake; the corpus would silently fill with U+FFFD."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    html = ('<html><head><meta http-equiv="Content-Type" '
+            'content="text/html; charset=windows-1250"></head>'
+            '<body>Príhovor prezidenta SR Ivana Gašparoviča</body></html>')
+    resp = httpx.Response(
+        200, content=html.encode("windows-1250"),
+        headers={"content-type": "text/html"},
+        request=httpx.Request("GET", "https://archiv.prezident.sk/gasparovic/index0.html"))
+    out = decode_html(resp)
+    assert "Príhovor prezidenta SR Ivana Gašparoviča" in out
+    assert "�" not in out
+
+
+def test_decode_html_falls_back_when_the_meta_charset_is_unknown():
+    """An unknown/bogus charset name must not raise — fall through to httpx's own decoding."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    resp = httpx.Response(
+        200, content=b'<meta charset="not-a-real-charset">hello',
+        headers={"content-type": "text/html"},
+        request=httpx.Request("GET", "https://example.org/"))
+    assert "hello" in decode_html(resp)

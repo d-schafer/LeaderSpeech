@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 import httpx
 
-from .fetch import USER_AGENT
+from .fetch import USER_AGENT, decode_html
 
 if TYPE_CHECKING:  # annotations only — keeps this module importable on its own
     from .recipe import Recipe, WaybackExtend
@@ -612,9 +612,15 @@ def fetch_snapshot(
     max_bytes: int = MAX_SNAPSHOT_BYTES,
     body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
 ) -> str:
-    """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`)."""
-    return _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer,
-                                max_bytes, body_timeout).text
+    """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`).
+
+    Decoded with `fetch.decode_html`, not a bare `.text`: archived pages are exactly where
+    legacy encodings live, and the Wayback replay does not add a charset the origin never sent.
+    A site mirror served as `text/html` with windows-1250 bytes and a <meta http-equiv> is the
+    normal case here, and `.text` alone turns it into silent mojibake.
+    """
+    return decode_html(_fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff,
+                                            pacer, max_bytes, body_timeout))
 
 
 def fetch_snapshot_bytes(

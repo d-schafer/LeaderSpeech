@@ -1,0 +1,100 @@
+# Slovakia — President Ivan Gašparovič (2004-2014), the STATIC MIRROR of the pre-2019
+# prezident.sk, via the Internet Archive.
+#
+# NEW 2026-08-14, banked by chunk A8 and built the same day once the dedupe question was
+# measured. This reaches a president we hold NOTHING for: svk_prezident_wayback starts in 2015
+# (Kiska onward) and svk_prezident_english_wayback likewise, so Gašparovič's entire two terms were
+# absent from the corpus.
+#
+# WHAT THIS HOST IS: archiv.prezident.sk is an **HTTrack mirror** (the pages carry HTTrack's own
+# injected <meta>), so an article is addressed as
+#     /<president>/index<hex>.html?<article-slug>
+# where the PATH is a content-hash filename and the QUERY is the article identity. That inversion
+# is why it was banked rather than widened into svk_prezident_wayback — `page_identity` keeps the
+# path, so it looked like one document could land once per mirror filename.
+#
+# ── THE DEDUPE QUESTION, MEASURED OFFLINE FROM THE SAVED CDX LIST (no fetches) ──────────────
+#   1. WITHIN a tree: **zero duplication.** Grouping every archived URL by (tree, query slug) and
+#      counting distinct index<hex>.html filenames per slug gives max = 1, on all five trees.
+#      HTTrack's hash is deterministic per query, so the mapping is 1:1 and the feared
+#      one-document-many-files case does not occur at all.
+#   2. ACROSS trees: real, and handled by taking ONE TREE. The host holds five, and they are
+#      copies of one another — `gasparovic` (1,918 article slugs) vs `ivan-gasparovic` (758)
+#      share 722 = **95% of the smaller**; `schuster` (121) vs `rudolf-schuster` (105) share 86
+#      = 82%. Taking `gasparovic` alone loses 36 slugs and avoids 722 duplicate rows.
+#   3. ACROSS SOURCES: **3 of 2,155** mirror slugs also exist as prezident.sk/article/<slug>,
+#      i.e. 0.1%. This recipe does not meaningfully re-collect anything svk_prezident_wayback has.
+#
+# ── AND WHY ONLY `gasparovic` IS SEEDED — the other trees FAILED the three-part test ────────
+# The bank note said this mirror reaches "Schuster (1999-2004) and Gašparovič (2004-2014)". The
+# Schuster half is wrong, and the tell is cheap: count slugs carrying a trailing date.
+#     gasparovic        1,918 article slugs, **924** with a date in the slug
+#     ivan-gasparovic     758                    47
+#     andrej-kiska        139                     1
+#     schuster            121                     0
+#     rudolf-schuster     105                     0
+# Reading the `schuster`, `rudolf-schuster` and `andrej-kiska` slug lists confirms it: they are
+# the site's standing pages — `kontakty`, `introduction`, `a-brief-history-of-slovakia`,
+# `adresar-liniek`, `hovorca-prezidenta-republiky`, `amnestie`, `cestna-straz-prezidenta-sr`,
+# `legislativa-sr-o-milostiach` — plus, in rudolf-schuster's case, 19 slugs that are bare numbers
+# ("301", "302", …). Those trees are furniture, not a speech archive. Schuster's speeches are NOT
+# on this host; if they are anywhere it is a separate finding.
+#
+# ⚙ THIS RECIPE FORCED AN ENGINE FIX (`fetch.decode_html`, 2026-08-14). The mirror serves
+# `Content-Type: text/html` with NO charset and windows-1250 bytes, declaring the encoding only in
+# a <meta http-equiv>. httpx takes its encoding from the header and falls back to UTF-8, so the
+# body decoded to silent mojibake — a sampled speech title came back as
+# 'Pr�hovor prezidenta SR Ivana Ga�parovi�a'. Not an error, just U+FFFD flowing into the corpus and
+# out through the translation stage. The fetcher now sniffs the document's own <meta charset> when
+# the header is silent (header still wins when present).
+source_id: svk_prezident_archiv_wayback
+country: Slovakia
+source_language: Slovak
+renderer: static
+start_urls:
+  # ONE tree only — see the dedupe note above.
+  - archiv.prezident.sk/gasparovic/
+
+listing:
+  # /gasparovic/index<hex>.html?<article-slug>. The query is the identity; requiring it to start
+  # with a letter drops `index.html?301`-style bare-number stubs, and the negative lookahead drops
+  # the photo/video gallery queries (?nahlad-foto&gallery_id=N), which are RULE 1 out-of-scope.
+  link_pattern: 'archiv\.prezident\.sk/gasparovic/index[0-9a-f]*\.html\?(?!nahlad|foto|video)[a-z][a-z0-9-]{10,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: [".nadpis", "h1", "title"]
+text:
+  # Table layout: a bare `td` joins EVERY cell and returns the whole page including the nav
+  # (16,923 chars against the article's ~8,000). `.praveokno` is the right-hand content column.
+  selectors: [".praveokno", "td.right", "table.main"]
+date:
+  # The mirror strips the date element, but 924 of the 1,918 article slugs END with the date
+  # (…-vo-zvolene-18-9-2012), which url_regex reads unambiguously into named groups. The rest
+  # arrive dateless for the cleaner's corrected-date pass — a blank date is honest, and the
+  # breadcrumb on every page ("Úvod | Aktuality | Prejavy a vystúpenia | Domáce prejavy prezidenta
+  # SR | Rok 2012 | …") means the year is recoverable from the text if it is ever worth doing.
+  url_regex: '-(?P<day>\d{1,2})-(?P<month>\d{1,2})-(?P<year>20\d\d)$'
+
+position: president
+speaker_default: Ivan Gašparovič
+date_languages: ["sk"]
+notes: >
+  NEW 2026-08-14, built out of chunk A8's banked measurement. The HTTrack mirror of the pre-2019
+  prezident.sk on archiv.prezident.sk, `gasparovic` tree only: ~1,918 article slugs covering
+  President Ivan Gašparovič (2004-2014), a leader the corpus held NOTHING for. Dedupe was the
+  blocker and it is measured, not assumed — zero within-tree duplication (HTTrack maps one slug to
+  exactly one index<hex>.html), 0.1% overlap with prezident.sk/article, and the four sibling trees
+  excluded because they are 82-95% copies of one another AND fail the three-part test (0-1 of
+  their slugs carry a date; their content is `kontakty`, `introduction`, `a-brief-history-of-
+  slovakia`). Title .nadpis, body .praveokno (a bare `td` would join the whole page), date from
+  the slug via url_regex where present. Required the fetch.decode_html <meta charset> fix — the
+  host is windows-1250 with no charset header. NON-ENGLISH -> deferred queue. Shares
+  data/state/Slovakia.json with svk_prezident_wayback, svk_prezident_english_wayback and
+  svk_vlada.

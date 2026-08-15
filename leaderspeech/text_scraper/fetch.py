@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import time
 import urllib.robotparser
 from typing import Optional
@@ -19,6 +20,45 @@ from urllib.parse import urlparse
 import httpx
 
 from .block import BlockPageError, looks_like_block_page
+
+# `charset=` inside a <meta> in the first few KB of an HTML document. Covers both spellings:
+#   <meta charset="windows-1250">
+#   <meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
+_META_CHARSET = re.compile(rb"""charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]+)""", re.I)
+
+
+def decode_html(resp: httpx.Response) -> str:
+    """Decode an HTML response the way a browser does, not the way httpx does.
+
+    httpx takes `.encoding` from the Content-Type HEADER and falls back to UTF-8; it never
+    reads the document's own `<meta charset>`. Legacy government sites and site mirrors
+    routinely serve `Content-Type: text/html` with NO charset and non-UTF-8 bytes, and the
+    result is silent mojibake — not an error, just a body full of U+FFFD that flows all the way
+    into the corpus and out through the translation stage.
+
+    Worked example (issue found 2026-08-14): archiv.prezident.sk is an HTTrack mirror of the
+    pre-2019 Slovak presidency site. Its pages are windows-1250 and declare it twice in
+    <meta http-equiv>, but the header says only `text/html`, so a speech title came back as
+    'Pr�hovor prezidenta SR Ivana Ga�parovi�a'.
+
+    Precedence is deliberate and matches the browser: an explicit HEADER charset wins (the
+    server is authoritative about its own bytes), and the <meta> is consulted only when the
+    header is silent.
+    """
+    # getattr, not attribute access: the test-suite (and any caller with a stub client) hands in
+    # a minimal response object that only has `.text`. A charset sniff is an enhancement, so a
+    # response that cannot answer simply gets httpx's own decoding.
+    if getattr(resp, "charset_encoding", None):   # the header named a charset — trust it
+        return resp.text
+    raw = getattr(resp, "content", b"")
+    m = _META_CHARSET.search(raw[:4096]) if isinstance(raw, (bytes, bytearray)) else None
+    if m:
+        enc = m.group(1).decode("ascii", "ignore")
+        try:
+            return raw.decode(enc, errors="replace")
+        except LookupError:              # a charset Python does not know; fall through
+            pass
+    return resp.text
 
 # After DOM-ready, how long to let the network settle so SPA/AJAX content can paint. Bounded so a
 # CF challenge / analytics polling (which never reach networkidle) can't hang the fetch.
@@ -314,7 +354,7 @@ class Fetcher:
                 if self.renderer == "static":
                     resp = self._client.get(url)
                     resp.raise_for_status()
-                    return self._guard_block(resp.text, url)
+                    return self._guard_block(decode_html(resp), url)
                 # js / cdp: load the DOM first (fires even on CF interstitials and sites with
                 # persistent polling), then give the network a SHORT window to settle so SPA/AJAX
                 # content can paint — but never hang on it, because CF challenges/analytics never
