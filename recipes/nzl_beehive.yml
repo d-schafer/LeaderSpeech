@@ -1,44 +1,77 @@
 # New Zealand — the Beehive (beehive.govt.nz), the official NZ Government site: speeches by the
 # Prime Minister and ministers (head of government). The site is behind an Imperva INCAPSULA JS
 # challenge (httpx gets a 212-byte _Incapsula_Resource stub on every HTML page), which a real
-# headless Chromium clears cleanly -> renderer: js. The /speeches listing then shows /speech/<slug>
-# links and a 0-indexed ?page=N pager.
+# headless Chromium clears cleanly -> renderer: js.
+#
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): ~270 -> ~4,800 items. The recipe took /speeches
+# ONLY — 1 of the site's 3 content sections. Beehive's own nav lists exactly three, and the
+# pager's "Last page" link sizes each one exactly (10 items per page throughout):
+#     /releases   last page 452  -> ~4,530 items   <- 17x the section the recipe took
+#     /speeches   last page  26  ->   ~270 items   <- all the recipe had
+#     /features   no pager       ->      1 hub page
+# ALTERNATE-VIEWS TEST PASSED: /release/speech-civil-contractors-nz-conference (a real /speech/
+# slug refetched under /release/) returns Drupal's "Requested page not found" — the two are
+# distinct Drupal content types, not two views of one set.
+#
+# A NZ government "release" is the ministerial statement stream — the 2026-08-10 ruling puts
+# statements and press releases squarely IN scope, and the cleaner's document_type gate is what
+# removes non-speech material.
+#
+# BANKED, NOT BUILT — the post-Cabinet press conference TRANSCRIPTS. /features holds exactly one
+# hub, /feature/post-cab-press-conference, and it links ~25+ PDF transcripts of the PM's weekly
+# post-Cabinet press conference (sites/default/files/YYYY-MM/Post-Cabinet Press Conference
+# <date>.pdf, back to at least July 2025). These are verbatim PM Q&A and are high value. They are
+# NOT taken here because the engine needs a date for a PDF from `url_regex` (no DOM), and these
+# filenames are inconsistent — "20%20July%202026", "-%2030%20March", "01-", "06-" all appear — so
+# a single reliable url_regex could not be verified in this pass. Own recipe, content_type: pdf.
+#
+# INCREMENTAL: an ordinary `run` fetches only URLs not already in data/state/New Zealand.json.
+# Do NOT use --rescrape.
 source_id: nzl_beehive
 country: New Zealand
 source_language: English
 renderer: js
 start_urls:
   - https://www.beehive.govt.nz/speeches
+  - https://www.beehive.govt.nz/releases
+  - https://www.beehive.govt.nz/features
 
 listing:
-  link_selector: "a[href*='/speech/']"
-  link_pattern: '/speech/[a-z0-9]'
+  # No link_selector: the old "a[href*='/speech/']" hard-coded the one section. The anchored
+  # pattern covers all three; section index pages carry no slug so they cannot match.
+  link_pattern: '/(?:speech|release|feature)/[a-z0-9]'
 
 pagination:
   # 0-indexed pager: ?page=0 is the newest page (== the bare /speeches). query_param fetches
-  # ?page=<start> first, so start:0.
+  # ?page=<start> first, so start:0. Each start_url paginates to its OWN end.
   type: query_param
   param: page
   start: 0
   step: 1
-  max_pages: 200      # NZ govt speeches run back to the mid/late-2000s; engine stops at the first empty page
+  max_pages: 600      # /releases alone runs to page 452; the empty-page stop ends each section
+
+# beehive.govt.nz answers an unknown slug with a full-shell Drupal 404 ("Requested page not
+# found") that has no h1 — without this guard such a page would be written as a row.
+keep_if:
+  selectors: ["h1.article__title"]
 
 title:
-  selectors: ["h1"]
+  selectors: ["h1.article__title", "h1"]
 text:
-  # Silverstripe site; the body-specific classes vary, but <main> holds the full speech (~13k chars).
+  # Silverstripe-era classes kept for older nodes; <main> holds the full speech (~13k chars).
   selectors: ["main article", ".release__body", "main"]
 date:
-  # <time> carries the date as text ("17 July 2026"); no datetime attr.
+  # <time class="meta meta__date"> carries the date as text ("14 August 2026"); no datetime attr.
   selectors: ["time", ".release__date", ".published"]
 
 position: prime minister
 date_languages: ["en"]
 notes: >
-  DRAFT — probe-validated (no full run). New Zealand Government (PM + ministers) via
-  beehive.govt.nz/speeches. NEW master row needed (head-of-government companion to the listed
-  Governor-General source nzl_gg). Imperva Incapsula JS challenge -> renderer: js (headless Chromium
-  clears it; httpx gets a 212-byte _Incapsula_Resource stub). Listing /speech/<slug> + 0-indexed
-  ?page= pager; detail title h1, text <main>, date <time> text (en). All-of-government speeches -
-  the cleaner's speaker pass + gate keep the PM's. FULL RUN pending (js render of ~100+ listing
-  pages + detail pages; heavier than average).
+  Probe-validated (no full run). New Zealand Government (PM + ministers) via beehive.govt.nz.
+  WIDENED 2026-08-15 from /speeches only (~270) to speeches + releases + features (~4,800);
+  see the header for the per-section sizing and the alternate-views test. Imperva Incapsula JS
+  challenge -> renderer: js (headless Chromium clears it; httpx gets a 212-byte
+  _Incapsula_Resource stub). Detail title h1.article__title, text <main>, date <time> text (en).
+  All-of-government content - the cleaner's speaker pass + gate keep the PM's. FULL RUN is the
+  researcher's gate and this one is HEAVY: ~480 listing pages + ~4,800 detail pages, ALL under
+  headless Chromium, so budget it on measured js rates, never the 4,467 pages/h static figure.

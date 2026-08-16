@@ -1,0 +1,99 @@
+# Estonia — the GOVERNMENT (valitsus.ee), i.e. the PRIME MINISTER. Estonian original.
+#
+# WHY THIS SOURCE EXISTS. Estonia's president is a ceremonial head of state; the executive is
+# the PM. The 2026-08-10 speaker profiling found 228 unmatched Estonian corpus rows and EVERY
+# ONE of them is a prime minister — Mart Laar 90, Mart Siimann 51, Kaja Kallas 39, Jüri Ratas 19,
+# Tiit Vähi 11, Andrus Ansip 10, Taavi Rõivas 8 (1996-2022). `est_president*` cannot close that
+# gap no matter how wide it is made: it is the wrong office. This recipe is the gap-closer.
+#
+# THE LISTING IS UNUSABLE, THE SITEMAP IS COMPLETE — do not "fix" this to a query_param pager.
+# valitsus.ee is Drupal 9 behind Cloudflare. Its news index is a client-side search widget
+# (/otsing?filters[type]=Uudis&sort=created&page=N); a static fetch of it returns only the nav,
+# and a real headless Chromium (jsinspect --js) STILL renders 158 anchors of which ZERO are
+# articles — the result grid arrives on a later XHR the engine does not wait for. Meanwhile
+# /sitemap.xml is a 17-child index listing 32,413 URLs, includes the migrated legacy archive,
+# and needs no browser at all. Article pages themselves are plain server-rendered HTML.
+#
+# BREADTH (CLAUDE.md RULE 1) — measured exactly off the site's own sitemap, so these are counts,
+# not estimates (recipe_tools/sitemapshapes.py, 2026-08-15):
+#     /uudised/<slug>       17,774   modern Estonian news    <- TAKEN
+#     /uudised/<NNNN>-<N>    2,361   legacy archive (1999-)  <- TAKEN
+#     /uudised/<NNNN>          529   legacy archive (1999-)  <- TAKEN
+#     /uudised/uudis-<N>        87   legacy archive (2004-)  <- TAKEN
+#     /<slug>                2,701   MIXED: site chrome + agenda stubs  <- excluded, see below
+#     /en/news/<slug>        4,197   English mirror -> est_valitsus_english
+#     /ru/novosti/<slug>     4,010   Russian mirror (out: not an original, not English)
+#     /taxonomy/term/<N>       421   term listing pages (nav)
+# = 20,751 of 32,413 = 64.0% of the whole sitemap; of the ESTONIAN article URLs it is ~100%.
+#
+# The site does NOT split speeches from press releases into separate URL spaces — /uudised is
+# the single article stream and the nav's "Kõned" (speeches), "Pressiteated" (press releases),
+# "Istungi päevakorrad" (agendas), "Teated otse istungilt" and "Pressikonverentsi ülekanded ja
+# stenogrammid" (press-conference transcripts + stenograms) are all keyword FACETS over it. So
+# taking /uudised whole is both the broad choice and the only reliable one; the cleaner's
+# document_type gate does the sorting.
+#
+# EXCLUDED, deliberately: the bare-slug shape. Sampled — https://valitsus.ee/aasta-arsti-auhinna-
+# uleandmise-tseremoonia has NO <h1> and `div.node__content` matches NOTHING (0 chars); these are
+# agenda/calendar stubs and static site pages (ministers' bios, the Estonia-2035 strategy tree),
+# i.e. exactly the nav/chrome the RULE 1 out-list keeps out. /taxonomy/term/<N> likewise.
+source_id: est_valitsus
+country: Estonia
+source_language: Estonian
+start_urls:
+  - https://valitsus.ee/uudised
+renderer: static
+
+listing:
+  # Anchored on the host so /en/uudised/ (53) and /ru/uudised/ (38) cannot match — they belong
+  # to est_valitsus_english and to a Russian source we do not keep. Deliberately NOT anchored
+  # at $ and deliberately not requiring a letter: the legacy shapes are /uudised/0747-0,
+  # /uudised/0001 and /uudised/uudis-0, and those ARE the 1999-2004 Laar/Siimann/Parts material
+  # this recipe was written for.
+  link_pattern: 'valitsus\.ee/uudised/'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://valitsus.ee/sitemap.xml
+
+title:
+  # h1.card-title on the modern pages. On the LEGACY (1999-2004) pages the h1 is the wire-service
+  # time stamp — real examples: "07:47", "00:01", "uudis" — because the migration had no headline
+  # field to map. There is no better element on those pages (<title> repeats the same string), so
+  # they land with a junk title and a good body; the cleaner can work from the text.
+  selectors: ["h1.card-title", "h1", "title"]
+text:
+  # div.node__content is the article node, content-type agnostic (node--type-news, --type-event,
+  # …). Do NOT widen to .position-relative.mt-4 or .region-content: those also swallow the h1 and
+  # the date line. Verified on both generations: 15,483 chars on a 2024 speech, 516 on a 1999 item.
+  selectors: ["div.node__content", "article.node", "section.region-content"]
+date:
+  # Renders "22.07.2024 | 15:36" — the regex drops the clock, which otherwise makes dateparser
+  # guess. Present and correctly filled on the legacy pages too ("23.11.1999 | 00:00").
+  selectors: ["p.vp-date", ".vp-date", "time"]
+  regex: '\d{2}\.\d{2}\.\d{4}'
+
+position: prime minister
+# speaker_default omitted ON PURPOSE: the archive spans every PM from Mart Siimann (1997) to
+# Kristen Michal, which is the whole point of the source. The date is unambiguous, so the
+# cleaner's tenure crosscheck assigns the speaker from country+date.
+#
+# date_languages MUST stay ["et"] ALONE. The format is bare numeric DD.MM.YYYY and dateparser
+# resolves those by locale, first match winning: "01.07.2024" -> 1 July with ["et"], -> 7 January
+# with ["en"] or with ["et","en"]. Every date with day <= 12 would corrupt silently.
+date_languages: ["et"]
+notes: >
+  Estonia, head of GOVERNMENT (Prime Minister) — the executive counterpart to est_president,
+  and the source that actually closes Estonia's audit gap (228 unmatched rows, all PMs:
+  Laar 90, Siimann 51, Kallas 39, Ratas 19, Vähi 11, Ansip 10, Rõivas 8, 1996-2022).
+  Probe-validated 2026-08-15, no full run. Sitemap pagination: 32,413 URLs in a 17-child
+  sitemap index, 20,751 matched = 64.0% of the sitemap and ~100% of the Estonian article
+  URLs. The listing UI is a client-side search widget that renders no article links even
+  under headless Chromium, so the sitemap is not a convenience here, it is the only route.
+  IMPORTANT — the sitemap carries the MIGRATED LEGACY ARCHIVE back to 1999 under
+  /uudised/<NNNN> and /uudised/<NNNN>-<N> (verified: /uudised/0001 = 06.08.1999,
+  /uudised/0747-0 = 23.11.1999, /uudised/uudis-0 = 22.04.2004), so the Laar/Siimann era is
+  reachable LIVE and no wayback companion is needed for it. Those legacy pages carry a junk
+  h1 (a bare "07:47" clock string) but a clean body and a correct date. English mirror is a
+  separate source (est_valitsus_english, 4,255 URLs); the Russian mirror is not kept.

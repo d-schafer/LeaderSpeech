@@ -1,0 +1,45 @@
+source_id: jor_kingabdullah_papers
+country: Jordan
+source_language: English
+start_urls:
+  - https://kingabdullah.jo/en/discussion-papers
+renderer: static
+
+# King Abdullah II's DISCUSSION PAPERS — the seven programmatic essays published under
+# his own byline (democratic transition, rule of law, human resources, ...). Long-form:
+# 19,000 chars on the sampled paper, far more substantial than a news item.
+#
+# WHY THIS IS A SEPARATE RECIPE FROM `jor_kingabdullah` (authored 2026-08-15, chunk A9):
+# it is the same CMS and the same template as /en/op-eds, and it WAS seeded into the
+# parent's start_urls first — where it harvested ZERO. The cause is not the pattern:
+# kingabdullah.jo's WAF REJECTS any ?page= query on this one path. The bare listing
+# returns 200 and 7 items; /en/discussion-papers?page=0 and ?page=1 both return a
+# 246-byte "Request Rejected" interstitial. The parent needs `pagination: query_param`
+# (its /en/news section runs past page 400) and pagination is ONE config per recipe, so
+# this section can only be reached by a recipe that never sends the parameter.
+# Nothing else on the host behaves this way — /en/op-eds pages normally.
+#
+# Template C, shared with /en/op-eds: .DiscussionPapers-inner-content for the body,
+# a bare <h5> for the date, <title> minus the site suffix for the headline (the first
+# h2 is the section banner "By His Majesty", so a bare h2 would prepend it to every row).
+#
+# INCREMENTAL: an ordinary `run` appends only URLs not already in data/state/Jordan.json.
+# Do NOT use --rescrape.
+listing:
+  link_pattern: '/en/discussion-papers/[a-z0-9-]+$'
+
+pagination:
+  type: none
+
+title:
+  selectors: ["title"]
+  regex: '(?s)^.+?(?=\s+-\s+King Abdullah II Official Website)'
+text:
+  selectors: [".DiscussionPapers-inner-content", "main"]
+date:
+  selectors: ["h5"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+\d{4}'
+
+position: king
+speaker_default: Abdullah II
+date_languages: ["en"]

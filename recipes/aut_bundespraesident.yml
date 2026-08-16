@@ -18,6 +18,19 @@
 #     fail; /robots.txt is itself a 404 page).
 #   Over plain HTTP the pager works perfectly — every "next" is a server-rendered
 #   <a href> carrying a valid cHash — which is exactly what next_link follows.
+# ✅ CHECKED CLEAN 2026-08-15 (RULE 1 sweep, chunk A9b) — 1,301 links, 6/6 green, spanning
+# 2017-01-25 ("Erste Rede des neuen Bundespräsidenten") to 2026, i.e. Van der Bellen's COMPLETE
+# term. Nothing to widen; the measurement is written here so the next reader does not re-derive it.
+# The site's own nav offers exactly three things besides /aktuelles, and all three are dead ends:
+#   /presse            — a press CONTACT page, not a listing (46 anchors, no article namespace).
+#   /fotos             — out per RULE 1.
+#   /en/index          — NOT an English tree. It is a SINGLE static info page whose "sections"
+#                        are in-page anchors (#c1625 "The Federal President", #c1546 "The Vienna
+#                        Imperial Palace", #c1549 "Rights and Responsibilities"). There is no
+#                        English news or speech stream to build a recipe on — the same measured
+#                        negative as Luxembourg's empty language trees (A8).
+# So /aktuelles/detail/<slug> is the host's only article stream and this recipe already takes
+# all of it.
 source_id: aut_bundespraesident
 country: Austria
 source_language: German

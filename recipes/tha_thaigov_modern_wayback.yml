@@ -1,0 +1,91 @@
+# Thailand — the ROYAL THAI GOVERNMENT (thaigov.go.th), MODERN CMS generation. PURE-WAYBACK, Thai.
+#
+# ⏸ DELIBERATELY NOT QUEUED. This recipe is READY but PARKED — see "COST AND WHY IT IS PARKED"
+# below. It is split out of tha_thaigov_wayback so that recipe can run in about 11 hours instead
+# of 150. Do not merge the two back together.
+#
+# WHY IT IS A SEPARATE FILE, and not just a fourth start_url on its sibling. Three independent
+# reasons, each measured on 2026-08-15:
+#   1. COST. /news/contents is 82,132 archived captures — 94.7% of thaigov.go.th's whole archive.
+#      The three legacy sections its sibling keeps are 4,601 captures between them, i.e. 5.3%.
+#      A single recipe means you cannot run the cheap 5% without also paying for the 95%.
+#   2. LANGUAGE. This generation is THAI; the legacy sections are the government's own ENGLISH
+#      releases ("(Unofficial Translation)"). Verified by reading an archived <title>:
+#      "รัฐบาลไทย-ข่าวทำเนียบรัฐบาล-ข่าวสารการลงพื้นที่ตรวจราชการ จังหวัดเชียงใหม่". One recipe
+#      cannot carry two source_languages, and getting it wrong would send Thai text into the
+#      English columns and skip the translation stage entirely (the run-12 Cuba failure mode).
+#   3. VALUE. Its captures are 2017-2025 = the Prayuth era, which is 29 of Thailand's 296
+#      unmatched audit rows. The legacy sections hold Chuan + Thaksin + Surayud = 233 rows (79%).
+#      So this file is the expensive 10% and its sibling is the cheap 79%.
+#
+# COST AND WHY IT IS PARKED. 59,723 snapshots after filtering, at the corpus archive rate
+# (~419 pages/h) is roughly 140 hours. The researcher's decision on 2026-08-15 was to keep this
+# ready and not run it yet. Cost is the ONLY reason it is parked — the content is real.
+#
+# (A first draft of this note warned that the captures looked like JS-rendered SHELLS, on the
+# strength of three wbsample previews returning 1,817-2,618 chars. That was wrong and the note is
+# corrected rather than deleted, because the mistake is instructive: wbsample.py fetches with
+# plain httpx, and a probe through the ENGINE returns 4,743 / 3,762 / 10,934 / 7,579 chars on the
+# same generation — real Thai articles. Only 1 of 5 sampled captures was a short shell. This is
+# the same class of error as the selcheck.py mojibake found on 2026-08-15: a preview tool is not
+# the engine, and a URL generation should never be written off on its output alone.)
+#
+# ⚠ SHARES data/state/Thailand.json WITH tha_thaigov_wayback AND tha_royaloffice_wayback.
+# Never run two of the three at the same time.
+source_id: tha_thaigov_modern_wayback
+country: Thailand
+source_language: Thai
+start_urls:
+  - thaigov.go.th/news/contents
+renderer: static
+
+listing:
+  # `details/\d+` is load-bearing beyond just picking articles: the archive of this host is full
+  # of relative-URL resolution junk that the crawler manufactured, e.g.
+  # /news/contents/details/news/contents/index/public/theme/default/js/Placeholders.js — the
+  # trailing-digits requirement drops all of it.
+  # `(?::80)?` per recipe_tools/port80.py, for consistency with the sibling; this generation is
+  # post-HTTPS so it is belt-and-braces here rather than load-bearing.
+  link_pattern: 'thaigov\.go\.th(?::80)?/news/contents/details/\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # The archived pages expose no h1 — only <title>, and it carries a fixed site prefix:
+  # "รัฐบาลไทย-ข่าวทำเนียบรัฐบาล-<headline>". The lookbehind returns the headline alone.
+  # A LOOKBEHIND and not a capture group ON PURPOSE: the engine's DOM-field regex returns
+  # m.group(0), not group(1) (leaderspeech/text_scraper/extract.py), so a capturing group would
+  # silently hand back the prefix as well.
+  selectors: ["h1", ".news-title", "title"]
+  regex: '(?<=ข่าวทำเนียบรัฐบาล-).+'
+text:
+  # Narrow selectors first; `body` last and only as a fallback, because on this generation it is
+  # usually all that matches and it drags the navigation in with it. Measured through the engine:
+  # 3,762-10,934 chars per article, so a body-only extraction here is workable but noisy — a
+  # tighter container is worth finding if this is ever un-parked.
+  selectors: [".news-detail", ".content-detail", ".news-content", "article", ".content", "body"]
+date:
+  # Same BE/CE reasoning as the sibling: no url_regex. These URLs are bare numeric ids and carry
+  # no date at all, so every row falls back to the wayback_capture stamp the engine writes, plus
+  # whatever the cleaner's model reads out of the Thai text.
+  selectors: ["time", ".news-date", ".date"]
+
+position: prime minister
+# speaker_default omitted: 2017-2025 spans Prayuth, Srettha, Paetongtarn and Anutin.
+date_languages: ["th", "en"]
+notes: >
+  Thailand, head of GOVERNMENT — MODERN CMS generation (/news/contents/details/<id>), Thai
+  language. SPLIT OUT of tha_thaigov_wayback on 2026-08-15 at the researcher's direction and
+  PARKED, not queued: it is 82,132 of that host's 86,733 archived captures (94.7%) and about
+  140 h, while covering only the Prayuth era = 29 of Thailand's 296 unmatched audit rows. Its
+  sibling keeps the three legacy English sections (4,406 snapshots, ~11 h, 233 rows = 79%).
+  Probe-validated 2026-08-15 as a standalone recipe: 59,723 snapshots, 5/5 title+text, bodies
+  3,762-10,934 chars of real Thai article text (1 of 5 was a short shell). COST is the only
+  reason it is parked, not quality. It shares data/state/Thailand.json with tha_thaigov_wayback
+  and tha_royaloffice_wayback, so never run two of the three together.

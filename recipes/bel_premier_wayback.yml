@@ -1,0 +1,86 @@
+# Belgium — the PRIME MINISTER (premier.fgov.be, later premier.be). PURE-WAYBACK, French tree.
+#
+# WHY THIS SOURCE EXISTS. Belgium's monarch is the ceremonial head of state and the only Belgian
+# recipes were bel_monarchie* (that office). The 2026-08-10 speaker profiling shows 101 of
+# Belgium's 102 corpus rows unmatched and all of them are PRIME MINISTERS — Guy Verhofstadt 91
+# (1999-2007), Charles Michel 5, Yves Leterme 4, Herman Van Rompuy 1. Wrong office.
+#
+# WHY WAYBACK. premier.be returns a bare 370-byte HTTP 403 "Access Denied" — no Cloudflare
+# interstitial, no challenge page — to the honest bot UA AND to a browser user_agent. That is a
+# hard denial at the edge, not the UA-keyed WAF the earlier triage note guessed at, so the
+# `user_agent` override that unblocks col_presidencia and ind_pmindia does not apply here.
+# Separately, Verhofstadt's premiership (1999-2007) predates the premier.be host entirely: his
+# era lives on premier.fgov.be, which is retired.
+#
+# BREADTH (CLAUDE.md RULE 1) — CDX, whole host, 4,562 captures 1998-2023 (cdx.py --match domain
+# + shapes.py, 2026-08-15). Belgium publishes in parallel language trees rather than sections, so
+# the breadth question here is "which trees", and this file takes the WHOLE French one:
+#     /fr/<slug>                    261   Drupal era (2008+)          <- TAKEN
+#     /fr/node/<N>                  144   same content, node alias    <- TAKEN
+#     /fr/content/<slug>            109   Drupal era                  <- TAKEN
+#     /fr/premier/speeches/<N>/<N>   94   Verhofstadt-era speeches    <- TAKEN
+#     /fr/nieuws/<slug>              70   news                        <- TAKEN
+#     /fr/agenda/<slug>              ~40  agenda/visits               <- TAKEN
+#     /topics/speeches/f_speech<N>   82   Verhofstadt speech index    <- TAKEN (see caveat)
+#     Dutch tree (/nl/…, n_speech)  ~500  -> a Dutch sibling is a documented follow-up
+#     English tree (/en/…, e_speech) ~190 -> bel_premier_english_wayback
+# NOT scoped to "speeches": the /fr/ tree mixes speeches, press releases, news and agenda items
+# under one slug space with no type marker in the URL, so taking the tree whole is both the broad
+# choice and the only separable one. The cleaner's document_type gate does the sorting.
+#
+# ⚠ CAVEAT ON /topics/speeches/<lang>_speech<N>.html. A sampled capture
+# (d_speech00.html, the German tree) turned out to be an INDEX page — a heading plus a list of
+# speech titles — not a speech, and it says in its own words that the speeches themselves exist
+# "nur verfügbar auf niederländisch oder französisch". They are kept in the pattern anyway: an
+# index page is cheap, the cleaner rejects it, and the French/Dutch members of the same family
+# are where the Verhofstadt text actually is. If a full run shows them all to be indexes with no
+# followable children, tighten to /fr/premier/speeches/ only.
+source_id: bel_premier_wayback
+country: Belgium
+source_language: French
+start_urls:
+  - premier.fgov.be/fr
+  - premier.fgov.be/topics/speeches
+  - premier.be/fr
+renderer: static
+
+listing:
+  # `(?::80)?` per recipe_tools/port80.py — this host's ENTIRE Verhofstadt era is pre-HTTPS
+  # (the archive's earliest capture is http://premier.fgov.be:80/ in 1998), and CDX collapses on
+  # a scheme/port-blind urlkey keeping the EARLIEST capture as each group's representative. A
+  # pattern anchored `premier\.fgov\.be/` would therefore drop exactly the 91 Verhofstadt rows
+  # this file exists to reach, while still looking healthy on the 2008+ Drupal captures.
+  link_pattern: 'premier(?:\.fgov)?\.be(?::80)?/(?:fr/(?:node/\d+|content/|premier/speeches/|nieuws/|agenda/|[^/]+$)|topics/speeches/[fn]_speech\d+\.html)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1#page-title", "h1.title", "h1", "h2.title", "title"]
+text:
+  # Drupal era: .node-content / .field-name-body / .content. Pre-Drupal era has no classes, so
+  # `td td` (NOT `td`) is the fallback — the engine joins every matching element, and on a
+  # nested-table layout a bare `td` writes the page roughly twice. Bare `td` stays terminal.
+  selectors: [".field-name-body", ".node-content", "#content-area", ".content", "td td", "td"]
+date:
+  selectors: [".submitted", ".date-display-single", "span.date", "time", ".date"]
+
+position: prime minister
+# speaker_default omitted: the archive spans Dehaene, Verhofstadt, Leterme, Van Rompuy, Di Rupo,
+# Michel and Wilmès. Date + the cleaner's tenure crosscheck assign the speaker.
+date_languages: ["fr"]
+notes: >
+  Belgium, head of GOVERNMENT (Prime Minister) — the executive counterpart to bel_monarchie*,
+  and the source that closes Belgium's audit gap (101 of 102 corpus rows unmatched, all PMs:
+  Verhofstadt 91, Michel 5, Leterme 4, Van Rompuy 1). PURE-WAYBACK: premier.be answers a bare
+  403 "Access Denied" to the bot UA and to a browser UA alike (a hard edge denial, not a
+  UA-keyed WAF), and Verhofstadt's 1999-2007 premiership predates that host anyway — it lives
+  on the retired premier.fgov.be. Probe-validated 2026-08-15, no full run. French tree of a
+  4,562-capture host spanning 1998-2023. Dutch and English siblings are separate sources;
+  the Dutch one matters because the site itself states the speeches are published only in
+  Dutch and French. See the file header for the /topics/speeches/ index-page caveat.

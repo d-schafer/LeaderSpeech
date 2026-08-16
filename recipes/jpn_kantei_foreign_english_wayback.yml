@@ -22,6 +22,33 @@
 # "Prime Minister Junichiro Koizumi's Interview on the Issue of Iraq" (2003-03-18) and
 # "Press Conference by Prime Minister Yoshihiko Noda on the occasion of the 66th Session
 # of the United Nations General Assembly" (2011-09-23).
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9b): 895 -> ~2,910 matched captures. One CDX
+# enumeration of kantei.go.jp/foreign (11,835 collapsed captures) scored the old pattern at
+# 7.6%. Most of that shortfall is CORRECT — the denominator is dominated by photo diaries
+# (koizumiphoto 1,837, hukudaphoto, asophoto, abephoto), m-magazine and /meibo/ cabinet
+# rosters. Two blocks were wrong to exclude, and BOTH were sampled before being added:
+#
+#   /diplomatic/  (173 English captures) — ADDED. The site files these under its own heading
+#     "(Speeches and Statements by Prime Minister)", which is in the page <title>. Sampled
+#     across 2011-2014: a Japan-India Joint Statement (26,291 chars), a Japan-Peru Summit
+#     Meeting overview (4,288), a Courtesy Call by Secretary Clinton (6,241), a UNMISS
+#     contribution statement (3,289). Statements are IN scope per the 2026-08-10 ruling.
+#
+#   /actions/  (1,844 English captures) — ADDED, REVERSING THIS RECIPE'S OWN HEADER. The
+#     warning below calls the tree "A PHOTO DIARY, NOT SPEECH". Re-sampled across 2009-2014
+#     (the sweep habit: a header claim is a hypothesis) and that is too strong. These pages
+#     carry 1,012-2,436 chars of real English prose - "Inauguration of the Hatoyama Cabinet",
+#     "The Prime Minister Attends a Meeting of the Budget Committee of the House of
+#     Representatives", "Press Conference by Prime Minister Naoto Kan" - i.e. ENGAGEMENT
+#     NOTES, which the 2026-08-10 ruling lists as IN scope alongside visits. Some entries
+#     really are caption logs, and RULE 1 is explicit about that case: err toward including
+#     trivial-but-plausible pages, because a wrongly harvested page costs one cheap model
+#     call while a wrongly excluded section is invisible and permanent. The cleaner's
+#     document_type gate is what drops the caption-only ones.
+#
+# Still excluded, unchanged: */photo/*, /video-e/, /m-magazine/ (a mailing list), /meibo/
+# (cabinet member rosters), /policy/.
+#
 source_id: jpn_kantei_foreign_english_wayback
 country: Japan
 source_language: English
@@ -35,7 +62,7 @@ listing:
   # Every real transcript ends in _e.html and sits under a per-PM tree followed by a
   # year. The [a-z0-9_]+ segment deliberately excludes "video-e" (it contains a hyphen)
   # and the /\d{4} requirement excludes the section index pages.
-  link_pattern: '/foreign/[a-z0-9_]+(?:speech|/statement|/decisions)/\d{4}.*_e\.html$'
+  link_pattern: '/foreign/[a-z0-9_]+(?:speech|/statement|/decisions|/diplomatic|/actions)/\d{4}.*_e\.html$'
 
 pagination:
   type: wayback
@@ -56,7 +83,12 @@ text:
   # Table-layout pages: #main on the newest (2013 Abe) generation, otherwise the content
   # sits in one big <td>. Measured td 5,485-16,503 chars against a whole-page 5,495-16,608,
   # i.e. these pages are essentially all content with no navigation to strip.
-  selectors: ["#main", "td"]
+  # .docArea added 2026-08-15: the 2010-11 Kan/Hatoyama generation of /actions/ uses neither
+  # #main nor a content <td> — a --spread probe returned text NO MATCH on 3 of 10 samples,
+  # all from that window, and they would have fallen through to a silent trafilatura rescue.
+  # Body sits in .docArea (302-362 chars — these are short engagement notes), inside
+  # #mainContent/#contentBody. #main still wins wherever it exists, so nothing else changes.
+  selectors: ["#main", ".docArea", "td"]
 date:
   # .date is a dedicated date element ("Tuesday, February 12, 2013") on the /decisions/
   # generation and is safe to trust. Everything else comes from the URL.

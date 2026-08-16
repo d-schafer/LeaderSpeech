@@ -1,11 +1,36 @@
-# Indonesia — Cabinet Secretariat (setkab.go.id) English "Speech Transcript" archive.
-# WordPress; speech pages are setkab.go.id/en/<slug>/. SSL chain doesn't verify -> verify_ssl:false.
+# Indonesia — Cabinet Secretariat (setkab.go.id), the English tree.
+# WordPress; article pages are setkab.go.id/en/<slug>/. SSL chain doesn't verify -> verify_ssl:false.
+#
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): ~2,220 -> ~17,050 items. The recipe was scoped to
+# the WordPress category literally called "Speech Transcript" — the purest form of the RULE 1
+# failure. setkab.go.id/en has exactly TWO content categories in its own nav, and the one that was
+# missing is 6.7x bigger (measured off each category's WordPress /page/N/ pager, 10 items/page):
+#     /en/category/speech-transcript/   last page   222  -> ~2,220 items   <- all the recipe had
+#     /en/category/news/                last page 1,483  -> ~14,830 items  <- added
+# The /en/ news stream is the Cabinet Secretariat's English reporting on the President (state
+# visits, addresses, policy announcements); statements and press releases are IN scope per the
+# 2026-08-10 ruling, and the cleaner's document_type gate removes what is not a speech.
+#
+# NOT an alternate-views problem, and no duplicate rows: WordPress serves every article from ONE
+# flat path, /en/<slug>/, regardless of category, so a post filed under BOTH categories is the
+# same URL and the engine dedupes it. This is the overlapping-sections shape that the 2026-08-12
+# paginate.py fix exists for — each start_url now paginates to its own end rather than stopping
+# when a page adds no globally-new link.
+#
+# NOTE the link_pattern already accepted news articles; only the start_url was limiting it (the
+# usa_whitehouse_obama shape). /wp-json/ is NOT usable here for the RULE 1 audit — setkab puts
+# Imperva/Incapsula in front of it (an HTML `bobcmn` challenge, HTTP 200 text/html), though the
+# listing and article pages themselves are fine for the honest bot UA under renderer: static.
+#
+# INCREMENTAL: an ordinary `run` fetches only URLs not already in data/state/Indonesia.json.
+# Do NOT use --rescrape.
 source_id: idn_setkab
 country: Indonesia
 source_language: English
 verify_ssl: false
 start_urls:
   - https://setkab.go.id/en/category/speech-transcript/
+  - https://setkab.go.id/en/category/news/
 renderer: static
 listing:
   link_selector: "article a"
@@ -15,7 +40,8 @@ pagination:
   path_format: "page/{n}/"
   start: 1
   step: 1
-  max_pages: 400
+  # /en/category/news/ alone runs to page 1,483; 400 would have truncated it to ~27%.
+  max_pages: 1600
 title:
   selectors: ["h1.entry-title", "h1", "title"]
 text:

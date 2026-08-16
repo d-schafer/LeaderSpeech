@@ -1,0 +1,143 @@
+# Fiji — the FIJI GOVERNMENT portal (fiji.gov.fj), PRE-RABUKA era. Companion to fji_fijigov.
+#
+# WHY A SEPARATE FILE. The live REST API measured a FLOOR OF JANUARY 2023: 1,423 posts,
+# `orderby=date&order=desc`, and a probe spread across the whole list bottoms out at 2023-01-10.
+# The site was rebuilt when Rabuka took office in December 2022. So Frank Bainimarama — ALL 148
+# of Fiji's unmatched audit rows, 2016-2022 — is not on the live site at all, exactly the
+# governo.it pattern. `wayback_to: 20230101` is the live recipe's own floor, so the two do not
+# overlap (which matters: run.py's `seen` is an exact URL-STRING set, so live/archive pairs are
+# NOT deduplicated for you — the date bound is what does it).
+#
+# ⛔ THE FIRST VERSION OF THIS FILE HARVESTED **ZERO** BAINIMARAMA-ERA PAGES. Keep this note.
+# It was written off a whole-domain CDX query, which on this host hits the 60,000-row ceiling and
+# is consumed almost entirely by 2009-2012 — 37,069 captures in 2010 alone, of which 33,147 are a
+# Joomla `com_jevents` CALENDAR that crawlers walked forward through empty future months, plus
+# 7,847 photo-gallery URLs. The by-year histogram that query reports for the gap era reads
+# 2016:22, 2017:243, 2018:177, 2019:55, 2020:26, 2021:12, 2022:28, and I recorded that as "the
+# Archive's hold on 2016-2022 is thin".
+#
+# IT IS NOT THIN. A PER-YEAR re-query (2026-08-15) returns **12,226 captures for 2015-2022** —
+# 1,068 / 1,124 / 1,548 / 1,882 / 2,692 / 637 / 1,653 / 1,622 — and the first pattern in this file
+# matched **0 of them**. The ceiling had hidden the entire era behind the calendar spam.
+#
+# THE CAUSE IS A RENAMED SECTION, i.e. the president.ee lesson on a different site: fiji.gov.fj
+# ran an ASP.NET site through this whole period and changed the section's SPELLING partway —
+#     /Media-Center/…   (American)  captures 2013-2019
+#     /Media-Centre/…   (British)   captures 2019-2026
+# — while my pattern covered only the Joomla `index.php?option=com_content` era, `/core/press/`
+# and a LOWERCASE WordPress slug alternative that capitalised ASP.NET paths can never match.
+# CLAUDE.md RULE 1 point 2 says it in as many words: *sites RENAME sections over time and often
+# run two spellings at once — match every generation.* Both are now matched.
+#
+# BREADTH (CLAUDE.md RULE 1) — measured per section prefix, not off the ceiling-limited query:
+#   /Media-Center  (12,950 captures, 2013-2019)
+#     Press-Releases/<Slug>.aspx     8,665   <- TAKEN  (the biggest single article stream)
+#     Speeches/<Slug>.aspx           1,034   <- TAKEN
+#     Photos---Video/Photo-Gallery/    525   <- OUT (RULE 1 out-list)
+#     Press-Releases.aspx / Speeches.aspx …  <- OUT, listing pages (no slug segment)
+#     Cabinet-Releases/<Slug>.aspx      46   <- TAKEN
+#   /Media-Centre  (6,082 captures, 2019-2026)
+#     News/<Slug>                    2,836   <- TAKEN
+#     Speeches/<Slug>                  992   <- TAKEN
+#     Speeches/English/<Slug>          471   <- TAKEN
+#     News/<Sub>/<Slug>                213   <- TAKEN (Feature-Stories)
+#     Speeches/Vernacular/<Slug>        92   <- TAKEN (iTaukei/Hindi; the cleaner records language)
+#     Cabinet-Releases/<Slug>           36   <- TAKEN
+#   older generations
+#     index.php?…com_content&view=article&id  6,368  Joomla articles  <- TAKEN
+#     index.php?…&print=1&tmpl=component      6,296  PRINT VIEWS      <- OUT (RULE 1 out-list)
+#     index.php?…com_jevents…task=…calendar  33,147  event calendar   <- OUT (not content)
+#     core/press/<N>_<N>_<N>_<N>.html           467  1999-2002 press  <- TAKEN
+# ~14,400 article captures now match, against 646 before. Note "Speeches" here is NOT scoped to:
+# Press-Releases alone is 8.4x the Speeches stream, which is the usual RULE 1 shape.
+source_id: fji_fijigov_wayback
+country: Fiji
+source_language: English
+start_urls:
+  # BOTH SPELLINGS of the section are start_urls, and that is the whole fix — see the header.
+  # Each is its own CDX prefix so neither can be masked by the other, nor by the calendar spam
+  # that swallows a whole-domain query on this host.
+  - fiji.gov.fj/Media-Center
+  - fiji.gov.fj/Media-Centre
+  - fiji.gov.fj/index.php
+  - fiji.gov.fj/core/press
+renderer: static
+
+listing:
+  # `(?::80)?` per recipe_tools/port80.py — this host's Joomla and pre-Joomla eras are entirely
+  # pre-HTTPS, and CDX hands back the earliest capture of each urlkey, i.e. the :80 form.
+  #
+  # The com_content alternative REQUIRES `view=article` and an `id=` and forbids `print=`: that
+  # is what separates the 6,368 real articles from the 6,296 print duplicates and the 33,147
+  # calendar URLs, all of which share the same index.php path.
+  #
+  # `Media-Cent(?:er|re)` matches BOTH spellings in one alternative. Then:
+  #   `(?!Photos---Video/)`  drops the 525 photo-gallery pages (RULE 1 out-list);
+  #   `[^/]+/[^/]`           REQUIRES a slug segment after the section name, which is what keeps
+  #                          the listing pages out — /Media-Center/Speeches.aspx and
+  #                          /Media-Centre/Speeches have nothing after the section and so cannot
+  #                          match, while /Media-Centre/Speeches/English/<Slug> (three levels
+  #                          deep) still does via the trailing `.*`.
+  # A LOWERCASE-ONLY slug alternative was what broke the first version of this file: every
+  # ASP.NET path here is Capitalised, so it matched nothing for eight years of the archive.
+  # The live WordPress generation is deliberately NOT matched — fji_fijigov owns 2023 onward.
+  link_pattern: 'fiji\.gov\.fj(?::80)?/(?:Media-Cent(?:er|re)/(?!Photos---Video/)[^/]+/[^/].*|index\.php\?(?=[^"]*option=com_content)(?=[^"]*view=article)(?=[^"]*id=\d+)(?![^"]*print=)|core/press/[\d_]+\.html$)'
+
+pagination:
+  type: wayback
+  wayback_to: "20230101"
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # Divi (WordPress, 2019-2022) then Joomla (to ~2018) then the bare pre-Joomla pages.
+  selectors: ["h1.entry-title", "h2.contentheading", ".contentheading", "h1", "title"]
+text:
+  # .et_pb_post_content is the Divi body (verified on the LIVE site, same theme).
+  # .article-content / .item-page are Joomla's. `td td` — not bare `td` — is the last resort for
+  # the pre-Joomla table layout: the engine joins every element a selector matches, so a bare
+  # `td` on nested tables writes the page roughly twice.
+  # `body` is TERMINAL and it is there because it is measured, not lazy: the /core/press/ pages
+  # (the 1999-2002 generation) are bare HTML with no classes and no tables at all, so `td td`
+  # misses and the probe reported 0 chars where the generic fallback recovered 12,301. Those
+  # documents ARE the whole page, so `body` is the right answer for them — and it can only win
+  # on a page where every narrower selector already missed.
+  # .NewsContent is the ASP.NET (Kentico) article body — 9,329 chars on a Bainimarama SDG speech
+  # against 10,530 for the whole page, i.e. it drops the nav and the breadcrumb. It leads the
+  # chain because that generation is now the BULK of this recipe. Without it every ASP.NET page
+  # fell through to `body` and carried the full navigation into `text`.
+  selectors: [".NewsContent", ".newsItemDetail", ".et_pb_post_content", ".entry-content",
+              ".item-page", ".article-content", "td td", "body"]
+date:
+  # The ASP.NET pages have NO date element: the date is the first token inside .NewsContent
+  # ("7/11/2017 Your Excellency, …"), so it is pulled out by regex. The regex also admits an ISO
+  # date so the older generations still parse.
+  selectors: [".NewsContent", "time[datetime]", ".entry-date", ".create", ".published", "time"]
+  regex: '\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4}'
+
+position: prime minister
+# speaker_default omitted: the archive spans Qarase, Bainimarama and the interim period; the
+# posts also carry ministers. Date + the cleaner's tenure crosscheck assign the speaker.
+#
+# date_languages ["en"] MEANS MONTH-FIRST HERE, AND THAT IS THE MEASURED ANSWER, NOT THE OBVIOUS
+# ONE. Fiji is a Commonwealth country and every instinct says D/M/YYYY, but the Kentico CMS emits
+# the US order. Decided the run-12 way — by SAMPLING for a component > 12, never from context —
+# over 14 speech captures spread across 2011-2018: the SECOND component exceeds 12 on NINE pages
+# (11/25/2011, 12/25/2012, 4/18/2013, 9/15/2018, 6/20/2016, 1/13/2016, 6/13/2014, 11/17/2011,
+# 7/27/2018) and the FIRST exceeds 12 on ZERO. Two of those are independently self-checking:
+# 12/25/2012 sits on a CHRISTMAS message and 11/25/2011 on a budget address. dateparser reads
+# ["en"] as month-first, which is correct; ["en-GB"]-style day-first would misdate every row
+# whose day is <= 12 — silently, with a green tick.
+date_languages: ["en"]
+notes: >
+  Fiji, head of GOVERNMENT — PRE-RABUKA archive, the only route to Frank Bainimarama, who is
+  ALL 148 of Fiji's unmatched audit rows (2016-2022). Needed because the live WordPress REST
+  API measured a floor of 2023-01-10: the site was rebuilt at the change of government, so
+  fji_fijigov cannot reach him. Bounded wayback_to 20230101 = that floor, so the pair does
+  not overlap. Recipe-only. READ THE HEADER before a long run: the IA's hold on 2016-2022 is
+  thin (22-243 captures/year) and a --to 2022 domain query hits the 60,000 ceiling almost
+  entirely on a Joomla event CALENDAR (33,147) and photo galleries (7,847); a per-year prefix
+  re-query is the recommended next step. Probe-validated 2026-08-15, no full run.

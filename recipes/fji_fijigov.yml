@@ -1,0 +1,95 @@
+# Fiji — the FIJI GOVERNMENT portal (fiji.gov.fj), i.e. the PRIME MINISTER. WordPress REST API.
+#
+# WHY THIS SOURCE EXISTS. Fiji's President is the ceremonial head of state and the only Fijian
+# recipe was fji_presidentsoffice_wayback (that office; widened 2026-08-10 from 182 to 325).
+# The 2026-08-10 speaker profiling shows 148 of Fiji's 229 corpus rows unmatched and every one
+# is Frank Bainimarama, 2016-2022 — PRIME MINISTER, not President. Widening the President's
+# Office recipe further cannot touch that; this is the right office.
+#
+# WHY THE REST API AND NOT THE LISTINGS. The visible section pages (/news/, /announcements/,
+# /cabinet-releases/, /fiji-focus/, /english/, /vernacular/) each report a LAST PAGE OF 1 —
+# no /page/N pager exists on any of them, so an HTML crawl would harvest ~60 items and look
+# finished. The WordPress REST API on the same host is open and returns the real archive:
+# /wp-json/wp/v2/posts advertises x-wp-total = 1,423.
+#
+# BREADTH (CLAUDE.md RULE 1) — measured exactly via recipe_tools/wpjson.py, 2026-08-15. This is
+# the textbook case for taking the whole post type rather than the category called "speeches":
+#     posts (ALL)                              1,423   <- TAKEN (no `categories=` filter)
+#       of which  news                           758
+#                 speeches-english               453   <- the tempting one, 32% of the archive
+#                 feature-stories                133
+#                 cabinet-releases                49
+#                 coalition-government-...        17
+#                 speeches-vernacular              7
+#                 radio-hindi / radio-itaukei      6
+# Scoping to `categories=6` would have taken 453 of 1,423 and dropped every cabinet release and
+# every news item — which on this site is where the PM's statements and press remarks live. The
+# cleaner's document_type gate is what removes non-speech material.
+# Other post types checked and excluded: `page` (31, static site pages), `attachment` (4,576,
+# media library), `project` (0) — plus the WP internals that 401/404. No custom post type is
+# hiding here (the Kenya president.go.ke case that wpjson.py exists to catch).
+#
+# NOTE ON LANGUAGE: `speeches-vernacular` (7) and the radio categories (6) are iTaukei/Hindi, so
+# a handful of the 1,423 rows are not English. Thirteen rows out of 1,423 does not justify a
+# second recipe; source_language stays English and the cleaner records the real language.
+source_id: fji_fijigov
+country: Fiji
+source_language: English
+start_urls:
+  # No `categories=` parameter ON PURPOSE — see the breadth table. per_page=100 is WordPress's
+  # maximum.
+  - https://www.fiji.gov.fj/wp-json/wp/v2/posts?per_page=100&orderby=date&order=desc
+renderer: static
+
+listing:
+  # Unused on an `api` recipe (rows come from the JSON, not from harvested anchors), but kept as
+  # documentation of the URL shape the API returns.
+  link_pattern: 'fiji\.gov\.fj/'
+
+pagination:
+  type: api
+  param: page          # WP 400s past the last page; the engine reads that as "stop", with a
+  start: 1             # logged warning rather than a failure.
+  step: 1
+  max_pages: 20        # 1,423 posts / 100 per page = 15 pages; 20 leaves headroom for growth.
+  api:
+    # The WordPress response is a BARE ARRAY at the root, so the path is "." — not a dotted path.
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    # text_field: content.rendered — DELIBERATELY NOT SET. Letting the JSON carry the body would
+    # skip the page fetch and be faster, but WP's content.rendered is raw HTML with shortcodes
+    # and embed markup; the per-page fetch + selectors below give cleaner text. Turn it on if a
+    # full run shows the page fetch failing or rate-limited.
+    delay: 1.0
+
+title:
+  selectors: ["h1.entry-title", "h1", ".post-title", "title"]
+text:
+  # The site runs the DIVI page builder, so the usual WordPress `.entry-content` matches NOTHING
+  # — the first probe was 8/8 on title and date and 0/8 on text for exactly that reason. The body
+  # is div.et_pb_post_content (10,643 chars on a Rabuka parliamentary response; it opens with the
+  # theme's "Share" widget label, which the cleaner strips). #main-content is the wider fallback.
+  selectors: [".et_pb_post_content", ".entry-content", "#main-content", "article", "main"]
+date:
+  # The API row already carries an exact ISO date, and the engine fills any field the page
+  # extraction missed from the JSON — so these are a backstop, not the primary source. API dates
+  # are parsed as ISO/RFC WITHOUT date_languages, which is correct here.
+  selectors: ["time[datetime]", ".entry-date", "time"]
+
+position: prime minister
+# speaker_default omitted: the archive spans Bainimarama (to 2022) and Rabuka (2022-), and the
+# posts also carry ministers. Date + the cleaner's tenure crosscheck assign the speaker, and the
+# gate drops non-leader speakers.
+date_languages: ["en"]
+notes: >
+  Fiji, head of GOVERNMENT (Prime Minister) — the executive counterpart to
+  fji_presidentsoffice_wayback, and the source that closes Fiji's audit gap (148 unmatched
+  rows, ALL Frank Bainimarama 2016-2022, who was PM not President). Probe-validated
+  2026-08-15, no full run. WordPress REST API, 1,423 posts. The API is not a convenience: the
+  site's six visible section listings each have a last page of 1 and expose no /page/N pager,
+  so an HTML recipe would take ~60 items and appear complete. Deliberately takes ALL posts
+  rather than the `speeches-english` category (453 of 1,423) — see the file header for the
+  full category table. A Wayback companion is a possible follow-up for any Bainimarama-era
+  post deleted since 2022; the API's own floor should be checked on the first full run.

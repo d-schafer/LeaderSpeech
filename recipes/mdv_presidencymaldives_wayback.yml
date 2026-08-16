@@ -5,6 +5,20 @@
 # — a frozen snapshot of the current DB plus any deleted/renumbered articles the live pager would miss.
 # The much older presidencymaldives.gov.mv ASP/PHP generation (Gayoom 2000s: Index.aspx?dcid=,
 # pages/eng_news.php, News.php3) is a messy multi-scheme lead, NOT harvested here (see notes).
+# ✅ CHECKED CLEAN 2026-08-15 (RULE 1 sweep, chunk A9b) — nothing to widen, and here is why, so
+# the next reader does not re-derive it. The LIVE sibling was widened the same day from ~480 to
+# ~13,960 items because presidency.gov.mv addresses its listings by CATEGORY ID
+# (/Press/Articles/<N>) and the recipe had taken only category 12, "President's Speeches".
+# THIS recipe is immune to that failure: its pattern is /Press/Article/<id>$ — the flat ARTICLE
+# namespace, which every category resolves into — so it was never scoped to a category at all.
+# It is already as broad as the host allows.
+#
+# ⚡ ITS COST DROPPED 2026-08-15 without any change here. run.select_unscraped() now dedupes the
+# harvest by page_identity against the per-country state file, so archived captures of articles
+# the live run already holds are SKIPPED instead of re-fetched and re-written as duplicates
+# (CDX returns http:// , :80 and www. forms that the old exact-string `seen_urls` test could
+# never match against the live https:// URLs).
+# ⚠ THEREFORE: queue this AFTER mdv_presidencymaldives, or the saving does not happen.
 source_id: mdv_presidencymaldives_wayback
 country: Maldives
 source_language: English

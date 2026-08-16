@@ -1022,3 +1022,62 @@ def test_append_is_a_noop_check_when_the_header_already_matches(tmp_path):
     rows = list(_csv.DictReader(p.open(encoding="utf-8", newline="")))
     assert [r["doc_id"] for r in rows] == ["A", "B"]
     assert not p.with_name(p.name + ".bak").exists()      # no needless migration
+
+
+# --- identity-based dedupe of the harvest against the state file -----------------------
+# `seen_urls` is an exact URL-string set, so before select_unscraped an ARCHIVE recipe
+# re-fetched every document its LIVE sibling on the same host had already scraped: CDX
+# returns http:// , :80 and www. forms of URLs the live crawl stored as https://.
+# 53 of 97 countries in this corpus have both a live and an archive recipe.
+
+def test_select_unscraped_skips_same_document_under_a_different_url_form():
+    """The live recipe stored https://x.gov/a; the archive hands back http://x.gov:80/a."""
+    seen = {"https://kingabdullah.jo/en/news/king-meets-envoy"}
+    entries = [
+        {"original": "http://kingabdullah.jo:80/en/news/king-meets-envoy"},   # same doc
+        {"original": "https://www.kingabdullah.jo/en/news/king-meets-envoy"}, # same doc, www.
+        {"original": "https://kingabdullah.jo/en/news/a-genuinely-new-one"},  # new
+    ]
+    kept, already, within = run.select_unscraped(entries, lambda e: e.get("original"), seen)
+    assert [k["original"] for k in kept] == ["https://kingabdullah.jo/en/news/a-genuinely-new-one"]
+    assert already == 2      # both alternate forms recognised as already held
+    assert within == 0
+
+
+def test_select_unscraped_collapses_one_document_served_under_two_paths():
+    """Korea's presidential archive serves one article as /Speeches/<id> AND /Briefings/<id>.
+
+    Those are DIFFERENT documents by path, so they are not collapsed — page_identity keeps the
+    path. What IS collapsed is the same path arriving twice in one harvest.
+    """
+    links = [
+        "https://x.gov/a", "http://x.gov/a", "https://x.gov/a/", "https://x.gov/b",
+    ]
+    kept, already, within = run.select_unscraped(links, lambda u: u, set())
+    assert kept == ["https://x.gov/a", "https://x.gov/b"]
+    assert already == 0
+    assert within == 2       # the :// and trailing-slash variants, both within this batch
+
+
+def test_select_unscraped_keeps_query_addressed_documents_distinct():
+    """A blanket query strip would collapse 1,039 distinct speeches to one page — meaningful
+    parameters must survive, only the noise denylist is dropped."""
+    seen = {"https://president.ie/index.php?section=5&speech=204"}
+    links = [
+        "https://president.ie/index.php?section=5&speech=204&utm_source=tw",  # noise only
+        "https://president.ie/index.php?section=5&speech=205",                # a DIFFERENT speech
+    ]
+    kept, already, within = run.select_unscraped(links, lambda u: u, seen)
+    assert kept == ["https://president.ie/index.php?section=5&speech=205"]
+    assert already == 1
+
+
+def test_select_unscraped_honours_recipe_noise_params():
+    """pagination.wayback_noise_params names a CMS's own UI toggles."""
+    seen = {"https://x.gov/article/7"}
+    links = ["https://x.gov/article/7?view=print"]
+    kept, already, _ = run.select_unscraped(links, lambda u: u, seen, noise_params=("view",))
+    assert kept == [] and already == 1
+    # without the recipe hint it is a distinct URL and is kept
+    kept2, already2, _ = run.select_unscraped(links, lambda u: u, seen)
+    assert kept2 == links and already2 == 0

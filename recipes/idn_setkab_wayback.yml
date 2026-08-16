@@ -14,7 +14,22 @@ start_urls:
 listing:
   # transcript-style English slug: a speech verb + "…president…" (isolates the president's transcripts
   # from the aggregator's general /en/ news, which the site publishes under the same flat /en/<slug> path).
-  link_pattern: '/en/(?:remarks|statement|press-statement|full-text|speech|address|keynote|introductory-remarks|opening-remarks|closing-remarks)[a-z0-9-]*president'
+  # WIDENED 2026-08-15 (RULE 1 sweep, chunk A9b): 1,964 -> ~16,050 matched captures.
+  # The old pattern was a SLUG-KEYWORD FILTER — it kept only articles whose slug contained
+  # remarks/statement/speech/address/keynote/... AND the word "president". That is the RULE 1
+  # shape with no section involved: any transcript the newsroom happened to slug differently
+  # was invisible, permanently. Measured against one CDX enumeration of setkab.go.id/en
+  # (18,651 collapsed captures): the keyword filter matched 1,964 of the 16,050 distinct flat
+  # /en/<slug>/ articles = 12.2%.
+  # Safe to take the whole article namespace now for two reasons: the LIVE sibling was widened
+  # the same day to all 17,041 articles (so this recipe's job is only what the live site has
+  # deleted or no longer paginates to), and run.select_unscraped() dedupes by page_identity
+  # against the state file, so whatever the live run already holds is SKIPPED rather than
+  # re-fetched. ⚠ Queue it AFTER idn_setkab or that saving does not happen.
+  # The lookahead drops the listing namespaces the flat shape would otherwise swallow:
+  # /en/category/, /en/author/, /en/tag/, /en/api/, the galleries, and the /en/<YYYY> year
+  # archives (190 + 49 + 11 + 4 + ~11 + 214 captures respectively).
+  link_pattern: '^https?://(?:www\.)?setkab\.go\.id/en/(?!category/|author/|tag/|api/|galeri|gallery|\d{4}/?$)[a-z0-9-]+/?$'
 
 pagination:
   type: wayback

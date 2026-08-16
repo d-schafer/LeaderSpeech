@@ -1,0 +1,117 @@
+# Italy — the GOVERNMENT (governo.it, Palazzo Chigi), i.e. the PRIME MINISTER. Italian original.
+#
+# WHY THIS SOURCE EXISTS. Italy had NO recipe of any kind: quirinale.it (the ceremonial
+# President) is Cloudflare case-(b) — page 1 loads, then the paginating POST hits an unsolvable
+# challenge — and nothing covered the executive at all. The 2026-08-10 speaker profiling shows
+# all 61 unmatched Italian corpus rows are prime ministers: Mario Draghi 55 (2021-2022) and
+# Giorgia Meloni 6 (2022). governo.it is the right office.
+#
+# ⚠ THE LIVE SITE ONLY HOLDS THE CURRENT GOVERNMENT — this recipe cannot reach Draghi, and that
+# is not a pagination bug. Every listing floors on the same day: /it/interventi page 52 (the
+# last) ends at "Le dichiarazioni programmatiche del Governo Meloni" nid 20770, /it/notizie-chigi
+# page 251 (the last) ends at "Consiglio dei Ministri n. 1" nid 20744 — i.e. 22 October 2022, the
+# Meloni government's first day. The older nodes were not merely unlinked, they were UNPUBLISHED:
+# a Draghi-era alias that the Internet Archive holds a 200 for
+# (/it/articolo/gli-impegni-del-presidente-draghi-di-venerd-19-febbraio/16231) now returns
+# HTTP 403 "Accesso negato", and so does /node/<nid> for every nid in that range. So Draghi —
+# 55 of Italy's 61 unmatched rows — is reachable ONLY through the archive, which is what the
+# companion recipe ita_governo_wayback is for. Do not "fix" this file by adding old sections.
+#
+# BREADTH (CLAUDE.md RULE 1) — the site's own pagers, one request each
+# (recipe_tools/pagecount.py --pager 'page=(\d+)', 2026-08-15). "Interventi" is the section
+# literally called speeches and it is the SMALLEST of the five:
+#     /it/notizie-chigi                        251 pages  ~2,510  Palazzo Chigi news + CdM comms
+#     /it/notizie-presidente                   163 pages  ~1,630  the PM's own news stream
+#     /it/notizie-governo                       98 pages    ~980  government news
+#     /it/interventi                            52 pages    ~520  SPEECHES  <- the tempting one
+#     /it/notizie-presidenza                    31 pages    ~310  Presidency of the Council
+# = ~5,950 listing rows. They are TAXONOMIES over one /it/articolo/ namespace, not disjoint
+# archives, so the deduped total is smaller — and that overlap is exactly the shape that used to
+# trip the pager's "no new links" early-stop before the run-12 paginate.py fix.
+#
+# NOT ADDED, each on evidence rather than assumption:
+#   /it/archivio-articoli-presidenza-del-consiglio — a second ALIAS of /it/notizie-presidenza:
+#       identical <title> ("Notizie dalla Presidenza del Consiglio") and identical last page (31).
+#       Adding it would harvest the same 310 items twice.
+#   /it/media/<slug>/<nid> — photo/video galleries. Sampled two (32467, 32465): both render a
+#       title and a date but `div.body_intervista` and `div.field-name-body` match ZERO chars.
+#       This is the RULE 1 out-list ("photo/video galleries"), not a judgement call.
+#   /it/provvedimenti (127 pages) and /it/archivio-consiglio-dei-ministri (20 pages) — both are
+#       JS-rendered tables: a static fetch of either returns the full nav and ZERO item links, so
+#       there is nothing for a static recipe to follow. /it/provvedimenti is also the legal-
+#       instrument register (decrees and bills) that RULE 1 says to sample before adding. The
+#       Council of Ministers COMMUNIQUÉS, which are the readable part, are already in
+#       /it/notizie-chigi as /it/articolo/comunicato-stampa-del-consiglio-dei-ministri-n-<N>.
+source_id: ita_governo
+country: Italy
+source_language: Italian
+start_urls:
+  - https://www.governo.it/it/interventi
+  - https://www.governo.it/it/notizie-presidente
+  - https://www.governo.it/it/notizie-governo
+  - https://www.governo.it/it/notizie-chigi
+  - https://www.governo.it/it/notizie-presidenza
+renderer: static
+
+listing:
+  # Both alias forms occur: most articles are /it/articolo/<slug>/<nid>, but a long slug is
+  # published WITHOUT the trailing nid (e.g. .../italia-e-francia-promuovono-incontro-
+  # internazionale-sulla-prevenzione-e-il-recupero-dalle), so do NOT require /\d+$ — that would
+  # silently drop the longest-titled items. /it/media/ is excluded by naming /articolo/ only.
+  link_pattern: 'governo\.it/it/articolo/[^/]+'
+
+pagination:
+  # Drupal 7 query pager, zero-based (?page=0 is page 1). Verified live to the last page of every
+  # section. Omit max_pages: the engine stops when a page yields no new links, and the run-12
+  # paginate.py fix makes that per-start_url, so an overlapping section is no longer abandoned at
+  # page 1 just because another section already covered it.
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+
+title:
+  # TWO TEMPLATES, and this chain has to serve both. On the "intervista" template (speeches,
+  # video messages) the title is <h2 class="title_large"> and the page's only <h1> is the site
+  # banner "Governo Italiano Presidenza del Consiglio dei Ministri" — a bare `h1` first would
+  # write that chrome string as the title of every speech. On the "notizia" template the title is
+  # an <h1> INSIDE .post_content. Verified n=1 on both templates plus the CdM communiqué type.
+  selectors: ["h2.title_large", "h1.title_large", ".post_content h1", "title"]
+text:
+  # Same two templates: div.body_intervista (2,374 chars on a Meloni video message) and
+  # div.field-name-body (1,710 on a statement). Ordered narrow-to-wide; .post_content is the
+  # last resort and does swallow the language switcher + title, so it must stay last.
+  selectors: ["div.body_intervista", "div.field-name-body", "div.post_content"]
+date:
+  # Renders "Giovedì, 23 Luglio 2026" in the article's only <p class="h6"> (count verified = 1).
+  # Scoped under .post_content anyway so a future theme change elsewhere on the page cannot
+  # hijack it. The regex drops the weekday. A WORD month is unambiguous — no DD/MM trap here.
+  # ...and the "notizia" template uses a DIFFERENT class for the same line: <p class="h5
+  # dataright">24 Gennaio 2026</p>. The first probe was 10/10 on title and text but only 2/10 on
+  # date for exactly this reason — worth remembering that a green title+text says nothing about
+  # whether the date selector generalises across a site's templates.
+  selectors: [".post_content p.h6", ".post_content p.dataright", "p.h6", "p.dataright"]
+  regex: '\d{1,2}\s+[A-Za-zÀ-ÿ]+\s+\d{4}'
+context:
+  # The standfirst/abstract; on speech pages it is the one line that says WHERE and to WHOM
+  # ("Videomessaggio del Presidente del Consiglio, Giorgia Meloni, sul disegno di legge ...").
+  selectors: ["div.sommario_intervista", "div.field-name-field-abstract"]
+
+position: prime minister
+# speaker_default omitted even though the live site is, today, single-leader (Meloni). Same
+# reasoning as est_president: the floor is her own first day, so the site drops a departing PM's
+# content wholesale, and a hard-coded name would go stale at the next change of government —
+# exactly when nobody is re-reading this file. The tenure crosscheck assigns from country+date.
+date_languages: ["it"]
+notes: >
+  Italy, head of GOVERNMENT (President of the Council of Ministers) — the country's FIRST
+  recipe of any kind. Probe-validated 2026-08-15, no full run. Five sections, Drupal 7
+  ?page= pager, ~5,950 listing rows over one /it/articolo/ namespace. Coverage is
+  2022-10-22 (the Meloni government's first day) to present and CANNOT go earlier: the
+  previous governments' nodes are unpublished, returning HTTP 403 both by alias and by
+  /node/<nid>, so the Draghi era that accounts for 55 of Italy's 61 unmatched audit rows
+  needs ita_governo_wayback. quirinale.it (the ceremonial President) remains blocked —
+  Cloudflare re-challenges on pagination — and is a separate, still-open source.
+  English mirror is a separate source (ita_governo_english); note the English SECTIONS are
+  at /en/<name>-en, because /en/interventi and /en/notizie-chigi silently serve the ITALIAN
+  listing.

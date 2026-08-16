@@ -1,0 +1,85 @@
+# Italy — the GOVERNMENT (governo.it), PRE-MELONI era. Companion to the live ita_governo.
+#
+# WHY A SEPARATE FILE. This is the "yes-and" case, not a replacement: ita_governo stays the live
+# recipe and this one reaches only what the live site no longer serves. governo.it UNPUBLISHES a
+# departing government's content — a Draghi-era alias the Archive holds a 200 for
+# (/it/articolo/gli-impegni-del-presidente-draghi-di-venerd-19-febbraio/16231) now returns HTTP
+# 403 "Accesso negato" live, and so does /node/<nid> for that whole id range. Every live listing
+# floors on 22 October 2022 (nid ~20744), the Meloni government's first day. So Mario Draghi —
+# 55 of Italy's 61 unmatched audit rows — exists ONLY here.
+#
+# `wayback_to: 20221022` is the live recipe's own floor, so the two do not overlap and doc_id
+# continuity holds. NOTE the run-13 finding that there is NO CROSS-RECIPE DEDUPE (run.py's `seen`
+# is an exact URL-STRING set and archived originals carry http:// / :80 / www. forms that never
+# match a live https:// URL byte-for-byte) — the date bound, not the engine, is what keeps this
+# pair from writing the same document twice.
+#
+# BREADTH. Same single namespace as live: /it/articolo/<slug>[/<nid>] carries speeches, press
+# conferences, statements, CdM communiqués and news alike, so the whole namespace is taken.
+# Measured on a 2021-2022 CDX slice (recipe_tools/cdx.py + shapes.py, 2026-08-15): 3,849 captures
+# in that window alone, of which 1,782 are /articolo/<slug>/<nid>, 409 are the no-nid alias form
+# and the remaining ~1,650 are the SAME pages carrying utm_/gclid_/fbclid tracking parameters.
+# Those collapse automatically — `wayback_dedupe_noise_params` defaults to true and its denylist
+# already covers utm_*, gclid and fbclid — which is why the pattern does not need to exclude them
+# and MUST NOT anchor at `$` (that would drop an article archived only in a tagged form).
+# The unbounded query is larger: this recipe reaches back through Conte II/I, Gentiloni, Renzi
+# and Letta, not just Draghi.
+#
+# /it/media/ is excluded here for the same measured reason as in the live recipe: those pages are
+# photo/video galleries whose body selectors return zero chars.
+source_id: ita_governo_wayback
+country: Italy
+source_language: Italian
+start_urls:
+  - governo.it/it/articolo
+renderer: static
+
+listing:
+  # `(?::80)?` per recipe_tools/port80.py: CDX collapses on urlkey (scheme- and port-blind) and
+  # keeps the EARLIEST capture as each group's representative, so for any article first archived
+  # before the host's HTTPS switch the engine is handed the http://www.governo.it:80/ form and a
+  # host-anchored pattern would drop the article outright. governo.it's Letta/Renzi era is
+  # entirely pre-HTTPS, so this is not hypothetical here.
+  link_pattern: 'governo\.it(?::80)?/it/articolo/[^/?]+'
+
+pagination:
+  type: wayback
+  wayback_to: "20221022"
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # Identical templates to the live site — the Drupal theme did not change across governments.
+  # h2.title_large is the "intervista" template (speeches, video messages); on the "notizia"
+  # template the title is an h1 inside .post_content. A bare `h1` must not come first: it is the
+  # site banner "Governo Italiano Presidenza del Consiglio dei Ministri" on the intervista pages.
+  selectors: ["h2.title_large", "h1.title_large", ".post_content h1", "title"]
+text:
+  selectors: ["div.body_intervista", "div.field-name-body", "div.post_content"]
+date:
+  # Two classes for one line — .h6 on the intervista template, .dataright on the notizia
+  # template. Getting this wrong is silent: a first probe of the live recipe was 10/10 on title
+  # and text and 2/10 on date because only one of the two was listed.
+  selectors: [".post_content p.h6", ".post_content p.dataright", "p.h6", "p.dataright"]
+  regex: '\d{1,2}\s+[A-Za-zÀ-ÿ]+\s+\d{4}'
+context:
+  selectors: ["div.sommario_intervista", "div.field-name-field-abstract"]
+
+position: prime minister
+# speaker_default omitted — that is the entire point of this file. The archive spans Draghi,
+# Conte, Gentiloni, Renzi and Letta; the date is on the page and the cleaner's tenure crosscheck
+# assigns from country+date.
+date_languages: ["it"]
+notes: >
+  Italy, head of GOVERNMENT — PRE-MELONI archive, the only route to Mario Draghi (55 of
+  Italy's 61 unmatched audit rows) because governo.it unpublishes a departing government's
+  nodes: they return HTTP 403 live, by alias and by /node/<nid> alike. Bounded
+  wayback_to 20221022 = the live recipe's floor, so ita_governo and this file do not overlap.
+  Recipe-only, engine untouched; selectors are the live recipe's, verified unchanged across
+  templates. 3,849 captures in the 2021-2022 window alone (1,782 /articolo/<slug>/<nid>,
+  409 no-nid aliases, the rest tracking-parameter duplicates that
+  wayback_dedupe_noise_params collapses); unbounded it also reaches Conte, Gentiloni, Renzi
+  and Letta. Probe-validated 2026-08-15, no full run.

@@ -10,11 +10,35 @@ country: Korea, Republic of
 source_language: English
 start_urls:
   - http://webarchives.pa.go.kr/19th/english.president.go.kr/BriefingSpeeches/Speeches
+  - http://webarchives.pa.go.kr/19th/english.president.go.kr/BriefingSpeeches/Briefings
 renderer: static
 
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): 737 -> 1,136 distinct documents. The archive's own
+# nav offers FOUR sections under /BriefingSpeeches/ and the recipe took one. Each was walked to
+# the true end of its pager and compared BY ITEM ID — necessary, because this is one board with a
+# single id space in which a "section" is a FILTERED VIEW, so counting URLs would have been wrong:
+#     Speeches    76 pager pages, 737 ids   <- all the recipe had
+#     Briefings   56 pager pages, 537 ids   ADDED: only 138 shared with Speeches, so +399 NEW
+#     Others      40 pager pages, 378 ids   *** EXCLUDED: 100% a subset of Speeches ***
+#     Economy     20 pager pages, 177 ids   *** EXCLUDED: 100% a subset of Speeches ***
+# Others and Economy share 0 ids with each other but every one of their ids with Speeches — they
+# are topic filters over the speech set, i.e. the alternate-views trap, and adding them would
+# have written 555 pure duplicates. Their <title> is even "Speeches & Remarks", the same as the
+# Speeches listing; Briefings' is "Briefing".
+#
+# ⚠ KNOWN, MEASURED COST OF ADDING Briefings: 138 ids appear on BOTH listings, and the engine's
+# page_identity keeps the path, so those 138 documents will be written twice (once as
+# /Speeches/<id>, once as /Briefings/<id>) — ~12% of the 1,136. Accepted deliberately: the
+# alternative is losing 399 documents permanently, and a duplicate is fixable downstream while a
+# missing section is not.
+#
+# The pager's visible window is a SLIDING one — every section reports "last page 11" however deep
+# it really goes — which is why these counts come from walking to exhaustion, and why max_pages
+# must stay far above 11 (Speeches alone really runs to 76).
+
 listing:
-  link_selector: "a[href*='/BriefingSpeeches/Speeches/']"
-  link_pattern: '/BriefingSpeeches/Speeches/\d+$'
+  # link_selector dropped — it hard-coded the Speeches section.
+  link_pattern: '/BriefingSpeeches/(?:Speeches|Briefings)/\d+$'
 
 pagination:
   type: query_param

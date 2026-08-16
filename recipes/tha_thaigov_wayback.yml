@@ -1,0 +1,134 @@
+# Thailand — the ROYAL THAI GOVERNMENT (thaigov.go.th), i.e. the PRIME MINISTER. PURE-WAYBACK.
+#
+# WHY THIS SOURCE EXISTS. The only Thai recipe was tha_royaloffice_wayback — the MONARCH, and its
+# own header already warns it is a court circular with "FEW true speeches". The 2026-08-10
+# speaker profiling shows all 296 Thai corpus rows unmatched and every one is a PRIME MINISTER:
+# Thaksin Shinawatra 169 (2001-2006), Chuan Leekpai 60 (1997-2000), Prayuth Chan-ocha 29,
+# Yingluck Shinawatra 25, Abhisit Vejjajiva 9, Surayud Chulanont 4. This is the largest
+# wrong-office gap in the whole 2026-08-10 audit, and the royal recipe could never close it.
+#
+# WHY WAYBACK. thaigov.go.th sits behind Cloudflare and returns 403 to the honest bot UA. Per the
+# taxonomy the reflex is `renderer: js` FIRST — tried, and it fails: a real headless Chromium
+# gets an HTTP 200 that the engine's own block-page guard rejects (BlockPageError) on all three
+# attempts. That is case (c), an interactive/Turnstile-class block, the same verdict as
+# grc_presidency and tha_royaloffice. So there is no live recipe and no wayback_to bound.
+#
+# BREADTH (CLAUDE.md RULE 1). A bare-domain CDX query on this host is USELESS — it returns the
+# 60,000-row ceiling — and so is a `/news` prefix query, because CDX sorts by urlkey and
+# /news/contents/ alone fills the entire budget before /news/press/ or /news/speech/ is reached
+# (a --re filter on such a query matched 0 of 60,000, which reads like "the section is not
+# archived" and is nothing of the kind). Query each section as its own prefix. Measured per
+# prefix 2026-08-15 — and this is NOT the usual RULE 1 "one section dwarfs the rest" table, it is
+# the reverse: the one section that dwarfs the rest was SPLIT OUT, on evidence, into its own file.
+#     /news/press/…      2,556 captures   content 1999-2006   <- TAKEN (biggest here)
+#     /news/speech/…     1,332            content 1999-2006   <- TAKEN
+#     /news/cab/…          713            content 1999-2006   <- TAKEN
+#     /news/contents/…  82,132            content 2017-2025   <- MOVED to tha_thaigov_modern_wayback
+# NOTE the years above are CONTENT dates, not capture dates: /news/cab shows 2001-2006 CAPTURES of
+# files named cab11oct99.htm, i.e. 1999 content. Do not read a CDX year histogram as a date span.
+#
+# ⛔ WHY /news/contents IS NOT HERE — do not "restore" it. Three measured reasons: it is 82,132 of
+# this host's 86,733 captures (94.7%), so keeping it made this recipe ~195 h instead of ~8 h; it
+# is THAI while these three sections are the government's own ENGLISH releases, and one recipe
+# cannot carry two source_languages; and it covers only the Prayuth era = 29 of Thailand's 296
+# unmatched rows, against 233 (79%) for the three kept here. Researcher's decision, 2026-08-15:
+# split it out and park it. See recipes/tha_thaigov_modern_wayback.yml — it is authored and ready.
+#
+# ⚠ SHARES data/state/Thailand.json with tha_thaigov_modern_wayback and tha_royaloffice_wayback.
+# Never run two of the three at the same time.
+#
+# Excluded: /photo/… (photo galleries — RULE 1 out-list) and the sibling HOSTS oic.thaigov.go.th
+# (2,552 — the Official Information Commission's document register), cabinet.thaigov.go.th
+# (1,866), media.thaigov.go.th (923), spm/pmo/pncc/ttr — separate agencies, each its own source
+# question, not a widening of this one.
+#
+# ⚠ THE DATE IS DELIBERATELY LEFT TO THE CLEANER, AND THIS IS THE MOST IMPORTANT NOTE IN THE FILE.
+# The 2001-2006 pages carry NO date element at all, and the obvious substitute — a url_regex over
+# the filename — is a trap, because this host mixes the Buddhist and Common eras in the SAME path:
+#     /news/speech/48/Apr48/pr04apr05_songkhla.htm
+# the directories "48" and "Apr48" are BE 2548 = 2005, while the filename "pr04apr05" is 04 Apr
+# 2005 in the CE 2-digit form; elsewhere the filename itself is BE, e.g.
+# /news/speech/thaksin/sp12aug47.htm = 12 Aug 2547 = 2004. A 2-digit year that is BE in one path
+# and CE in another cannot be disambiguated by regex, and getting it wrong lands the row 543
+# years out — silently, with a green tick. (tha_royaloffice_wayback hit the same BE trap from the
+# other direction and solved it with a URL date that was unambiguously Gregorian; there is no
+# such date here.) So: no url_regex. The engine stamps wayback_capture on every wayback row as
+# the last-resort fallback, and the cleaner's model reads the date out of the text, which these
+# pages usually state in words.
+source_id: tha_thaigov_wayback
+country: Thailand
+source_language: English
+start_urls:
+  # One prefix PER SECTION — see the breadth note above for why a /news or bare-domain query
+  # cannot work on this host.
+  - thaigov.go.th/news/speech
+  - thaigov.go.th/news/press
+  - thaigov.go.th/news/cab
+renderer: static
+
+listing:
+  # `(?::80)?` per recipe_tools/port80.py: the entire 1998-2007 era of this host is pre-HTTPS
+  # (earliest capture http://www.thaigov.go.th:80/, 1998-12-01), CDX collapses on a scheme- and
+  # port-blind urlkey and keeps the EARLIEST capture as each group's representative — so without
+  # it the Chuan/Thaksin era, i.e. 229 of the 296 unmatched rows, is dropped outright.
+  # `\.html?$` keeps the .gif/.jpg children of the same directories out.
+  # The /news/contents/details/\d+ alternative was REMOVED with its start_url — see the header.
+  #
+  # `(?![^"]*(?:%5[Cc]|\.\.))` rejects PATH-TRAVERSAL junk. The 2002 site published links like
+  # ..\..\..\photo\jan45\ph141330jan45.htm, which the crawler archived verbatim as
+  # /news/press/thaksin/..%5c..%5c..%5cphoto%5cjan45%5cph141330jan45.htm — a URL that sits under
+  # /news/press/ and ends .htm, so it passed, and then resolved to a PHOTO page (248 chars).
+  # Caught in the probe after the split; photo pages are on the RULE 1 out-list.
+  link_pattern: 'thaigov\.go\.th(?::80)?/news/(?:speech|press|cab)/(?![^"]*(?:%5[Cc]|\.\.))[^"]+\.html?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # The 2001-2006 pages are hand-cut HTML with no <title>, no h1 and no classes — the headline is
+  # a centred bold line ("Office of the Prime Minister's Statement / Incident of bomb explosions
+  # in Songkhla District"). So the chain has to reach down to `b`/`font`, and many rows will
+  # still land title-less and be titled by the cleaner from the body.
+  selectors: ["h1", ".news-title", "title", "b", "font"]
+text:
+  # These are ALL bare 1998-2007 pages now, and on them the whole document IS the statement
+  # (1,959 chars on the sampled 2005 capture, all of it speech). `body` is therefore the right
+  # answer here rather than a last resort — those pages have no navigation to swallow. The
+  # narrower selectors stay ahead of it for any stray templated capture.
+  selectors: [".news-detail", ".content-detail", "article", ".content", "td td", "body"]
+date:
+  # See the BE/CE warning in the header. On-page candidates only; no url_regex, on purpose.
+  selectors: ["time", ".news-date", ".date"]
+
+position: prime minister
+# speaker_default omitted: the archive spans Chuan, Thaksin, Surayud, Abhisit, Yingluck and
+# Prayuth. Date + the cleaner's tenure crosscheck assign the speaker.
+#
+# source_language: English is NOT a guess — the sampled 2001-2006 pages are the government's own
+# English releases and open with "(Unofficial Translation)". They will therefore skip the
+# translation stage. The earlier version of this note said that IF the modern /news/contents/
+# generation turned out to be Thai it should be split off rather than flipped: it was, it is, and
+# it has been — tha_thaigov_modern_wayback, 2026-08-15.
+date_languages: ["en", "th"]
+notes: >
+  Thailand, head of GOVERNMENT (Prime Minister) — the executive counterpart to
+  tha_royaloffice_wayback (the monarch), and the LARGEST wrong-office gap in the 2026-08-10
+  audit: all 296 Thai corpus rows are PMs (Thaksin 169, Chuan 60, Prayuth 29, Yingluck 25,
+  Abhisit 9, Surayud 4). PURE-WAYBACK: thaigov.go.th is Cloudflare 403 to the bot UA and the
+  engine's block-page guard rejects even a real headless Chromium's HTTP 200 — taxonomy case
+  (c). Probe-validated 2026-08-15, no full run. THREE legacy section prefixes — /news/press
+  (2,556), /news/speech (1,332) and /news/cab (713) — all 1999-2006 content, all in the
+  government's own English ("Unofficial Translation"), ~8 h to run. They hold Chuan +
+  Thaksin + Surayud = 233 of Thailand's 296 unmatched rows (79%). The modern Thai
+  /news/contents generation (82,132 captures, 94.7% of the host, ~195 h, 29 rows) was SPLIT
+  OUT on 2026-08-15 into tha_thaigov_modern_wayback and parked — do not restore it here.
+  Three traps are written into the file header: (1) neither a bare-domain nor a /news CDX
+  query works on this host — both hit the 60,000 ceiling and a filtered /news query matches
+  ZERO older captures, which looks exactly like "not archived"; (2) the host mixes
+  Buddhist-era and Common-era 2-digit years within a single path, so there is deliberately NO
+  url_regex date; (3) CDX year histograms here are CAPTURE dates, not content dates.

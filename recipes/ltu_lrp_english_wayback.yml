@@ -13,9 +13,42 @@ start_urls:
   # CDX prefix — engine prefix-matches, NO trailing '*'.
   - lrp.lt/en
 
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): 1,459 -> ~5,490 matched captures. The recipe took
+# speeches + media-center/news, 2 of the host's ~7 in-scope sections. One CDX enumeration of
+# lrp.lt/en (29,699 collapsed captures) settled the whole host:
+#   SECTION                                captures   slug/<id> permalinks   verdict
+#   activities/the-presidents-engagements    13,843            0             EXCLUDED - calendar
+#   press-centre/press-releases               6,043        2,823             ADDED
+#   press-centre/photos                       3,576            -             out (RULE 1)
+#   activities/messages-of-congratulation     1,505          744             ADDED
+#   media-center/news                         1,322            -             already taken
+#   activities/condolences                      533          214             ADDED
+#   activities/speeches                         470            -             already taken
+#   press-centre/video                          258            -             out (RULE 1)
+#   press-centre/president-in-the-media          251           89             ADDED
+#   media-center/press-releases                  215          158             ADDED
+#
+# ⚠ THE BIGGEST BLOCK ON THE HOST IS NOT CONTENT. All 13,841 of the 13,843
+# "the-presidents-engagements" captures have the shape /the-presidents-engagements/21898/<YYYY-MM-DD>
+# — ONE CAPTURE PER CALENDAR DAY, back to 1999-12-01. It is the day-by-day diary VIEW, the same
+# trap as pol_president_english_wayback's day-by-day/filtr,<DATE> pages. Exactly TWO captures on
+# the whole host are not a dated view. This is why the raw 4.9% coverage ratio was a question and
+# not a finding: strip the calendar and the photo/video galleries and the real denominator is
+# ~11,800, not 29,700.
+#
+# NOTE the site runs TWO NAMING GENERATIONS side by side — press-centre/* and media-center/* —
+# and press-releases exists under BOTH (2,823 and 158). Both are matched.
+#
+# Selectors verified UNCHANGED on the new sections against archived captures spanning 2010-2019
+# (h1.main_title for the headline, .news_inner for the body at 584-4,840 chars, ISO date inside
+# .news_inner): condolences, messages-of-congratulation, both press-releases generations, and
+# president-in-the-media (which carries the President's interviews and op-eds in foreign media -
+# the FT, etc.).
 listing:
-  # dedicated speeches category permalink (+ media-center/news, which carries statements)
-  link_pattern: '/en/activities/speeches/[a-z]|/en/media-center/news/[a-z]'
+  # The two ORIGINAL alternatives are left exactly as they were, so nothing already harvested
+  # changes shape; the added sections are end-anchored on /<slug>/<id> so their listing and pager
+  # views cannot come in with them.
+  link_pattern: '/en/activities/speeches/[a-z]|/en/media-center/news/[a-z]|/en/(?:activities/(?:messages-of-congratulation|condolences)|media-center/press-releases|press-centre/(?:press-releases|president-in-the-media))/[a-z][a-z0-9-]+/\d+$'
 
 pagination:
   type: wayback
@@ -31,14 +64,25 @@ title:
   selectors: ["h1.main_title", ".main_title", "title"]
   regex: '^\s*(.+?)(?:\s*\|\s*President of the Republic of Lithuania)?\s*$'
 text:
-  # recipe containers miss / grab only a 195-char snippet → the engine's generic (trafilatura)
-  # fallback recovers the full body (probe: 416–4,634 chars).
-  selectors: [".article-content", ".news-content"]
+  # FIXED 2026-08-15 (chunk A9). This chain used to be [".article-content", ".news-content"], which
+  # matches NOTHING on any archived lrp.lt capture — 12/12 NO MATCH on a --spread probe — and the
+  # comment here described that as intended, leaving the body to the generic (trafilatura) rescue.
+  # That is the "silent trafilatura" defect: it works until it doesn't, and nothing reports it.
+  # .news_inner is the real container (measured 584-4,840 chars across 2010-2019 captures on
+  # condolences, congratulations, both press-release generations and president-in-the-media) and
+  # it is what the SIBLING recipe ltu_lrp_wayback has always used on the same pages.
+  selectors: [".news_inner", ".article-content", ".news-content", "article", "main"]
 date:
-  # DATE TRAP: .date matched the sidebar "Latest speeches" feed (a block of dates), not the article
-  # date → omitted. No reliable machine-readable date in the archived HTML → deferred to the cleaner's
-  # corrected-date pass + wayback_capture backstop.
-  selectors: ["time[datetime]"]
+  # ALSO FIXED 2026-08-15, and this one is worth more than the widening. The claim below — "no
+  # reliable machine-readable date in the archived HTML" — is a HEADER CLAIM, i.e. a hypothesis,
+  # and it is false: the article date is an ISO string printed immediately after the headline
+  # inside .news_inner ("...Vaclav Havel 2011-12-18"). time[datetime] matches nothing, so every
+  # row was landing dateless on the wayback_capture backstop (parsed_date: None, 12/12).
+  # The DATE TRAP the old comment describes is real but is about the STANDALONE .date elements,
+  # which are a "Latest speeches" sidebar feed — scoping to .news_inner avoids them, which is
+  # again exactly what the sibling recipe does.
+  selectors: [".news_inner"]
+  regex: '\d{4}-\d{2}-\d{2}'
 
 position: president
 date_languages: ["en"]

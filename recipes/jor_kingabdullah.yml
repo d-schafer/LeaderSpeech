@@ -3,25 +3,73 @@ country: Jordan
 source_language: English
 start_urls:
   - https://kingabdullah.jo/en/speeches
+  - https://kingabdullah.jo/en/throne-speeches
+  - https://kingabdullah.jo/en/interviews
+  - https://kingabdullah.jo/en/op-eds
+  - https://kingabdullah.jo/en/news
+  # /en/letters is a CATEGORY HUB: it lists four category links and ZERO articles,
+  # so the categories themselves have to be seeded (measured: 0 items on /en/letters).
+  - https://kingabdullah.jo/en/letters/category/letters-of-designation
+  - https://kingabdullah.jo/en/letters/category/letters-to-prime-ministers
+  - https://kingabdullah.jo/en/letters/category/letters-on-occasions
+  - https://kingabdullah.jo/en/letters/category/selected-letters
 renderer: static
 
 # Official site of King Abdullah II of Jordan. The site has an official ENGLISH
 # edition (kingabdullah.jo/en) that carries full English transcripts, so we scrape
 # it directly into the English title/text fields (no translation needed). Static
-# HTML, honest bot UA works. The /en/speeches Media-Centre listing has a sliding-
-# window pager (?page=0..~36); each ".Speeches-card" carries a clean English date
-# ("25 May 2026") we harvest via item_date. Article page: title h2 (inside
-# .press-room-inner-video-section--content), body section.press-room-inner-content-
-# container, date in a sibling <h5> (regex-isolated; item_date is the fallback).
-# Video-only speeches (YouTube embed, no transcript) yield little text -> the
-# generic fallback / cleaner drop them. Sibling sections /en/throne-speeches,
-# /en/interviews, /en/letters, /en/news are the same CMS -> FOLLOW-UP recipes.
+# HTML, honest bot UA works.
+#
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): 355 -> ~5,480 links. The recipe took
+# /en/speeches ONLY — 1 of 7 in-scope sections — and its own header banked the rest
+# as "FOLLOW-UP recipes". They are the same CMS, so they are one recipe, not seven.
+# Measured by walking each section's pager to its true end (the site uses a SLIDING-
+# WINDOW pager, so the visible ?page= links understate depth badly — pagecount.py
+# reported "last_page=6" for a section that actually runs to page 38):
+#     /en/speeches            355   (what the recipe had)
+#     /en/news              4,797+  (still producing at page 400, 12/page)
+#     /en/interviews          188
+#     /en/letters              88   via the 4 category listings
+#     /en/throne-speeches      24   <- a SPEECHES section the "speeches" recipe missed
+#     /en/op-eds               22   op-eds under the King's own byline
+# Probe after widening: 10,400 links (/en/news alone came back 9,723 — my own manual
+# walk had stopped at page 400 and undercounted it).
+# Excluded per RULE 1: /en/photo-gallery, /en/video-gallery.
+#
+# /en/discussion-papers (7 papers) IS in scope but is NOT here — it lives in the
+# sibling recipe `jor_kingabdullah_papers`. It was seeded here first and harvested
+# ZERO: the site's WAF answers ANY ?page= query on that one path with a 246-byte
+# "Request Rejected" page, so a query_param recipe cannot read its listing at all,
+# and /en/news forces query_param on this one. Keep it out of the pattern below too,
+# or a discussion-paper linked from a news page would be written by both recipes.
+#
+# ALTERNATE-VIEWS TEST PASSED (the gov.ro trap): a /en/speeches slug refetched under
+# /en/news returns HTTP 200 but with NO h2 and a ZERO-char body — the site soft-404s
+# any path, so status code alone proves nothing and the BODY had to be read (the
+# run-11 Burundi lesson). The sections are genuinely disjoint content sets.
+#
+# THREE TEMPLATES, all chained below (n=1 for every container, so no element-join):
+#   A .press-room-inner-content-container  speeches, throne-speeches, interviews
+#   B .press-room-inner-flex               news, letters
+#   C .DiscussionPapers-inner-content      op-eds, discussion-papers
+# TITLE: templates B and C have no .press-room-inner-video-section--content, and a
+# BARE h2 fallback is a TRAP here — the first h2 is the section banner ("Media
+# Centre" / "By His Majesty") and the engine joins every match, so it would title
+# every news row "Media Centre <headline>". <title> minus the site suffix is used
+# instead, isolated with a LOOKAHEAD (a field regex returns group(0), not group(1)).
+# On template A the scoped h2 fires first and the regex simply does not match, so the
+# unfiltered headline is kept (regex_required is off).
+# DATE: a bare <h5> carries the date on ALL SIX sections — verified 1999, 2013, 2016,
+# 2024, 2025 and 2026 datelines. This replaces the old date chain, which only ever
+# worked on template A.
+#
+# INCREMENTAL, NOT a rescrape: the per-country state file's `seen` URL set means an
+# ordinary `run` fetches only the newly-matched URLs. Do NOT use --rescrape.
 listing:
-  link_selector: ".Speeches-card a"
-  link_pattern: '/en/speeches/[a-z0-9-]+$'
-  item_selector: ".Speeches-card"
-  item_date:
-    selectors: [".Speeches-card span"]
+  # No link_selector: the card class differs per section (/en/letters categories use
+  # no .Speeches-card at all), so the anchored link_pattern does the work. Section
+  # roots carry no slug and therefore cannot match.
+  link_pattern: '/en/(?:speeches|throne-speeches|interviews|letters|news|op-eds)/(?!category/)[a-z0-9-]+$'
 
 pagination:
   # Site quirk: ?page=0 and ?page=1 BOTH serve the first page; real pages begin at
@@ -30,16 +78,27 @@ pagination:
   param: page
   start: 1
   step: 1
-  max_pages: 45
+  # /en/news alone runs past page 400. The pager's own "no new links" stop ends each
+  # section at its true end; this is only the backstop.
+  max_pages: 1200
 
 title:
-  selectors: [".press-room-inner-video-section--content h2", "h2", "title"]
+  selectors: [".press-room-inner-video-section--content h2", "title"]
+  regex: '(?s)^.+?(?=\s+-\s+King Abdullah II Official Website)'
 text:
-  selectors: [".press-room-inner-content-container", "main"]
+  selectors:
+    - ".press-room-inner-content-container"   # A: speeches / throne-speeches / interviews
+    - ".press-room-inner-flex"                # B: news / letters
+    - ".DiscussionPapers-inner-content"       # C: op-eds / discussion-papers
+    - "main"
 date:
-  selectors: [".press-room-inner-video-section--content"]
+  selectors: [".press-room-inner-video-section--content h5", "h5"]
   regex: '\d{1,2}\s+[A-Za-z]+\s+\d{4}'
 
 position: king
+# All seven sections are the King's own site. /en/news carries third-person palace
+# reports in which the speaker of record is still the King; the cleaner treats
+# SPEAKER as a prior, not a byline, and its document_type gate drops what is not a
+# speech/interview/statement.
 speaker_default: Abdullah II
 date_languages: ["en"]

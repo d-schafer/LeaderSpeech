@@ -1,0 +1,130 @@
+# Greece — the PRIME MINISTER (primeminister.gr, Maximos Mansion). PURE-WAYBACK.
+#
+# WHY THIS SOURCE EXISTS. Greece's president is a ceremonial head of state and the only Greek
+# recipe was grc_presidency_wayback (that office, ~168 legacy captures). The 2026-08-10 speaker
+# profiling shows all 43 unmatched Greek corpus rows are PRIME MINISTERS — Alexis Tsipras 25
+# (2015-2019), Kostas Simitis 8 (1997-2003), Georgios Papandreou 6 (2010), Kyriakos Mitsotakis 2,
+# Antonis Samaras 2. Wrong office, so no widening of the presidency recipe could ever close it.
+#
+# PURE-WAYBACK, and this was tested rather than assumed. primeminister.gr returns a bare 366-byte
+# HTTP 403 "Access Denied" to the honest bot UA, to a browser user_agent, AND to a real headless
+# Chromium — the engine's own block-page guard raises BlockPageError on the rendered page, so
+# even `renderer: js` yields nothing. The archive itself names the product: 592 captures of
+# /_Incapsula_Resource?…&incident_id=… (Imperva/Incapsula). That is taxonomy case (c), the same
+# verdict as grc_presidency. There is therefore no live recipe and no wayback_to bound.
+# www.government.gr does not answer at all from here (TCP connection refused on 443).
+#
+# BREADTH (CLAUDE.md RULE 1). The site publishes EVERY article type into one dated permalink
+# namespace — the nav in an archived capture lists Ανακοινώσεις (announcements), Άρθρα/
+# Συνεντεύξεις (articles/interviews), Δηλώσεις (statements), Επιστολές (letters), Ομιλίες
+# (SPEECHES), Συνεντεύξεις Τύπου (press conferences) and Χαιρετισμοί (greetings) as categories
+# over the same /YYYY/MM/DD/<id> URLs — so taking the namespace whole is both the broad choice
+# and the only one available. Measured off CDX (recipe_tools/cdx.py + shapes.py, 2026-08-15):
+#     /YYYY/MM/DD/<id>              6,358   WordPress era, 2015-2026   <- TAKEN
+#     /gr/showdoc<N>.asp?menu&p1    ~1,171  ASP era, 2003-2004         <- TAKEN, see caveat
+#     /events/<slug>                  205   event pages                <- TAKEN
+#     /press/article_N_N_N_N.html     258   pre-2003 press generation  <- TAKEN
+#     /speeches/<N>.htm               155   pre-2003 speech archive    <- TAKEN
+#     /en/YYYY/MM/DD/<id>           1,170   English mirror -> grc_primeminister_english_wayback
+# Excluded and why: /YYYY/MM/DD/<id>/embed (1,783 oEmbed stubs) and /attachment/<id> (1,390
+# image pages) — both on the RULE 1 out-list, and both are dropped by the `$` anchor rather than
+# by a separate rule; /gr/showdoc_print.asp (1,068) and /gr/sendto.asp (1,062) are the print-view
+# and mail-a-friend duplicates of pages already taken; /?s=… — 28,057 captures, 47% of this
+# host's whole CDX index, are SEO-SPAM search URLs injected by third parties (Chinese gambling
+# and DDoS-tool keyword strings), not site content.
+#
+# ⚠ CAVEAT ON THE ASP GENERATION (/gr/showdoc<N>.asp): every one of those pages carries the SAME
+# <title> — "Hellenic Republic - The Prime Minister's Office" — and has no <h1>, so the title
+# chain writes a constant string for all ~1,171. It is kept anyway because it passes the other
+# two parts of the RULE 1 in-scope test: each item has a real date (`.date`, e.g. "21 Αυγούστου
+# 2003") and real per-item Greek body text (2,429 chars in the sampled capture, a statement on
+# the Cyprus talks). Those pages are also served as iso-8859-7 without a reliable charset
+# declaration; the probe is the check for whether that decodes — grc_presidency_wayback reports
+# BeautifulSoup detecting the same charset on the same era of Greek government HTML.
+source_id: grc_primeminister_wayback
+country: Greece
+source_language: Greek
+start_urls:
+  # One CDX prefix per URL generation. `primeminister.gr/20` is a PATH prefix and catches every
+  # /YYYY/… permalink in a single query — far cheaper than one prefix per year, and it is what
+  # keeps this recipe off the 60,000-row CDX ceiling that a bare-domain query hits on this host.
+  - primeminister.gr/20
+  - primeminister.gr/gr/showdoc
+  - primeminister.gr/press/article
+  - primeminister.gr/speeches/
+  - primeminister.gr/events/
+renderer: static
+
+listing:
+  # `(?::80)?` on EVERY alternative is load-bearing, not decoration — see recipe_tools/port80.py.
+  # The Archive records this host's pre-HTTPS era as http://www.primeminister.gr:80/…, CDX
+  # collapses on urlkey (which strips scheme AND port) and keeps the EARLIEST capture as the
+  # group's representative, so a host-anchored pattern without it drops the whole article, not
+  # just its old captures. The ASP and /press/ generations are entirely pre-HTTPS.
+  #
+  # The `$` anchor on the WordPress alternative is what excludes /embed, /attachment/<id> and the
+  # /<slug> children — 4,320 captures — without a separate rule.
+  link_pattern: 'primeminister\.gr(?::80)?/(?:\d{4}/\d{2}/\d{2}/\d+/?$|gr/showdoc\d+\.asp\?menu=\d+&p1=\d+|press/article_[\d_]+\.html|speeches/\d+\.html?$|events/[^/]+/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # WordPress era: h1.entry-title (theme = tagDiv "Newspaper"), verified on 2019 and 2021
+  # captures. ASP era: no per-item title exists at all — `title` is the constant site header
+  # (see the caveat above). Do not add a bare `h1` before .entry-title: on the archived pages the
+  # first h1 in some captures is the site logo block.
+  selectors: ["h1.entry-title", ".entry-title", "h1", "title"]
+text:
+  # .td-post-content is the article body on the WordPress theme (10,259 chars on the sampled
+  # 2019 speech vs 13,380 for the whole page, i.e. it drops the nav). The ASP era has no classes
+  # at all — its body is a bare <td> — so `td` is the last resort, and it is LAST on purpose:
+  # ⚠ the engine JOINS every element a selector matches, and on a nested-table layout a `td`
+  # higher in the chain would write the body several times over. Keep it terminal.
+  # THREE theme generations, so the chain is narrow-to-wide and every entry earns its place:
+  #   .td-post-content  2019-2026 tagDiv "Newspaper" theme (10,259 chars on a 2019 speech)
+  #   .entry-content    intermediate WP themes
+  #   article           ditto
+  #   .content          the 2016-2018 theme — verified on a 2016 capture where h1, .entry-title,
+  #                     .post-content and `article` ALL match nothing and .content returns 10,134
+  #   td                the 2003-2004 ASP era, which has no classes at all
+  # ⚠ `td` must stay LAST: the engine JOINS every element a selector matches, so on a
+  # table-layout page a `td` higher in the chain returns the whole document, nav included.
+  selectors: [".td-post-content", ".entry-content", "article", ".content", "td"]
+date:
+  # WordPress: <time datetime="2019-10-04T13:57:35+00:00"> (also .entry-date). ASP: .date holds
+  # a Greek word-date, "10 Οκτωβρίου 2003" — unambiguous, no DD/MM trap. Wayback rows also carry
+  # wayback_capture as the cleaner's last-resort fallback.
+  #
+  # THE REGEX IS A GUARD, NOT A CONVENIENCE. A first probe of the ASP era returned
+  # parsed_date 2026-10-16 for a page dated 2003 — dateparser, handed a fragment it can only
+  # partly read, fills the missing year from TODAY and reports success. Requiring a literal
+  # four-digit year (in either the ISO or the Greek word form) makes that failure produce an
+  # EMPTY date, which then falls through to the wayback_capture fallback, instead of a
+  # confident wrong one 23 years out.
+  selectors: ["time[datetime]", ".entry-date", "time", ".date"]
+  regex: '\d{4}-\d{2}-\d{2}|\d{1,2}\s+[^\s\d]+\s+\d{4}'
+
+position: prime minister
+# speaker_default omitted: the archive spans Simitis, Karamanlis, Papandreou, Samaras, Tsipras
+# and Mitsotakis — which is the point of the source. The permalink carries the date, so the
+# cleaner's tenure crosscheck assigns the speaker from country+date.
+date_languages: ["el"]
+notes: >
+  Greece, head of GOVERNMENT (Prime Minister) — the executive counterpart to
+  grc_presidency_wayback and the source that actually closes Greece's audit gap (43 unmatched
+  rows, all PMs: Tsipras 25, Simitis 8, Papandreou 6, Mitsotakis 2, Samaras 2). PURE-WAYBACK:
+  the live host is Incapsula/Imperva-blocked to the bot UA, a browser UA and headless
+  Chromium alike (403 "Access Denied", 366 bytes), and www.government.gr refuses TCP from
+  here. Probe-validated 2026-08-15, no full run. ~8,100 archived captures across five URL
+  generations spanning 2003-2026; the WordPress namespace alone is 6,358 and reaches back to
+  2015, i.e. the whole Tsipras premiership. Every article TYPE (speeches, statements,
+  announcements, letters, interviews, press conferences, greetings) shares that one
+  namespace, so it is taken whole. English mirror (/en/YYYY/MM/DD/<id>, 1,170) is a separate
+  source. See the file header for the ASP-era constant-title caveat and for the 28,057
+  SEO-spam /?s= captures that make a bare-domain CDX query on this host useless.

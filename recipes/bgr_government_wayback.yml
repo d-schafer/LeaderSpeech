@@ -1,0 +1,110 @@
+# Bulgaria — the COUNCIL OF MINISTERS (government.bg -> gov.bg), i.e. the PRIME MINISTER.
+# PURE-WAYBACK, Bulgarian original.
+#
+# WHY THIS SOURCE EXISTS. Bulgaria's president is a ceremonial head of state and the only
+# Bulgarian recipes were bgr_president* (that office). The 2026-08-10 speaker profiling shows
+# 75 of Bulgaria's 76 corpus rows unmatched and all of them are PRIME MINISTERS — Simeon
+# Saxe-Coburg-Gotha 38 (2001-2004), Ivan Kostov 34 (1997-2001), plus Oresharski, Borissov and
+# Petkov 1 each. Wrong office; no widening of the presidency recipes could reach them.
+#
+# WHY WAYBACK AND NOT LIVE. Two independent reasons, both checked:
+#   1. The gap era simply is not on the live web. www.government.bg's press office of 2001-2005
+#      was retired; the successor host is www.gov.bg and it carries only the current government.
+#   2. www.gov.bg answers HTTP 200 to the bot UA but its news grid is client-rendered — a static
+#      fetch of /bg/prestsentar/novini returns the full nav and ZERO article links, and a real
+#      headless Chromium returns the same 105 anchors (nav only) while exposing a ?page=N pager.
+#      A live gov.bg recipe is a possible follow-up; it would not touch this gap either way.
+#
+# BREADTH (CLAUDE.md RULE 1) — measured off CDX (cdx.py --match domain + shapes.py, 2026-08-15;
+# the query hits the 60,000 ceiling so these are lower bounds, but the RANKING is what matters):
+#     /cgi-bin/e-cms/vis/vis.pl?s&p&n&g   13,113   the 2009-2016 CMS generation   <- TAKEN
+#     /PressOffice/News/<date>/<id>.html   5,448   2001-2005 press office         <- TAKEN (the gap)
+#     /bg/prestsentar/novini/<slug>        3,526   modern generation              <- TAKEN
+#     /bg/prestsentar/<section>/<slug>     1,842   modern, OTHER sections         <- TAKEN
+#     /Priorities/<topic>/<date>/<id>      1,389   2001-2005 policy statements    <- TAKEN
+#     /English/... (4,127 + 1,329 + 1,165)         English mirror -> bgr_government_english_wayback
+# TAKING /bg/prestsentar/<section>/ WHOLE IS THE RULE 1 POINT: the site's own nav splits that
+# path into Новини (news), Предстоящи събития (upcoming events), Заседания и решения на МС
+# (Council sittings and decisions) and Видео. Scoping to `novini` alone would have taken 3,526
+# of 5,368 and dropped the Council-sitting readouts, which are exactly the third-person official
+# statements the cleaner's gate is written to keep.
+#
+# EXCLUDED, on evidence: /Print/<id>.html (4,701) and /English/Print/<id>.html (1,315) are the
+# print-view duplicates of pages already taken — the RULE 1 out-list names them explicitly.
+source_id: bgr_government_wayback
+country: Bulgaria
+source_language: Bulgarian
+start_urls:
+  # One CDX prefix per generation, plus the successor host. Kept as prefixes rather than a single
+  # --match domain query because a bare government.bg domain query returns 60,000 rows (the CDX
+  # ceiling) and would silently truncate whichever generation sorted last.
+  - government.bg/PressOffice/News
+  - government.bg/Priorities
+  - government.bg/cgi-bin/e-cms/vis/vis.pl
+  - government.bg/bg/prestsentar
+  - gov.bg/bg/prestsentar
+renderer: static
+
+listing:
+  # `(?::80)?` is load-bearing — see recipe_tools/port80.py. The ENTIRE 2001-2005 era of this
+  # host is pre-HTTPS, so CDX (which collapses on a scheme- and port-blind urlkey and keeps the
+  # earliest capture as each group's representative) hands the engine the
+  # http://www.government.bg:80/ form for every one of those articles. A pattern anchored
+  # `government\.bg/` would drop the whole Kostov/Saxe-Coburg era — i.e. the entire reason this
+  # file exists — while still reporting thousands of modern snapshots and looking healthy.
+  #
+  # The `\.html$` anchor on the two dated generations is what excludes the /Print/ duplicates'
+  # siblings and the `?amp=&c=` listing variants of the same date directories.
+  link_pattern: '(?:government|gov)\.bg(?::80)?/(?:PressOffice/News/\d{4}-\d{2}-\d{2}/\d+\.html$|Priorities/[^/]+/\d{4}-\d{2}-\d{2}/\d+\.html$|cgi-bin/e-cms/vis/vis\.pl\?.*\bn=\d+|(?:bg/)?prestsentar/[^/]+/[^/]+)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_adaptive: true
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # ⚠ THE 2001-2005 GENERATION HAS NO PER-ITEM TITLE. Its <title> is the constant site header
+  # "Правителство на Република България" on every page and there is no h1/h2/b anywhere (checked:
+  # h1, h2 and b all match zero elements). Those rows will carry that constant string. They are
+  # kept anyway because they pass the other two parts of the RULE 1 in-scope test — a real date
+  # (in the URL) and real per-item Bulgarian body text — and because they ARE the audit gap. The
+  # modern /prestsentar/ generation does have proper headings, which is why h1/h2 lead the chain.
+  selectors: ["h1", "h2", ".news-title", "title"]
+text:
+  # `td td` NOT `td`, and this is measured, not stylistic. The 2001-2005 pages are a nested-table
+  # layout and the engine JOINS every element a selector matches, so a bare `td` returns the page
+  # roughly TWICE: 10,250 chars against a 5,137-char page on the 2001 sample, 3,576 against 1,830
+  # on the 2003 sample. `td td` selects only the inner cells — 5,083 and 1,772 respectively, i.e.
+  # the page once. This is the trap recorded in the project memory as "engine joins ALL matching
+  # elements"; the cleaner never rewrites `text`, so nothing downstream would have fixed it.
+  # Bare `td` stays last as the fallback for any capture whose tables are not nested.
+  selectors: [".news-content", "article", "td td", "td"]
+date:
+  # The dated generations put an unambiguous ISO date in the PATH — /PressOffice/News/2003-08-14/
+  # — which beats every on-page candidate here: the page's own visible date line is the CAPTURE
+  # time ("неделя, 28 септември 2003 22:59", the day the crawler fetched it), not the article
+  # date, and reading that would misdate the whole era by weeks. url_regex is tried first; the
+  # modern /prestsentar/ slugs carry no date, so they fall through to the selectors and finally
+  # to the wayback_capture stamp the engine writes on every wayback row.
+  url_regex: '/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})/'
+  selectors: [".news-date", "time", ".date"]
+
+position: prime minister
+# speaker_default omitted: the archive spans Kostov, Saxe-Coburg-Gotha, Stanishev, Borissov,
+# Oresharski, Petkov and beyond — the point of the source. Date + tenure crosscheck assign it.
+date_languages: ["bg"]
+notes: >
+  Bulgaria, head of GOVERNMENT (Council of Ministers / Prime Minister) — the executive
+  counterpart to bgr_president*, and the source that closes Bulgaria's audit gap (75 of 76
+  corpus rows unmatched, all PMs: Saxe-Coburg-Gotha 38, Kostov 34). PURE-WAYBACK: the
+  2001-2005 press office does not exist on the live web, and the successor host www.gov.bg
+  renders its news grid client-side (zero article links under both static fetch and headless
+  Chromium). Probe-validated 2026-08-15, no full run. Five URL generations spanning
+  1999-2026, ~25,000+ archived captures (a bare-domain CDX query hits the 60,000 ceiling, so
+  that is a lower bound). Read the file header for two traps that cost real time: the
+  2001-2005 pages have NO per-item title (constant <title>) and their visible date line is
+  the CAPTURE time, not the article date — the date therefore comes from the URL path.
+  English mirror is a separate source (bgr_government_english_wayback).

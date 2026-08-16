@@ -4,12 +4,48 @@
 # directly. Speeches are category 12 (/Press/Articles/12), paginated ?page=N (~48 pages back to 1979).
 # Articles at /Press/Article/<id>. (This is the same office as the old presidencymaldives SPA; use the
 # clean presidency.gov.mv HTML rather than that domain's CF-blocked /api SPA.)
+#
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): ~480 -> ~13,960 items (categories 11+12+13), i.e.
+# 3.3% -> essentially all of the ENGLISH tree that carries extractable text. The header line above ("Speeches are category 12") states the RULE 1 failure in
+# its own words: /Press/Articles/<N> is a CATEGORY ID, and the recipe took the one called
+# "President's Speeches". Every id 1..20 plus the nav's own ids was probed; the site has exactly
+# five real categories, and their pagers size them exactly (10 items/page, 15 for 54):
+#     11  Press Releases            pager 1,335  -> ~13,350   <- 28x the category taken. ADDED
+#     12  President's Speeches      pager    48  ->    ~480   <- all the recipe had
+#     13  Vice President's Speeches pager    13  ->    ~130   ADDED
+#    290  Maldives News Bulletin    pager    39  ->    ~390   *** EXCLUDED, measured ***
+#     54  ދިވެހި (Dhivehi)           pager   249  -> ~3,735   *** EXCLUDED, wrong language ***
+#
+# Category 290 was ADDED and then REMOVED on evidence. Sampled ACROSS its pager (Vol 420, Vol 255
+# and Vol 47, i.e. pages 1/15/35, not just one item): EVERY bulletin has .article-body = 0 chars
+# and links a PDF on storage.googleapis.com instead. They would all fail as empty_text and land
+# in _errors.csv — ~390 fetches for zero rows. A contrast sample of category 11 press releases on
+# the same pass returned 808 and 976 chars, so the exclusion is specific to 290, not a selector
+# problem. If wanted later it is a content_type: pdf recipe, not a start_url here — but note a
+# "News Bulletin" is a compiled newsletter, not a leader's own words.
+# Category 54 is the DHIVEHI-language tree (its <title> is ރައީސްގެ ވާހަކަފުޅު, "President's
+# Speeches"). This recipe is source_language: English, so admitting it would file Dhivehi text in
+# the English columns and skip translation — the wrong-language-twin trap. It needs its own
+# recipe (source_language: Dhivehi); banked, non-English so not queueable now anyway.
+# Ids 1..10 and 14..20 are hard 404s ("404 - Page Not Found"); id 1 is the Home page.
+#
+# VP speeches (13) are taken deliberately: same office, same template, and the cleaner's gate is
+# what decides whether a non-head-of-state speaker is kept — a section left out is permanent.
+#
+# ⚠ RUN COST: the pacing below is REQUIRED (see the politeness note), and category 11 alone is
+# 1,335 listing pages. At ~4.5 s/request that is ~1.7 h of listing plus ~14,000 detail pages —
+# budget this as a long run, not a quick one.
+#
+# INCREMENTAL: an ordinary `run` fetches only URLs not already in data/state/Maldives.json.
+# Do NOT use --rescrape.
 source_id: mdv_presidencymaldives
 country: Maldives
 source_language: English
 renderer: static
 start_urls:
-  - https://presidency.gov.mv/Press/Articles/12
+  - https://presidency.gov.mv/Press/Articles/12    # President's Speeches
+  - https://presidency.gov.mv/Press/Articles/11    # Press Releases
+  - https://presidency.gov.mv/Press/Articles/13    # Vice President's Speeches
 
 listing:
   link_pattern: '/Press/Article/\d+'
@@ -19,7 +55,9 @@ pagination:
   param: page
   start: 1
   step: 1
-  max_pages: 55        # ~48 pages of speeches (to 1979); engine stops at the first empty page
+  # Category 11 (Press Releases) runs to pager page 1,335; 55 would have truncated it to 4%.
+  # Each start_url paginates to its OWN end (the 2026-08-12 paginate.py fix).
+  max_pages: 1400
 
 # presidency.gov.mv rate-limits RAPID listing requests: with no pacing, the pager reliably dies
 # around ?page=11 with a WAF block page served as HTTP 200 (the block-page guard catches it and

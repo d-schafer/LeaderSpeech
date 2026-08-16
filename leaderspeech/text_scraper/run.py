@@ -96,6 +96,63 @@ def _sample_evenly(items: list, n: int) -> list:
     return [items[i] for i in sorted({round(i * last / (n - 1)) for i in range(n)})]
 
 
+def _log_identity_dupes(already: int, within: int) -> None:
+    """Report identity-based skips. Never silent: a document dropped here is a document NOT
+    fetched, and the whole point of the sweep is that silent omissions are invisible."""
+    if already:
+        log.info("skipped %d capture(s)/link(s) already held under a DIFFERENT URL form "
+                 "(scheme/port/www/%%-encoding/noise-param) — cross-recipe identity dedupe", already)
+    if within:
+        log.info("skipped %d duplicate(s) WITHIN this harvest — the same document served under "
+                 "more than one path in this source's own listings", within)
+
+
+def select_unscraped(candidates: list, url_of, skip: set, noise_params=()) -> tuple[list, int, int]:
+    """Drop candidates we already hold, comparing by DOCUMENT IDENTITY, not URL string.
+
+    `skip` is the state file's seen/failed/filtered URLs. Testing membership with `in skip`
+    alone — which is what this used to do — compares raw strings, so the SAME document counts
+    as new whenever its URL differs in a way that does not change what is served:
+
+      * scheme            http://x/a   vs  https://x/a
+      * port              http://x:80/a
+      * host prefix       www.x/a
+      * trailing slash, %-encoding, and the NOISE_PARAMS/`wayback_noise_params` UI toggles
+
+    That gap is why an ARCHIVE recipe re-fetches and re-writes documents its LIVE sibling on the
+    same host already scraped: CDX hands back `http://`, `:80` and `www.` forms of URLs the live
+    crawl stored as `https://`. 53 of 97 countries in this corpus have both kinds of recipe, so
+    it is not an edge case. `wayback.page_identity` already computes exactly the right key; this
+    just applies it to the state file too.
+
+    Two kinds of duplicate are removed, and BOTH are counted so a run can report them rather
+    than silently dropping work:
+      * `already` — identity is in `skip` under a different URL form (cross-recipe / cross-run)
+      * `within`  — two candidates in THIS batch are the same document (e.g. a board that serves
+                    one article under /Speeches/<id> and /Briefings/<id>)
+
+    Returns (kept, already, within).
+    """
+    state_ids = {wayback.page_identity(u, noise_params) for u in skip}
+    batch_ids: set[str] = set()
+    kept, already, within = [], 0, 0
+    for c in candidates:
+        url = url_of(c)
+        if not url:
+            continue
+        if url in skip:
+            continue             # exact hit — the ordinary already-scraped case, counted by `skip`
+        pid = wayback.page_identity(url, noise_params)
+        if pid in state_ids:
+            already += 1
+        elif pid in batch_ids:
+            within += 1
+        else:
+            batch_ids.add(pid)
+            kept.append(c)
+    return kept, already, within
+
+
 def load_state(path: Path) -> dict:
     if path.exists():
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -456,6 +513,9 @@ def scrape_recipe(
     seen = set(state["seen_urls"])       # already scraped — never re-fetched
     failed = set(state["failed_urls"])   # errored/empty — re-fetched only with retry_failed
     filtered = set(state["filtered_urls"])  # rejected by keep_if — never re-fetched
+    # The recipe's own UI-toggle parameter names, so identity dedupe (below) collapses the same
+    # document addressed with and without them.
+    noise_params = tuple(recipe.pagination.wayback_noise_params or ())
 
     fetcher = Fetcher(
         renderer=recipe.renderer.value,
@@ -708,7 +768,8 @@ def scrape_recipe(
 
         skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
-            todo_entries = [entry for entry in entries if entry.get("original") not in skip]
+            todo_entries, dup_state, dup_batch = select_unscraped(
+                entries, lambda e: e.get("original"), skip, noise_params)
             if sample:
                 todo_entries = _sample_evenly(todo_entries, sample)
             elif limit:
@@ -717,9 +778,11 @@ def scrape_recipe(
                      "%d filtered out earlier%s)",
                      len(entries), len(todo_entries), len(seen), len(failed), len(filtered),
                      "; retrying failures" if retry_failed else "")
+            _log_identity_dupes(dup_state, dup_batch)
             todo = todo_entries
         else:
-            todo = [url for url in links if url not in skip]
+            todo, dup_state, dup_batch = select_unscraped(
+                links, lambda u: u, skip, noise_params)
             if sample:
                 todo = _sample_evenly(todo, sample)
             elif limit:
@@ -728,6 +791,7 @@ def scrape_recipe(
                      "%d filtered out earlier%s)",
                      len(links), len(todo), len(seen), len(failed), len(filtered),
                      "; retrying failures" if retry_failed else "")
+            _log_identity_dupes(dup_state, dup_batch)
 
         aborted_early = _scrape_phase(
             todo, is_wayback=wayback_mode, meta_by_url=meta_by_url,
@@ -770,7 +834,9 @@ def scrape_recipe(
                     seen -= ext_urls
                     failed -= ext_urls
                 skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
-                todo2 = [e for e in ext_entries if e.get("original") not in skip]
+                todo2, dup_state2, dup_batch2 = select_unscraped(
+                    ext_entries, lambda e: e.get("original"), skip, noise_params)
+                _log_identity_dupes(dup_state2, dup_batch2)
                 if sample:
                     todo2 = _sample_evenly(todo2, sample)
                 elif limit:

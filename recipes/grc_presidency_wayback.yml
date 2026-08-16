@@ -8,6 +8,26 @@
 # in <span class="titlesmaller_black13"> ("Αροανία Αχαΐας, 16 Ιουλίου 2004"). Page charset is
 # iso-8859-7 (Greek) — BeautifulSoup detects it.
 #
+# ⛔ RULE 1 BREADTH AUDIT, 2026-08-15 (Session B) — THIS RECIPE IS 1.1% OF ITS HOST. Measured,
+# not estimated: CDX --match domain on presidency.gr returns 15,760 statuscode:200 text/html
+# captures spanning 2003-2026, and this recipe's link_pattern admits ~168 of them. shapes.py on
+# that list:
+#     ?lang=<xx>&p=<id>   4,766   WordPress post permalinks, translated variants
+#     ?p=<id>             2,583   WordPress post permalinks
+#     /<slug>/            1,843   the pretty-permalink generation
+#     /YYYY/MM/DD/        1,134   dated archive listings
+#     ?page_id=&paged=    1,555   section pagers (out)
+#     ?event_id=&page_id= 1,183   event pages
+#     omil_content.asp    ~168    <- ALL THIS RECIPE TAKES
+# 2015 ALONE is 9,171 captures — Pavlopoulos's first year, and none of it is harvested. The
+# "separate, heavier pass" the note below calls a follow-up is therefore the main event, not a
+# refinement: ~7,300 post permalinks are sitting unharvested behind a pattern that matches an
+# endpoint the site retired a decade ago. The blocker named below (no speech-only URL pattern in
+# the WordPress era) is real, but the RULE 1 answer is to take the post namespace WHOLE and let
+# the cleaner's document_type gate sort it, exactly as grc_primeminister_wayback does for
+# primeminister.gr's single dated namespace. NOT DONE HERE — flagged with evidence so the next
+# session can act on a measurement instead of re-deriving it.
+#
 # PARTIAL — this is the legacy section only. The modern WordPress era (2015+, Pavlopoulos /
 # Sakellaropoulou) has flat Greek-slug permalinks with no speech-only URL pattern, so isolating
 # its speeches needs a keep_if on the article's own category (an /en/category/speeches-statements

@@ -1,0 +1,58 @@
+# Estonia — the GOVERNMENT (valitsus.ee), ENGLISH mirror. Sibling of est_valitsus.
+#
+# VERIFIED ACTUALLY ENGLISH before this file was written — the run-12 lesson (Cuba's
+# presidencia.gob.cu/en/ probes green and serves SPANISH) means a green probe is not evidence.
+# Read: /en/news/aab-finding-personal-protective-equipment-complicated-possible renders h1
+# "Aab: finding personal protective equipment is complicated but possible". It is a real
+# translation, not a URL prefix over the Estonian text.
+#
+# BREADTH (measured off /sitemap.xml, recipe_tools/sitemapshapes.py 2026-08-15):
+#     /en/news/<slug>      4,197   <- TAKEN
+#     /en/uudised/<slug>      53   older English generation under the Estonian path  <- TAKEN
+#     /en/novosti/<slug>       5   ditto, mis-filed under the Russian path           <- TAKEN
+#     /en/taxonomy/term/N     31   term listing pages (nav) — out
+#     /en/<slug>              17   static pages (accessibility, contacts) — out
+# = 4,255 English article URLs. The English mirror is ~24% the size of the Estonian stream
+# (20,751), i.e. a selective translation, not a full one — which is why est_valitsus (the
+# original) is the primary source and this one is additive.
+#
+# Everything structural is identical to est_valitsus (same Drupal, same templates); see that
+# file for why the sitemap and not the listing, and for the /uudised legacy-archive note.
+source_id: est_valitsus_english
+country: Estonia
+source_language: English
+start_urls:
+  - https://valitsus.ee/en/news
+renderer: static
+
+listing:
+  link_pattern: 'valitsus\.ee/en/(?:news|uudised|novosti)/'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://valitsus.ee/sitemap.xml
+
+title:
+  selectors: ["h1.card-title", "h1", "title"]
+text:
+  selectors: ["div.node__content", "article.node", "section.region-content"]
+date:
+  selectors: ["p.vp-date", ".vp-date", "time"]
+  regex: '\d{2}\.\d{2}\.\d{4}'
+
+position: prime minister
+# date_languages IS ["et"] AND THAT IS NOT A TYPO — do not "correct" it to ["en"] because the
+# page is English. The CMS renders the SAME bare numeric DD.MM.YYYY on every language tree
+# ("21.03.2020 | 19:21"), and dateparser resolves ambiguous numeric dates by locale with the
+# first match winning: ["en"] would read 01.07.2020 as 7 January. Every date with day <= 12
+# would corrupt silently while the probe still showed a green tick.
+date_languages: ["et"]
+notes: >
+  Estonia, head of GOVERNMENT — English mirror of est_valitsus. Probe-validated 2026-08-15,
+  no full run. Sitemap pagination over the same /sitemap.xml (32,413 URLs); 4,255 matched.
+  Confirmed genuinely English by reading rendered titles, not inferred from the /en/ prefix.
+  Additive to est_valitsus (the Estonian original, 20,751 URLs) — the two overlap in CONTENT
+  but not in URL, and there is no cross-recipe dedupe in the engine, so expect one row per
+  language for the translated subset. Kept anyway because English rows skip the translation
+  stage entirely.

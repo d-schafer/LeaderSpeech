@@ -9,15 +9,50 @@
 # Both index pages list the term's items. The DATE IS IN THE URL, so a url_regex assembles an
 # unambiguous ISO date and we sidestep the Reiwa-era (令和) date printing on the page entirely.
 #
-# COVERAGE: this recipe is the INCUMBENT cabinet (105) only — its term to date. Predecessor
-# cabinets live at stable /jp/104/, /jp/103/ … trees and /jp/archive/; those are a follow-up
-# (each is one more start_url of the same shape), not attempted here.
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9): ~63 -> 392 distinct items. Two things were
+# missing, and the header above called the first of them a "follow-up":
+#   1. PREDECESSOR CABINETS ARE STILL ON THE LIVE SITE. /jp/103/ and /jp/104/ both serve
+#      statement + discourse today; the recipe took only the incumbent 105. Probed 98..105:
+#      103, 104 and 105 are live, 102 and older are gone (they moved to WARP — see below).
+#   2. THE SECTION INDEX IS NOT THE ARCHIVE. Each section also has YEAR indexes, and they hold
+#      several times more than the section index a visitor lands on:
+#         /jp/103/statement/index.html       17   vs  2024: 16 + 2025: 128
+#         /jp/105/statement/index.html       20   vs  2026: 47
+#      Measured per cabinet/section (distinct item URLs, all 11 index pages combined):
+#         103 statement 144  discourse 102
+#         104 statement  28  discourse  28
+#         105 statement  47  discourse  43     TOTAL 392
+# `actions` was probed on every cabinet and yields 0 items — there is no third section.
+#
+# ⚠ BANKED, NOT BUILT — 20 YEARS OF PRIOR CABINETS LIVE IN **WARP**, NOT THE INTERNET ARCHIVE.
+# kantei.go.jp's own /jp/archive/index.html links a frozen homepage for every cabinet back to
+# Koizumi's 2nd, all hosted by the NATIONAL DIET LIBRARY at warp.ndl.go.jp/info:ndljp/pid/<id>/
+# www.kantei.go.jp/ — Ishiba (13782148), Kishida 2nd (13751682) and 1st (11887161), Suga
+# (11842657), Abe 4th (11547454) 3rd (10992693) 2nd (8833367) 1st (244428), Noda (4410784),
+# Kan (2629568), Hatoyama (1042913), Aso (286775), Fukuda (261202), Koizumi 3rd (233374) and
+# 2nd (234460). This is the "archive subdomain beats Wayback" pattern from CLAUDE.md, and it is
+# a national library's own preservation copy — better provenance and no IA rate limit. It is
+# NOT attempted here because each cabinet is a different site generation with its own URL
+# scheme and selectors, i.e. a recipe each: a project, not a widening. Japan currently holds
+# ~50 rows against this.
 source_id: jpn_kantei
 country: Japan
 source_language: Japanese
 start_urls:
+  # cabinet 105 (incumbent)
   - https://www.kantei.go.jp/jp/105/statement/index.html
+  - https://www.kantei.go.jp/jp/105/statement/2026/index.html
   - https://www.kantei.go.jp/jp/105/discourse/index.html
+  # cabinet 104
+  - https://www.kantei.go.jp/jp/104/statement/index.html
+  - https://www.kantei.go.jp/jp/104/statement/2025/index.html
+  - https://www.kantei.go.jp/jp/104/statement/2026/index.html
+  - https://www.kantei.go.jp/jp/104/discourse/index.html
+  # cabinet 103
+  - https://www.kantei.go.jp/jp/103/statement/index.html
+  - https://www.kantei.go.jp/jp/103/statement/2024/index.html
+  - https://www.kantei.go.jp/jp/103/statement/2025/index.html
+  - https://www.kantei.go.jp/jp/103/discourse/index.html
 renderer: static
 
 listing:
@@ -26,7 +61,7 @@ listing:
   #   /discourse/20260716message.html  (flat, filename = 8-digit YYYYMMDD + suffix)
   # so the numeric part is \d{4,8}. (An earlier \d{6,8} silently dropped every press
   # conference — the substantive speeches — because their filename is only 4 digits.)
-  link_pattern: '/jp/105/(?:statement|discourse)/(?:\d{4}/)?\d{4,8}[a-z_]*\.html$'
+  link_pattern: '/jp/(?:103|104|105)/(?:statement|discourse)/(?:\d{4}/)?\d{4,8}[a-z_]*\.html$'
 
 pagination:
   type: none

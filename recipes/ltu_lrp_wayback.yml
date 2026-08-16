@@ -1,3 +1,21 @@
+# ⚠⚠ MEASURED 2026-08-15 (chunk A9): THIS RECIPE IS A 100% MIRROR OF `ltu_lrp_english_wayback`.
+# DO NOT QUEUE IT AS-IS — every row it produces is a duplicate.
+# Both recipes are source_language: English and both claim lrp.lt's /en/ tree. Grouped offline
+# against one CDX enumeration of lrp.lt/en (29,699 collapsed captures):
+#     this recipe's link_pattern matches         : 1,016
+#     ltu_lrp_english_wayback's matches          : 1,459
+#     matched by BOTH                            : 1,016   <- ALL of this recipe's, i.e. 100%
+# The sibling's `/en/media-center/news/[a-z]` alternative is a strict superset of this recipe's
+# `/en/media-center/news/<slug>/<id>$`. The comment below calls this "the native ltu_lrp_wayback",
+# but it is not native — its start_url prefix is lrp.lt/EN and its language field says English.
+# Lithuania therefore has TWO English archive recipes and NO Lithuanian one at all, even though
+# lrp.lt is natively Lithuanian.
+#
+# RECOMMENDED (researcher's call, NOT done here because it changes an existing scraped source):
+# REPURPOSE this file into the Lithuanian-language recipe — swap the prefix to lrp.lt/lt, set
+# source_language: Lithuanian, and keep the selectors, which are the same template. That converts
+# a pure duplicate into the missing native-language source. Deleting it outright is the other
+# option. Left untouched and OUT of the A9 queue meanwhile.
 source_id: ltu_lrp_wayback
 country: Lithuania
 source_language: English

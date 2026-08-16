@@ -7,16 +7,35 @@
 # block-pager (다음/next jumps 5 pages at a time — unsafe for click harvesting).
 # This board holds only the *sitting* president's speeches (Lee Jae-myung, from
 # 2025-06); prior administrations are moved to separate archive sites.
+#
+# ⚠ BANKED, NOT BUILT — AN ENGLISH SITE EXISTS: https://en.president.go.kr/eng/index.do, linked
+# from this site's own language switcher ("ENG"). It is a DIFFERENT HOST, so it needs its own
+# recipe rather than a start_url here, and it would be immediately queueable under the
+# English-first policy (this recipe is Korean and therefore deferred). Worth doing early in A10:
+# Korea's only other English source, kor_president_moon, is a frozen archive that stops in 2022.
 source_id: kor_president
 country: Korea, Republic of
 source_language: Korean
 start_urls:
   - https://www.president.go.kr/speeches
+  - https://www.president.go.kr/briefings
 renderer: js
 
 listing:
-  link_selector: "a[href*='/speeches/']"
-  link_pattern: '/speeches/[A-Za-z0-9]+$'
+  # link_selector REMOVED 2026-08-15: "a[href*='/speeches/']" hard-coded the board and
+  # silently filtered every /briefings/ link out BEFORE link_pattern ran — the widened
+  # pattern alone harvested 0 briefings until this went. Same bug shape as nzl_gg and
+  # kor_president_moon in this chunk: a link_selector naming one section defeats the
+  # pattern that was widened to escape it.
+  # WIDENED 2026-08-15 (RULE 1 sweep, chunk A9b). The recipe took the board literally called
+  # 연설문 ("speeches") and left 브리핑 ("briefings") — the presidential spokesperson's briefings
+  # and statements — untouched, though it is the SAME board engine and the SAME URL shape
+  # (/briefings/<8-char id> beside /speeches/<8-char id>), so only the start_url excluded it.
+  # Other nav entries were checked and are out or not article streams: /photos/*, /videos,
+  # /card-news, /digital-goods (RULE 1), /schedule (a calendar), /resources, /policy-stories.
+  # Host-anchored so a share/preview widget carrying an article URL in its query string
+  # cannot match (the trap nzl_gg hit this same session).
+  link_pattern: '^https?://(?:www\.)?president\.go\.kr/(?:speeches|briefings)/[A-Za-z0-9]+$'
 
 pagination:
   type: query_param

@@ -46,12 +46,44 @@ source_language: English
 renderer: js
 start_urls:
   - https://gg.govt.nz/publications/speeches
+  # The publications ARCHIVE is faceted by content type. Its own <select name="type"> lists six,
+  # and the recipe took only "Speech" (which /publications/speeches already serves). The bare
+  # /publications/archive lists NOTHING — the type parameter is what makes it emit items.
+  - https://gg.govt.nz/publications/archive?type=2787   # Message
+  - https://gg.govt.nz/publications/archive?type=235    # Media statement
+  - https://gg.govt.nz/publications/archive?type=408    # Feature
+  - https://gg.govt.nz/publications/archive?type=412    # Constitutional
+  - https://gg.govt.nz/publications/archive?type=206    # Education
+  # The Governor-General's BLOG — a separate namespace no pattern reached. Pager runs to page 39.
+  - https://gg.govt.nz/governor-general/blog
+
+# WIDENED 2026-08-15 (RULE 1 sweep, chunk A9b). Its RENDERER, SIZE and COST-DEFERRAL were settled
+# on 2026-08-12 and are NOT re-derived here — only breadth was owed.
+# Two whole content sets were unreachable, and the second was excluded by the pattern itself:
+#   1. FIVE of the six publication types. Read off the archive page's own type facet:
+#      2787 Message, 205 Speech (taken), 206 Education, 412 Constitutional, 408 Feature,
+#      235 Media statement. Items of EVERY type live at /publications/<slug>, so the existing
+#      pattern already accepted them — only the single start_url kept them out (the
+#      usa_whitehouse_obama shape). The archive is year-faceted too (2008..2026) if depth is ever
+#      needed beyond the type pager.
+#   2. THE BLOG, /governor-general/blog/<YYYY>/<MM>/<slug>, pager to page 39. A different
+#      namespace, so the /publications/ pattern could never have matched it.
+# The pattern's `(?!speeches|archive)` lookahead is still right and still needed: it keeps the
+# LISTING pages out while admitting the articles.
+# ⚠ COST IS UNCHANGED IN KIND AND UP IN VOLUME: gg.govt.nz serves a Cloudflare interstitial on
+# EVERY navigation (~38 s/page, ~94 pages/h measured), so this stays a deferred, budget-it-alone
+# run. Verified with a max_pages-bounded probe rather than a full harvest for that reason.
 
 listing:
-  link_selector: "a[href*='/publications/']"
+  # link_selector dropped — it scoped the harvest to /publications/ and so could
+  # never have seen the blog.
   # Individual speeches are /publications/<slug>; drop the /publications/speeches and
   # /publications/archive listing/nav links.
-  link_pattern: '/publications/(?!speeches|archive)[a-z]'
+  # ⚠ HOST-ANCHORED ON PURPOSE. Dropping link_selector exposed the share widgets: every
+  # article carries linkedin.com/sharing/share-offsite/?url=<the article> and a
+  # mailto:?body=<the article>, and an unanchored pattern matches the article URL sitting
+  # INSIDE those query strings. A bounded probe harvested both before this anchor was added.
+  link_pattern: '^https?://(?:www\.)?gg\.govt\.nz/(?:publications/(?!speeches|archive)[a-z]|governor-general/blog/\d{4}/\d{2}/[a-z0-9-]+$)'
 
 pagination:
   type: query_param

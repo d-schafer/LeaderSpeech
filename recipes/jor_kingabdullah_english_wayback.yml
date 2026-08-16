@@ -4,6 +4,43 @@
 #
 # Speeches + interviews: /en/speeches/<slug>, /en/interviews/<slug>. CDX for kingabdullah.jo/en ≈
 # 3,600 statuscode:200 captures spanning 2017–2026 (all within King Abdullah II's reign, since 1999).
+#
+# ✅ RESOLVED THE SAME DAY — WIDENED after the engine gained identity dedupe (2026-08-15).
+# The measurement below stands, but its CONCLUSION was overtaken: `run.select_unscraped()` now
+# filters the harvest through page_identity against the state file, so the 1,839 identities the
+# LIVE recipe already holds are SKIPPED rather than re-fetched and re-written. That turns this
+# recipe from "2,250 Archive fetches (~5.4 h) for ~150 documents, plus 1,839 duplicate rows" into
+# "~330 fetches (~0.8 h), no duplicates". So it is widened to the same six sections as the live
+# recipe and queued AFTER it — ⚠ THE ORDERING IS NOW LOAD-BEARING FOR COST: run this before
+# jor_kingabdullah and the dedupe has nothing to compare against.
+#
+# ⚠ MEASURED 2026-08-15 (chunk A9) — the numbers that drove the decision.
+# The header line above ("No live recipe yet") is stale: `jor_kingabdullah` exists and was widened
+# the same day from 355 to 10,400 links, reaching back to 1999 (letters) and 2004 (news). That
+# changes what this recipe is worth, so breadth was MEASURED before touching it:
+#     archive identities matching a 6-section widened pattern : 2,172
+#     already served by the widened LIVE recipe               : 1,839  (85%)
+#     archive-only                                            :   333
+#        of which truncated crawl artifacts (`/interviews/inter`,
+#        `/letters/bisher-`, slugs that are a strict prefix of a live slug) : 105
+#        GENUINE archive-only                                 :   228, and shrinking further —
+#        many are percent-encoding variants (%E2%80%99, %C3%A9) that page_identity's unquote()
+#        collapses onto a live identity, and 4 are the OLD /en/letters category hubs, not articles.
+# So widening this recipe to 6 sections would cost ~2,250 Archive fetches (~5.4 h at the measured
+# ~417/h) to gain on the order of 150 documents, while re-fetching ~1,839 the live recipe already
+# holds. CROSS-RECIPE DEDUPE DOES NOT SAVE YOU: run.py keeps `seen` as an EXACT URL-STRING set
+# (state["seen_urls"]), and in wayback mode tests `entry["original"]` against it — archived
+# originals appear as `http://`, `:80` and `www.` forms, which are not byte-identical to the live
+# recipe's `https://kingabdullah.jo/...`, so those would be written a second time.
+# (Superseded by the identity-dedupe note at the top — kept because it is the evidence.)
+#
+# TWO TEMPLATE GENERATIONS exist here, which matters if it IS widened later:
+#   OLD (2017–~2023, the bulk): <title> separator is " | ", no <h5>, and NONE of the live
+#       .press-room-* / .DiscussionPapers-inner-content containers are present.
+#   NEW (~2024–2026): the live template — " - " separator, .press-room-inner-flex, and a bare
+#       <h5> carrying the date.
+# The "no reliable machine-readable date" claim below was RE-TESTED (a header claim is a
+# hypothesis) and holds ONLY for the OLD generation; the NEW captures do carry the h5 date.
 source_id: jor_kingabdullah_english_wayback
 country: Jordan
 source_language: English
@@ -16,7 +53,7 @@ listing:
   # the King's own words: speeches + interviews (excludes /en/news third-person items). The negative
   # lookahead drops archived asset paths that the mimetype filter let through
   # (/en/speeches/misc/…jquery.js, /en/speeches/sites/all/modules/…css).
-  link_pattern: '/en/(speeches|interviews)/(?!misc/|sites/|all/)[a-z]'
+  link_pattern: '/en/(speeches|interviews|news|letters|throne-speeches|op-eds)/(?!misc/|sites/|all/)[a-z]'
 
 pagination:
   type: wayback

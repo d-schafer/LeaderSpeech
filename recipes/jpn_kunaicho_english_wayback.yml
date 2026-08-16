@@ -48,7 +48,19 @@ listing:
   # <section>/<name>-<era><year>[<suffix>].html, era token required (article vs index),
   # (?!photo-) drops the photo pages, and the explicit (?<!-mov)(?<!-ph) tail plus the
   # .html anchor drop the video/photo siblings and the /img/ JPEG assets.
-  link_pattern: '/e-okotoba/01/(?:address|press|gokanso|waka)/(?!photo-)[a-z]+-[hr]\d+[a-z0-9-]*(?<!-mov)(?<!-ph)\.html$'
+  # WIDENED 2026-08-15 (RULE 1 sweep, chunk A9b): 135 -> ~220 matched captures. Two limits,
+  # both measured against one CDX enumeration of kunaicho.go.jp/e-okotoba (323 captures):
+  #   * THE TREE WAS PINNED TO /01/. The host also serves /02/ (43 press + 30 address = 73) and
+  #     /03/ (9 press) — the other members of the Imperial Family. Taken per RULE 1's
+  #     err-toward-including rule; the cleaner's speaker/leader gate is what decides whether a
+  #     non-head-of-state speaker is kept, and a section left out is invisible and permanent.
+  #   * THE FILENAME RULE REQUIRED A JAPANESE ERA-YEAR. `[a-z]+-[hr]\d+` matches h23-/r05- style
+  #     names but refused /01/address/keynotespeech-2007e.html — a real keynote address named
+  #     with a GREGORIAN year. Now both forms are accepted.
+  # The (?!photo-) lookahead and the (?<!-mov)(?<!-ph) lookbehinds are unchanged and still
+  # earning their keep: -mov and -ph are the video and photo variants of the same okotoba
+  # (h23-0101-mov.html / h23-0101-ph.html), and they are the bulk of the refused .html.
+  link_pattern: '/e-okotoba/0[123]/(?:address|press|gokanso|waka)/(?!photo-)[a-z]+-(?:[hr]\d+|\d{4})[a-z0-9-]*(?<!-mov)(?<!-ph)\.html$'
 
 pagination:
   type: wayback
