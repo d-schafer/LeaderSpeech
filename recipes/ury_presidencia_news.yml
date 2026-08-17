@@ -1,0 +1,73 @@
+# Uruguay — Presidencia de la República, the NEWS WIRE half. Spanish. LOW PRIORITY.
+# Sibling of ury_presidencia (HIGH, /comunicacion/publicaciones). Read that file's header for the
+# site facts: presidencia.gub.uy redirects to www.gub.uy/presidencia, plain static Drupal, no WAF,
+# and the "Discursos del Presidente" nav link is a faceted view rather than a section.
+#
+# ⚖ WHY THIS IS A SEPARATE, LOWER-PRIORITY FILE — and why it is not simply deleted.
+# The parent harvest was 48,160 links. A spread sample of 8 fetched pages found the leader
+# referenced in the first 600 chars in only 3, and two of the eight bodies were near-empty stubs
+# (315 and 358 chars). The reason is structural: gub.uy is the WHOLE-OF-GOVERNMENT platform and
+# this view aggregates ministries, OPP and Sinae alongside the President — "MGAP reforzará control
+# de tiempos de espera de medicamentos veterinarios" sits next to "Presidente Orsi inauguró…".
+# Against Uruguay's 1-row audit gap that is coverage breadth, not gap closure.
+# RULE 1 still says the section must be COLLECTED, not excluded — a section left out is invisible
+# and permanent, and the cleaner's document_type gate is what removes non-speech material. So it
+# lives here, in its own file, and the researcher can place it in queues/sweep/lowpriority/
+# without blocking the 11,897-link HIGH half that shares the country.
+#
+# PARTITION VERIFIED OFFLINE against the parent's saved probe snapshot (no network needed):
+#     HIGH  /comunicacion/publicaciones   11,897
+#     LOW   /comunicacion/noticias        36,263   <- THIS FILE
+#     BOTH                                     0
+#     NEITHER                                  0
+# 11,897 + 36,263 = 48,160 exactly, so nothing is double-fetched and nothing is orphaned. That is
+# cleaner than the Turkmenistan/Laos splits, where the article URL carries no section token.
+source_id: ury_presidencia_news
+country: Uruguay
+source_language: Spanish
+start_urls:
+  - https://www.gub.uy/presidencia/comunicacion/noticias
+renderer: static
+
+listing:
+  link_pattern: 'gub\.uy/presidencia/comunicacion/noticias/[a-z0-9\-]+'
+
+pagination:
+  # Drupal query pager. Verified live: ?page=3 returns a different, older set than page 1 —
+  # worth checking explicitly, because Viet Nam's ?page=N re-serves page 1 with HTTP 200.
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+
+title:
+  # ⛔ NEVER `h1`. The page's only h1 is <h1 class="Logo-title">Presidencia Uruguay</h1> — the site
+  # banner. An h1-bearing chain probed "8/8 green" while writing that string as every title.
+  # This file's section (/comunicacion/noticias) uses <h2 class="Page-Title">, so the FIRST
+  # selector is the one that fires here; the second exists because the sibling recipe's section
+  # (/comunicacion/publicaciones) renders the headline as a CLASSLESS h2 inside .Page-document.
+  # Two templates on one platform — keep both entries so the pair stays interchangeable.
+  selectors: ["h2.Page-Title", ".Page-document h2"]
+text:
+  selectors: [".Page-document .Page-body", ".field--name-body", "div.Page-document", "main.u-main"]
+date:
+  # <div class="Page-date">16/08/2026</div> — DD/MM/YYYY, which parses correctly only because
+  # date_languages is ["es"]; an ["en"] setting would read 12/08/2026 as 8 December.
+  selectors: [".Page-date"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+
+position: president
+# speaker_default omitted: this stream is explicitly the whole executive, not one speaker.
+date_languages: ["es"]
+notes: >
+  LOW-PRIORITY half of the Uruguay split (2026-08-17). 36,263 links,
+  /presidencia/comunicacion/noticias only; the HIGH half is ury_presidencia
+  (/comunicacion/publicaciones, 11,897 links, where discursos live as a publication type).
+  Split on measured value per fetch: 8 spread fetches from the combined 48,160-link harvest were
+  all HTTP 200 and dated 2010-03-09 .. 2026-08-16, so the volume is real, but only 3 of 8
+  mentioned the leader in the first 600 chars and 2 were near-empty stubs — this view aggregates
+  ministries, OPP and Sinae because gub.uy is the whole-of-government platform. Partition verified
+  offline against the parent's probe snapshot: 11,897 + 36,263 = 48,160, 0 in both, 0 in neither.
+  Kept rather than deleted per RULE 1. Belongs in queues/sweep/lowpriority/ so it does not block
+  the HIGH half, which shares the country. Selectors are the parent's, including the h1 trap
+  (the only h1 is the site banner) — see ury_presidencia.

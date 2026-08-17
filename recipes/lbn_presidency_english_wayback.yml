@@ -1,0 +1,73 @@
+# Lebanon — Presidency of the Republic, ENGLISH edition. WAYBACK FALLBACK.
+# Sibling of lbn_presidency_wayback (Arabic); see that file's header for the full CDX breakdown
+# of presidency.gov.lb and for why the live site is unreachable.
+#
+# WHY A SEPARATE FILE. `source_language` is a single column, and mixing 330 English documents
+# into a 2,000-document Arabic recipe would mislabel every row's language and send the whole set
+# through a translation pass it does not need. This follows the established sibling convention
+# in this repo (som_villasomalia / som_villasomalia_english, fin_presidentti /
+# fin_presidentti_english).
+#
+# The English stream is the SharePoint generation only — presidency.gov.lb's current WordPress
+# site publishes at /posts/ with no English mirror, so there is nothing here after ~2022.
+#     330  /English/News/Pages/Details.aspx?nid=N
+#      ~x  /english/Pages/NewsDetails.aspx?NewsRef=…   (the older generation, same idea)
+# 330 English documents against 1,766 Arabic is the usual ratio for a Levantine presidency site:
+# the English edition is a selective translation, not a mirror. Take both — this file is cheap
+# and its rows need no translation stage.
+source_id: lbn_presidency_english_wayback
+country: Lebanon
+source_language: English
+start_urls:
+  # ⛔ TRUNCATED ON PURPOSE — the missing "x" of ".aspx" is NOT a typo. These pages are
+  # QUERY-ADDRESSED (…/Details.aspx?nid=N), so the article's PATH equals the listing's, and
+  # wayback.filter_entries_for_recipe discards any capture whose path matches a start_urls path.
+  # With the full ".aspx" the harvest silently collapses to near zero. See the Arabic sibling.
+  - presidency.gov.lb/English/News/Pages/Details.asp
+  - presidency.gov.lb/english/Pages/NewsDetails.asp
+renderer: static
+
+listing:
+  link_pattern: '(?i)/english/(news/)?pages/(news)?details\.aspx\?(nid=\d+|newsref=)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_match_type: prefix
+  wayback_noise_params: ["vidCat"]
+
+title:
+  # Same SharePoint template as the Arabic sibling: no heading element for the article, so the
+  # <title> tag is the only per-item carrier and its raw text puts the headline on its own line
+  # ahead of the site name. First line of >=8 non-newline chars = the headline.
+  selectors: ["title"]
+  regex: '[^\r\n]{8,}'
+  regex_required: true
+text:
+  # div.contentpage#contentpageforprint = the article body (~9k chars vs ~11.5k for the page).
+  # ⚠ Never `td`/`table` here — they join to the whole document on this nested-table template.
+  selectors: ["div.contentpage", "#contentpageforprint"]
+date:
+  # ⛔ NOT `.date` — on this template `.date` is the MASTHEAD CLOCK showing the capture day, which
+  # produced three articles all dated to today's month/day on the Arabic sibling's first probe.
+  # The article's own date is a DD/MM/YYYY string at the top of the body.
+  selectors: ["div.contentpage", "#contentpageforprint"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+  regex_required: true
+
+position: president
+# No speaker_default: the English era spans Michel Suleiman (2008-2014), the 2014-2016 vacancy
+# and Michel Aoun (2016-2022). Tenure crosscheck assigns from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated 2026-08-17, no full run. 337 snapshots of
+  /English/News/Pages/Details.aspx?nid= (the CDX index had said 330). Sampled pages return title,
+  text and date correctly — "President Sleiman convened with Saudi Arabian Foreign Minister"
+  (2014-03-25, 493 chars) and "Presidency Information Office clarifies the fallacies of the
+  'Emir of the Captagon' case" (2020-10-18) — on the same SharePoint template the Arabic sibling
+  scores 8/8 on. One sampled page hit a transient Internet-Archive HTTP 503, which is the
+  Archive's health on the day and not a recipe fault; a full run's --retry-failed handles that
+  class of miss. English sibling of lbn_presidency_wayback
+  (Arabic, ~2,000 docs); together they replace a recipe that reached 43 documents. Covers the
+  SharePoint era only — the current WordPress site has no English edition. English source, so
+  the translation stage is a no-op.

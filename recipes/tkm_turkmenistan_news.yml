@@ -1,0 +1,82 @@
+# Turkmenistan — turkmenistan.gov.tm ("Altyn Asyr"), ENGLISH edition, GENERAL-NEWS half.
+# LOW PRIORITY. Sibling of tkm_turkmenistan (HIGH: spotlight, official, cooperation).
+#
+# Read the parent's header for the site facts that apply to both files: three parallel editions
+# over one article-id space, the section vocabulary differs per edition (/en/bolum/resmi 404s —
+# the English path is /en/category/official, and a wrong path still renders the full nav so it
+# fails by looking merely thin), the /en/category/<section>/<N> bare-number path pager verified
+# live to page 40, and the two silent-error traps (a bare `h1` joins the sidebar heading
+# "Category's latest posts" onto every title; date_languages must be a day-first locale because
+# DD.MM.YYYY under ["en"] reads 12.08.2026 as 8 December).
+#
+# ⚖ WHY THIS IS A SEPARATE, LOWER-PRIORITY FILE — and why the sections are not simply dropped.
+# The combined nine-section harvest is 30,816 links. A spread sample of 8 fetched pages found the
+# leader referenced in the first 600 chars in only 4; the misses are exactly what this file holds
+# — "Hydrogeologists of Ahal provide the requirements of the region in drinking water",
+# "The Olympiad among medical schools was held in Ashgabat". Against Turkmenistan's 5-row audit
+# gap that is coverage breadth rather than gap closure.
+# RULE 1 forbids EXCLUDING a section: a section left out is invisible and permanent, and the
+# cleaner's document_type gate is what removes non-speech material — one cheap model call per
+# wrongly-harvested page. So these six sections stay collected, in their own file, and can be
+# parked in queues/sweep/lowpriority/ without blocking the HIGH half that shares the country.
+#
+# ⚠ OVERLAP WITH THE HIGH HALF IS REAL AND MEASURED. The article URL is /en/post/<id>/<slug> with
+# no section token, so this partition CANNOT be verified offline the way the Uruguay one was.
+# Fetching page 1 of each of the nine sections and intersecting post ids:
+#     HIGH union 33 | LOW union 67 | overlap 10 = 11.1% of the union
+# So running both halves double-fetches roughly a tenth of the source UNLESS the HIGH recipe runs
+# FIRST — run.select_unscraped only skips URLs whose identity is already in data/state/<Country>.json.
+# ⛔ QUEUE tkm_turkmenistan BEFORE THIS FILE.
+source_id: tkm_turkmenistan_news
+country: Turkmenistan
+source_language: English
+start_urls:
+  - https://turkmenistan.gov.tm/en/category/economy
+  - https://turkmenistan.gov.tm/en/category/people
+  - https://turkmenistan.gov.tm/en/category/culture
+  - https://turkmenistan.gov.tm/en/category/science
+  - https://turkmenistan.gov.tm/en/category/sport
+  - https://turkmenistan.gov.tm/en/category/comments
+renderer: static
+
+listing:
+  link_pattern: 'turkmenistan\.gov\.tm/en/post/\d+/'
+
+pagination:
+  # Bare-number path pager appended to the section URL: /en/category/economy/2 … /40 … .
+  # Page 0 is an alias of the unsuffixed URL, so start at 2 to avoid refetching the start_url.
+  type: path
+  start: 2
+  step: 1
+
+title:
+  # ⛔ NOT a bare `h1` — see the parent. Two h1s: post_title (the headline) and main_title
+  # ("Category's latest posts", the sidebar rail heading). The engine joins all matches.
+  selectors: ["h1.post_title"]
+text:
+  # Underscores, not hyphens: this theme uses post_title / post_text / post_date.
+  selectors: ["div.post_text", "div.post_content"]
+date:
+  # Scoped to the class: div.aside_news_date carries the sidebar rail's dates (i.e. today's) on
+  # every article, so an unscoped `.date`-style chain would pick those up.
+  selectors: ["time.post_date"]
+
+position: president
+date_languages: ["ru"]
+# "ru" on an English recipe is deliberate and is about NUMBER ORDER, not words — time.post_date
+# renders DD.MM.YYYY and parse_date("12.08.2026", ["en"]) returns 2026-12-08 while ["ru"] returns
+# 2026-08-12. Do NOT add "en": one month-first entry anywhere re-breaks the ordering. Full
+# measurement in tkm_turkmenistan.yml.
+notes: >
+  LOW-PRIORITY half of the Turkmenistan split (2026-08-17). Six general-news sections (economy,
+  people, culture, science, sport, comments); the HIGH half is tkm_turkmenistan (spotlight,
+  official, cooperation). Split on measured value per fetch: 8 spread fetches from the combined
+  30,816-link harvest were all HTTP 200 with real bodies 822-11,558 chars dated 2011-07-29 ..
+  2026-07-31, so the volume is genuine, but only 4 of 8 mentioned the leader in the first 600
+  chars and the misses were regional-infrastructure and school-olympiad items. Kept rather than
+  deleted per RULE 1. ⚠ These sections are overlapping TAXONOMIES over one /en/post/ namespace,
+  not a disjoint archive: page-1 id intersection gives 11.1% overlap with the HIGH half, and the
+  article URL has no section token so it cannot be partitioned offline. Queue
+  tkm_turkmenistan FIRST so run.select_unscraped collapses the overlap instead of re-fetching it.
+  Selectors and the ["ru"] date_languages choice are inherited from the parent — read its header
+  before editing either.

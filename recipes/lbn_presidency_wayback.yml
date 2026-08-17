@@ -1,51 +1,127 @@
-# Lebanon — Presidency of the Republic (presidency.gov.lb), President Joseph Aoun.
-# WAYBACK FALLBACK. The live site is behind Cloudflare's "managed challenge":
-#   - the listing page /media renders via renderer:js (Playwright clears the JS
-#     challenge and exposes ~1,100 /posts/ links over ~70 ?page=N pages), BUT
-#   - the individual /posts/ DETAIL pages hit a harder managed challenge that does
-#     NOT solve headless (still "Performing security verification" after 40s in a
-#     warmed context), and the listing carries links only (no full text, no JSON
-#     API). So the live speech BODIES are unreachable — see notes / the outbox.
-# The Internet Archive has captured the /posts/ detail pages (older, simpler
-# WordPress-style layout: .post-title/.post-content/.post-date) — but only ~43
-# unique posts, all from Sept 2025 onward. This recipe recovers that thin slice.
+# Lebanon — Presidency of the Republic (presidency.gov.lb). ARABIC. WAYBACK FALLBACK.
+#
+# ⛔ WIDENED 2026-08-16 (CLAUDE.md RULE 1). This file used to harvest ONE prefix,
+# presidency.gov.lb/posts, and returned ~43 documents, all from September 2025 onward. That was
+# the current WordPress site only. A domain-wide CDX (6,665 captures, statuscode:200 +
+# text/html, 1999-09-18 .. 2026-08-07) shows the presidency ran a SharePoint site for roughly
+# fifteen years before that, and it is fully archived:
+#
+#     1,766  /Arabic/News/Pages/Details.aspx?nid=N          Arabic news     <- ADDED
+#       330  /English/News/Pages/Details.aspx?nid=N         English news    -> lbn_presidency_english_wayback
+#       166  /arabic/Pages/NewsDetails.aspx?NewsRef=…&vidCat=…   older Arabic generation  <- ADDED
+#        76  /<lang>/Pages/NewsDetails.aspx?NewsRef=…       same, no vidCat <- ADDED
+#        61  /french/…/NewsDetails.aspx?NewsRef=…           French news     -> not taken, see below
+#        60  /Arabic/FirstLady/Pages/Details.aspx?nid=N     First Lady      <- ADDED
+#        43  /posts/<slug>                                  WordPress 2025+ <- what this file had
+#
+# So the Arabic harvest goes from ~43 to roughly 2,000, and the recipe now reaches Michel Aoun
+# (2016-2022) and Michel Suleiman (2008-2014) instead of Joseph Aoun's first year alone. The
+# by-year histogram is the tell that this was worth checking: 2011 has 781 captures and 2004 has
+# 771, against 267 for 2025.
+#
+# NOT TAKEN, each on the RULE 1 out-list rather than on a guess:
+#   /m/arabic/pages/newsdetails.aspx?nid=N   (112) — the MOBILE mirror. Same `nid` space as
+#       /Arabic/News/Pages/Details.aspx, i.e. the same document at a second path. The engine's
+#       identity dedupe will NOT collapse it (the paths differ), so including it would produce
+#       duplicate rows. This is the "print-view duplicate of a page already taken" case.
+#   /Arabic/Pages/Videos.aspx?nid=N          (146) — video pages.
+#   /president/album/<year>/<month>/*.htm    (~800 across 12 monthly shapes) — photo albums.
+#   /president/*/frametop.htm, framedown.htm (148) — frameset chrome, no content.
+#
+# FRENCH (61 captures) is left out of THIS file only because `source_language` is a single
+# column and the Arabic stream is 30x larger; it is a candidate third sibling, not a rejection.
+#
+# THE LIVE SITE REMAINS BLOCKED. Cloudflare managed challenge: the /media listing renders under
+# renderer: js (~1,100 /posts/ links over ?page=N) but the /posts/ DETAIL pages never clear the
+# challenge ("Performing security verification" after 40s in a warmed context) and there is no
+# JSON API. So the live bodies are unreachable and this archive recipe is the only route.
 source_id: lbn_presidency_wayback
 country: Lebanon
 source_language: Arabic
 start_urls:
+  # WordPress era (2025+) — what this recipe originally covered, unchanged. Articles are
+  # /posts/<slug>, a DIFFERENT path from /posts, so this one needs no truncation.
   - presidency.gov.lb/posts
+  # SharePoint era, prefix-matched so the ?nid= / ?NewsRef= queries are included.
+  # ⛔ TRUNCATED ON PURPOSE — the missing "x" of ".aspx" is NOT a typo. These pages are
+  # QUERY-ADDRESSED (…/Details.aspx?nid=25651), so the article's PATH is identical to the
+  # listing's, and wayback.filter_entries_for_recipe drops any capture whose path equals a
+  # start_urls path — that is how it strips listing/index captures generically. With the full
+  # ".aspx" this recipe would have silently harvested ~nothing from the SharePoint era while the
+  # CDX index showed 1,766 + 242 + 60 captures. Diagnosed on the Italy sibling in the same
+  # session, where it cut a 6,039-capture harvest down to 8.
+  - presidency.gov.lb/Arabic/News/Pages/Details.asp
+  - presidency.gov.lb/Arabic/FirstLady/Pages/Details.asp
+  - presidency.gov.lb/arabic/Pages/NewsDetails.asp
 renderer: static
 
 listing:
-  link_selector: "a[href*='/posts/']"
-  # post slugs are long transliterated-Arabic strings; require a non-trivial slug
-  link_pattern: '/posts/[a-z0-9-]{20,}'
+  # Three URL generations in one alternation. The /posts/ branch is the ORIGINAL pattern,
+  # unchanged: long transliterated-Arabic slugs, so a >=20-char slug requirement excludes the
+  # section pages. The SharePoint branches require their numeric id.
+  link_pattern: '(?i)(/posts/[a-z0-9-]{20,}|/(arabic|english)/(news|firstlady)/pages/details\.aspx\?nid=\d+|/(arabic|english|french)/pages/newsdetails\.aspx\?newsref=)'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
   wayback_match_type: prefix
+  # `vidCat` is a category/breadcrumb parameter that rides along on some NewsDetails URLs
+  # (…?NewsRef=X&vidCat=1 and …?NewsRef=X are the same document). Denylisting it collapses the
+  # pair to one fetch instead of two rows. `NewsRef` and `nid` ADDRESS the document and are
+  # deliberately NOT listed — denylisting either would collapse the whole source to one row.
+  wayback_noise_params: ["vidCat"]
 
 title:
-  selectors: [".post-title", "h1.post-title", "h1", "title"]
+  # WordPress era first (verified on the original 43 /posts/ captures), SharePoint after.
+  # The SharePoint template has NO heading element for the article — the only per-item carrier is
+  # the <title> tag, whose raw text is "\r\n\t\t\t<the Arabic headline>\r\n \r\n\t\t\t" followed by
+  # the site name on a LATER line. So the regex takes the first line with >=8 non-newline
+  # characters, which is the headline and excludes the site suffix. Verified on two captures:
+  # "البيان الرسمي لجلسة مجلس الوزراء" and "الرئيس سليمان يؤكد ان الحكومة ولدت لبنانية مئة في المئة".
+  # (A `(?= - )` lookahead does NOT work — `.` will not cross the leading \r\n, so it returns None.)
+  selectors: [".post-title", "h1.post-title", "title"]
+  regex: '[^\r\n]{8,}'
+  regex_required: true
 text:
-  selectors: [".post-content", "article", ".content-wrapper", "main"]
+  # div.contentpage (= div.contentpage#contentpageforprint) is the SharePoint article body:
+  # 9,028 chars against 11,500 for the whole page, so it excludes the SharePoint chrome, ribbon
+  # and nav. ⚠ Do NOT add `td` or `table`: on this page `td` joins to 11,314 chars — the entire
+  # document — because the engine concatenates every matching element.
+  selectors: [".post-content", "div.contentpage", "#contentpageforprint"]
 date:
-  # Levantine Arabic dateline, e.g. "10 آب 2025" / "٩ أيلول ٢٠٢٥".
-  selectors: [".post-date", ".post-header .post-date"]
+  # ⛔ `.date` WAS HERE AND IT IS THE SITE HEADER CLOCK, NOT THE ARTICLE DATE. On the SharePoint
+  # template `.date` matches n=1 element reading "الخميس,14 تموز, 2011" — the day the page was
+  # CAPTURED, rendered in the masthead. The first probe after the widening returned
+  # parsed_date 2025-08-17, 2013-08-17 and 2017-08-17 for three different articles: all landing on
+  # TODAY's month and day, because a year-only or capture-date string lets dateparser fill the
+  # rest from now. That is the classic confidently-wrong date. Removed.
+  # The article's own date is a DD/MM/YYYY string at the top of the body ("15/06/2011"), so it is
+  # taken from div.contentpage by regex. date_languages ["ar"] makes it day-first
+  # (verified: parse_date("15/06/2011", ["ar"]) -> 2011-06-15).
+  selectors: [".post-date", ".post-header .post-date", "div.contentpage", "#contentpageforprint"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}|\d{1,2}\s+[^\s\d]{2,12}\s+\d{4}'
+  regex_required: true
 
 position: president
-speaker_default: Joseph Aoun
+# speaker_default REMOVED in the 2026-08-16 widening. It was "Joseph Aoun", which was correct
+# while the recipe only reached September 2025 onward; now that the harvest goes back to the
+# SharePoint era it would mislabel fifteen years of Michel Aoun and Michel Suleiman material.
+# The tenure crosscheck assigns from country+date — and note Lebanon had a presidential VACANCY
+# from Oct 2022 to Jan 2025, which the crosscheck handles and a hard-coded name would not.
 date_languages: ["ar"]
 notes: >
-  FALLBACK for a Cloudflare-blocked live site (see recipes header). The live
-  presidency.gov.lb listing (/media, ?page=N) is reachable with renderer:js, but
-  the /posts/ detail pages are hard-blocked by a managed challenge that does not
-  clear headless and there is no JSON API, so the live bodies cannot be scraped.
-  Wayback holds only ~43 /posts/ captures, all Sept 2025+, in an older layout
-  (.post-title/.post-content/.post-date). Dates are Levantine Arabic month names
-  (آب/أيلول/حزيران) with Western OR Arabic-Indic digits — dateparser ["ar"] may
-  miss some; check the parsed_date column. Lebanon had a presidential VACANCY
-  2022–2024; Joseph Aoun took office Jan 2025, so all content is 2025+. If the
-  live detail-page block is ever solved (a stealthier browser / CF-bypass), add a
-  separate live recipe — this file is the archive fallback only.
+  WIDENED 2026-08-16 per RULE 1 — was scoped to /posts (~43 documents, 2025+ only) and now also
+  takes the SharePoint generations: /Arabic/News/Pages/Details.aspx?nid= (1,766),
+  /arabic/Pages/NewsDetails.aspx?NewsRef= (242 incl. the vidCat variants) and
+  /Arabic/FirstLady/Pages/Details.aspx?nid= (60), i.e. roughly 2,000 Arabic documents reaching
+  Michel Aoun (2016-2022) and Michel Suleiman (2008-2014). Evidence: domain CDX, 6,665
+  captures, 1999-2026, with 781 in 2011 and 771 in 2004 against 267 in 2025.
+  ⚠ THE SHAREPOINT-ERA SELECTORS ARE UNVERIFIED — the Internet Archive's page service was
+  returning intermittent 503 "Temporarily Offline" when this widening was written, so only the
+  CDX index could be checked. The /posts/ chains are the previously validated ones and come
+  first, so the old behaviour is unchanged; re-probe before a full run and expect to tighten
+  the SharePoint selectors. speaker_default (Joseph Aoun) was REMOVED — it would now mislabel
+  fifteen years of his predecessors. Excluded as duplicates/galleries: the /m/arabic mobile
+  mirror (112, same nid space), Videos.aspx (146), /president/album/* (~800), frameset chrome
+  (148). English (330) is the sibling lbn_presidency_english_wayback; French (61) is a
+  candidate third sibling. Live site stays Cloudflare-blocked on detail pages.

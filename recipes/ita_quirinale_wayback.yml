@@ -1,0 +1,136 @@
+# Italy — the PRESIDENT (quirinale.it), classic-ASP era. WAYBACK FALLBACK.
+#
+# WHY WAYBACK. The live site is a recorded Cloudflare case-(b): a real headless Chromium clears
+# the FIRST navigation (page 1 of /ricerca/discorsi loads, ~12 items) but paginating fires a POST
+# /ricerca that re-triggers a challenge headless cannot solve, and a second article fetch returns
+# the "AVVISO / verification check" page. See the ita_quirinale outbox row. So the live crawl is
+# blocked and the archive is the only route.
+#
+# WHAT THIS FILE COVERS, AND WHAT IT DELIBERATELY DOES NOT. quirinale.it ran a classic-ASP site
+# with clean, id-addressed article URLs until it moved to an ASP.NET CMS around 2009. This recipe
+# takes ONLY that legacy era, because it is the part with per-item URLs. The 2009+ CMS addresses
+# everything as /elementi/<opaque id> — 40,000+ captures mixing discorsi, news, comunicati and
+# biographies with no date and no type in the URL — which would need a keep_if-on-page pass over
+# a very large crawl and is a separate decision. /it/discorso/<slug> (the current era) has only
+# ~10 captures.
+#
+# BREADTH (CLAUDE.md RULE 1) — measured, not guessed. CDX host query bounded 2000-2010,
+# statuscode:200 + mimetype:text/html = 22,963 captures in 1,455 shapes. The relevant ones:
+#     4,897  /Comunicati/Comunicato.asp?id=      press releases / communiqués   <- TAKEN
+#       924  /Discorsi/Discorso.asp?id=          SPEECHES                       <- TAKEN
+#       216  /Visite/Visita.asp?id=              state-visit notes              <- TAKEN
+# The section literally called speeches is **one fifth the size of the communiqué stream**.
+# Scoping this file to /Discorsi would have thrown away 5,113 of 6,037 available documents.
+#
+# NOT TAKEN, each on the RULE 1 out-list or on evidence:
+#     3,564  /Fotografie/Fotografia.asp?id=            photo gallery
+#     5,591  /onorificenze/DettaglioDecorato.asp?…     honours and decorations register
+#            (three URL variants incl. two &amp;-mangled ones) — explicitly out-list
+#     1,264  /elementi/…/MostraImmagineFoto.aspx       image viewer
+#       420  *.asp?qAnno=&qMese=  (discorsi/comunicati/visite/fotografie/diario monthly INDEXES)
+#            — these are listing pages, not documents; excluded by requiring `id=` in the pattern
+#       117  /presidente/video/videoquir/popvideo_*    video popups
+#       669  /attivita/*_mNsN.htm and /ex_presidenti/Ciampi/attivita/*  — "atti firmati" monthly
+#            roll-ups (signed acts by month/section), i.e. index pages over the legal register,
+#            not addressed speech. Flagged rather than taken; revisit if the register is wanted.
+source_id: ita_quirinale_wayback
+country: Italy
+source_language: Italian
+start_urls:
+  # ⛔ TRUNCATED ON PURPOSE — the ".as" is NOT a typo. This era is QUERY-ADDRESSED: the article is
+  # /Discorsi/Discorso.asp?id=16971, whose PATH is identical to the listing's. The engine's
+  # wayback.filter_entries_for_recipe drops any capture whose path equals a start_urls path (that
+  # is how it removes listing/index captures generically), so a start_url of
+  # "quirinale.it/Discorsi/Discorso.asp" made it discard all 926 Discorsi captures as indexes —
+  # the probe returned 8 snapshots against 6,039 in CDX. The 8 survivors were simply the captures
+  # the Archive happened to record with a lower-cased path, which is what made the failure look
+  # like a thin harvest rather than a bug.
+  # Cutting one character keeps CDX prefix-matching (it still reaches Discorso.asp?id=...) while
+  # making the start_url path differ from the article path. Documented idiom; see the Croatia
+  # precedent (predsjednik.hr/default reaching default.asp AND Default.aspx).
+  - quirinale.it/Discorsi/Discorso.as
+  - quirinale.it/Comunicati/Comunicato.as
+  - quirinale.it/Visite/Visita.as
+renderer: static
+
+listing:
+  # Require `id=` so the monthly index pages (?qAnno=&qMese=) are excluded. Case-insensitive on
+  # the filename because the archive holds both /Discorsi/Discorso.asp and lower-cased variants.
+  #
+  # ⛔ PATH-ONLY, AND THAT IS THE WHOLE POINT. The first version of this pattern began
+  # `quirinale\.it/(Discorsi…` and harvested **ZERO snapshots** while `cdx.py` on the same prefix
+  # reported 926 captures. Reason: the CDX index returns the PORT-BEARING form —
+  # `http://www.quirinale.it:80/Discorsi/Discorso.asp?id=16971` — so a pattern demanding `/`
+  # immediately after the host matches nothing, on roughly every pre-2010 capture. (Both forms
+  # occur: 2006+ captures drop the `:80`, which is why a small sample can look fine.) A wayback
+  # `link_pattern` should therefore anchor on the PATH, never on `host/`. The prefix query is
+  # per-host anyway, so dropping the host costs no precision.
+  link_pattern: '(?i)/(Discorsi/Discorso|Comunicati/Comunicato|Visite/Visita)\.asp\?id=\d+'
+
+pagination:
+  type: wayback
+  wayback_match_type: prefix
+  wayback_to: "20100101"     # the ASP era ends when the ASP.NET CMS takes over
+  wayback_delay: 5.0
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+# ---------------------------------------------------------------------------------------------
+# FIELD EXTRACTION ON A 2000s CLASSIC-ASP PAGE. There is essentially no CSS to grip: the whole
+# document is nested tables and the only classes present are `first` (x6, the nav strip),
+# `RIGATITOLIELEMENTI` (x1, the section word "DISCORSI") and `piccolo` (x1, "en français").
+# What the page DOES have is a labelled metadata block, which the engine reads — via
+# `el.get_text("\n")` — as:
+#       DISCORSI
+#       Data:
+#       24-05-2006
+#       Descrizione:
+#       Intervista del Presidente della Repubblica Giorgio Napolitano al settimanale ...
+# So title and date are pulled with fixed-width LOOKBEHINDS on the label plus the newline the
+# engine inserts. Both verified through the engine's own `first_match`, not by eyeballing HTML —
+# an earlier attempt used `(?<=Data: )` with a SPACE and returned None, because a space is only
+# what BeautifulSoup emits with get_text(" "), which is not what the engine does.
+title:
+  # ⛔ Do NOT fall back to `title` or to the generic extractor here. The <title> tag is the bare
+  # word "Discorso" / "Comunicato" on EVERY page in the era, so a `title` fallback would stamp one
+  # of two strings on all 6,000 rows — the same banner failure that hit four other recipes today.
+  # regex_required keeps the field EMPTY rather than returning the joined table when the label is
+  # missing.
+  selectors: ["table"]
+  regex: '(?<=Descrizione:\n)[^\n]{10,300}'
+  regex_required: true
+text:
+  # ⚠ THESE SELECTORS ARE EXPECTED TO MISS, AND THAT IS THE DESIGN. run.py calls
+  # extract_generic() (trafilatura) whenever the recipe's `text` comes back empty, which is the
+  # documented behaviour for archived layouts; the probe confirmed it recovers 810-2,594 chars on
+  # these pages. The alternative is worse: `table` joins to 8,583 chars and `td` to 8,359 on an
+  # 8,592-char page — i.e. the entire document including the nav strip — because the engine
+  # concatenates every matching element. Do NOT "fix" this by adding `table` or `td`.
+  selectors: [".testo", "#testo", "div.contenuto"]
+date:
+  # "Data:\n24-05-2006" -> DD-MM-YYYY. date_languages ["it"] makes that day-first
+  # (parse_date("24-05-2006", ["it"]) -> 2006-05-24); an ["en"] setting would be wrong for every
+  # day <= 12. regex_required so a page without the label yields nothing rather than a stray year.
+  # NOTE run.py deliberately does not let trafilatura fill dates on archived pages — it "routinely
+  # latches onto a template/footer year" — so this regex is the only date source.
+  selectors: ["table"]
+  regex: '(?<=Data:\n)\d{2}-\d{2}-\d{4}'
+  regex_required: true
+
+position: president
+# speaker_default omitted: the era spans Carlo Azeglio Ciampi (1999-2006) and Giorgio Napolitano
+# (2006-), and /Comunicati carries third-person Quirinale statements as well. Tenure crosscheck.
+date_languages: ["it"]
+notes: >
+  DRAFT — ⚠ LISTING-VALIDATED ONLY. The CDX index confirms the harvest (924 Discorso + 4,897
+  Comunicato + 216 Visita = 6,037 id-addressed captures, 2000-09-01 .. 2009-08-09), but the
+  Internet Archive's PAGE service was returning HTTP 503 "Temporarily Offline" when this was
+  written, so the title/text/date selectors could NOT be checked against a real capture. Re-probe
+  before any full run; expect the generic text extractor to carry most rows, since this is a
+  classic-ASP nested-table layout with few classes. WAYBACK FALLBACK for a Cloudflare case-(b)
+  live site (ita_quirinale): page 1 loads under headless Chromium, pagination re-challenges.
+  Scope is the classic-ASP era only — the 2009+ /elementi/<opaque id> CMS (40,000+ captures
+  mixing all content types, no date or type in the URL) needs a keep_if pass and is a separate
+  decision. RULE 1: the /Comunicati stream is 5x the size of /Discorsi; both are taken, along
+  with /Visite. Companion to ita_governo (head of GOVERNMENT); this is the head of STATE.

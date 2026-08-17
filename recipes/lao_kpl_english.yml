@@ -1,0 +1,131 @@
+# Laos — Khaosan Pathet Lao / Lao News Agency (kpl.gov.la), ENGLISH edition.
+# Laos' FIRST recipe of any kind: 32 corpus rows, zero scraped.
+#
+# ⚠ SOURCE-TYPE FLAG FOR THE RESEARCHER. This is the STATE NEWS AGENCY, not a leader's own
+# office — closer to `state_media` than `official_gov`. It is here because Laos appears to have
+# no reachable presidential or prime-ministerial website at all: the government portal
+# www.laogov.gov.la does not answer (ConnectTimeout, WinError 10060, no TCP), and there is no
+# separate presidency host in the backlog. KPL is government-owned and carries the leadership's
+# statements, congratulatory messages and condolence telegrams verbatim, so it is a defensible
+# primary-adjacent source — but the inclusion call is the researcher's, exactly as with the
+# American Presidency Project rows.
+#
+# THE PAGER IS REAL BUT INVISIBLE. The listing's own pager links are `javascript:void(0)`
+# (ASP.NET WebForms postback), so a "find the pager anchor" pass reports nothing usable. Tested
+# by hand: `&page=5` DOES work — News.aspx?cat=9&page=5 returns ids ~102,3xx against page 1's
+# ~105,7xx. `&p=5` is silently IGNORED and re-serves page 1, which is the trap: it returns 200
+# with plausible content, so a recipe using the wrong parameter name looks like a site with one
+# page rather than like an error.
+#
+# LANGUAGE IS ENCODED IN THE CATEGORY ID, NOT THE PATH. /EN/News.aspx?cat=1 renders LAO content
+# under an /EN/ path — the ids are per-edition, not shared. English categories are 9-13, 23, 31
+# and 34; the Lao ones are 1, 3, 4, 5, 18, 19, 20, 25, 27, 30 and 33. Checking the rendered
+# titles rather than the URL prefix is what separates them.
+#
+# BREADTH (CLAUDE.md RULE 1) — all eight English categories are COLLECTED, across two recipes:
+#     cat=9  Politics     cat=10 Economics   cat=11 Education   cat=12 Tourism
+#     cat=13 General      cat=23 Sports      cat=31 World News   cat=34 ASEAN
+# Excluded per the out-list: Image.aspx, Video.aspx (galleries), Newspaper.aspx (PDF editions),
+# and the Page/* static informational pages.
+#
+# ⚖ PRIORITY SPLIT (2026-08-17, researcher's call).
+#     lao_kpl_english       (HIGH) cat 9 Politics, 34 ASEAN, 13 General        <- THIS FILE
+#     lao_kpl_english_news  (LOW)  cat 10 Economics, 11 Education, 12 Tourism, 23 Sports,
+#                                  31 World News
+# Measured basis: the combined harvest is 17,970 links, and a spread sample of 8 fetched pages
+# found the leader referenced in the first 600 chars in only 3. Against a 32-row audit gap —
+# the largest in the Session D tail — the HIGH half is worth running properly and the LOW half is
+# worth keeping but not worth blocking on. NOTHING is excluded: RULE 1 is explicit that Sports and
+# World News are the "trivial but plausible" case to include (World News carries Lao leaders'
+# foreign-visit copy and ASEAN-summit statements), and the cleaner's document_type gate costs one
+# cheap model call per wrongly-harvested page against a category left out being invisible and
+# permanent. The LOW half simply lives in its own file so it can be parked in
+# queues/sweep/lowpriority/ without blocking the HIGH half that shares the country.
+#
+# ⚠ THE TWO HALVES OVERLAP — MEASURED. Article URLs are /En/detail.aspx?id=<N> with no category
+# token, so this partition cannot be verified offline the way the Uruguay one was. Fetching page 1
+# of each of the eight categories and intersecting the ids:
+#     HIGH union 36 ids | LOW union 60 ids | overlap 12 = 14.3% of the union
+#     and 23 duplicate ids WITHIN the HIGH half alone (59 raw -> 36 unique)
+# These are overlapping taxonomies over one wire, not disjoint archives. The parent's 17,970 is
+# already the deduped total (17,970 raw -> 17,970 unique ids), so the split re-prioritises rather
+# than discovers. Running both halves double-fetches ~14% unless the HIGH recipe runs FIRST, since
+# run.select_unscraped only skips identities already in the state file. ⛔ QUEUE HIGH BEFORE LOW.
+source_id: lao_kpl_english
+country: Lao People's Democratic Republic
+source_language: English
+start_urls:
+  # HIGH half only — Politics, ASEAN, General. The other five are in lao_kpl_english_news.yml.
+  - https://kpl.gov.la/En/News.aspx?cat=9
+  - https://kpl.gov.la/En/News.aspx?cat=34
+  - https://kpl.gov.la/En/News.aspx?cat=13
+renderer: static
+
+listing:
+  # Case-insensitive: both /EN/detail.aspx and /En/detail.aspx occur in the same page's markup.
+  link_pattern: '(?i)kpl\.gov\.la/en/detail\.aspx\?id=\d+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 2
+  step: 1
+
+title:
+  # ⛔ NOT a bare `h1`. The page carries TWO h1s and the FIRST in document order is
+  # <h1 class="uk-hidden">Lao News Agency</h1> — a visually hidden SEO banner. The engine JOINS
+  # every element a selector matches, so `h1` returned "Lao News Agency" glued to the headline
+  # on every page, and the probe still reported the field as green. The real headline is the
+  # classless h1, reached by excluding the hidden one.
+  selectors: ["h1:not(.uk-hidden)"]
+text:
+  # article.content-main = 3,164 chars on the sampled page. It does open with the breadcrumb
+  # ("ຫນ້າທຳອິດ Politics") and the headline before the body; there is no tighter container in
+  # the DOM. article.uk-container is the same subtree plus the sidebar — do not use it.
+  selectors: ["article.content-main"]
+date:
+  # ⚠ READ THIS WHOLE BLOCK BEFORE CHANGING THE REGEX — two separate traps meet here.
+  #
+  # (1) THE SELECTOR CANNOT BE SCOPED AWAY FROM THE SIDEBAR. .uk-text-muted matches n=16 and the
+  #     engine JOINS them all:
+  #       "12/08/2026 11:24 Email Print 1479 8/15/2026 11:03:13 AM 8/15/2026 10:49:24 AM ..."
+  #     The first value is the article's own dateline; everything after it is the related-news
+  #     rail. That rail lives INSIDE article.content-main, so no CSS ancestor separates them —
+  #     `article.content-main .uk-text-muted` still matches 11 elements.
+  #
+  # (2) SO THE REGEX HAS TO DISCRIMINATE BY FORMAT, NOT BY POSITION. A first attempt restricted
+  #     the match to days 13-31 (to dodge the DD/MM-vs-MM/DD ambiguity) and that BACKFIRED: on a
+  #     page whose own date is day <= 12 the regex skipped the article and matched the SIDEBAR's
+  #     "8/15/2026" instead, so the probe returned 3 of 6 rows dated within two days of "today"
+  #     while reporting the field green. Classic joined-sidebar wrong date.
+  #     The two formats are cleanly distinguishable:
+  #       article dateline   12/08/2026 11:24            DD/MM/YYYY, 24-hour, NO seconds, no AM/PM
+  #       sidebar rail       8/15/2026 11:03:13 AM       M/D/YYYY, seconds AND AM/PM
+  #     Requiring HH:MM *not* followed by another colon therefore matches only the article's own
+  #     line, and returns nothing on sidebar-only text (verified). With date_languages ["lo"],
+  #     "12/08/2026 11:24" -> 2026-08-12 and "30/11/2019 09:05" -> 2019-11-30.
+  selectors: [".uk-text-muted"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?!:)'
+  regex_required: true
+
+position: president
+# speaker_default omitted: a news wire covering the President/Party General Secretary
+# (Thongloun Sisoulith), the Prime Minister and ministers under one stream.
+date_languages: ["lo"]
+# ["lo"] ALONE, deliberately — not ["lo","en"]. Measured with the engine's own parse_date:
+#     parse_date("12/08/2026", ["lo"])      -> 2026-08-12   correct
+#     parse_date("12/08/2026", ["lo","en"]) -> 2026-12-08   WRONG
+#     parse_date("12/08/2026", ["en"])      -> 2026-12-08   WRONG
+# Adding "en" anywhere in the list re-introduces month-first ordering. Since the date regex above
+# only ever yields a numeric DD/MM/YYYY, no English month-name parsing is needed.
+notes: >
+  DRAFT — probe-validated, no full run. Laos' FIRST recipe. ⚠ SOURCE TYPE: this is the STATE
+  NEWS AGENCY (Khaosan Pathet Lao), not a leader's own office — flagged for the researcher's
+  inclusion call. It is here because www.laogov.gov.la does not answer at all (ConnectTimeout,
+  no TCP) and Laos has no reachable presidency host. Pager: `&page=N` works even though the
+  on-page pager is an ASP.NET javascript:void(0) postback; note `&p=N` is silently ignored and
+  re-serves page 1. Category ids encode the LANGUAGE (English 9-13/23/31/34, Lao
+  1/3/4/5/18-20/25/27/30/33) — /EN/News.aspx?cat=1 serves Lao text under an /EN/ path, so verify
+  by the rendered titles, not the URL. RULE 1: all eight English categories taken, Sports and
+  World News included on purpose. A Lao-language sibling recipe over the other category ids
+  would reach the untranslated originals and is the obvious follow-up.

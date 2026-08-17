@@ -1,0 +1,84 @@
+# Uruguay — Presidencia de la República. Spanish.
+# Uruguay's FIRST recipe of any kind: 1 corpus row, zero scraped.
+#
+# THE DOMAIN IN THE BACKLOG IS A REDIRECT. http://www.presidencia.gub.uy/ 302s to
+# https://www.gub.uy/presidencia/ — the Presidency was folded into the whole-of-government
+# gub.uy Drupal platform, so every path below is under /presidencia/, not on its own host.
+# Plain static HTML, no WAF, honest bot UA fine.
+#
+# BREADTH (CLAUDE.md RULE 1). The nav offers a link headed "Discursos del Presidente" — and it
+# is not a section, it is /comunicacion/publicaciones pre-filtered by
+# ?field_tipo_de_publicacion_target_id=183475 (plus four more facet params). Copying that URL
+# would have scoped the recipe to one facet of one section. Both prose sections are taken WHOLE,
+# with the facets stripped — but across TWO recipes, see the priority split below:
+#     /presidencia/comunicacion/publicaciones   ALL publication types, discursos among them  <- HERE
+#     /presidencia/comunicacion/noticias        the whole-executive news wire   -> ury_presidencia_news
+# Not taken, with reasons: /comunicacion/calendario-actividades and
+# /calendario-actividades-anteriores are diary listings (event rows, no prose body);
+# /normativa-periodo and /tematica/proyectos-ley are the legal register — the revised RULE 1
+# says sample before adding, and these are bill texts filed by number, not addressed speech;
+# /institucional/* is static org information (cometidos, recursos humanos, concursos).
+#
+# ⚖ PRIORITY SPLIT (2026-08-17, researcher's call). The combined harvest is 48,160 links and a
+# spread sample of 8 fetched pages found the leader referenced in the first 600 chars in only 3 —
+# because gub.uy is the whole-of-government platform and the Presidencia "noticias" view
+# aggregates ministries, OPP and Sinae alongside the President. Against a 1-row audit gap that is
+# breadth, not gap closure, so the source is split by value per fetch (the Ghana pattern):
+#     ury_presidencia       (HIGH) /comunicacion/publicaciones   11,897 links   <- THIS FILE
+#     ury_presidencia_news  (LOW)  /comunicacion/noticias        36,263 links
+# The partition was verified OFFLINE by re-applying both link_patterns to this recipe's own saved
+# probe snapshot: 11,897 + 36,263 = 48,160, with **0 links in BOTH and 0 in NEITHER**. Publicaciones
+# is HIGH because it is the section that actually carries discursos as a publication type.
+source_id: ury_presidencia
+country: Uruguay
+source_language: Spanish
+start_urls:
+  - https://www.gub.uy/presidencia/comunicacion/publicaciones
+renderer: static
+
+listing:
+  link_pattern: 'gub\.uy/presidencia/comunicacion/publicaciones/[a-z0-9\-]+'
+
+pagination:
+  # Standard Drupal query pager. Verified live: ?page=3 returns a different, older set than
+  # page 1 (unlike Viet Nam's, where ?page=N re-serves page 1 — always check this).
+  type: query_param
+  param: page
+  start: 0
+  step: 1
+
+title:
+  # ⛔ NEVER PUT `h1` IN THIS CHAIN. The page's ONLY h1 is <h1 class="Logo-title">Presidencia
+  # Uruguay</h1> — the site banner. An h1-bearing chain probed "8/8 green" and was writing
+  # "Presidencia Uruguay" as the title of every single row. (Same failure ita_governo documents
+  # for governo.it; assume every government CMS does this until proven otherwise.)
+  #
+  # BOTH ENTRIES ARE LOAD-BEARING — the two gub.uy templates name the headline differently:
+  #     /comunicacion/noticias        <h2 class="Page-Title">      -> 1st selector
+  #     /comunicacion/publicaciones   a CLASSLESS h2 in .Page-document -> 2nd selector
+  # On a publicaciones page `h2.Page-Title` does not match at all, and `.Page-document h2` matches
+  # n=1 with the right value ("Presidente Orsi en colocación de la piedra fundacional del Nuevo
+  # Estadio Belvedere") — verified, so there is no join risk. Do not prune either entry: this file
+  # takes publicaciones and its sibling ury_presidencia_news takes noticias.
+  selectors: ["h2.Page-Title", ".Page-document h2"]
+text:
+  selectors: [".Page-document .Page-body", ".field--name-body", "div.Page-document", "main.u-main"]
+date:
+  # <div class="Page-date">16/08/2026</div>. DD/MM/YYYY — and date_languages: ["es"] is what
+  # makes that parse as 16 August rather than being rejected; see the note on date_languages.
+  selectors: [".Page-date"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+
+position: president
+# speaker_default omitted: gub.uy carries the whole executive under the Presidency banner
+# (ministers, OPP, Sinae) alongside President Yamandú Orsi, and the platform predates his term.
+date_languages: ["es"]
+notes: >
+  DRAFT — probe-validated 2026-08-17 (--spread --n 8), no full run. 11,878 links (the offline
+  partition predicted 11,897, so 19 out), 8/8 green on title, text AND date, spanning
+  2013-08-09 .. 2026-08-16 — four presidencies (Mujica, Vázquez, Lacalle Pou, Orsi), not just the
+  incumbent. Uruguay's FIRST recipe. NOTE the master row's
+  presidencia.gub.uy is a redirect: the live site is www.gub.uy/presidencia on the shared gub.uy
+  Drupal platform. RULE 1: the nav's "Discursos del Presidente" link is a FACETED VIEW of
+  /comunicacion/publicaciones (?field_tipo_de_publicacion_target_id=183475), not a section —
+  both /noticias and the UNfiltered /publicaciones are taken. Spanish original.

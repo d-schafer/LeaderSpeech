@@ -1,0 +1,92 @@
+# Viet Nam — Office of the President (Văn phòng Chủ tịch nước), vpctn.gov.vn. Vietnamese.
+# Viet Nam's FIRST recipe of any kind: 6 corpus rows, zero scraped.
+#
+# PAGINATION IS THE WHOLE PROBLEM, AND THE SITEMAP IS THE ANSWER. The section listings
+# (/tin-tuc-su-kien/<section>) show ~14 items and their pager is `javascript:void(0)` — an AJAX
+# call, no href. Proof it is not a query pager: ?page=3 returns byte-for-byte the SAME first
+# items as page 1 (78,417 vs 78,393 chars, identical top links). A static listing crawl would
+# therefore collect ~14 items per section and silently call itself finished. But
+# https://vpctn.gov.vn/sitemap.xml exposes 5,592 URLs, so `pagination: sitemap` reaches the whole
+# archive with no pager at all.
+#
+# BREADTH (CLAUDE.md RULE 1) — counted from the sitemap itself, no extra requests:
+#     tin-tuc-su-kien                       3,203   news + events, 9 subsections
+#     danh-muc-trang-chu/lenh-qd-…          2,126   decree/decision register  <- FLAGGED, see below
+#     danh-muc-trang-chu/van-phong-…           92   Office of the President
+#     hoc-tap-tu-tuong-dao-duc-ho-chi-minh     19   Ho Chi Minh thought
+#     danh-muc-trang-chu/lanh-dao-nha-nuoc     17   state-leader pages
+#     phat-bieu-cua-chu-tich-nuoc              16   PRESIDENT'S SPEECHES  <- the tempting one
+#     nong-thon-moi                            15   new-rural programme
+#     thu-vien-anh 73 / video-clip 12                photo + video galleries (RULE 1 out-list)
+#     phat-bieu-cua-pho-chu-tich-nuoc           3   Vice-President's speeches
+# The section literally named "speeches of the President" holds SIXTEEN items against 3,203 in
+# the news stream — the exact trap RULE 1 exists to prevent. Both are taken, plus every other
+# prose section.
+#
+# ⛔ FLAGGED, NOT SCRAPED — danh-muc-trang-chu/lenh-qd-cua-chu-tich-nuoc (2,126 URLs).
+# Sampled per the revised RULE 1 before excluding. These are Lệnh / Quyết định (orders and
+# decisions) and they FAIL the per-item-title test the Armenian decree register failed: 689 of
+# them are "Về việc tặng thưởng Huân chương Lao động" (On awarding the Labour Medal) differing
+# only by a trailing integer, 161 "…Huân chương Bảo vệ Tổ quốc", 156 "…cho thôi quốc tịch Việt
+# Nam" (renouncing citizenship), 145 "…Huân chương Độc lập"; the listing renders each one's title
+# as a bare document number ("Số: 1317/2026/QĐ-CTN"). That is a legal register needing its own
+# recipe, not a widening of this one.
+source_id: vnm_vpctn
+country: Viet Nam
+source_language: Vietnamese
+start_urls:
+  - https://vpctn.gov.vn/
+renderer: static
+
+listing:
+  # Everything prose, nothing from the decree register or the galleries. Anchored on the host so
+  # a stray absolute URL in the sitemap cannot pull in another site.
+  link_pattern: 'vpctn\.gov\.vn/(tin-tuc-su-kien|phat-bieu-cua-chu-tich-nuoc|phat-bieu-cua-pho-chu-tich-nuoc|hoc-tap-tu-tuong-dao-duc-ho-chi-minh|nong-thon-moi|danh-muc-trang-chu/(van-phong-chu-tich-nuoc|lanh-dao-nha-nuoc))/.+\.html$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://vpctn.gov.vn/sitemap.xml
+
+title:
+  # NO `title`/`article` fallback on purpose — see the text note below. A page that has no h1
+  # has no article, and `<title>` is the site banner ("TRANG THÔNG TIN ĐIỆN TỬ VĂN PHÒNG CHỦ
+  # TỊCH NƯỚC") on every single page, so a `title` fallback would stamp that string as the
+  # title of every dead stub.
+  selectors: ["h1"]
+text:
+  # ⚠ DELIBERATELY NARROW. Part of the sitemap is DEAD STUBS: e.g.
+  # /tin-tuc-su-kien/hoat-dong-cua-chu-tich-nuoc2/doan-thanh-nien-van-phong-chu-tich-nuoc-tham-
+  # du-lien-hoan-ca.html has no h1, no .content-detail and no .post-desc — only nav and a
+  # related-news rail. A generic `article` fallback DOES match there (n=6, 460 chars) and would
+  # write the sidebar headline list as the speech body. Better to fail the row cleanly.
+  selectors: [".content-detail", ".data-content"]
+date:
+  # The dateline is "Ngày đăng: 22/12/2021 - 12:31" and it is the FIRST text inside div.post-desc,
+  # which also wraps the body — hence the regex, which takes the first DD/MM/YYYY on the page.
+  # ⛔ .publish-time and .post-meta look right and are WRONG: both match n=6 elements in the
+  # right-hand "Lệnh / Quyết định" rail and join to "Ngày ban hành: (17/08/2026) …" — i.e. the
+  # site's CURRENT day, repeated, on every article regardless of age. Confidently wrong dates
+  # are worse than blanks; do not re-add them.
+  selectors: ["div.post-desc"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+
+position: president
+# speaker_default omitted deliberately. The office publishes the President, the Vice-President
+# (Võ Thị Ánh Xuân) and general Party/State-leader news under one namespace, and the presidency
+# changed hands three times in 2024 alone (Võ Văn Thưởng -> Tô Lâm -> Lương Cường). The tenure
+# crosscheck assigns from country+date; a hard-coded name would be wrong for a large share of
+# rows on the day it was written.
+date_languages: ["vi"]
+notes: >
+  DRAFT — probe-validated 2026-08-16 (--spread --n 12), no full run. Viet Nam's FIRST recipe.
+  3,365 links off sitemap.xml; 11/12 sampled pages green on title, text AND date, spanning
+  2017-02-20 .. 2024-03-23 (so this reaches Trần Đại Quang, Nguyễn Phú Trọng, Nguyễn Xuân Phúc,
+  Võ Văn Thưởng and Tô Lâm, not just the incumbent). The 12th is a DEAD STUB with no article
+  body — it now fails cleanly instead of being written with sidebar text, which is why the
+  title/text chains have no generic fallback. Uses pagination: sitemap because the on-page pager
+  is javascript:void(0) AJAX and ?page=N re-serves page 1 — a listing crawl would stop at ~14
+  items per section without erroring. RULE 1: the section named "speeches of the President"
+  holds 16 items vs 3,203 in the news stream, so all prose sections are taken. The 2,126-URL
+  decree/decision register (lenh-qd-cua-chu-tich-nuoc) is FLAGGED not scraped — 689 items share
+  one title modulo an integer; it needs its own recipe.

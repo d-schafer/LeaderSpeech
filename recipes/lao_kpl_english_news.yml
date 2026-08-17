@@ -1,0 +1,87 @@
+# Laos — Khaosan Pathet Lao / Lao News Agency (kpl.gov.la), ENGLISH edition, GENERAL-NEWS half.
+# LOW PRIORITY. Sibling of lao_kpl_english (HIGH: cat 9 Politics, 34 ASEAN, 13 General).
+#
+# Read the parent's header for everything that applies to both files, in particular:
+#   * ⚠ SOURCE TYPE — this is the STATE NEWS AGENCY, not a leader's own office (recorded as
+#     state_media). It is here because Laos has no reachable presidency or PM site:
+#     www.laogov.gov.la does not answer at all (ConnectTimeout, no TCP). Inclusion is the
+#     researcher's call, as with the American Presidency Project rows.
+#   * the pager is `&page=N` even though the on-page control is an ASP.NET javascript:void(0)
+#     postback — and `&p=N` is SILENTLY IGNORED, re-serving page 1 with HTTP 200, so a wrong param
+#     name looks like a one-page site rather than an error;
+#   * CATEGORY IDS ENCODE THE LANGUAGE, not the path: /EN/News.aspx?cat=1 serves LAO text under an
+#     /EN/ path. English is 9-13/23/31/34, Lao is 1/3/4/5/18-20/25/27/30/33. Verify by the
+#     rendered titles, never by the URL prefix;
+#   * the title trap (two h1s, the first a hidden "Lao News Agency" banner) and the date trap
+#     (the selector cannot be scoped away from the related-news rail, so the regex discriminates
+#     by FORMAT — the article dateline is DD/MM/YYYY HH:MM with no seconds, the sidebar's is
+#     M/D/YYYY HH:MM:SS AM/PM).
+#
+# ⚖ WHY THIS IS A SEPARATE, LOWER-PRIORITY FILE — and why nothing is dropped.
+# The combined eight-category harvest is 17,970 links and a spread sample of 8 fetched pages found
+# the leader referenced in the first 600 chars in only 3. RULE 1 forbids EXCLUDING a category, and
+# is explicit that Sports and World News are the trivial-but-plausible case to keep: World News
+# carries Lao leaders' foreign-visit copy and ASEAN-summit statements. So the five lower-yield
+# categories stay collected, in their own file, and can be parked in queues/sweep/lowpriority/
+# without blocking the HIGH half that shares the country.
+#
+# ⚠ OVERLAP WITH THE HIGH HALF IS REAL AND MEASURED. /En/detail.aspx?id=<N> carries no category
+# token, so this cannot be partitioned offline. Page-1 id intersection across the eight categories:
+#     HIGH union 36 | LOW union 60 | overlap 12 = 14.3% of the union
+# ⛔ QUEUE lao_kpl_english BEFORE THIS FILE, so run.select_unscraped collapses the overlap against
+# the state file instead of re-fetching it.
+source_id: lao_kpl_english_news
+country: Lao People's Democratic Republic
+source_language: English
+start_urls:
+  - https://kpl.gov.la/En/News.aspx?cat=10
+  - https://kpl.gov.la/En/News.aspx?cat=11
+  - https://kpl.gov.la/En/News.aspx?cat=12
+  - https://kpl.gov.la/En/News.aspx?cat=23
+  - https://kpl.gov.la/En/News.aspx?cat=31
+renderer: static
+
+listing:
+  # Case-insensitive: both /EN/detail.aspx and /En/detail.aspx occur in the same page's markup.
+  link_pattern: '(?i)kpl\.gov\.la/en/detail\.aspx\?id=\d+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 2
+  step: 1
+
+title:
+  # ⛔ NOT a bare `h1` — the first h1 in document order is <h1 class="uk-hidden">Lao News Agency</h1>
+  # and the engine joins every match, so `h1` glued the banner onto every headline while the probe
+  # still reported the field green.
+  selectors: ["h1:not(.uk-hidden)"]
+text:
+  selectors: ["article.content-main"]
+date:
+  # The article dateline and the related-news rail are BOTH inside article.content-main, so no CSS
+  # ancestor separates them (.uk-text-muted matches 16 elements, joined). They differ by FORMAT:
+  #     article   12/08/2026 11:24        DD/MM/YYYY, 24-hour, no seconds, no AM/PM
+  #     sidebar   8/15/2026 11:03:13 AM   M/D/YYYY, seconds AND AM/PM
+  # Requiring HH:MM not followed by another colon therefore matches only the article's own line.
+  # Do NOT replace this with a plain date regex: an earlier days-13-31 variant skipped the
+  # article's date on day<=12 pages and matched the SIDEBAR instead, producing rows dated "today".
+  selectors: [".uk-text-muted"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}(?!:)'
+  regex_required: true
+
+position: president
+date_languages: ["lo"]
+# ["lo"] ALONE — adding "en" makes parse_date read 12/08/2026 as 8 December. See the parent.
+notes: >
+  LOW-PRIORITY half of the Laos split (2026-08-17). Five general-news categories (Economics,
+  Education, Tourism, Sports, World News); the HIGH half is lao_kpl_english (Politics, ASEAN,
+  General). Split on measured value per fetch: 8 spread fetches from the combined 17,970-link
+  harvest were all HTTP 200, 1,914-4,225 chars, dated 2016-09-01 .. 2026-08-12, so the volume is
+  genuine, but only 3 of 8 mentioned the leader in the first 600 chars. Kept rather than deleted
+  per RULE 1, which names Sports and World News as the trivial-but-plausible case to include.
+  ⚠ Overlapping taxonomies over one wire: page-1 id intersection gives 14.3% overlap with the HIGH
+  half and the article URL has no category token, so queue lao_kpl_english FIRST. ⚠ SOURCE TYPE is
+  state_media (the state news agency, not a leader's office) — researcher's inclusion call; Laos
+  has no reachable presidency site. A Lao-language sibling over cats 1/3/4/5/18-20/25/27/30/33
+  would reach the untranslated originals.

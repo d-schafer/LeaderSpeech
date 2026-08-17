@@ -1,0 +1,87 @@
+# Solomon Islands — the Solomon Islands Government portal (solomons.gov.sb). English.
+# Solomon Islands' FIRST recipe of any kind: 3 corpus rows, zero scraped.
+#
+# SUCURI CLOUDPROXY, AND HOW EACH ENDPOINT BEHAVES. Every httpx request to a normal page returns
+# HTTP 307 with a Sucuri "You are being redirected…" body: a base64 JS blob that computes a
+# cookie and calls location.reload(). It is a client-fingerprint challenge, NOT an IP block —
+# a real headless Chromium runs the JS, gets the cookie and loads the site fully (413 anchors,
+# WordPress). Measured per endpoint, because they differ and it matters:
+#     https://solomons.gov.sb/                     httpx 307   headless 200
+#     /wp-json/wp/v2/posts                         httpx 307   -> pagination: api is NOT usable
+#     any article page                             httpx 307   -> renderer MUST be js
+#     /wp-sitemap.xml                              httpx 200   <- the challenge does not cover it
+# So the harvest comes from the sitemap and the bodies come through the browser.
+#
+# WHY NOT THE /articles/ LISTING. It works under headless Chromium and its pager is the ordinary
+# WordPress /articles/page/N/, but posts are published at ROOT-LEVEL slugs
+# (solomons.gov.sb/govt-endorses-community-audits-to-restore-trust-in-cdf/), and the sitemap
+# reaches all 9,224 of them in one pass instead of ~460 pager fetches.
+#
+# BREADTH (CLAUDE.md RULE 1) — counted from wp-sitemap.xml (21 child sitemaps, 14,342 URLs):
+#     9,224  /<slug>/                     posts — the whole news/press stream   <- TAKEN
+#     3,990  /tag/<slug>/                 tag archives (duplicate listings)     <- excluded
+#       100  /<a>/<b>/ and deeper         ministry section pages                <- excluded
+#        17  /category/<slug>/            category archives                     <- excluded
+# There is no section called "speeches" on this site at all — the Office of the Prime Minister
+# and Cabinet publishes into the same single post stream as every ministry — so taking the
+# stream whole is the only option that does not arbitrarily guess. The `tender` and `jobpost`
+# post types (their own child sitemaps) are procurement notices and vacancies: out-list.
+#
+# ⚠ COST NOTE FOR THE FULL-RUN DECISION. 9,224 pages × headless Chromium is materially more
+# expensive per page than a static crawl, and the country's audit gap is 3 rows. The value here
+# is coverage breadth, not gap closure. A --limit spot-check first is sensible.
+source_id: slb_solomons
+country: Solomon Islands
+source_language: English
+start_urls:
+  - https://solomons.gov.sb/
+renderer: js
+
+listing:
+  # Exactly one path segment, so ministry/section pages (two or more) drop out; /tag/ and
+  # /category/ excluded by name. A handful of single-segment static pages (/contact/, /vacancy/,
+  # /events/) survive — ~100 against 9,224, and RULE 1 says err toward including.
+  link_pattern: 'solomons\.gov\.sb/(?!tag/|category/|wp-content/|wp-json/)[a-z0-9][a-z0-9\-]*/$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://solomons.gov.sb/wp-sitemap.xml
+
+title:
+  # ⚠ THIS THEME RENDERS POSTS WITH NO HEADING AT ALL. The article element's own class is
+  # literally `no-title` (article.no-title.share-simple.post-69474) and the rendered page
+  # contains ZERO h1 and ZERO h2 — a probe with an h1-first chain scored 0/6. The document
+  # <title> is the only carrier, and it always ends in the same site suffix
+  # ("… – My SIG Services Portal"), so the regex keeps everything before the first EN-DASH.
+  # Trade-off, stated plainly: a headline that itself contains an en-dash would be truncated.
+  # An ordinary hyphen is safe — only U+2013 is cut.
+  selectors: ["title"]
+  regex: '^[^–]+'
+text:
+  # article#post-<id> is 3,519 chars and does NOT swallow the sidebar (.widget-area is a
+  # separate 3,528-char subtree), so the wide fallback is safe here — verified in the DOM dump.
+  selectors: [".entry-content", ".post-content", "article"]
+date:
+  # time.entry-date carries the post's own date: the probe returned 2020-02-18, 2022-01-18,
+  # 2023-03-22, 2024-06-27 and 2025-08-19 across six sampled posts, so it tracks the article and
+  # is not a site clock. (Worth checking because every date element on a freshly published page
+  # reads today's date, which looks exactly like the site-clock failure mode until you sample
+  # older posts.) Note the element also carries the hentry `updated` class, so on an edited post
+  # this may be the modified rather than the first-published date.
+  selectors: ["time.entry-date", "time.published", "time"]
+  attr: datetime
+
+position: prime minister
+# speaker_default omitted: one undifferentiated government stream — the Prime Minister, ministers
+# and permanent secretaries all appear. Tenure crosscheck assigns the leader from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated 2026-08-16 (--spread --n 6), no full run. 9,514 links; 6/6 title,
+  6/6 text, 5/6 date, spanning 2020-02-18 .. 2025-08-19. Solomon Islands' FIRST recipe. Sucuri CloudProxy JS challenge: httpx gets
+  307 on every page INCLUDING /wp-json (so pagination: api is unusable) but NOT on /wp-sitemap.xml
+  — hence sitemap harvest + renderer: js bodies. RULE 1: no "speeches" section exists; the Office
+  of the Prime Minister and Cabinet publishes into the same root-level post stream as every
+  ministry, so the stream is taken whole. English source, translation is a no-op. ⚠ 9,224 pages
+  under headless Chromium against a 3-row audit gap — breadth, not gap closure; worth a --limit
+  spot-check before committing the full run.

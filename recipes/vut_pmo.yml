@@ -1,0 +1,96 @@
+# Vanuatu — Prime Minister's Office (pmo.gov.vu). English.
+# Vanuatu's FIRST recipe of any kind: 20 corpus rows, zero scraped.
+#
+# THE OBVIOUS SOURCE IS THE WRONG ONE. www.gov.vu (the government portal) has a News section at
+# /index.php/events/news, and it is a dead end: FOUR items, all from 2020, all COVID state-of-
+# emergency orders, and most of the "news" anchors on that page actually point at doe.gov.vu
+# (the Department of Energy). pmo.gov.vu is the live stream — the Prime Minister's own office,
+# Joomla, updated to the current week.
+#
+# verify_ssl: false is required on BOTH hosts (gov.vu and pmo.gov.vu): a plain httpx GET raises
+# CERTIFICATE_VERIFY_FAILED / "unable to get local issuer certificate". Broken chain, no WAF.
+#
+# BREADTH (CLAUDE.md RULE 1) — the whole /en/public-information/ namespace is taken, not just
+# the press-release child. That namespace carries three kinds of item under one URL shape:
+#     /en/public-information/press-release/<id>-<slug>.html   the press-release stream
+#     /en/public-information/<id>-<slug>.html                 loose PMO statements, e.g.
+#                                                             1003-prime-minister-on-travel-
+#                                                             invitation-to-australia
+#     /en/public-information/newsletters/…                    monthly PMO newsletters 2024-2026
+# Not taken: /en/publications/{corporate-plans,annual-reports,vacancies} (administrative
+# documents and job ads, no addressed speech) and /en/calendar.html (a diary).
+# The site also publishes French (/fr/) and Bislama (/bi/) editions of the same tree — candidate
+# sibling recipes, not folded in here.
+#
+# PAGER: Joomla `?start=N` at FIVE items per page — an unusually small page size, so the offsets
+# matter. Verified: ?start=5 returns ids 1154-1158 and ?start=50 returns ids 1098-1105, both
+# distinct from page 1 (1162-1167). ?start=100 returns nothing, which is the end of the archive
+# rather than a broken pager.
+source_id: vut_pmo
+country: Vanuatu
+source_language: English
+start_urls:
+  - https://pmo.gov.vu/en/public-information/press-release.html
+  - https://pmo.gov.vu/en/public-information.html
+renderer: static
+verify_ssl: false
+
+listing:
+  # Joomla id-prefixed slugs, so requiring <digits>- keeps section/nav pages out. The optional
+  # middle segment covers both /public-information/<id>-<slug> and
+  # /public-information/press-release/<id>-<slug>.
+  link_pattern: 'pmo\.gov\.vu/en/public-information/([a-z-]+/)?\d+-[^/]+\.html$'
+
+pagination:
+  type: query_param
+  param: start
+  start: 5
+  step: 5        # FIVE items per page, not the usual 10/20 — see the header note
+
+title:
+  # The page has NO h1 at all and exactly one h2 (the headline), but the bare `h2` is scoped
+  # inside the article container first so that a future template with a sidebar h2 cannot get
+  # joined onto the title — the engine concatenates every element a selector matches.
+  selectors: ["article.item-page h2", "h2.article-title", "h2"]
+text:
+  selectors: [".com-content-article__body", "div[itemprop='articleBody']", ".article-body", "article"]
+date:
+  # ⚠ MOST ARTICLES HAVE NO DATE ELEMENT — Joomla's "created date" display is switched off, and
+  # a --dom dump of a press release shows no <time>, no .create, no .article-info anywhere. The
+  # date lives in the BODY, as the wire dateline that opens every release:
+  #     "PORT VILA, TUESDAY 15 th April, 2025 - A raft of amendments to the national Constitution…"
+  # (note the split ordinal, "15 th"). So the chain tries the real <time> element first — it
+  # exists on a minority of pages — and otherwise takes the FIRST date-shaped string in the
+  # article body, which is the dateline because the dateline is the first thing in the body.
+  # regex_required makes the fallback honest: if the body has no date-shaped string the field
+  # stays EMPTY instead of returning the whole 2,895-char body as a "date". A blank date is then
+  # filled by clean_structure_metadata's model pass, which reads this dateline correctly; a
+  # wrong date would not be.
+  selectors: ["time", "article.item-page"]
+  # Three dateline formats occur and all three are needed — a regex covering only the first
+  # scored 2/8 on the probe:
+  #   "PORT VILA, TUESDAY 15 th April, 2025 - …"      DD [ordinal] Month, YYYY
+  #   "Port Vila, Vanuatu – August 3, 2026 – …"       Month DD, YYYY
+  #   a real <time datetime="…"> on the minority of pages that have one   ISO
+  regex: '\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:st|nd|rd|th)?\s+[A-Z][a-z]+,?\s+\d{4}|[A-Z][a-z]{2,9}\s+\d{1,2},?\s+\d{4}'
+  regex_required: true
+
+position: prime minister
+# speaker_default omitted: the stream covers PM Jotham Napat and his ministers, and Vanuatu has
+# changed Prime Minister repeatedly inside the archive's span. Tenure crosscheck assigns.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated 2026-08-16 (--spread --n 8), no full run. 100 links; title 8/8,
+  text 7/8, DATE ONLY 2/8 and that is a property of the source, not a selector bug: many
+  releases carry no date anywhere on the page (e.g. press-release/1148-new-twin-otter opens
+  straight into a quote), and Joomla's created-date display is off site-wide. regex_required
+  keeps those blank rather than wrong. The one text miss is
+  /public-information/100-day-plan-monitoring-dashboard.html, a dashboard rather than an
+  article. Vanuatu's FIRST recipe. Requires verify_ssl: false
+  (broken certificate chain on both gov.vu and pmo.gov.vu). NOTE for anyone re-deriving this
+  source: www.gov.vu's News section is a decoy — 4 items, all 2020 COVID orders, with most
+  anchors pointing at doe.gov.vu — so the PM's own office is the source. RULE 1: the whole
+  /en/public-information/ namespace is taken (press releases + loose PMO statements +
+  newsletters), not just the press-release child. Joomla ?start= pager at FIVE per page.
+  French (/fr/) and Bislama (/bi/) editions of the same tree are candidate siblings.
+  English source, translation is a no-op.

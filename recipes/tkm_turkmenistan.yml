@@ -1,0 +1,123 @@
+# Turkmenistan — the state portal turkmenistan.gov.tm ("Altyn Asyr"), ENGLISH edition.
+# Turkmenistan's FIRST recipe of any kind: 5 corpus rows, zero scraped.
+#
+# The portal runs three parallel editions off one article-id space:
+#     /tk/bolum/<section>    -> /tk/habar/<id>/<slug>     Turkmen
+#     /ru/…                                               Russian
+#     /en/category/<section> -> /en/post/<id>/<slug>      English
+# Same ids appear in all three (e.g. /tk/habar/109152 and /en/post/109148 are neighbours in one
+# sequence), so the English edition is a real translation, not untranslated Turkmen served under
+# an /en/ path — verified by reading the titles ("The President of Turkmenistan Signed
+# Resolutions", "Decree of the President of Turkmenistan On G.G. Garlyyev"). English is taken as
+# the primary edition because it needs no translation pass; /tk and /ru are candidate siblings if
+# the researcher wants the originals as well.
+#
+# ⚠ WATCH THE SECTION VOCABULARY — it CHANGES between editions and a copied path 404s.
+# /en/bolum/resmi returns HTTP 404; the English path is /en/category/official. Getting this
+# wrong is silent in a different way from usual: the 404 page still renders the full nav, so a
+# recipe pointed at the wrong spelling harvests the nav and looks merely "thin".
+#
+# BREADTH (CLAUDE.md RULE 1) — all nine English sections are COLLECTED, across two recipes.
+# There is no section called "speeches" here at all: the presidential material is distributed
+# across `official` (decrees, resolutions, signed documents), `spotlight` (Wakalaryň jümmüşinde —
+# the lead political stream) and `cooperation` (state visits, bilateral meetings). Picking one
+# would have been arbitrary as well as narrow.
+#
+# ⚖ PRIORITY SPLIT (2026-08-17, researcher's call).
+#     tkm_turkmenistan       (HIGH) spotlight, official, cooperation                <- THIS FILE
+#     tkm_turkmenistan_news  (LOW)  economy, people, culture, science, sport, comments
+# Measured basis: the combined harvest is 30,816 links, and a spread sample of 8 fetched pages
+# found the leader referenced in the first 600 chars in only 4 — the misses being
+# "Hydrogeologists of Ahal provide the requirements of the region in drinking water" and
+# "The Olympiad among medical schools was held in Ashgabat". Against a 5-row audit gap that is
+# coverage breadth, not gap closure. Nothing is EXCLUDED — RULE 1 forbids that — the low-value
+# half simply moves to its own file so it can be parked in queues/sweep/lowpriority/ without
+# blocking the HIGH half that shares the country.
+#
+# ⚠ THE TWO HALVES OVERLAP, AND THAT IS MEASURED, NOT ASSUMED. These categories are overlapping
+# TAXONOMIES over one /en/post/<id>/ namespace, not disjoint archives — the article URL carries no
+# section token, so unlike the Uruguay split this partition cannot be verified offline. Fetching
+# page 1 of each of the nine sections and intersecting the post ids gives:
+#     HIGH union 33 ids | LOW union 67 ids | overlap 10 = 11.1% of the union
+#     and 20 duplicate ids WITHIN the HIGH half alone (53 raw -> 33 unique)
+# Two consequences worth knowing before running these:
+#   * the parent's 30,816 figure is ALREADY the deduped total (30,816 raw -> 30,815 unique post
+#     ids), so the split does not discover new documents, it only re-prioritises them;
+#   * running both halves double-fetches ~11% unless the HIGH recipe runs FIRST, because
+#     run.select_unscraped only skips what the state file already holds. Queue HIGH before LOW.
+# /en/archive is the date-browsable back catalogue; it is left out of both files because it is an
+# index over the same posts rather than a tenth section.
+#
+# On the decree question (revised RULE 1): `official` DOES carry appointment/dismissal decrees
+# with near-identical titles, which is the Armenian-register smell. It is kept rather than
+# flagged because — unlike president.am/en/decrees — each item has its own descriptive title
+# ("Decree of the President of Turkmenistan On A.A. Shamyradov"), a date, and English body text,
+# and the same section carries substantive material ("Turkmenistan — UN: towards strengthening
+# peace, security and sustainable development") that no URL rule separates from the decrees.
+# The cleaner's document_type gate is the right place to split them.
+source_id: tkm_turkmenistan
+country: Turkmenistan
+source_language: English
+start_urls:
+  # HIGH half only — the three sections that carry presidential material. The other six are in
+  # tkm_turkmenistan_news.yml; do not add them back here.
+  - https://turkmenistan.gov.tm/en/category/spotlight
+  - https://turkmenistan.gov.tm/en/category/official
+  - https://turkmenistan.gov.tm/en/category/cooperation
+renderer: static
+
+listing:
+  # /en/post/<numeric id>/<slug>. The numeric id keeps section/nav links out.
+  link_pattern: 'turkmenistan\.gov\.tm/en/post/\d+/'
+
+pagination:
+  # Bare-number path pager appended to the section URL: /en/category/official/2 … /40 … .
+  # Verified live at page 40, which still returns real /en/post/ items (ids in the 87xxx range,
+  # ~2023) — so the pager goes deep and should not be capped. Page 0 exists as an alias of the
+  # unsuffixed URL; start at 2 so the first fetch (the start_url itself) isn't repeated.
+  type: path
+  start: 2
+  step: 1
+
+title:
+  # ⛔ NOT a bare `h1`. The page has TWO: <h1 class="post_title"> (the headline) and
+  # <h1 class="main_title">Category's latest posts</h1> (the sidebar rail's heading). The engine
+  # JOINS all matches, so a bare `h1` appended "Category's latest posts" to every title — and
+  # the probe still reported title as green, which is why this needed a DOM dump to catch.
+  selectors: ["h1.post_title"]
+text:
+  # div.post_text (11,558 chars) is tighter than article.content (11,715) and excludes the
+  # breadcrumb. Note underscores, not hyphens — this theme uses post_title/post_text/post_date.
+  selectors: ["div.post_text", "div.post_content"]
+date:
+  # <time class="post_date">31.07.2026</time>. Scoped to the class because div.aside_news_date
+  # carries the SIDEBAR rail's dates ("17.08.2026", i.e. today) on every article — a bare
+  # `.date`-style chain would have picked those up on some templates.
+  selectors: ["time.post_date"]
+
+position: president
+# speaker_default omitted: the portal is a state news wire covering the President
+# (Serdar Berdimuhamedov), the National Leader / Halk Maslahaty chair (Gurbanguly
+# Berdimuhamedov) and ministers under one namespace. Tenure crosscheck assigns from country+date.
+date_languages: ["ru"]
+# ⚠ "ru" ON AN ENGLISH-LANGUAGE RECIPE IS DELIBERATE, AND IT IS ABOUT NUMBER ORDER, NOT WORDS.
+# time.post_date renders DD.MM.YYYY ("31.07.2026") — the Soviet-era convention this portal keeps
+# in all three editions. The string is pure digits and dots, so the language code only decides
+# day-first vs month-first. Measured with the engine's own parse_date:
+#     parse_date("12.08.2026", ["en"]) -> 2026-12-08   WRONG (month-first)
+#     parse_date("12.08.2026", ["ru"]) -> 2026-08-12   correct
+#     parse_date("31.07.2026", ["en"]) -> 2026-07-31   correct only because 31 cannot be a month
+# So an "en" setting is right for two thirds of the calendar and silently swaps day and month for
+# days 1-12 — about 40% of rows, with nothing in the output to show which. Any day-first locale
+# fixes it (ru/de/es/pt/fr/it all tested identical); "ru" is chosen because it is the language
+# this portal actually publishes its sibling edition in. Do NOT add "en" to the list — one
+# month-first entry anywhere re-breaks the ordering.
+notes: >
+  DRAFT — probe-validated, no full run. Turkmenistan's FIRST recipe. English edition of the
+  state portal; /en/category/<section> path pager verified live to page 40. RULE 1: there is no
+  "speeches" section on this site — presidential material is spread across official, spotlight
+  and cooperation — so all nine English sections are taken. NOTE the section vocabulary differs
+  per edition (/en/bolum/resmi 404s; the English path is /en/category/official), and a wrong
+  path still renders the full nav, so it fails by looking thin rather than by erroring. Turkmen
+  (/tk/bolum + /tk/habar) and Russian (/ru) editions of the same article ids are candidate
+  sibling recipes if the originals are wanted.

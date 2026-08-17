@@ -1,0 +1,69 @@
+# Timor-Leste — Presidency of the Republic (presidenciarepublica.tl), President José Ramos-Horta.
+# Timor-Leste's FIRST recipe of any kind: 36 corpus rows, zero scraped.
+#
+# UA-KEYED WAF. The honest bot UA gets HTTP 403 with a 52-byte body and zero anchors; a browser
+# User-Agent gets 200 and the full page. Same host, same IP, same request otherwise — so this is
+# the col_presidencia / ind_pmindia pattern, not an IP block. Hence the `user_agent` override.
+# It applies to the wp-json harvest AND the per-post body fetch, both of which need it.
+#
+# WordPress with a fully open REST API (/wp-json/wp/v2). Post-type totals, read straight off the
+# X-WP-Total headers: post 1,858, page 8, attachment 5,025. So the entire prose archive is 1,858
+# items reachable at 100/page = 19 requests, with title, date and permalink carried in the JSON.
+#
+# BREADTH (CLAUDE.md RULE 1) — this harvests /wp/v2/posts UNFILTERED, i.e. all 43 categories.
+# That is the whole point. The category literally called "speeches" (id 8) has 112 posts, which
+# is 6% of the archive; the ones around it are features 942, international-relations 809,
+# media-releases 331, press ("Events and Engagements") 327, government 260, economic-development
+# 256, diplomacy 237, presidency 175, asean 171, nobel-laureate 153 … plus message 24 and
+# president-statement 23, which are speech-bearing by name and would both have been missed by a
+# ?categories=8 harvest. Adding `?categories=8` here would throw away 94% of the source and hide
+# two categories that ARE speeches. The cleaner's document_type gate is what removes non-speech
+# material; that is cheaper than never having fetched it.
+# Only `videos` (id 7, 402 posts) is arguably gallery material — but they are posts with real
+# titles and prose descriptions, not a media-gallery nav page, so they stay in and the cleaner
+# decides.
+source_id: tls_presidenciarepublica
+country: Timor-Leste
+source_language: English
+start_urls:
+  - https://presidenciarepublica.tl/wp-json/wp/v2/posts?per_page=100&orderby=date&order=desc
+renderer: static
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+listing:
+  link_pattern: 'presidenciarepublica\.tl/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  max_pages: 25          # 1,858 / 100 = 19 pages; headroom for growth
+  api:
+    results_path: "."    # WordPress returns a bare JSON array at the root
+    url_field: link
+    title_field: title.rendered
+    date_field: date     # ISO 8601, already standardized — date_languages is not applied
+    # text_field unset on purpose: content.rendered is HTML, so the body is taken from the page.
+
+title:
+  selectors: ["h1.entry-title", "h1.wp-block-post-title", "h1", "title"]
+text:
+  selectors: [".entry-content", ".wp-block-post-content", "article .post-content", "article"]
+date:
+  selectors: ["time.entry-date", "time", ".entry-date", ".posted-on"]
+  attr: datetime
+
+position: president
+# speaker_default omitted. The archive is dominated by Ramos-Horta (2022-) but the site predates
+# him — it also carries Francisco Guterres Lú-Olo's term — and posts about the Prime Minister
+# (Xanana Gusmão) appear in the same feed. The tenure crosscheck assigns from country+date.
+date_languages: ["en"]
+notes: >
+  DRAFT — probe-validated, no full run. Timor-Leste's FIRST recipe. WordPress REST API,
+  /wp-json/wp/v2/posts, 1,858 posts. REQUIRES the browser user_agent override: the honest bot UA
+  gets a 52-byte HTTP 403 from a UA-keyed WAF (browser UA on the same connection gets 200) —
+  this is a client-fingerprint block, not an IP block. RULE 1: harvests ALL categories, because
+  the category named "speeches" (id 8) holds 112 of 1,858 posts (6%) while `message` (24) and
+  `president-statement` (23) are speech-bearing categories a ?categories=8 harvest would have
+  dropped silently. English-language source, so the translation stage is a no-op.

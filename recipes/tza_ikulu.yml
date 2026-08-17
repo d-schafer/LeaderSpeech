@@ -1,0 +1,80 @@
+# Tanzania — Ikulu / State House (ikulu.go.tz), the Presidency. Swahili original.
+# Tanzania's FIRST recipe of any kind: 16 corpus rows, zero scraped.
+#
+# ⚠ verify_ssl: false IS REQUIRED, AND IT IS THE ONLY THING WRONG WITH THIS SITE.
+# https://ikulu.go.tz/ raises `[SSL: INVALID_ALERT] invalid alert` and http://www.ikulu.go.tz/
+# does not resolve at all (getaddrinfo failed) — between them those two make the host look dead.
+# With TLS verification off it is a plain HTTP 200 Apache site with 77 anchors and no WAF, no
+# Cloudflare, no UA keying. A broken certificate chain, nothing more.
+#
+# BREADTH (CLAUDE.md RULE 1) — three prose sections in the top nav, all taken:
+#     /news                     Habari                      news wire
+#     /speeches                 Hotuba                      SPEECHES  (15+ pager pages)
+#     /documents/publications   Taarifa kwa Vyombo vya Habari  press statements
+# Pager is a plain ?page=N query on each section. Excluded per the RULE 1 out-list:
+# /galleries/listing/photos (photo library) and blog.ikulu.go.tz (a separate host).
+# /former-presidents, /cabinet and /deputies are biography directories, not article streams.
+#
+# ⚠ THE LIVE /speeches LISTING IS BROKEN AND ONLY /news ACTUALLY HARVESTS. Measured, not
+# assumed: /speeches, /speeches?page=2 and /speeches?page=3 each return HTTP 200 with 87-88
+# anchors of which ZERO are item links — only the nav, the footer and the pager (which does
+# advertise pages 2..15, so the items exist server-side). It is not a JS-rendering problem:
+# headless Chromium returns the same 88 anchors. The probe's 641 links are therefore all /news.
+# The speech pages themselves are real and reachable by direct URL —
+# /speeches/hotuba-ya-mheshimiwa-dkt-samia-suluhu-hassan-… — and the Internet Archive holds 66
+# captures of that path, 2021-03 .. 2026-04. So the Hotuba stream needs a *_wayback companion
+# (a prior session already probed one; ~60 unique speeches).
+# The two dead sections are KEPT in start_urls anyway: ~30 wasted listing fetches per run is a
+# trivial price for the section starting to work again the day the site is fixed, whereas a
+# section removed from a recipe is invisible and permanent.
+source_id: tza_ikulu
+country: Tanzania, United Republic of
+source_language: Swahili
+start_urls:
+  - https://www.ikulu.go.tz/speeches
+  - https://www.ikulu.go.tz/news
+  - https://www.ikulu.go.tz/documents/publications
+renderer: static
+verify_ssl: false
+
+listing:
+  link_pattern: 'ikulu\.go\.tz/(news|speeches|documents/publications)/[a-z0-9-]+'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+
+title:
+  # ⛔ NOT h1, AND NOT h1.title. The page's only h1 is
+  # <h1 class="mb-1 title title-main …">Tovuti Rasmi ya Rais</h1> — "Official Website of the
+  # President", i.e. the site banner. An `h1.title` chain probed 8/8 GREEN while writing that
+  # same string as the title of every row. The headline is a CLASSLESS h2 inside .page-content;
+  # the page's other h2s are the sidebar Hotuba rail (.title-small), excluded here, and they sit
+  # outside .page-content anyway.
+  selectors: [".page-content h2:not(.title-small)", "div.col-12.px-0.mb-2 h2"]
+text:
+  # div.news-content is the article body and matches n=1 (2,715 chars on the sampled page).
+  # No generic fallback: `div.col-12.px-0.mb-2 span` matches n=48 and joins to 13,295 chars —
+  # the whole page including nav — which is the "engine joins ALL matching elements" trap.
+  selectors: ["div.news-content"]
+date:
+  # <small>26th Oct, 2025</small>, n=1, sitting between the h1 and the body.
+  selectors: ["div.col-12.px-0.mb-2 small", ".page-content small"]
+
+position: president
+# speaker_default omitted: the site spans Samia Suluhu Hassan (2021-) and John Magufuli, and the
+# /speeches stream also carries the Vice-President and Prime Minister. Tenure crosscheck assigns.
+date_languages: ["sw", "en"]
+notes: >
+  DRAFT — probe-validated 2026-08-16 (--spread --n 8), no full run. Tanzania's FIRST recipe.
+  641 links, 8/8 green on title, text AND date, spanning 2016-01-20 .. 2025-10-26 — i.e.
+  Kikwete, Magufuli and Samia Suluhu Hassan, not just the incumbent. Requires verify_ssl: false:
+  the certificate chain is broken (SSL INVALID_ALERT) and http://www.ikulu.go.tz does not
+  resolve, which together make the host look dead; with verification off it is an ordinary
+  unprotected Apache site with no WAF. RULE 1: all three prose sections are in start_urls, but
+  MEASURED CAVEAT — only /news actually yields links; /speeches and /documents/publications
+  return 200 with zero item anchors on every page, static AND headless, so the Hotuba stream
+  needs a *_wayback companion (IA holds 66 /speeches captures, 2021-2026). Swahili original, so
+  the translation stage has real work here.
