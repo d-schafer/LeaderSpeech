@@ -1,0 +1,112 @@
+# Ghana — ghana.gov.gh, the 2009-2011 QUERY-ADDRESSED Joomla generation, via the Internet
+# Archive. English-native → English column. This is the ATTA MILLS presidency (2009-2012) and
+# the tail of KUFUOR's — the era the corpus is emptiest for.
+#
+# WHY ITS OWN RECIPE — the TRAP. Every article of this generation is served from one script:
+#     ghana.gov.gh/index.php?option=com_content&view=article&id=<id>:<slug>&catid=<n>:<cat>&Itemid=<n>
+# so its URL PATH is literally "/index.php" for all ~2,160 captures.
+# leaderspeech.text_scraper.wayback.filter_entries_for_recipe drops any capture whose path
+# equals a start_url path, which would be 100% of the harvest if this rode in
+# gha_ghanagov_wayback.yml (whose start_urls are /index.php/<section> prefixes). The fix is the
+# documented truncated-prefix idiom (cf. irl_president_old_wayback, Croatia, Sri Lanka): point
+# start_urls at the BARE HOST and narrow the CDX query SERVER-SIDE with an `original:` filter.
+#
+# ⛔ RULE 1: NOT scoped to the section called "speeches". The 2026-08-05 recon plan pointed at
+# `catid=56:speeches` — measured 2026-08-16 at **38 captures**, i.e. 1.8% of this generation.
+# The catid histogram over the full domain enumeration:
+#     28:general-news 1,074   96:top-headlines 325   58:press-releases 111   74:ministries  81
+#     81:ministers       81   23:business      61   84:public-service 60   88:daily-news   50
+#     27:politics        47   25:sports        46   26:health        41   56:speeches      38
+#     73:education       38   46:upper-east    35   24:features      31   51:ashanti       31
+#     52:western         30   53:northern      27   50:eastern       25   54:volta         22
+#     47:upper-west      22   57:policy-docs   16   80:meet-the-press 16  48:brong-ahafo   15
+#     75:news            14   97:world-cup-2010 14  49:greater-accra 14   85:foreign-news  11
+#     …plus ~28 smaller keys.
+# The link_pattern is catid-AGNOSTIC — it takes every com_content article and lets the cleaner's
+# document_type gate sift them, which is the ruling. Note catid=56 carries exactly the material
+# the gap needs, e.g. "54th Independence Day Celebration Address by His Excellency President John
+# Evans Atta Mills, March 6 2011".
+source_id: gha_ghanagov_query_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  # BARE HOST ON PURPOSE (see the TRAP note above). The wayback_filter does the narrowing, so
+  # this is NOT a 69,611-row whole-domain query — CDX applies `filter=` before the row limit.
+  - ghana.gov.gh
+  # The 2011 Golden Jubilee microsite runs the same CMS under /anniversary/.
+  - ghana.gov.gh/anniversary
+
+listing:
+  # com_content article permalinks only. Excludes com_mailto (5,951 captures of the
+  # "email this page" widget, which also carries option=/view= style params), com_search,
+  # view=category / view=archive listings, and the ?tmpl=component&print=1 print duplicates.
+  # `id=\d+` is required so the category-blog and archive views cannot match.
+  link_pattern: 'option=com_content(?=.*view=article)(?=.*[?&]id=\d+)(?!.*print=1)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  # ⚠ BOUNDED, and this bound is load-bearing — do not remove it. 1,086 of the 2,161 captures of
+  # this URL scheme are dated 2018, when the Archive re-crawled the old links against the REBUILT
+  # Joomla 3 site. Verified 2026-08-16: capture 20180629 of
+  # "…&id=1415:rains-has-not-started-meteorological-agency" serves an article headed "EVERPURE
+  # GHANA LIMITED DONATES TO DISASTER VICTIMS" — the rebuild renumbered every article, so the old
+  # id no longer addresses the old story. Those 2018 rows are real articles but they are the SAME
+  # documents gha_ghanagov_wayback harvests under /index.php/media-center/news/<id>-<slug>, at a
+  # different URL, so identity dedupe cannot collapse them. Bounding at 2013 keeps the genuine
+  # 2009-2011 generation (~1,050 captures) and leaves the modern ones to the sibling recipe.
+  wayback_to: "20130101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Server-side narrowing — the whole point of the bare-host start_url.
+    - "original:.*option=com_content.*"
+  # The SAME article is archived under several Itemid values (the Joomla menu item it was
+  # reached through) and sometimes several catid values, because one article is filed in more
+  # than one category. Neither changes the document, so both are UI noise for identity purposes;
+  # option=/view= are already pinned by the link_pattern and add nothing to the key either.
+  # Without this the harvest fetches the same speech three or four times.
+  wayback_noise_params: ["Itemid", "catid", "option", "view", "layout", "limitstart", "start"]
+
+title:
+  # Same S5 Joomla template as the 2010-2013 path generation: .contentheading matches THREE
+  # elements (headline + two "Other articles:" module headings) and the engine joins them, so the
+  # regex truncates at that literal. Verified on capture 20100925203805 of
+  # id=3339:single-spine-is-not-introducing-new-salaries → "Single Spine Is Not Introducing New
+  # Salaries" (the raw join is 60 chars, the trimmed title 44).
+  selectors: [".contentheading", ".contentpagetitle", "title"]
+  regex: '(?s)^\s*.+?(?=\s*Other articles:|$)'
+text:
+  # table.contentpaneopen = headline + byline + body, 2,035 chars on the verified capture.
+  # #s5_content_wrapper_inner is the wider fallback (2,580 chars incl. the "Other articles" list).
+  # ⚠ a bare `td` returns 1,955 chars here but the whole page on the older table site — do not
+  # add one to this chain.
+  selectors: [".contentpaneopen", "#s5_content_wrapper_inner", "#s5_component_wrap"]
+date:
+  # Joomla's byline, present on this generation: "Wednesday, 15 September 2010 16:38".
+  selectors: [".createdate"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+(?:19|20)\d\d'
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The 2009-2011 query-addressed generation of ghana.gov.gh —
+  ~2,160 status-200 captures, peaking 2010 (600) and 2011 (421), i.e. the Atta Mills presidency.
+  Sibling of gha_ghanagov_wayback (the path-addressed 2003-2019 generations); the two cannot be
+  one recipe because this era's URL path is "/index.php" for every article and the engine drops
+  captures whose path equals a start_url path. Authored BROAD: catid-agnostic, taking all ~68
+  categories rather than the 38-capture catid=56:speeches the recon plan named — see the
+  histogram in the header. Selectors verified with recipe_tools/selcheck.py against capture
+  20100925203805 (title 44 chars via .contentheading + the "Other articles:" truncation regex,
+  body 2,035 chars via .contentpaneopen, date "Wednesday, 15 September 2010 16:38" via
+  .createdate). wayback_noise_params collapses the Itemid/catid re-serves of the same article.
+  NO speaker_default (Mills, Kufuor's tail, ministers and regional ministers all appear).
+  Shares data/state/Ghana.json with gha_ghanagov_wayback and the four gha_presidency* recipes —
+  ordinary incremental run, never --rescrape.
+  PROBE-VALIDATED --spread --n 8 (2026-08-16): **993 snapshots** after the wayback_to bound
+  (2,055 unbounded), title 8/8, text 7/8, date 5/8, article dates 2010-05 .. 2011-11. The single
+  text miss is a DEFACED capture of the /anniversary/ microsite whose <title> reads "hacked by
+  jago-dz" — a real archived state of the site, not a selector fault.
+  FULL RUN is the researcher's gate (~993 fetches ≈ 2.4 h).

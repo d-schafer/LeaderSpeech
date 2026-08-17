@@ -1,0 +1,55 @@
+# France — Présidence de la République (elysee.fr), the ENGLISH tree, via the Internet Archive.
+# This is where the DEPTH is: the live English listing (fra_elysee_english) can only surface
+# ~100 recent items because its pager is client-side, while the Archive holds the English
+# permalinks back to 2013.
+#
+# ⛔ RULE 1 / breadth, measured 2026-08-16. A CDX prefix query on elysee.fr/en returns **34,207**
+# status-200 HTML captures, which looks enormous and is not:
+#     /en/maison-elysee/…       21,678   the ONLINE SHOP (product pages + "diary-<month>-<n>"
+#                                        stationery SKUs). Out — not leader communication.
+#     /en/emmanuel-macron/…        682   THE ARTICLES. Taken.
+#     /en/g7…, /en/g7biarritz2019   256   summit microsites, mostly logistics pages
+#     /en/french-presidency/…       70   static institutional pages. Out by RULE 1.
+#     /en/search…                    8   search component. Out by RULE 1.
+#     ~10,500 further single-capture keys, overwhelmingly shop and diary stubs.
+# So 682 is not a narrow slice of 34,207 — it is essentially the whole English ARTICLE space the
+# Archive holds. Only Macron has an English tree; the earlier presidencies published on this
+# host (Hollande back to de Gaulle, 15,183 sitemap URLs) are FRENCH-ONLY and belong to fra_elysee.
+source_id: fra_elysee_english_wayback
+country: France
+source_language: English
+renderer: static
+start_urls:
+  - elysee.fr/en/emmanuel-macron
+
+listing:
+  link_pattern: 'elysee\.fr/en/emmanuel-macron/\d{4}/\d{2}/\d{2}/[a-z0-9]'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", ".card__title", "title"]
+text:
+  selectors: [".card__body", ".ck-styled", ".rich-text", "main"]
+date:
+  # The permalink's ISO triple is the reliable one; `.published-at` is tried first for the rare
+  # capture where the article's own date differs from its slug.
+  selectors: [".published-at", "time"]
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The archived ENGLISH tree of elysee.fr — the 682 captures
+  the 2026-08-05 recon list identified, and the historical half of France's English coverage.
+  "yes-and" to fra_elysee (French, sitemap, 15,183 URLs) and fra_elysee_english (live, ~100
+  items). All three share data/state/France.json; run the two LIVE recipes first so
+  select_unscraped skips the overlap, and never --rescrape. NO speaker_default. The Élysée
+  online shop under /en/maison-elysee/ (21,678 captures, 63% of the host's /en/ prefix) is
+  excluded with the measurement in the header, so the low ratio is explained rather than left
+  looking like narrowness. FULL RUN is the researcher's gate (~680 fetches).

@@ -255,7 +255,8 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
                 pdf_data = data if looks_like_pdf(data) else None
                 phtml = None if pdf_data else data.decode("utf-8", "replace")
             elif is_wayback:
-                phtml = wayback.fetch_snapshot(item, delay=0.0, client=wayback_client)
+                phtml = wayback.fetch_snapshot(item, delay=0.0, client=wayback_client,
+                                               encoding=recipe.encoding)
             elif want_pdf:
                 _, data = fetcher.get_bytes(url)
                 pdf_data = data if looks_like_pdf(data) else None
@@ -349,6 +350,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
     }
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
                       verify_ssl=recipe.verify_ssl, user_agent=recipe.user_agent,
+                      encoding=recipe.encoding,
                       js_settle=recipe.js_settle, cdp_endpoint=recipe.cdp_endpoint,
                       block_page=recipe.block_page,
                       block_page_patterns=recipe.block_page_patterns)

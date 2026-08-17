@@ -1,0 +1,131 @@
+# Croatia — Office of the President (predsjednik.hr), the CROATIAN-language archive, via the
+# Internet Archive. Croatian → *_originlanguage columns, translation stage fills English.
+#
+# WHY THIS EXISTS. Until 2026-08-16 Croatia had exactly two recipes: the LIVE hrv_predsjednik
+# (/vijesti/ + /govori/, i.e. 2015→, Grabar-Kitarović and Milanović) and the wayback
+# hrv_predsjednik_english_wayback. Nothing reached the Croatian-language archive, which is
+# **four CMS generations and ~15,000 captures**, and which is where Stjepan Mesić (2000-2010)
+# and Ivo Josipović (2010-2015) live. An earlier plan called these eras "unscrapable"; they are
+# not — they are query-addressed, which is a different problem with a documented solution.
+#
+# ⛔ THE TRAP, AND THE FIX THAT MAKES IT A NON-PROBLEM. Two of the four generations address every
+# article from ONE script, so their URL *path* is constant:
+#     predsjednik.hr/default.asp?ru=<N>&gl=<YYYYMMDDnnnnnnn>&sid=&jezik=1   (2000-2009, Mesić)
+#     predsjednik.hr/Default.aspx?art=<N>&sec=<N>                          (2009-2014)
+# leaderspeech.text_scraper.wayback.filter_entries_for_recipe drops any capture whose path equals
+# a start_url path, so a start_url of "predsjednik.hr/default.asp" would drop 100% of the harvest.
+# irl_president_old_wayback solves this with a bare host + a server-side `original:` filter. Here
+# a cheaper variant works and is used instead: **truncate the prefix by one character class** —
+# "predsjednik.hr/default" is a valid CDX prefix that returns BOTH default.asp and Default.aspx
+# (measured 2026-08-16: 12,884 captures, 2003-2015) while being a path no article ever has.
+#
+# ⛔ RULE 1 BREADTH. cdxbatch over the whole predsjednik.hr domain, 2026-08-16: 26,885 raw
+# captures → 23,731 in scope. The generations, with what each is:
+#     default.asp?…gl=…&jezik=1        9,505   Mesić 2000-2009, Croatian   TAKEN
+#     default.asp?…gl=…&jezik=2          522   the English mirror          ✘ hrv_predsjednik_english_wayback
+#     default.asp?…  (no jezik)          397   older captures of the same  TAKEN
+#     /blog/YYYY/MM/DD/<slug>/         3,379   Josipović 2010-2015 (WP)    TAKEN
+#     /vijesti/<slug>/                 1,796   2015→                       TAKEN (yes-and to the live recipe)
+#     Default.aspx?art=<N>[&sec=<N>]   1,662   2009-2014                   TAKEN except sec=9xx
+#     Default.aspx?…&sec=9xx             144   the English mirror          ✘ hrv_predsjednik_english_wayback
+#     /govori/<D_M_YYYY_N>.html          526   the static speeches dir     TAKEN — and reachable by
+#         NOTHING before now: the live recipe's link_pattern requires a slug starting with a
+#         LETTER (`/(?:vijesti|govori)/[a-z]…`) and every file here starts with a digit.
+#     /press/…                            65   press section               TAKEN
+#     ured.predsjednik.hr 1995-1998      705   the TUĐMAN site             ✘ its own pair of recipes
+#                                              (hrv_ured_tudjman_wayback / _english_wayback)
+# NOT taken: 2,831 .jpg, photo/foto galleries, medals/decorations registers (RULE 1 out-list).
+#
+# ⚠ `sec` IS UI NOISE. The same article is archived under several sec values — measured:
+# art=16325 appears as sec=710 AND sec=711. sec only picks the breadcrumb; art identifies the
+# document. Hence wayback_noise_params below, without which the harvest refetches articles.
+source_id: hrv_predsjednik_wayback
+country: Croatia
+source_language: Croatian
+renderer: static
+start_urls:
+  # TRUNCATED prefix — covers default.asp AND Default.aspx, and is not any article's path.
+  - predsjednik.hr/default
+  - predsjednik.hr/blog
+  - predsjednik.hr/vijesti
+  - predsjednik.hr/govori
+  - predsjednik.hr/press
+
+listing:
+  # Five branches, one per generation. Language anchoring is explicit in two of them:
+  #   `(?!.*jezik=2)`  keeps the English mirror of the asp era out (its own recipe).
+  #   `(?!.*sec=9\d\d)` does the same for the aspx era — verified 2026-08-16 by sampling:
+  #     sec 766-773 and 683/710-722/894 render CROATIAN; sec 910 and 928 render ENGLISH.
+  # `gl=\d{14}` is required so the section/menu views (default.asp?ru=N&sid=&akcija=, 389
+  # captures) cannot match — only a real article carries the gl document id.
+  # ⚠ `(?!.*&amp;)` is NOT cosmetic. 731 captures record the URL with HTML-escaped ampersands
+  # (default.asp?akcija=&amp;ru=30&amp;gl=…). The classic ASP then reads ONE parameter whose value
+  # is the whole rest of the string, so ru= and gl= arrive empty and the script renders the
+  # SECTION INDEX. Verified on capture 20060604025231: 556 chars of `.TekstLeadPopis` teasers and
+  # `.Vise` ("more") links, no article. Contrast irl_president_old_wayback, which deliberately
+  # ADMITS its &amp; forms — there they resolve to the real article. Sample before copying either.
+  link_pattern: 'predsjednik\.hr(?::80)?/(?:default\.asp\?(?!.*jezik=2)(?!.*&amp;).*gl=\d{14}|Default\.aspx\?(?!.*sec=9\d\d).*art=\d+|blog/\d{4}/\d{2}/\d{2}/[a-z0-9][^/?#]{5,}/?$|vijesti/[a-z][^/?#]{6,}/?$|govori/[\d_]+\.html$|press/[a-z][^/?#]+/[a-z][^/?#]{4,}/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `sec` = breadcrumb only (see header). `ru` is the asp era's equivalent menu id and varies for
+  # one gl document the same way. `sid`/`akcija` are always empty. Collapsing them all leaves the
+  # document id (gl= / art=) as the identity, which is what it is.
+  wayback_noise_params: ["sec", "ru", "sid", "akcija"]
+
+title:
+  # One per generation, ordered so no two ever compete on the same page:
+  #   .p-post-single__title  2015→ /vijesti/      (the live recipe's selector)
+  #   .TekstLead             2000-2009 default.asp — verified 81 chars, "Predsjednik Mesić primio…"
+  #   .lead                  2009-2014 Default.aspx — verified on capture 20101128054922
+  #   .article-content h1    2009-2014 Default.aspx items that carry NO `.lead` (the "obavijesti"
+  #                          template) — verified 40 chars on capture 20090331 of art=16045
+  #   h1                     2010-2015 /blog/     — verified 78 chars, n=1 (no banner h1 here)
+  #   title                  the /govori/ static files, which have no heading element
+  selectors: [".p-post-single__title", ".TekstLead", ".lead", ".article-content h1", "h1", "title"]
+text:
+  # ⚠ THE ELEMENT-JOIN TRAP IS LIVE ON THIS HOST AND IS WHY THE FIRST ENTRY IS `.Tekst .Tekst`.
+  # On the default.asp generation a `<td class="Tekst">` CONTAINS a second `.Tekst`, so a bare
+  # `.Tekst` matches n=2 and the engine joins them: 2,189 chars for a page whose entire text is
+  # 1,603. The descendant form matches only the inner element — 1,094 chars, the actual article.
+  # Measured on capture 20070610192623 of default.asp?ru=270&gl=200601270000009&jezik=1.
+  # `.article-content` (bare) is after its `.text` child on purpose: the 2015 captures of the
+  # /blog/ slugs were re-served by the ASPX template WITHOUT an inner `.text`, and without this
+  # entry they extracted 0 chars.
+  selectors: [".p-post-single__content", ".Tekst .Tekst", ".article-content .text", ".post", ".article-content", "#main", ".Tekst"]
+date:
+  # DELIBERATELY no selector for the /blog/ generation, so its date comes from the url_regex
+  # below — an unambiguous ISO triple beats regexing "3. svibnja 2012." out of a 1,018-char
+  # `.post` blob that also contains dates inside the speech.
+  #   .Naslov               default.asp era — verified "27.01.2006." (and "14 October 2005" on
+  #                         the English twin); despite the name ("title") it holds the DATE.
+  #   .article-content      Default.aspx era — the byline is its first line, hence the regex.
+  #   .p-post-single__meta  2015→ /vijesti/ (the live recipe's selector)
+  selectors: [".Naslov", ".article-content", ".p-post-single__meta"]
+  regex: '\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{1,2}\.?\s+[^\W\d_]{3,}\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,}\s+\d{4}'
+  url_regex: '/blog/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+position: president
+date_languages: ["hr", "en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The CROATIAN-language archive of predsjednik.hr across four
+  CMS generations — the two query-addressed ones an earlier plan wrongly called unscrapable, plus
+  the /blog/ WordPress era and the static /govori/ speech files that the live recipe's
+  letter-initial slug rule silently excluded. Reaches **Stjepan Mesić (2000-2010) and Ivo
+  Josipović (2010-2015)**, for whom the corpus holds nothing from this host. "yes-and" to the
+  live hrv_predsjednik and to hrv_predsjednik_english_wayback; all three share
+  data/state/Croatia.json, and run.select_unscraped skips by page identity, so run the LIVE
+  recipe first and never --rescrape. NO speaker_default (Mesić, Josipović, Grabar-Kitarović,
+  Milanović). Siblings authored the same day for the Tuđman-era office site:
+  hrv_ured_tudjman_wayback + hrv_ured_tudjman_english_wayback.
+  PROBE-VALIDATED --spread --n 12 (2026-08-16): **11,839 snapshots**, title 12/12, text 10/12,
+  date 10/12, article dates 2001-03 .. 2022-07 across all four generations. The two misses were
+  both section-index pages that slipped the pattern and are now excluded (/press/<section>/ needs
+  two path segments) or accepted: one `default.asp?akcija=&ru=30&gl=…` capture renders the
+  section list even though it carries a well-formed gl. FULL RUN is the researcher's gate
+  (~11,800 fetches ≈ 28 h).

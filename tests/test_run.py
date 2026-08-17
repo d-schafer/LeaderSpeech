@@ -334,7 +334,7 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     monkeypatch.setattr(
         run.wayback,
         "fetch_snapshot",
-        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None: WAYBACK_HTML,
+        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None: WAYBACK_HTML,
     )
     monkeypatch.setattr(run, "Fetcher", FakeFetcher)
 
@@ -365,7 +365,7 @@ def test_wayback_delay_override_paces_archive_fetches(tmp_path, monkeypatch):
 
     seen_delays: list[float] = []
 
-    def _record(entry, delay=5.0, timeout=60.0, client=None, pacer=None):
+    def _record(entry, delay=5.0, timeout=60.0, client=None, pacer=None, encoding=None):
         seen_delays.append(delay)
         return WAYBACK_HTML
 
@@ -399,7 +399,7 @@ def test_wayback_capture_recorded_on_rows(tmp_path, monkeypatch):
     ]
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
     monkeypatch.setattr(run.wayback, "fetch_snapshot",
-                        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None: WAYBACK_HTML)
+                        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None: WAYBACK_HTML)
     monkeypatch.setattr(run, "Fetcher", FakeFetcher)
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
@@ -485,7 +485,7 @@ def test_wayback_extend_continues_after_live_and_dedupes(tmp_path, monkeypatch):
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", fake_lsfq)
     monkeypatch.setattr(
         run.wayback, "fetch_snapshot",
-        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None: WAYBACK_HTML,
+        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None, encoding=None: WAYBACK_HTML,
     )
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
@@ -522,7 +522,7 @@ def test_extend_wayback_flag_triggers_without_recipe_field(tmp_path, monkeypatch
     )
     monkeypatch.setattr(
         run.wayback, "fetch_snapshot",
-        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None: WAYBACK_HTML,
+        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None, encoding=None: WAYBACK_HTML,
     )
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"

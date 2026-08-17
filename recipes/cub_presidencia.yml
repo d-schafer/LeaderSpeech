@@ -232,7 +232,18 @@ title:
 text:
   selectors: [".blog-posts", ".margin-b-20", "article", "main"]
 date:
-  selectors: ["time"]
+  # ⚠ BUG FIX 2026-08-16 (Session C) — a BARE `time` WAS THE SIDEBAR FEED, and it was writing
+  # wrong dates, not missing ones. presidencia.gob.cu renders three <time> elements per article
+  # (the byline plus two "related news" teasers) and the engine JOINS every match, so the field
+  # arrived as "24 de Abril de 2024 16 de Abril de 2024 2 de Marzo de 2024". dateparser does not
+  # reject that — on a probe it returned a date whose MONTH AND DAY were TODAY'S, keeping only
+  # the year, so every row on a given crawl day got the same fake month/day. Verified on
+  # /presidency/interventions/intervencion-en-la-xxiii-cumbre-del-alba-tcp/: bare `time` = 3
+  # elements / 58 chars; `.blog-posts time` = 1 element / "24 de Abril de 2024", the byline.
+  # Same family as the pmo.gov.sg `.date` sidebar trap (run 5) and the vlada.hr `.Naslov` clock.
+  # ⚠ ANY ROWS ALREADY SCRAPED FOR CUBA CARRY THE BAD DATE and want a re-scrape or a date-only
+  # repair — this is an EXTRACTION fault, which is the one case that justifies --rescrape.
+  selectors: [".blog-posts time", "article time", "time"]
   attr: datetime
 
 position: president

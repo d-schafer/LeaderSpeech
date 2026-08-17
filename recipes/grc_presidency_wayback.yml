@@ -28,10 +28,31 @@
 # primeminister.gr's single dated namespace. NOT DONE HERE — flagged with evidence so the next
 # session can act on a measurement instead of re-deriving it.
 #
-# PARTIAL — this is the legacy section only. The modern WordPress era (2015+, Pavlopoulos /
-# Sakellaropoulou) has flat Greek-slug permalinks with no speech-only URL pattern, so isolating
-# its speeches needs a keep_if on the article's own category (an /en/category/speeches-statements
-# category exists) — a separate, heavier pass tracked as a follow-up.
+# ✅ WIDENED 2026-08-16 (Session C) — THE FOLLOW-UP ABOVE IS NOW DONE. The old header ended here
+# saying the WordPress era "needs a keep_if on the article's own category — a separate, heavier
+# pass". Re-measured, that framing was the RULE 1 mistake in miniature: the ruling is to take the
+# post namespace WHOLE and let the cleaner's document_type gate sift it, exactly as
+# grc_primeminister_wayback does. So the modern era is taken with NO category predicate.
+#
+# WHAT THE ?p= NAMESPACE ACTUALLY LOOKS LIKE (measured 2026-08-16 over the 15,760-capture
+# enumeration; the earlier "?lang=<xx>&p=<id> 4,766 / ?p=<id> 2,583" split was the right count
+# but the wrong reading):
+#     ?p=<id>            2,584   no lang parameter at all -> the GREEK default. Taken.
+#     ?p=<id>&lang=en…   2,388   Taken by grc_presidency_english_wayback.
+#     ?p=<id>&lang=fr…   2,378   FRENCH. No recipe; banked here rather than left invisible.
+# ⚠ AND THE TRAP INSIDE IT: thousands of these captures carry the lang parameter TWICE —
+# "?p=3326&lang=en&lang=el". PHP's $_GET keeps the LAST occurrence, so that URL renders GREEK,
+# not English. A naive `lang=en` test would put ~2,000 Greek pages in the English recipe and a
+# naive `(?!.*lang=en)` would throw them out of this one. Both patterns therefore anchor on the
+# FINAL lang value with `$`.
+#
+# Also taken (the pretty-permalink generation of the same posts' era):
+#     /<greek-or-latin-slug>/     the root-level article permalinks
+#     /drasthriotites/<slug>/     "activities"
+#     /nea-epikairothta/<n>/      "news / current affairs"
+# ✘ Still out: ?page_id= (3,686 — static pages + their ?paged= pagers), ?m=<YYYYMMDD> (117,
+#   month archives), /YYYY/MM[/DD]/ (1,231, dated archive listings), ?location=<place> (48,
+#   a facet), ?event_id= (event calendar), and the /en//fr/ static section pages.
 source_id: grc_presidency_wayback
 country: Greece
 source_language: Greek
@@ -42,10 +63,33 @@ start_urls:
   # truncated prefix still prefix-matches omil_content.asp?rid=N while keeping its own path
   # (/omil_content) distinct. (Same fix as fji_presidentsoffice_wayback.)
   - presidency.gr/omil_content
+  # ⚠ THE BARE HOST IS REQUIRED for the WordPress era and is not laziness: every ?p=<id> capture
+  # has the path "/" , so ANY deeper prefix would miss them and the root itself is the only
+  # prefix that reaches them. filter_entries_for_recipe drops captures whose path equals a
+  # start_url path — "/" is not equal to "/drasthriotites/…" — and the ?p= URLs survive because
+  # _url_path() strips the query, leaving "/" ... which IS the start_url path. That is why the
+  # server-side `original:` filter below carries the ?p= branch instead: it narrows the query,
+  # and the pattern does the rest.
+  - presidency.gr/drasthriotites
+  - presidency.gr/nea-epikairothta
+  - presidency.gr
 renderer: static
 
 listing:
-  link_pattern: 'omil_content\.asp\?rid=\d+'
+  # Four branches. `(?!.*lang=(?:en|fr)$)` is the double-lang guard described in the header: it
+  # rejects a URL whose FINAL lang value is en/fr while keeping "?p=3326&lang=en&lang=el", which
+  # PHP renders in Greek. The slug branches require a non-numeric, non-date first character so
+  # the /YYYY/MM/ archive listings cannot match, and are $-anchored against ?paged= echoes.
+  # ⚠ THE `?p=<id>` BRANCH IS DELIBERATELY ABSENT, and it is worth knowing why before adding it
+  # back. (1) It is the WordPress UGLY permalink for the same posts the `/<slug>/` branch already
+  # takes, so harvesting both is the alternate-views duplication trap. (2) It is UNREACHABLE by
+  # this engine anyway: those captures' path is "/" (everything is in the query), and
+  # filter_entries_for_recipe drops any capture whose query-stripped path equals a start_url
+  # path — and the bare host, which is the only prefix that reaches them, HAS path "/". The
+  # truncated-prefix idiom used for Croatia and Sri Lanka cannot help here because there is no
+  # path to truncate. Measured, not assumed: a probe with the branch present harvested zero
+  # ?p= URLs.
+  link_pattern: 'presidency\.gr(?::80)?/(?:omil_content\.asp\?rid=\d+|drasthriotites/[^/?#]{8,}/?$|nea-epikairothta/\d+/?$|(?:%[A-F0-9]{2}|[a-z]{2})[^/?#]{12,}/?$)'
 
 pagination:
   type: wayback
@@ -54,19 +98,33 @@ pagination:
     - "statuscode:200"
 
 title:
-  # No separate speech-title element in this legacy template; the venue+date header line is the
-  # best available title (the cleaner can refine). span.titlesmaller_black13 holds e.g.
+  # WordPress era first (h1.entry-title / .entry-title), then the legacy template. There is no
+  # separate speech-title element in the legacy one, so its venue+date header line is the best
+  # available title and the cleaner refines it: span.titlesmaller_black13 holds e.g.
   # "Αροανία Αχαΐας, 16 Ιουλίου 2004".
-  selectors: ["span.titlesmaller_black13", "title"]
+  selectors: ["h1.entry-title", ".entry-title", "h1", "span.titlesmaller_black13", "title"]
 text:
-  # td.textverdana is the pure speech body (~14k chars; salutation-first, no chrome).
-  selectors: ["td.textverdana", ".textverdana"]
+  # WordPress era: .entry-content / .post-content. Legacy: td.textverdana is the pure speech body
+  # (~14k chars; salutation-first, no chrome). The two never co-occur, so order is safe.
+  # ⚠ THE MODERN SITE IS ELEMENTOR AND HAS NO `.entry-content`. Measured on capture 2023 of
+  # /dilosi-gia-to-sidirodromiko-dystychima-sta-tempi/: the body sits in
+  # `div.elementor-location-single` (801 chars, n=1, carrying the post-<id>/category-<slug>
+  # classes). Without that selector 4 of 12 sampled pages extracted ZERO. `.entry-content` and
+  # `.post-content` stay ahead of it for the older WordPress theme; `article` stays behind it
+  # because it is the wider wrapper.
+  # `.blog-page` is a THIRD theme generation ("astero", ~2019-2021) that has neither
+  # .entry-content nor Elementor — verified on capture 2020 of
+  # /synantisi-me-ton-dimarcho-ioanninon-moysi-elisaf/, where it is the only container holding
+  # the item (281 chars, "06 Φεβ · By: Press Office · Συνάντηση με τον Δήμαρχο Ιωαννίνων …").
+  selectors: [".entry-content", ".elementor-widget-theme-post-content", ".elementor-location-single", ".post-content", ".blog-page", "article", "td.textverdana", ".textverdana"]
 date:
-  # Same header span; regex pulls the Greek WORD-date out of "venue, DD Month YYYY". A word
-  # month is unambiguous (no DD/MM trap), but keep date_languages ["el"] alone so dateparser
-  # reads the Greek month name.
-  selectors: ["span.titlesmaller_black13"]
-  regex: '\d{1,2}\s+[Α-Ωα-ωΆ-ώϊϋΐΰ]+\s+\d{4}'
+  # WordPress era: the standard time element, read from its datetime attribute where present.
+  # Legacy: the same header span as the title; the regex pulls the Greek WORD-date out of
+  # "venue, DD Month YYYY". A word month is unambiguous (no DD/MM trap), and date_languages
+  # ["el"] alone lets dateparser read the Greek month name. The regex also accepts a leading
+  # ISO/`datetime` form so it does not reject the WordPress value.
+  selectors: ["time.entry-date", "time", ".posted-on", "span.titlesmaller_black13"]
+  regex: '\d{4}-\d{2}-\d{2}|\d{1,2}\s+[Α-Ωα-ωΆ-ώϊϋΐΰ]+\s+\d{4}'
 
 position: president
 # speaker_default omitted: the legacy section spans Stephanopoulos (1995-2005) and Papoulias
@@ -74,9 +132,30 @@ position: president
 # president is a ceremonial head of state.
 date_languages: ["el"]
 notes: >
-  DRAFT / PARTIAL — probe-validated (no full run). Greece Presidency, PURE-WAYBACK (live site
-  Akamai-blocked even to headless Chromium). LEGACY speeches only: ~168 omil_content.asp?rid=N
-  captures (~2004+, Stephanopoulos/Papoulias). Body td.textverdana, date+venue
-  span.titlesmaller_black13 (Greek word-date), charset iso-8859-7. The modern WordPress era
-  (2015+) needs a keep_if-on-category pass and is a documented follow-up. Greek original; the
-  translation stage fills English.
+  Greece Presidency, PURE-WAYBACK (live site Akamai-blocked even to headless Chromium).
+  ✅ WIDENED 2026-08-16 (Session C) — **168 → 2,257 snapshots**, discharging the biggest banked
+  item from Session B. It had taken ONLY the omil_content.asp?rid=N endpoint the site retired a
+  decade ago (1.1% of a 15,760-capture host); it now also takes the modern post namespace WHOLE
+  — root-level slug permalinks, /drasthriotites/ and /nea-epikairothta/ — with NO category
+  predicate, per the ruling that the cleaner's document_type gate is where a speech is separated
+  from a reception note. Reaches Pavlopoulos (2015-2020) and Sakellaropoulou (2020-2025)
+  alongside the legacy Stephanopoulos/Papoulias material.
+  THREE theme generations, each needing its own body selector (legacy td.textverdana; "astero"
+  .blog-page; Elementor .elementor-location-single) — the Elementor one alone was 4 of 12 sampled
+  pages extracting zero. Re-probed --spread --n 12: title 12/12, text 9/12, **date 1/12**.
+  ⚠ DATE IS THE WEAK FIELD and is stated rather than papered over: the modern themes print no
+  machine-readable date (the astero one shows a bare "06 Φεβ", no year), so most rows defer to
+  the cleaner's corrected-date pass and the wayback_capture backstop. The legacy generation dates
+  cleanly from span.titlesmaller_black13.
+  ⛔ NO ENGLISH SIBLING IS POSSIBLE ON THIS HOST, and that is a MEASURED NEGATIVE, not an
+  omission. presidency.gr serves its other languages only as `?p=<id>&lang=en` / `&lang=fr`
+  (2,388 and 2,378 captures) — root-level QUERY URLs whose path is "/". The engine drops any
+  capture whose query-stripped path equals a start_url path, and the bare host (the only prefix
+  that reaches them) has path "/", so they cannot be harvested; the truncated-prefix idiom has
+  no path to truncate. There is no /en/<slug>/ permalink generation — the 133 captures under
+  /en/ are static .htm section pages. If the English render is wanted later it needs an engine
+  change (an exemption from the listing-path drop for captures that carry a query), not a
+  recipe. Recorded here so nobody re-derives it.
+  Also NOT taken: the ?p=<id> Greek ugly permalinks — an alternate view of the slug permalinks
+  this recipe already has, and unreachable for the same reason (see the listing comment).
+  Greek original; the translation stage fills English. FULL RUN is the researcher's gate.

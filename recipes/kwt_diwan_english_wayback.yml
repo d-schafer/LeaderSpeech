@@ -1,0 +1,84 @@
+# Kuwait — Amiri Diwan (da.gov.kw), the ENGLISH render, via the Internet Archive. Wayback
+# companion to the live kwt_diwan_english; "yes-and", never a replacement.
+#
+# TWO SITE GENERATIONS, and the older one is the point of this recipe:
+#   /eng/…  the RETIRED site (≈2010-2018) — its content is gone from the live host entirely.
+#           /eng/speeches/amir_speeches_<N>.php?p=<N>   125 captures  the Amir's set-piece addresses
+#           /eng/newsroom/news-<N>.html                  29
+#           /eng/newsroom/newsDetails.php?id=<N>         19
+#           /eng/hhamir/amir_visits_<N>.php?p=<N>        28  state-visit notes (RULE 1: visits are IN)
+#           /eng/articles/…                             283  the largest /eng/ section
+#   /en/…   the CURRENT site, archived: /en/news/<id>-DD_MM_YYYY/  435 captures. Overlaps the live
+#           recipe, and that is fine — run.select_unscraped skips by page identity, so as long as
+#           kwt_diwan_english runs FIRST these cost nothing. They are kept because the Archive
+#           holds items the live pager has since dropped.
+#
+# ⛔ RULE 1 — NOT scoped to "speeches". The recon plan named /eng/speeches (116, measured 125)
+# and /en/news (433, measured 435). This recipe adds articles, newsroom and the Amir's visits,
+# because the cleaner's document_type gate is where a communiqué is sifted from an address.
+# ✘ Excluded: enlargeImage.php (24 captures — the photo viewer), /eng/picsandevents (74, gallery),
+#   /eng/personals (22, staff bios), tenders./webmail./mail. subdomains, and the Arabic (/ara/,
+#   /ar/), French (/fre/, /fr/) and Spanish (/spa/) renders — kwt_diwan owns the Arabic; the
+#   French and Spanish have no recipe and are BANKED here rather than left invisible
+#   (/fr/news/ 191 + /fre/speeches/ 88 + /fre/articles/ 208 + /spa/ 41).
+#
+# THE TRAP, handled: /eng/speeches/amir_speeches_<N>.php?p=<N> is query-addressed, but the
+# per-speech id is in the PATH (amir_speeches_7.php), so each document already has a distinct
+# path and no truncated-prefix trick is needed. `?p=` is a UI page-within-speech toggle, so it
+# is added to the identity denylist below — otherwise one speech is fetched once per page.
+source_id: kwt_diwan_english_wayback
+country: Kuwait
+source_language: English
+renderer: static
+start_urls:
+  - da.gov.kw/eng
+  - da.gov.kw/en/news
+
+listing:
+  link_pattern: 'da\.gov\.kw(?::80)?/(?:eng/(?:speeches/amir_speeches_\d+\.php|hhamir/amir_visits_\d+\.php|newsroom/news-\d+\.html$|newsroom/newsDetails\.php\?id=\d+|articles/[a-z0-9_-]+\.(?:php|html)$)|en/news/\d+-\d{2}_\d{2}_\d{4}/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # ⚠ `p` IS MEANINGFUL HERE — do not add it. A first draft did, on the assumption that it was a
+  # within-document pager, and it was wrong in the expensive direction: the path segment
+  # `amir_speeches_<N>.php` is the YEAR (amir_speeches_2013.php probes as a year index titled
+  # "Speeches"), and `?p=<n>` is what selects the individual speech. Collapsing it would have
+  # reduced the whole speech archive to one row per year. Only the session id is noise.
+  wayback_noise_params: ["PHPSESSID"]
+
+title:
+  selectors: [".news-title", "h1", "h2", "title"]
+text:
+  selectors: [".col-xl-8", "article", "main", "#content", "body"]
+date:
+  # ONE regex covers BOTH generations, because Python `re` forbids repeating a group name across
+  # alternatives — so the two prefixes alternate and the digits share one set of named groups:
+  #   modern   /en/news/1164-04_11_2024/                   -> 04 _ 11 _ 2024
+  #   retired  /eng/speeches/amir_speeches_2007.php?p=03102007 -> 03   10   2007
+  # The `?p=` value looked like an opaque id at first and is in fact DDMMYYYY (it is also why it
+  # must NOT be treated as a noise parameter — see the pagination comment). Requiring all eight
+  # digits keeps a non-date `?p=` from producing a spurious date. The /eng/articles/ and
+  # /eng/newsroom/ pages carry neither a date element nor a date in the URL and fall through to
+  # the cleaner's corrected-date pass — deliberately, because those pages open with a
+  # Hijri/Gregorian dateline pair and silently picking the wrong one is worse than a blank.
+  selectors: [".news-date", "time", ".date"]
+  url_regex: '(?:/news/\d+-|\?p=)(?P<day>\d{2})_?(?P<month>\d{2})_?(?P<year>\d{4})'
+
+position: amir
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The ENGLISH archive of the Kuwaiti Amiri Diwan — the
+  retired /eng/ site (speeches, articles, newsroom, the Amir's visits), which no longer exists
+  on the live host, plus the archived /en/news/ permalinks. Companion to the live
+  kwt_diwan_english (1,647 links) and to kwt_diwan (Arabic). All three share
+  data/state/Kuwait.json; run the LIVE recipes FIRST so select_unscraped can skip the overlap,
+  and never --rescrape. NO speaker_default (Sabah IV / Nawaf / Mishal) → tenure crosscheck.
+  The French and Spanish renders of the same host are MEASURED AND BANKED in the header.
+  PROBE-VALIDATED --spread --n 10 (2026-08-16): **719 snapshots**, title 10/10, text 10/10
+  (bodies 252-18,833 chars), date 10/10 after the `?p=` date discovery. FULL RUN is the
+  researcher's gate.

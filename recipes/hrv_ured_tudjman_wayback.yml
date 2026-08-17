@@ -1,0 +1,101 @@
+# Croatia — Office of the President, the 1995-1998 STATIC site at ured.predsjednik.hr,
+# CROATIAN render, via the Internet Archive. **FRANJO TUĐMAN** (1990-1999).
+# Croatian sibling of hrv_ured_tudjman_english_wayback — read that file's header first; it
+# carries the full filename-prefix inventory and the reasoning behind the split.
+#
+# ⚙ THIS RECIPE IS WHY THE ENGINE GREW A PER-RECIPE `encoding:` FIELD (2026-08-16).
+# These pages are 1996 hand-written HTML: `Content-Type: text/html` with NO charset, and an
+# **empty `<head>`** — literally `<head>\n</head>` before the `<TITLE>`. So neither branch of
+# `fetch.decode_html` has anything to read, it falls through to httpx's UTF-8 default, and every
+# Croatian diacritic becomes U+FFFD. Verified on the raw bytes of pp050602.htm:
+# "Predsjednik Republike primio predsjednika Vlade �e�ke Republike Vaclava Klausa" — that is
+# "češke". The bytes are windows-1250. There is no signal to sniff, so the recipe declares it.
+#
+# ⚠ THE `\d+m\d+\.htm` SHAPE IS MIXED-LANGUAGE, AND THAT IS A KNOWN, MEASURED IMPRECISION.
+# 21m21238.htm and 21m22253.htm are English press releases; 20m20644.htm and 20m22873.htm are
+# Croatian ones (their h3 banner reads "Ured Predsjednika", not "Office of the President").
+# There is no way to tell from the URL. The split adopted: `\d+m\d+` goes to the ENGLISH recipe
+# (both filename samples that carried a readable `[Date: MM/DD/YYYY]` marker were English), and a
+# `keep_if` on the Croatian banner routes the Croatian ones HERE. Together the two recipes cover
+# the shape without double-counting, because each `keep_if`s on its own banner.
+source_id: hrv_ured_tudjman_wayback
+country: Croatia
+source_language: Croatian
+renderer: static
+# windows-1250 — see the header. Without this the whole harvest is mojibake.
+encoding: windows-1250
+start_urls:
+  # Flat site: every document is a top-level file, so the host root is the only prefix. Not a
+  # TRAP — filter_entries_for_recipe compares PATHS, and "/" != "/pp050602.htm".
+  - ured.predsjednik.hr
+
+listing:
+  #   pp<MMDDNN>.htm     112  "PRIOPCENJA" (press releases), Croatian — verified
+  #   <NN>m<N>d<N>.htm     9  "Poslanica Predsjednika Republike" (messages to the nation) — verified
+  #   <NN>m<N>na<N>.htm    2  same family
+  #   pk / pc / in        13  UNVERIFIED. pk060995/pc060995 come in same-date pairs, which usually
+  #                           means a Croatian/English pair; they are taken here rather than
+  #                           dropped (RULE 1: err toward inclusion, the cleaner sifts) and the
+  #                           keep_if below routes any that turn out to be English away.
+  #   <NN>m<N>.htm       127  MIXED — the English recipe's branch; the keep_if catches the
+  #                           Croatian ones. See the header.
+  link_pattern: 'ured\.predsjednik\.hr(?::80)?/(?:pp\d+|p[kc]\d+|in\d+|\d+m\d+(?:d\d+|na\d+)?)\.htm$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+# Route the mixed `\d+m\d+` shape by the page's own banner rather than by its filename. The
+# English twin of this recipe does the same on "Office of the President", so between them every
+# capture lands in exactly one place and neither writes wrong-language rows.
+#
+# ⚠ NEGATED, not positive, and that is deliberate — a positive `keep_if` on "Ured Predsjednika"
+# would silently drop every page that has NO h3 at all, and those are the good ones: the
+# 42,345-char press-conference transcript pk121595.htm ("Tiskovna konferencija Predsjednika RH,
+# 15. prosinca 1995.") carries its headline only in <TITLE>. `should_keep` joins the matched
+# elements, so no h3 → empty haystack → no hit → negate keeps it.
+# ⛔ DO NOT test <title> here: it reads "Office of the President WEB Site" on the CROATIAN pages
+# too (verified in the raw bytes of pp050602.htm), so a title-based split drops the whole
+# Croatian harvest. Only the h3 banner distinguishes them.
+keep_if:
+  selectors: ["h3"]
+  pattern: 'Office of the President'
+  negate: true
+
+title:
+  # No class, no id, no h1 — 1996 table HTML. `h3` joins the banner, the headline and the date
+  # marker, so the regex takes what sits between them. Fixed-width lookbehind (Python `re`
+  # forbids variable-width alternation there), which is precisely why the English render is a
+  # separate file: its banner reads "Office of the President".
+  selectors: ["h3", "h2", "title"]
+  regex: '(?s)(?<=Ured Predsjednika).+?(?=\s*\[\d|$)'
+text:
+  # `td` is SAFE here — the <td>s are siblings, not nested. Measured on the English twin:
+  # 2,552 joined chars against a 2,586-char page. A nested-table site would return a multiple.
+  selectors: ["td", "body"]
+date:
+  # The body marker, Croatian form: "[06.05.1996, br. 2]" / "[05.03.1996]".
+  selectors: ["td", "body"]
+  regex: '\[\s*\d{1,2}\.\d{1,2}\.\d{4}'
+  regex_required: true
+
+position: president
+speaker_default: Franjo Tuđman
+date_languages: ["hr"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The CROATIAN half of the 1995-1998 static site of the
+  Croatian Office of the President (ured.predsjednik.hr) — priopćenja (pp*), poslanice (*m*d*)
+  and the mixed *m* shape routed by keep_if. Reaches **Franjo Tuđman**, whom no Croatian source
+  in the corpus covers. Siblings: hrv_ured_tudjman_english_wayback (the English half),
+  hrv_predsjednik_wayback and hrv_predsjednik_english_wayback (the later predsjednik.hr
+  generations). All share data/state/Croatia.json — incremental run, never --rescrape.
+  ⚙ ENGINE: this recipe motivated the new per-recipe `encoding:` field (docs/recipes.md), because
+  the pages declare a charset nowhere and decoded to U+FFFD without it. 775 tests pass.
+  speaker_default IS set (one presidency, no byline element); per the run-7 change the cleaner
+  treats it as a prior, not a byline. DATE is regex_required so a page without the "[DD.MM.YYYY]"
+  marker yields an EMPTY date for the cleaner rather than a confident wrong one — the filenames
+  encode MMDDNN with no year. FULL RUN is the researcher's gate (~140 fetches).

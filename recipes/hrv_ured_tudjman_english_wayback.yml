@@ -1,0 +1,107 @@
+# Croatia — Office of the President, the 1995-1998 STATIC site at ured.predsjednik.hr,
+# ENGLISH render, via the Internet Archive. This is the **FRANJO TUĐMAN** presidency
+# (1990-1999) — a head of state the corpus holds nothing for from any Croatian source.
+#
+# HOW IT WAS FOUND (2026-08-16, Session C). The predsjednik.hr domain enumeration surfaced a
+# separate subdomain, ured.predsjednik.hr, with 705 captures dated 1997-2000 — a hand-built
+# static site with no CMS at all, one flat .htm file per document. It is the deepest thing on
+# this host and no recipe touched it.
+#
+# ⛔ THE FILENAME PREFIX IS THE SECTION *AND* THE LANGUAGE. Sampled 2026-08-16:
+#     pr<MMDDNN>.htm      48   ENGLISH  "PRESS RELEASES" — e.g. pr030601 = "President Tudjman
+#                              Receives a Delegation of the German Automobile Association, ADAC",
+#                              [Date: 03/06/1996, no. 1]. Some run long (pr091601 = 15,082 chars).
+#     ad<MMDDYY>.htm      21   ENGLISH  ADDRESSES — full speech transcripts. ad091597 = 40,831
+#                              bytes, "Address of the President of the Republic Dr. Franjo
+#                              Tudjman At the Opening of the 73rd Zagreb International Autumn
+#                              Fair, September 15, 1997".
+#     ad<MMDDYY>_<n>.htm   7   ENGLISH  continuation pages of the above
+#     <NN>m<N…>.htm      127   ENGLISH  press releases under the monthly index — 21m22253.htm is
+#                              "President Tudjman Receives Austrian Foreign Minister Wolfgang
+#                              Schuessel", [Date: 02/22/1996].
+#   ✘ pp<MMDDNN>.htm    112   CROATIAN "PRIOPCENJA" → hrv_ured_tudjman_wayback
+#   ✘ <NN>m<N>d<N>.htm    9   CROATIAN "Poslanica Predsjednika Republike" → same
+#   ✘ pk / pc / in       13   UNVERIFIED, assigned to the Croatian sibling — see its header.
+#   ✘ /english/advisers/, /savjetnici/, /radne_skupine/ (institutional pages), /govori/
+#     (the Mesić-era speech files, which belong to hrv_predsjednik_wayback), photo/foto — RULE 1.
+#
+# ⚠ THE FILENAME DOES NOT CARRY A RELIABLE YEAR. pr030601 is MM DD NN (no year) while ad091597
+# is MM DD YY. There is no url_regex that is safe across both, and getting it wrong would land
+# rows years out silently — the thaigov Buddhist-era lesson. So the date comes from the BODY
+# marker "[Date: MM/DD/YYYY]", which every sampled press release carries, and the addresses fall
+# through to the cleaner's corrected-date pass (their date is written into the speech header).
+source_id: hrv_ured_tudjman_english_wayback
+country: Croatia
+source_language: English
+renderer: static
+start_urls:
+  # Every document is a top-level file, so the host root is the only prefix — and it is NOT a
+  # TRAP: filter_entries_for_recipe compares PATHS, and "/" is not equal to "/pr030601.htm".
+  - ured.predsjednik.hr
+
+listing:
+  link_pattern: 'ured\.predsjednik\.hr(?::80)?/(?:pr\d+|ad\d+(?:_\d+)?|\d+m\d+)\.htm$'
+
+# ⚠ THE `\d+m\d+` SHAPE IS MIXED-LANGUAGE and the URL does not say which. Measured 2026-08-16:
+# 21m21238.htm and 21m22253.htm are ENGLISH press releases; 20m20644.htm and 20m22873.htm are
+# CROATIAN ones. So the language is routed by the page's own BANNER, not by its filename — this
+# recipe keeps "Office of the President", the Croatian sibling keeps "Ured Predsjednika".
+# Between them every capture lands in exactly one recipe and neither writes wrong-language rows.
+#
+# ⚠ NEGATED, mirroring the Croatian sibling, and for the same reason: a POSITIVE keep_if on
+# "Office of the President" would drop every page with no h3 — and that is the `ad*` ADDRESS
+# transcripts, the most valuable thing on this host (ad080495.htm, "Message from President to
+# Croatian citizens of Serbian nationality", carries its headline only in <TITLE>).
+# ⛔ DO NOT test <title>: it reads "Office of the President WEB Site" on the CROATIAN pages too.
+# Only the h3 banner distinguishes them, and the two recipes negate on each other's banner, so
+# every capture lands in exactly one of them.
+keep_if:
+  selectors: ["h3"]
+  pattern: 'Ured Predsjednika'
+  negate: true
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # These pages have no class, no id and no h1 — they are 1996 table HTML. `h3` carries the
+  # banner ("Office of the President") AND the headline AND the date marker, and the engine joins
+  # all matches, so the regex takes what sits between them. A fixed-width lookbehind is required
+  # (Python `re` forbids variable-width), which is exactly why the Croatian sibling is a separate
+  # file: its banner reads "Ured Predsjednika" and cannot share this pattern.
+  selectors: ["h3", "h2", "title"]
+  regex: '(?s)(?<=Office of the President).+?(?=\s*\[Date|$)'
+text:
+  # `td` is SAFE here and the element-join trap does not fire: the 5 <td>s are siblings, not
+  # nested — measured 2,552 joined chars against a 2,586-char page (capture 19980215012811 of
+  # pr030601.htm). A nested-table site would have returned several times the page length.
+  selectors: ["td", "body"]
+date:
+  # The body marker, in both the English and the numbered form:
+  #   "[Date: 03/06/1996, no. 1]"   "[Date: 02/22/1996]"
+  selectors: ["td", "body"]
+  regex: '\[Date:\s*(?:\d{1,2}/\d{1,2}/\d{4})'
+  regex_required: true
+
+position: president
+speaker_default: Franjo Tuđman
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The 1995-1998 static ENGLISH site of the Croatian Office of
+  the President (ured.predsjednik.hr) — press releases (pr*, *m*) and full address transcripts
+  (ad*). Reaches **Franjo Tuđman**, whom no Croatian source in the corpus covers. Sibling
+  hrv_ured_tudjman_wayback takes the Croatian half; hrv_predsjednik_wayback and
+  hrv_predsjednik_english_wayback take the later predsjednik.hr generations. All four share
+  data/state/Croatia.json — incremental run, never --rescrape.
+  speaker_default IS set here, unusually: the site covers exactly one presidency and the pages
+  carry no byline element. Per the run-7 change the cleaner treats it as a PRIOR, not a byline,
+  and follows the document where the document disagrees.
+  DATE uses regex_required so a page without the "[Date: …]" marker yields an EMPTY date that
+  falls through to the cleaner rather than a confident wrong one — the filename encodes MMDDNN
+  on press releases but MMDDYY on addresses, so no url_regex is safe across both.
+  FULL RUN is the researcher's gate (~200 fetches).

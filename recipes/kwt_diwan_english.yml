@@ -1,0 +1,58 @@
+# Kuwait — Amiri Diwan (da.gov.kw), the LIVE ENGLISH tree. English-native → English column,
+# no machine translation. ENGLISH sibling of kwt_diwan (Arabic), and the follow-up its header
+# recorded as "FOLLOW-UP: /ar/speeches (2 full speeches), /en/news (English subset)".
+#
+# ⛔ RULE 1. Both content sections are taken, not just the one called "speeches":
+#   /en/news/<id>-DD_MM_YYYY/   **206 pager pages ≈ 2,060 items** (measured with pagecount.py
+#       2026-08-16) — the Amir's addresses, statements, congratulatory messages and reception
+#       notes. This is where essentially all the substance is.
+#   /en/speeches/<slug>/        a curated hub of 2 full speech transcripts (speech-1, speech-2)
+#       presented as in-page year TABS (#tab-2024, #tab-2023) rather than a pager. Tiny, but it
+#       is the only place the FULL text of those addresses sits, so it is seeded explicitly.
+# NOT taken: /en/kuwait-media-gallery/ (RULE 1 out-list), and the static institutional pages
+# (/en/constitution/, /en/al-sabah-family-tree/, /en/the-rulers/, /en/facts-and-figures/).
+#
+# The host also serves FRENCH (/fr/news/, 195 archived captures) and, on the retired site,
+# SPANISH (/spa/). Neither has a recipe — banked here rather than left invisible.
+source_id: kwt_diwan_english
+country: Kuwait
+source_language: English
+renderer: static
+start_urls:
+  - https://www.da.gov.kw/en/news/
+  - https://www.da.gov.kw/en/speeches/
+
+listing:
+  link_selector: "a[href*='/en/news/'], a[href*='/en/speeches/']"
+  link_pattern: '/en/(?:news/\d+-\d{2}_\d{2}_\d{4}|speeches/[a-z][a-z0-9-]+)/?$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  # 206 measured 2026-08-16; the headroom absorbs growth. The pager early-stops on its own when
+  # a page serves no new links.
+  max_pages: 260
+
+title:
+  selectors: [".news-title", "h1", "title"]
+text:
+  selectors: [".col-xl-8", "article", "main"]
+date:
+  # The news permalink carries an unambiguous DD_MM_YYYY; named groups assemble an ISO date, so
+  # there is no dateparser ambiguity. The two /en/speeches/ slugs carry no date and fall through
+  # to the cleaner (their delivery date is written into the speech).
+  url_regex: '/news/\d+-(?P<day>\d{2})_(?P<month>\d{2})_(?P<year>\d{4})'
+
+position: amir
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The LIVE English tree of the Kuwaiti Amiri Diwan —
+  ~2,060 items across 206 pager pages, plus the two full speech transcripts under /en/speeches/.
+  ENGLISH sibling of kwt_diwan (Arabic, same site, same selectors); "yes-and", not a replacement.
+  Both share data/state/Kuwait.json, and run.select_unscraped dedupes by page identity, but the
+  Arabic and English permalinks are genuinely different documents so nothing is lost either way.
+  Spans several Amirs (Sabah IV / Nawaf / Mishal) → NO speaker_default; the cleaner's tenure
+  crosscheck assigns the speaker. The archived /eng/ generation of the retired site is
+  kwt_diwan_english_wayback. FULL RUN is the researcher's gate.

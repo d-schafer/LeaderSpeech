@@ -611,6 +611,7 @@ def fetch_snapshot(
     pacer: Optional[AdaptivePacer] = None,
     max_bytes: int = MAX_SNAPSHOT_BYTES,
     body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
+    encoding: Optional[str] = None,
 ) -> str:
     """Fetch one archived capture's HTML (see :func:`_fetch_snapshot_resp`).
 
@@ -618,9 +619,12 @@ def fetch_snapshot(
     legacy encodings live, and the Wayback replay does not add a charset the origin never sent.
     A site mirror served as `text/html` with windows-1250 bytes and a <meta http-equiv> is the
     normal case here, and `.text` alone turns it into silent mojibake.
+
+    `encoding` is the recipe's `encoding:` override, for the harder case where the page declares
+    a charset NOWHERE — pre-1999 HTML with an empty <head>. See :func:`fetch.decode_html`.
     """
     return decode_html(_fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff,
-                                            pacer, max_bytes, body_timeout))
+                                            pacer, max_bytes, body_timeout), encoding)
 
 
 def fetch_snapshot_bytes(

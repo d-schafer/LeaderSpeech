@@ -1,17 +1,41 @@
-# Somalia — Villa Somalia / Office of the President (villasomalia.gov.so).
-# WordPress; scraped via the REST API /wp-json/wp/v2/posts (bare array -> results_path "."). 1082 posts
-# back to 2018-06 across bayannada(592, "statements")/warbaahin(572,"media")/khudbado(83,"speeches")/
-# speeches(16)/press-statements(54)/press-releases(47). We take ALL posts (no category filter) to
-# maximise recall and let the cleaner's document_type gate filter. Covers Farmaajo (2017-2022) + Hassan
-# Sheikh Mohamud (2022- ) -> no speaker_default, tenure crosscheck. BILINGUAL (Somali + English) ->
-# source_language Somali is nominal; trust the cleaner's per-row detection. Body per post (.entry-content);
-# where the theme has no stable container the generic extractor recovers it (like sle_statehouse).
+# Somalia — Villa Somalia / Office of the President (villasomalia.gov.so), the SOMALI stream.
+# WordPress; scraped via the REST API /wp-json/wp/v2/posts (bare array -> results_path ".").
+#
+# ⚙ SPLIT BY LANGUAGE 2026-08-16 (Session C, researcher's instruction). This recipe used to take
+# ALL 1,082 posts with the header note "BILINGUAL (Somali + English) -> source_language Somali is
+# nominal; trust the cleaner's per-row detection". That is not good enough: `source_language` is
+# ONE FIELD PER RECIPE, and it decides whether a body lands in `text` (English) or
+# `text_originlanguage` (everything else, to be translated). Tagging ~240 genuinely English posts
+# as Somali sends English text through the translation stage; tagging Somali posts as English
+# would put untranslated Somali in the English column. So the two streams are now two recipes.
+#
+# THE SPLIT IS BY CATEGORY, and it is clean — verified 2026-08-16 by pulling three titles from
+# each of the 11 categories through the REST API (scratchpad/som_cats.py):
+#   SOMALI  (this recipe)   149 bayannada 592 · 147 warbaahin 572 · 1 uncategorized 496 ·
+#                           151 khudbado 83 · 143 uncategorized-so 2
+#           e.g. "MADAXWEYNE XASAN SHEEKH OO SOO XIRAY SHIRWEYNAHA 1-AAD EE BAHDA CADDAALADDA"
+#   ENGLISH (som_villasomalia_english)  64 media 62 · 65 presidency-newsroom 60 ·
+#                           67 press-statements 54 · 66 press-releases 47 · 68 speeches 16 ·
+#                           69 uncategorized-tr 4
+#           e.g. "President Hassan Sheikh Mohamud's Address at the 2024 Forum on China-Africa
+#           Cooperation"
+# ⚠ `uncategorized` (id 1, 496 posts) is assigned to the SOMALI side: all three sampled titles
+# are Somali. It is the one judgement call in the split, and it is stated here rather than buried.
+#
+# ⛔ RULE 1 is unaffected: every category is still taken, across the two recipes — statements,
+# media, speeches, press releases and the uncategorised bulk. Nothing is scoped to "speeches"
+# (which is 16 posts of 1,082, i.e. 1.5%).
+# Covers Farmaajo (2017-2022) + Hassan Sheikh Mohamud (2022- ) -> no speaker_default, tenure
+# crosscheck. Body per post (.entry-content); where the theme has no stable container the generic
+# extractor recovers it (like sle_statehouse).
 source_id: som_villasomalia
 country: Somalia
 source_language: Somali
 renderer: static
 start_urls:
-  - https://villasomalia.gov.so/wp-json/wp/v2/posts?per_page=100
+  # `categories=` is the WP REST API's own filter and takes a comma-separated id list; the
+  # engine appends its `page=` paging parameter to the existing query string.
+  - https://villasomalia.gov.so/wp-json/wp/v2/posts?per_page=100&categories=149,147,1,151,143
 
 listing:
   link_pattern: 'villasomalia\.gov\.so/'
@@ -39,6 +63,13 @@ date:
 position: president
 date_languages: ["so"]
 notes: >
-  DRAFT — probe-validated (no full run). Villa Somalia via the WP REST API (1082 posts, 2018-2026).
-  Farmaajo + Hassan Sheikh -> no speaker_default. Bilingual Somali/English -> cleaner detects per row.
-  All categories taken -> cleaner's gate filters. Body via .entry-content or the generic extractor.
+  Villa Somalia via the WP REST API (1,082 posts on the host, 2018-2026). SPLIT BY LANGUAGE
+  2026-08-16 (Session C): this recipe is now the SOMALI stream (categories bayannada, warbaahin,
+  uncategorized, khudbado, uncategorized-so) and som_villasomalia_english takes the English one.
+  The old "bilingual, source_language is nominal" arrangement was wrong on the point that
+  matters — source_language decides which column the body lands in. The category→language
+  mapping was verified by sampling titles from all 11 categories; see the header, including the
+  one judgement call (`uncategorized`, 496 posts, assigned to Somali on the evidence of its
+  titles). Farmaajo + Hassan Sheikh -> no speaker_default. Body via .entry-content or the
+  generic extractor. NON-ENGLISH, so it belongs in the deferred queue under the 2026-08-10
+  language policy. Shares data/state/Somalia.json with the English sibling — never --rescrape.

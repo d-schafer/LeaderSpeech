@@ -1,0 +1,64 @@
+# Somalia — Villa Somalia / Office of the President (villasomalia.gov.so), the ENGLISH stream.
+# English-native → English column, no machine translation. Sibling of som_villasomalia (Somali);
+# read that file's header for the full category inventory and the reasoning behind the split.
+#
+# ⚙ WHY IT EXISTS (2026-08-16, Session C, researcher's instruction). som_villasomalia took all
+# 1,082 posts under `source_language: Somali` and noted that the site is bilingual. But
+# `source_language` is one field per recipe and it decides which column the body lands in, so
+# ~240 genuinely English posts were being routed to `text_originlanguage` and queued for
+# translation from Somali. Splitting by CATEGORY fixes it exactly, because the categories are
+# themselves language-segregated — verified by sampling three titles from each of the 11
+# categories through the REST API:
+#     64 media                62   "President Hassan Sheikh Arrives in Jowhar and Inaugurates …"
+#     65 presidency-newsroom  60   "PRESIDENT HASSAN SHEIKH MOHAMUD VISITS DJIBOUTI"
+#     67 press-statements     54   "Joint Communique on the Working Visit of His Excellency …"
+#     66 press-releases       47   (largely the same items as 67 — WordPress cross-filing, and
+#                                   the engine's within-harvest dedupe collapses them)
+#     68 speeches             16   "President Hassan Sheikh Mohamud's Address at the 2024 Forum
+#                                   on China-Africa Cooperation"
+#     69 uncategorized-tr      4   "PRESIDENT HASSAN SHEIKH CONGRATULATES PRESIDENT ERDOĞAN …"
+#
+# ⛔ RULE 1: all six English categories are taken, not just `speeches` (16 posts). Press
+# statements and communiqués are IN — the cleaner's document_type gate keeps official_statement.
+source_id: som_villasomalia_english
+country: Somalia
+source_language: English
+renderer: static
+start_urls:
+  - https://villasomalia.gov.so/wp-json/wp/v2/posts?per_page=100&categories=64,65,66,67,68,69
+
+listing:
+  link_pattern: 'villasomalia\.gov\.so/'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  # ~243 category memberships over ~200 distinct posts at 100/page; headroom for growth.
+  max_pages: 8
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+
+title:
+  selectors: ["h1.entry-title", "h1", "title"]
+text:
+  selectors: [".entry-content", ".elementor-widget-theme-post-content", "article"]
+date:
+  selectors: ["time.entry-date", "time", ".published"]
+  attr: datetime
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The ENGLISH stream of Villa Somalia, split out of
+  som_villasomalia by WordPress category so that `source_language` is honest and English bodies
+  land in the English column instead of being queued for translation. Same endpoint, same
+  selectors, same api settings as the Somali sibling — only the `categories=` filter differs.
+  Covers Farmaajo (2017-2022) and Hassan Sheikh Mohamud (2022- ) → NO speaker_default; the
+  cleaner's tenure crosscheck assigns the speaker. Shares data/state/Somalia.json with
+  som_villasomalia; the two category sets are disjoint, and run.select_unscraped would collapse
+  any overlap anyway. Never --rescrape. FULL RUN is the researcher's gate (cheap: ~200 posts).

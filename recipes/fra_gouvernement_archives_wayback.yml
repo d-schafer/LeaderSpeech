@@ -1,0 +1,97 @@
+# France — the FIVE FROZEN PRIME-MINISTER ARCHIVES at archives.gouvernement.fr, via the
+# Internet Archive. French. **The highest-value, cheapest France recipe of the three.**
+#
+# ⚑ HOW THIS WAS FOUND, and the mistake it corrects (2026-08-16). A section histogram over the
+# gouvernement.fr domain enumeration showed `villepin/` (442) and `fillon_version2/` (1,792) as
+# named sections, and a first draft of fra_gouvernement_wayback put them in ITS start_urls. A CDX
+# prefix query on `gouvernement.fr/villepin` returns **NO CAPTURES** — because they are on this
+# SUBDOMAIN, and CDX prefix matching is per-host. The histogram was right about the path and
+# silent about the hostname. Re-enumerated against the host, the picture is much better than the
+# "3,788 captures, banked for later" note it replaces: this is FIVE frozen prior-government
+# sites, the same pattern as the US NARA `*whitehouse.archives.gov` and the Korean
+# prior-president archives, and it reaches back to 1997.
+#
+#     fillon_version2/…   ~2,350   François Fillon        PM 2007-2012
+#     villepin/…            ~888   Dominique de Villepin  PM 2005-2007  ⚑ a named gap leader (13 rows)
+#     ayrault/…             ~250   Jean-Marc Ayrault      PM 2012-2014
+#     raffarin_version2/…    ~90   Jean-Pierre Raffarin   PM 2002-2005
+#     jospin_version3/…      ~30   Lionel Jospin          PM 1997-2002
+#     (3,743 captures matched the two-segment probe; 3,788 on the host in total)
+#
+# Each archive is a whole frozen site, so the sections repeat inside every one:
+# `/gouvernement/`, `/premier-ministre/`, `/information/`, `/presse/`, `/chantiers/`,
+# `/thematique/`, `/acteurs/`, `/ministere/`, plus `/en/` and `/de/` translation stubs.
+# ⛔ RULE 1: the pattern is SECTION-AGNOSTIC below the PM segment — it takes any article under
+# any of them and lets the cleaner's document_type gate sift, rather than picking the one called
+# "discours". ✘ Excluded: /acteurs/ (the ministers' diary index), /tags/ and /taxonomy/
+# (term listings), /print/ (print duplicates).
+source_id: fra_gouvernement_archives_wayback
+country: France
+source_language: French
+renderer: static
+start_urls:
+  # ⚠ ONE query for the whole host, deliberately. A first version used five per-PM prefixes and
+  # the probe returned **0 snapshots** — not because the pattern was wrong but because five CDX
+  # queries fired back to back tripped the Archive's rate limit, whose failure mode is
+  # `HTTP 200 + an EMPTY body` (documented in recipe_tools/cdx.py). An empty CDX result is
+  # indistinguishable from "not archived", so it reads as a broken recipe. The host is small
+  # (~3,788 captures), so one query is both cheaper and safer. Path "/" is not equal to any
+  # article path, so the listing-path drop costs nothing here.
+  - archives.gouvernement.fr
+
+listing:
+  # <pm>/<section>/<slug>, section-agnostic. The negative lookahead is the out-list; requiring
+  # THREE segments is what drops the frozen sites' own section indexes (`ayrault/presse.html`,
+  # `ayrault/accueil.html`) and their static furniture, and the trailing anchor drops the
+  # ?text_size= / ?page= echoes.
+  # ⚠ THE SLUG CLASS MUST ADMIT A DOT. These are static mirrors, so the articles end in `.html`
+  # — `.../fillon_version2/gouvernement/europe.html`. A first version used `[a-z0-9_-]{6,}` with
+  # no `.` and a 7-char floor, and the probe returned **0 snapshots against 3,631 real captures**:
+  # every URL on the host failed on the extension. A pattern that matches nothing looks exactly
+  # like a host that is not archived.
+  link_pattern: 'archives\.gouvernement\.fr(?::80)?/(?:fillon_version2|villepin|ayrault|raffarin_version2|jospin_version3)/(?!acteurs/|tags/|taxonomy/|print/)[a-z0-9_-]+/[a-z0-9][a-z0-9_.-]{5,}/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["text_size", "destination", "lang"]
+
+title:
+  selectors: ["h1", ".field-name-title", ".page-title", "title"]
+text:
+  # Same three Drupal generations as the main host — see fra_gouvernement_wayback for the
+  # measurement. `.field-field-body` (Drupal 6) is the one that is easy to omit and costs whole
+  # pages when you do.
+  selectors: [".field-name-body", ".field-field-body", ".node-inner", ".node__content", "article", "#content", "main"]
+date:
+  # ⚠ `.content` is scoped to `.node`: the sidebar "Derniers articles" feed prints dates too, and
+  # an unscoped selector would stamp rows with the newest teaser's date.
+  selectors: [".date-display-single", ".field-name-post-date", "time", ".node .content"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}'
+
+position: prime minister
+date_languages: ["fr"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C, added when the researcher asked why France was costing 60 h).
+  The five frozen prime-ministerial archives on archives.gouvernement.fr — Jospin, Raffarin,
+  de Villepin, Fillon, Ayrault — i.e. French heads of government back to 1997, at ~3,788 captures
+  (~9 h) rather than the 18,208 of the main host. This is where de Villepin actually lives; the
+  original recipe pointed at gouvernement.fr/villepin, which matches NOTHING. NO speaker_default
+  even though each archive is one PM's: the sites carry ministers and the spokesperson too, and
+  the cleaner's tenure crosscheck resolves it from country+date. Shares data/state/France.json
+  with the other four France recipes — incremental, never --rescrape.
+  ⚠ LISTING-VALIDATED ONLY — THE EXTRACTION IS UNVERIFIED. Probe --spread --n 10 (2026-08-16)
+  harvested **1,507 snapshots** and the sampled URLs are exactly right ("La France et la Chine
+  exercent dans le monde des responsabilités particulières", Ayrault/premier-ministre), but
+  **9 of the 10 page fetches FAILED** — Archive 503s and one 404, not selector misses. The
+  Archive was degraded throughout this session (intermittent ConnectErrors, and empty CDX
+  responses that read as "not archived"). ⚠ Do NOT read a probe with no `text <- NO MATCH` lines
+  as a pass: when the fetch itself errors there is no field line at all, so an all-503 sample
+  looks identical to a clean one unless you count `fetch error`. **Re-probe this recipe when the
+  Archive is healthy, before the queue reaches it.** The selectors are inherited from a sibling
+  that probed title 12/12 / text 9/12 on the same three Drupal generations, so the risk is low —
+  but it is untested here. FULL RUN is the researcher's gate.

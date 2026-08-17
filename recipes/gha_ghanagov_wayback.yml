@@ -1,0 +1,210 @@
+# Ghana — ghana.gov.gh, the OFFICIAL GOVERNMENT PORTAL (Information Services Department),
+# via the Internet Archive. English-native → English column.
+#
+# ⚠ THIS IS A DIFFERENT HOST FROM presidency.gov.gh. The four gha_presidency* recipes cover the
+# Office of the President; this covers the whole-of-government news portal, which reprints
+# presidential speeches, statements and press releases alongside ministry news. It is the only
+# reach we have into the KUFUOR (2001-2009) and ATTA MILLS (2009-2012) presidencies.
+#
+# ⛔ THE LIVE SITE NO LONGER CARRIES ANY OF THIS. triage 2026-08-16: ghana.gov.gh is now a
+# Next.js SERVICES portal (MDAs, payments, "categories" of government services) with 27 anchors
+# and no newsroom at all. Every article below exists only in the Archive — hence a pure-wayback
+# recipe with no live sibling.
+#
+# ⛔ RULE 1 BREADTH AUDIT, 2026-08-16 (Session C). cdxbatch over the whole domain: 69,611 raw
+# captures → 64,451 distinct articles → 36,576 in scope after the RULE 1 out-list. The 2026-08-05
+# recon plan named THREE sections — /index.php/information/speeches (175 captures),
+# /index.php/media-center/speeches (116) and /index.php/governance/65-speeches (6) — i.e. ~297
+# captures, **0.8% of the host**. Taking only those would have been the classic RULE 1 failure.
+# The section histogram (captures per depth-2 key, RULE 1 in-scope only):
+#     media-center/news              7,216   news/general-news           2,284
+#     media-center/regional-news     1,978   news/regional-news            954
+#     media-center/features            801   news/features                 650
+#     media-center/press-release       601   news/sports                   308
+#     information/press-releases       243   information/meet-the-press    229
+#     news/politics                    198   information/speeches          175
+#     governance/67-general-news       137   media-center/speeches         116
+#     information/press-release         64   information/reports            61
+#     media-center/meet-the-press       59   media-center/ministerial-rep   53
+#     information/policy-documents      42   en/news + en/media-center     131
+#     information/public-reaction-r     36   information/pr-reports         32
+#     media-center/reports              32   governance/68-features         31
+#     governance/73-regional-news       26   news/tourism + news/tributes   44
+#     2012-02-08-08-32-47/*          3,253   (the Joomla auto-named 2012 category tree:
+#                                             general-news 2,246, regional 326, features 204,
+#                                             politics 87, sports 236)
+# ⚑ SPLIT INTO TWO RECIPES 2026-08-16 (researcher's call — "41 hours for one country smells like
+# too much, likely there are some wasted fetches, please check"). It checked out: the 17,200-link
+# harvest was measured BY SUBSECTION (recipe_tools/segments.py over the probe's own saved link
+# list) and it divides cleanly by whose words the section carries.
+#
+#   THIS RECIPE — leader/government communication + the only reach into Kufuor. ~6,000 links.
+#     features             1,056        press-release          381
+#     politics               209        press-releases         171
+#     speeches               153        meet-the-press         110
+#     reports                 40        policy-documents        14
+#     tributes                11        public-reaction-reports  9      pr-reports  8
+#     ------------------------------------------------------------------- 2,162
+#     plus the ENTIRE 2003-2006 article.php / newsdetails.asp / story.asp era        3,529
+#
+#   gha_ghanagov_news_wayback — the district and ministry NEWS stream. ~10,900 links, LOW priority.
+#     general-news 4,244 · news 4,050 · regional-news 794 · regional 326 · sports 169
+#   In scope by RULE 1 and NOT dropped — a separate recipe and a separate queue line, so it can be
+#   run later or never without touching this one.
+#
+# ⚑ WASTED FETCHES FOUND AND REMOVED FROM BOTH: 342 links that are STAFF DIRECTORIES, not
+# articles — ministers 109, ministers-of-state 91, ministries 83, public-service-directory 41,
+# regional-ministers 15, deputy-ministers 3. Every one would have cost an Archive fetch AND a
+# cleaner model call to be rejected. They are excluded by the shared negative lookahead below.
+#
+# ⚠ ONE HYPOTHESIS CHECKED AND DISPROVED, so it is not re-tried: the 2003-2006 era files its wire
+# under topic VERTICALS (/investing/, /living/, /studying/, /visiting/ = 1,461 links) and those
+# look like a business/tourism brochure worth dropping. They are not — they are the same news wire
+# filed by topic, and leader material sits inside them: /living/article.php?id=0000015674 is
+# "VEEP Visits Korle-Bu To Assess Effects Of Strike Action" and /governing/article.php?id=15 is
+# '"Government Is Poised For Accelerated Development"'. Dropping the verticals would lose
+# Vice-Presidential and presidential items. All six are kept.
+#
+# ⚠ A RISK THAT COULD NOT BE MEASURED (Archive was 503-ing on 2026-08-16): 5,961 of the 9,164
+# captures under /index.php/media-center are dated 2019, and the site was BROKEN that year — a
+# verified capture, 20190905 of /media-center/speeches/1050-…, renders `div#component` EMPTY.
+# `wayback_collapse: urlkey` keeps the EARLIEST capture per URL, so a URL also seen in 2016-2018
+# is safe and only 2019-first URLs are exposed. Four media-center pages sampled in the probe all
+# returned 1,842-4,319 chars, so this is a bounded risk, not the norm — but if a full run shows a
+# cluster of ~0-char rows, this is why, and the fix is a `wayback_to: "20190101"` bound.
+#
+# ALL of them are taken. Excluded, and why: information/photo-gallery (13,866 — RULE 1 out-list),
+# component/rokingallery (6,257) + component/mailto (5,951) + component/search (65) (widgets),
+# photos/* (256, galleries), about-ghana/* (333, static country facts), blog-categories/*
+# (76 — the Joomla template's lorem-ipsum demo content), ghana/dexadd + dexadd/* (1,689 — a
+# broken relative-path artefact that re-serves other pages under nonsense prefixes), and every
+# ?tmpl=component&print=1 print duplicate (5,531).
+#
+# THREE CMS GENERATIONS, one recipe — the selector chains carry all three (each verified with
+# recipe_tools/selcheck.py against a real capture, see the field comments):
+#   2003-2006  table layout, /living|/governing|/news|/studying|/investing|/visiting/article.php?id=<10 digits>
+#   2010-2015  Joomla + the S5/VTEM templates, /index.php/<section>/<sub>/<id>-<slug>
+#   2016-2019  Joomla 3 + a Helix template, same URL shape, different classes
+# The 2009-2011 QUERY-ADDRESSED generation (index.php?option=com_content&view=article&id=…)
+# cannot live here — its path is literally "/index.php", which filter_entries_for_recipe drops
+# against any /index.php start_url. It is gha_ghanagov_query_wayback.yml (the truncated-prefix +
+# wayback_filter idiom, cf. irl_president_old_wayback).
+source_id: gha_ghanagov_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  # CDX PREFIXES, one query each — deliberately at SECTION level rather than a bare host or a
+  # bare /index.php. A whole-domain query hits the CDX 60,000-row ceiling (measured: 69,611
+  # raw captures) and silently truncates; the section prefixes are each a few thousand rows.
+  # None of these paths is ever an ARTICLE path, so filter_entries_for_recipe's
+  # "drop captures whose path equals a start_url path" rule costs nothing here.
+  - ghana.gov.gh/index.php/media-center
+  - ghana.gov.gh/index.php/news
+  - ghana.gov.gh/index.php/information
+  - ghana.gov.gh/index.php/governance
+  - ghana.gov.gh/index.php/2012-02-08-08-32-47
+  - ghana.gov.gh/index.php/2012-02-08-08-18-09
+  - ghana.gov.gh/index.php/press-release
+  - ghana.gov.gh/index.php/meet-the-press
+  - ghana.gov.gh/index.php/en
+  - ghana.gov.gh/index.php/news-slider
+  - ghana.gov.gh/index.php/public-service-directory
+  # 2003-2006 generation. A prefix of "/news" also prefix-matches /newsdetails.asp?pid=N
+  # (273 captures, the 2002-2003 ASP site) — that is intentional, not an accident.
+  - ghana.gov.gh/news
+  - ghana.gov.gh/governing
+  - ghana.gov.gh/living
+  - ghana.gov.gh/studying
+  - ghana.gov.gh/investing
+  - ghana.gov.gh/visiting
+  - ghana.gov.gh/article
+  # The 2002 subdomain (84 captures). "/story" not "/story.asp" — the latter IS the article
+  # path and would be self-dropped.
+  - govt.ghana.gov.gh/story
+
+listing:
+  # Four alternatives, one per URL generation. Every branch is $-anchored so the ?tmpl=component
+  # &print=1&layout=default print duplicates (5,531 captures) and the ?start=/?limitstart= pager
+  # echoes cannot match.
+  #   1. Joomla path articles: /index.php/<section>/…/<id>-<slug>. The negative lookahead is the
+  #      RULE 1 out-list; it is applied once, immediately after "index.php/".
+  #   2. the 2003-2006 article.php pages, ANCHORED TO THE SIX REAL SECTION FOLDERS so the
+  #      /index.php/ghana/dexadd/living/dexadd/upload_docs/crafts/ecowas/news/article.php?id=…
+  #      relative-path junk (1,563 captures re-serving pages we already take) is excluded.
+  #   3. the bare /article.php?id= form (200) and /newsdetails.asp?pid= (273).
+  #   4. govt.ghana.gov.gh/story.asp?ID= (84).
+  # ⚑ SUBSECTION-SCOPED as of the 2026-08-16 split (see the header). The article branch requires
+  # the LAST path segment before the <id>-<slug> to be one of the communication subsections —
+  # `(?:[a-z0-9-]+/)*` lets it sit at any depth, so `information/speeches/100-…`,
+  # `media-center/speeches/1050-…` and `news/regional-news/ashanti/…`'s siblings are all judged
+  # by the same list. The numbered Joomla variants (`68-features`, `76-press-release`) are
+  # admitted by the `\d+-` prefix alternative.
+  # The 2003-2006 article.php era is NOT subsection-scoped: it is one undifferentiated wire and
+  # the only reach into the Kufuor presidency.
+  link_pattern: 'ghana\.gov\.gh(?::80)?/(?:index\.php/(?!component/|photos/|blog-categories/|about-ghana/|ghana/|dexadd/|information/photo-gallery/)(?:[a-z0-9][a-z0-9-]*/)*(?:\d+-)?(?:speeches|press-release|press-releases|meet-the-press|reports|ministerial-reports|policy-documents|pr-reports|public-reaction-reports|features|politics|tributes|congratulatory-messages)/\d{1,6}-[a-z0-9][a-z0-9-]*|(?:news|governing|living|studying|investing|visiting)/article\.php\?id=\d+|article\.php\?id=\d+|newsdetails\.asp\?pid=\d+|story\.asp\?ID=\d+)/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # .contentheading is the Joomla article headline on the 2010-2015 S5/VTEM templates, .item_title
+  # on the 2016-2019 Helix one, .title on the 2003-2006 table site. On the S5 template
+  # .contentheading matches THREE elements (headline + two "Other articles:" module headings) and
+  # the engine JOINS them, so the regex truncates at that literal. (?s) because the regex runs on
+  # the RAW value, before clean_text — the joined blob carries newlines.
+  selectors: [".contentheading", "#component .item_title", ".title", "title"]
+  regex: '(?s)^\s*.+?(?=\s*Other articles:|$)'
+text:
+  # One selector per generation, ordered newest-first because the classes do not overlap:
+  #   .item_fulltext      2016-2019 Helix  (verified: 1,893 chars, /media-center/news/1532-…)
+  #   .item-page          2014-2015 VTEM   (verified: 2,097 chars, /2012-02-08-08-32-47/…/6638-…)
+  #   .contentpaneopen    2010-2013 S5     (verified: 4,681 chars, /information/speeches/100-…)
+  #   #s5_component_wrap  S5 fallback when the article is not wrapped in .contentpaneopen
+  #   td.space            2003-2006 table  (verified: 1,413 chars, /living/article.php?id=15674)
+  # ⚠ NEVER put a bare `td` in this chain. On the 2003-2006 pages it joins 33 nested cells and
+  # returns 6,154 chars of navigation for a 1,400-char article (the standing element-join trap).
+  # ⚠ KNOWN GAP: the 2001-2002 govt.ghana.gov.gh/story.asp?ID=<n> generation (84 captures) matches
+  # NONE of these and falls through to the engine's generic (trafilatura) extractor, which the
+  # probe measured at 5,810 chars — i.e. nav-inclusive. Its own template could not be sampled:
+  # three selcheck attempts on 2026-08-16 died with a transient ConnectError against
+  # web.archive.org. 84 captures, left in deliberately (RULE 1) with the generic rescue; add a
+  # proper selector when the Archive is reachable again.
+  selectors: [".item_fulltext", ".item-page", ".contentpaneopen", "#s5_component_wrap", "td.space"]
+date:
+  # .createdate is Joomla's byline and is the only real per-article date on this host:
+  #   S5 2010    "Wednesday, 15 September 2010 16:38"
+  #   VTEM 2014  "27 Oct 2014"
+  # The 2016-2019 Helix generation and the 2003-2006 table site carry NO date element (checked
+  # with selcheck: #component .item_published matches nothing — the five .item_published on those
+  # pages are the sidebar "Recent General News" feed, the trap documented in run 5). Those rows
+  # fall through to the cleaner's corrected-date pass and the wayback_capture backstop, which is
+  # the right answer: the sidebar date would stamp every row with the capture day.
+  selectors: [".createdate"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+(?:19|20)\d\d|(?:19|20)\d\d-\d{2}-\d{2}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C — the remaining recon list). ghana.gov.gh, the Ghana
+  government portal, via the Internet Archive; the live host is now a services portal and holds
+  none of this. Authored BROAD per CLAUDE.md RULE 1: the recon plan named three "speeches"
+  sections totalling ~297 captures (0.8% of the host) and this recipe takes the whole news,
+  press-release, features, meet-the-press, politics, reports and regional streams across three
+  CMS generations — see the section histogram in the header. Companion:
+  gha_ghanagov_query_wayback covers the 2009-2011 query-addressed generation, which cannot share
+  a recipe because its path is /index.php. NO speaker_default — the portal carries Kufuor, Atta
+  Mills, Mahama, Akufo-Addo, vice-presidents and ministers, so the cleaner's speaker pass +
+  tenure crosscheck attribute each row. Shares data/state/Ghana.json with the four gha_presidency*
+  recipes, so an ordinary incremental run never refetches; never --rescrape.
+  PROBE-VALIDATED --spread --n 14 (2026-08-16, BEFORE the split): 17,200 snapshots, title 14/14,
+  text 13/14, date 6/14, spanning the 2001-2002 ASP site through 2019. The one text miss is the
+  84-capture govt.ghana.gov.gh/story.asp generation (see the text field comment). After the split
+  this recipe is ~6,000 of those links (~14 h) and gha_ghanagov_news_wayback is the rest.
+  DATE is partial by design (see the field comment): ~the 2010-2015 half carries .createdate,
+  the 2016-2019 and 2003-2006 halves have no date element at all and defer to the cleaner.

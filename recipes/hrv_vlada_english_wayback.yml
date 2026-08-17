@@ -1,0 +1,69 @@
+# Croatia — GOVERNMENT of the Republic of Croatia (vlada.hr), the ENGLISH render, via the
+# Internet Archive. English sibling of hrv_vlada_wayback — read that file's header for the RULE 1
+# inventory of the host, the TRAP, and what is banked.
+#
+# TWO ENGLISH generations, both measured 2026-08-16:
+#   default.asp?…&jezik=2      1,018 captures   the 2000-2009 CMS, English switch (jezik=1 is
+#                                               Croatian and belongs to the sibling)
+#   /bulletin/<YYYY>/<month>/  1,083 captures   the 1999-2001 English-language government weekly
+# Same CMS as the Croatian side, so the selector chains are inherited rather than re-derived.
+source_id: hrv_vlada_english_wayback
+country: Croatia
+source_language: English
+renderer: static
+start_urls:
+  # TRUNCATED prefixes — every article of the CMS generation has the path "/default.asp", which
+  # filter_entries_for_recipe would drop against a full-path start_url.
+  - vlada.hr/default
+  - otvorena.vlada.hr/default
+
+listing:
+  # `gl=\d{14}` is required (menu views carry an EMPTY gl); `(?!.*&amp;)` drops the HTML-escaped
+  # forms, which classic ASP resolves to the section index.
+  #
+  # ⚠ /bulletin/ WAS IN THIS PATTERN AND WAS REMOVED, with the measurement, so it is not
+  # re-attempted blind. A probe of it 2026-08-16 returned title NO MATCH on every sampled page
+  # (no .Naslov, no h1/h3, and a <title> that is the file slug — "underlined-focus"), no date
+  # element, and a mixture of real articles with magazine furniture (impressum.html,
+  # gallery.html). It is a 1999-2001 English-language government WEEKLY, ~1,083 captures, and it
+  # is worth having — but it needs its own selector chain and its own date strategy, not a
+  # branch bolted onto a CMS recipe. BANKED, not dropped.
+  link_pattern: 'vlada\.hr(?::80)?/[Dd]efault\.asp\?(?!.*&amp;).*gl=\d{14}.*jezik=2'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["ru", "sid", "akcija"]
+
+title:
+  # `.Naslov` is "May 19, 2004 - CROATIAN MINISTER MEETS ISRAELI BUSINESSMEN - News" on this CMS,
+  # i.e. date + headline + section; the lookbehind strips the leading date. ⚠ do NOT use
+  # `.TekstLead` — it is the category breadcrumb ("|News|Hina|"), measured on the Croatian side.
+  selectors: [".Naslov", "h3", "h1", "title"]
+  regex: '(?s)(?<=, \d{4} - ).+'
+text:
+  selectors: [".Tekst .Tekst", ".Tekst", "td", "body"]
+date:
+  # ⚠ NO SELECTOR, deliberately — see the sibling recipe's date comment: `.Naslov` opens with a
+  # date that is sometimes the site's TODAY clock, and it silently dated a June-2003 article
+  # 2026-06-16. The `gl` document id is an unambiguous publication stamp and cannot drift.
+  url_regex: 'gl=(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})'
+
+position: prime minister
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The ENGLISH render of the Croatian Government archive —
+  the jezik=2 half of the 2000-2009 CMS (Račan and Sanader) plus the 1999-2001 English weekly
+  bulletin. Sibling of hrv_vlada_wayback (Croatian); the two split on the `jezik` parameter and
+  share data/state/Croatia.json with the four predsjednik/ured recipes, so run incrementally and
+  never --rescrape. NO speaker_default (PM, deputy PMs, ministers). The /bulletin/ generation's
+  date comes from the PATH month name, which dateparser resolves under date_languages: ["en"];
+  PROBE-VALIDATED --spread --n 10 (2026-08-16): **609 snapshots**, title 10/10, text 10/10,
+  date 10/10, 2003-01 .. 2005-01 — including "Jasenovac, March 16, 2004 - Dr. Ivo Sanader,
+  Croatian Prime Minister: Speech at the opening of the renewed memorial", 5,334 chars.
+  The /bulletin/ weekly (~1,083 captures) is BANKED with its measurement in the listing comment,
+  not silently dropped. FULL RUN is the researcher's gate.

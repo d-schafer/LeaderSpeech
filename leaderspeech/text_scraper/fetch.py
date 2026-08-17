@@ -27,7 +27,7 @@ from .block import BlockPageError, looks_like_block_page
 _META_CHARSET = re.compile(rb"""charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]+)""", re.I)
 
 
-def decode_html(resp: httpx.Response) -> str:
+def decode_html(resp: httpx.Response, encoding: Optional[str] = None) -> str:
     """Decode an HTML response the way a browser does, not the way httpx does.
 
     httpx takes `.encoding` from the Content-Type HEADER and falls back to UTF-8; it never
@@ -44,7 +44,21 @@ def decode_html(resp: httpx.Response) -> str:
     Precedence is deliberate and matches the browser: an explicit HEADER charset wins (the
     server is authoritative about its own bytes), and the <meta> is consulted only when the
     header is silent.
+
+    `encoding` is the recipe's `encoding:` override and beats BOTH, because it exists for the
+    case neither can answer: pre-1999 hand-written HTML that declares a charset NOWHERE. Worked
+    example (2026-08-16): ured.predsjednik.hr, the 1995-98 Croatian presidency site, serves
+    `Content-Type: text/html` with an EMPTY <head> and windows-1250 bytes, so both branches below
+    fall through to httpx's UTF-8 default and every Croatian diacritic becomes U+FFFD
+    ('Franjo Tu�man'). There is no signal to sniff — only the recipe author knows.
     """
+    if encoding:
+        raw = getattr(resp, "content", b"")
+        if isinstance(raw, (bytes, bytearray)):
+            try:
+                return raw.decode(encoding, errors="replace")
+            except LookupError:          # a charset Python does not know; fall through
+                pass
     # getattr, not attribute access: the test-suite (and any caller with a stub client) hands in
     # a minimal response object that only has `.text`. A charset sniff is an enhancement, so a
     # response that cannot answer simply gets httpx's own decoding.
@@ -196,7 +210,11 @@ class Fetcher:
         cdp_endpoint: Optional[str] = None,
         block_page: bool = True,
         block_page_patterns: Optional[list[str]] = None,
+        encoding: Optional[str] = None,
     ):
+        # The recipe's `encoding:` override, for legacy pages that declare no charset anywhere.
+        # None (the default) leaves the browser-like sniffing in decode_html untouched.
+        self.encoding = encoding
         self.renderer = renderer
         self.delay_range = delay_range
         self.pause_every = pause_every
@@ -354,7 +372,7 @@ class Fetcher:
                 if self.renderer == "static":
                     resp = self._client.get(url)
                     resp.raise_for_status()
-                    return self._guard_block(decode_html(resp), url)
+                    return self._guard_block(decode_html(resp, self.encoding), url)
                 # js / cdp: load the DOM first (fires even on CF interstitials and sites with
                 # persistent polling), then give the network a SHORT window to settle so SPA/AJAX
                 # content can paint — but never hang on it, because CF challenges/analytics never

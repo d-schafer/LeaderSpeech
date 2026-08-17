@@ -348,6 +348,12 @@ class Recipe(BaseModel):
     content_type: ContentType = ContentType.auto
     verify_ssl: bool = True       # set false for sites with a broken/incomplete cert chain
     user_agent: Optional[str] = None   # override the default bot UA for a WAF that hard-blocks it
+    # Force a character encoding for every page of this source. Leave unset (the default) —
+    # `fetch.decode_html` already reads the Content-Type header and then the document's own
+    # <meta charset>, which covers all but one case: pre-1999 hand-written HTML that declares a
+    # charset NOWHERE, where there is no signal to sniff and the UTF-8 fallback silently turns
+    # every non-ASCII byte into U+FFFD. Set it only when you have LOOKED at the raw bytes.
+    encoding: Optional[str] = None
     # WAF/block-page guard (issue #65): a Cloudflare/WAF block or challenge page served with
     # HTTP 200 is treated as a fetch FAILURE (retried, logged in _errors.csv, retryable via
     # --retry-failed) instead of being written as a junk "speech". On by default. Set

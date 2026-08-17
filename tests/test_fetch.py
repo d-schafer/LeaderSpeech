@@ -257,3 +257,52 @@ def test_decode_html_falls_back_when_the_meta_charset_is_unknown():
         headers={"content-type": "text/html"},
         request=httpx.Request("GET", "https://example.org/"))
     assert "hello" in decode_html(resp)
+
+
+# --- the recipe's `encoding:` override, for pages that declare a charset NOWHERE (2026-08-16) ---
+
+def test_decode_html_encoding_override_beats_a_silent_header_and_an_empty_head():
+    """The ured.predsjednik.hr case: the 1995-98 Croatian presidency site serves
+    `Content-Type: text/html` with an EMPTY <head> and windows-1250 bytes. Neither the header
+    nor a <meta> can be consulted, so the UTF-8 fallback turns every diacritic into U+FFFD.
+    Only the recipe author knows, hence the override."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    html = "<html><head></head><body>Franjo Tuđman, Radić, češke</body></html>"
+    resp = httpx.Response(
+        200, content=html.encode("windows-1250"),
+        headers={"content-type": "text/html"},
+        request=httpx.Request("GET", "http://ured.predsjednik.hr/pp050602.htm"))
+    assert "\ufffd" in decode_html(resp)                       # without it: mojibake
+    out = decode_html(resp, "windows-1250")
+    assert "Franjo Tuđman, Radić, češke" in out
+    assert "\ufffd" not in out
+
+
+def test_decode_html_encoding_override_beats_an_explicit_header_charset():
+    """The override exists for mirrors that LIE, so it must outrank the header too."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    resp = httpx.Response(
+        200, content="Tuđman".encode("windows-1250"),
+        headers={"content-type": "text/html; charset=utf-8"},
+        request=httpx.Request("GET", "http://example.org/"))
+    assert decode_html(resp, "windows-1250") == "Tuđman"
+
+
+def test_decode_html_unknown_encoding_override_falls_through():
+    """A typo in the recipe must not raise — fall through to the normal sniffing."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    resp = httpx.Response(
+        200, content=b"hello",
+        headers={"content-type": "text/html; charset=utf-8"},
+        request=httpx.Request("GET", "http://example.org/"))
+    assert decode_html(resp, "not-a-real-charset") == "hello"
+
+
+def test_recipe_encoding_field_defaults_to_none_and_round_trips():
+    from leaderspeech.text_scraper.recipe import Recipe
+    base = dict(source_id="x", country="C", start_urls=["http://e/"],
+                listing={"link_pattern": "x"},
+                title={"selectors": ["h1"]}, text={"selectors": ["p"]},
+                date={"selectors": ["time"]})
+    assert Recipe(**base).encoding is None
+    assert Recipe(**base, encoding="windows-1250").encoding == "windows-1250"

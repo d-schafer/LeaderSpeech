@@ -527,6 +527,7 @@ def scrape_recipe(
         respect_robots=respect_robots,
         verify_ssl=recipe.verify_ssl,
         user_agent=recipe.user_agent,
+        encoding=recipe.encoding,
         js_settle=recipe.js_settle,
         js_context_recycle=recipe.js_context_recycle,
         cdp_endpoint=recipe.cdp_endpoint,
@@ -592,6 +593,7 @@ def scrape_recipe(
                     else:
                         html = wayback.fetch_snapshot(
                             todo_item, delay=wayback_delay, client=wayback_client, pacer=pacer,
+                            encoding=phase_recipe.encoding,
                         )
                         rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
                         # a page that is just a title + a link to the speech PDF: pull the body

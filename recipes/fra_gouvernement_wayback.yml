@@ -1,0 +1,131 @@
+# France — GOVERNMENT / Prime Minister (gouvernement.fr), via the Internet Archive. French.
+# THE HEAD-OF-GOVERNMENT SOURCE. France is semi-presidential and the corpus gap the 2026-08-05
+# recon flagged is 71 rows, of which **de Villepin (13) and Valls (12) were PRIME MINISTER** —
+# elysee.fr can never carry them. The live site (info.gouv.fr) is Cloudflare-blocked (403
+# "Just a moment" to the honest bot UA, triaged 2026-08-16), so this is Archive-only.
+#
+# ⛔ RULE 1 BREADTH — measured 2026-08-16, and this host needs the ratio read carefully.
+# cdxbatch over the domain: 148,509 raw captures → 112,341 distinct → 75,525 "in scope".
+# That denominator is badly inflated; the top URL shapes are:
+#     search/site/covid?f[0]=…            42,555   FACETED SEARCH. Out by RULE 1.
+#     partager?/partage/                  16,387   the "share this page" widget. Out.
+#     l-essentiel-des-ministeres/…         7,424   a CRAWLER LOOP — the path repeats itself
+#         ("…l_essentiel_des_ministeres_l_essentiel_des_ministeres_…_page_N_page_N"). Out.
+#     player/video/<N>, print/, printmail/ 4,100   media player and print views. Out.
+# ⚑ SPLIT INTO TWO RECIPES 2026-08-16 (researcher's call, after the cost was surfaced). The
+# original single recipe took eleven sections for ~18,200 snapshots ≈ 60 h, and most of that was
+# the whole-of-government NEWS stream, which is thin in leader speech. The split is by WHOSE
+# WORDS THE SECTION CARRIES, not by size:
+#
+#   THIS RECIPE — the PM's sections on the MAIN host. Measured with cdx.py 2026-08-16:
+#     premier-ministre/<slug>      3,370   captures, 2009-2014
+#     conseil-des-ministres/<date> 4,060   Council of Ministers readouts — the PM's weekly text
+#     note-aux-redactions/…          643   notes to editors, issued by Matignon
+#     presse/…                       616   the PM's press service
+#     discours/…                     609   ⚑ literally "speeches", 2009-2024
+#
+#   fra_gouvernement_archives_wayback — the FIVE FROZEN PM ARCHIVES. **HIGHEST priority of the
+#     three**, and cheapest: ~3,788 captures on archives.gouvernement.fr covering Jospin,
+#     Raffarin, de Villepin, Fillon and Ayrault. See that file.
+#
+#   fra_gouvernement_news_wayback — the whole-of-government NEWS stream. LOW priority.
+#     gouvernement/<slug>          8,174   ministry and policy news
+#     information/<slug>           4,353
+#     actualite/<slug>             3,804
+#     argumentaire/…               1,376   briefing/talking-point pages
+#   Those four are in scope by RULE 1 and are NOT dropped — they are a separate recipe and a
+#   separate queue entry, so they can be run later or never without touching this one.
+#
+# ⚠ CORRECTION, 2026-08-16 — `villepin/` AND `fillon_version2/` ARE NOT ON THIS HOST. A first
+# draft of this recipe put `gouvernement.fr/villepin` and `gouvernement.fr/fillon_version2` in
+# start_urls on the strength of a section histogram; a CDX prefix query returns **NO CAPTURES**
+# for either, because both live on the SUBDOMAIN archives.gouvernement.fr and CDX prefix matching
+# is per-host. The histogram was right about the path segment and silent about the hostname.
+# **Check the host, not just the path, before trusting a segment count** — a start_url that
+# matches nothing fails silently, harvesting zero from that branch with no error.
+#
+# ✘ NOT taken by EITHER recipe: acteurs/ (3,339 — the ministers' diary/agenda index),
+#   ministre/<slug> (2,341 — minister biography pages), chantiers/ + info-coronavirus/ + build/
+#   (policy landing pages, no per-item title/date), and the four out-of-scope shapes above.
+# ⚑ BANKED, MEASURED, NOT TAKEN: **archives.gouvernement.fr** (3,788 captures) is a separate
+#   host and looks like the frozen prior-government archive — the pattern the US NARA and Korean
+#   prior-president sites follow. It needs its own enumeration and probably its own recipe.
+#
+source_id: fra_gouvernement_wayback
+country: France
+source_language: French
+renderer: static
+start_urls:
+  - gouvernement.fr/conseil-des-ministres
+  - gouvernement.fr/premier-ministre
+  - gouvernement.fr/note-aux-redactions
+  - gouvernement.fr/presse
+  - gouvernement.fr/discours
+
+listing:
+  # Each branch requires a slug BELOW the section, so the bare section indexes are excluded, and
+  # the pattern is $-anchored so `?text_size=`, `?page=` and the print/share query variants
+  # cannot match. conseil-des-ministres is keyed by DATE, not slug.
+  # ⚠ anchored to `//` + the bare host so it cannot also match archives.gouvernement.fr, which
+  # is the sibling recipe's territory and shares these section names.
+  link_pattern: '//(?:www\.)?gouvernement\.fr(?::80)?/(?:conseil-des-ministres/\d{4}-\d{2}-\d{2}$|(?:premier-ministre|note-aux-redactions|presse|discours)/[a-z0-9][a-z0-9_-]{6,}/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `text_size` is an accessibility toggle that re-serves the identical article (3,075 captures
+  # carry it); `page` and `destination` belong to listings and the share widget.
+  wayback_noise_params: ["text_size", "destination", "lang"]
+
+title:
+  selectors: ["h1", ".field-name-title", ".page-title", "title"]
+text:
+  # THREE Drupal generations on one host, so three body-field spellings, newest first:
+  #   .field-name-body   Drupal 7
+  #   .field-field-body  Drupal 6 (the 2010-2013 "theme2011" site) — 3,214 chars, verified on
+  #                      capture 2013 of /gouvernement/le-calendrier-parlementaire. A first draft
+  #                      omitted it and 5 of 12 sampled pages extracted ZERO, silently relying on
+  #                      the trafilatura rescue (the ken_president_wayback defect).
+  #   .node-inner        the same generation's wrapper, for nodes with no body field
+  # `#content` and `main` stay last: they win on the modern pages and would swallow chrome here.
+  selectors: [".field-name-body", ".field-field-body", ".node-inner", ".node__content", "article", "#content", "main"]
+date:
+  # The Council-of-Ministers readouts carry their date in the URL, unambiguously — that is the
+  # url_regex. On the Drupal 6 pages the byline is the first line of `div.content` ("21/08/2013"),
+  # which the regex lifts off the front. ⚠ `.content` is scoped to `.node` on purpose: the
+  # right-hand "Derniers articles" sidebar prints dates too (05/09/2013 …), and an unscoped
+  # selector would stamp rows with the newest teaser's date — the standing sidebar-feed trap.
+  selectors: [".date-display-single", ".field-name-post-date", "time", ".node .content"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}'
+  url_regex: '/conseil-des-ministres/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})'
+
+position: prime minister
+date_languages: ["fr"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). gouvernement.fr via the Internet Archive — the French
+  head-of-GOVERNMENT source, which the corpus had no recipe for at all. The live successor
+  (info.gouv.fr) answers a Cloudflare 403 to the bot UA, so this is Archive-only. Authored
+  BROAD per RULE 1 across eleven communication sections, including the two PM-specific
+  microsites (`villepin`, `fillon_version2`) that a "speeches"-scoped recipe would have missed —
+  and `villepin` is one of the two gap leaders. NO speaker_default: the stream carries the PM,
+  the government spokesperson and ministers. Shares data/state/France.json with fra_elysee,
+  fra_elysee_english and fra_elysee_english_wayback — incremental run, never --rescrape.
+  ⚠ COST and the exact cheap cut are written into the header; that scoping is the researcher's
+  decision and has deliberately NOT been taken here.
+  archives.gouvernement.fr (3,788 captures, a separate host that looks like a frozen
+  prior-government archive) is MEASURED AND BANKED, not silently dropped.
+  PROBE-VALIDATED --spread --n 12 (2026-08-16): **18,208 snapshots**, title 12/12, text 9/12
+  (bodies 1,555-6,010 chars), **date 1/12 — the weakest field on this recipe and stated as
+  such**. The Drupal 6 generation prints its byline as a bare "21/08/2013" inside `div.content`
+  and most captures do not carry it at all; those rows defer to the cleaner's corrected-date
+  pass and the wayback_capture backstop. Worth a second look before a full run if date quality
+  matters for France; it was left rather than guessed at, because the one selector that WOULD
+  fill it (`.content` unscoped) is the sidebar "Derniers articles" feed and would stamp every
+  row with the newest teaser's date.
+  ⚠ Two probe attempts on 2026-08-16 died with a transient httpx ConnectError against
+  web.archive.org before the run above succeeded — that is Archive flakiness, not the recipe.
+  FULL RUN is the researcher's gate.

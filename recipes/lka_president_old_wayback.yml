@@ -1,0 +1,106 @@
+# Sri Lanka — President's Office (president.gov.lk), the PRE-WORDPRESS query-addressed site,
+# via the Internet Archive. English. This is the **MAHINDA RAJAPAKSA** presidency (2005-2015)
+# and the tail of Kumaratunga's — the era the modern lka_president_wayback (a WordPress
+# root-slug recipe) cannot reach at all.
+#
+# ⛔ CORRECTION TO THE 2026-08-05 RECON PLAN, RE-MEASURED 2026-08-16. The plan pointed at
+# `speech_New.{php,asp}?Id=N` and estimated ~230 captures. The whole domain holds **91 + 39 =
+# 130** of those. The real Rajapaksa-era blocks are elsewhere, and all of them are taken here:
+#     news.asp?newsID=<N>          390
+#     news.php?newsID=<N>          230
+#     Writings_New.php?Id=<N>      157   presidential messages/articles — full text
+#     speech_New.php?Id=<N>         91
+#     speech_New.asp?Id=<N>         39
+#     speech_latest_<D_M_YYYY>.php  22
+#     peace_chrono_<D_M_YYYY>.php   43   the Norway-brokered peace-process chronology
+#     /news/<N>/                   534   an intermediate generation, root /news/ listing + items
+# Total ~1,500 captures against 18,602 raw / 14,190 in scope for the host.
+# ✘ NOT taken, on purpose: /si/ (4,683) and /ta/ (3,157) are the SINHALA and TAMIL trees — they
+#   are real content and want their own recipes, but `source_language` is one field per recipe
+#   and this one is English. ✘ /phpmyadmin/, /admin/, /grievance/ (tell.president.gov.lk is a
+#   complaints portal), ?wordfence_syncAttackData (283 captures of a security plugin's ping).
+#
+# ⛔ THE TRAP. Every one of these endpoints addresses its content by QUERY, so the URL path is
+# constant ("/news.asp", "/Writings_New.php", …) and filter_entries_for_recipe drops any capture
+# whose path equals a start_url path. The fix used here is the truncated prefix: "president.gov.lk/news"
+# is a valid CDX prefix that reaches /news.asp, /news.php AND /news/<id>/, and is a path no
+# article has. Same idiom as irl_president_old_wayback and hrv_predsjednik_wayback.
+source_id: lka_president_old_wayback
+country: Sri Lanka
+source_language: English
+renderer: static
+start_urls:
+  # TRUNCATED prefixes (see header) — one per endpoint family.
+  - president.gov.lk/news
+  - president.gov.lk/Writings
+  - president.gov.lk/speech
+  - president.gov.lk/peace
+
+listing:
+  link_pattern: 'president\.gov\.lk(?::80)?/(?:news\.(?:asp|php)\?newsID=\d+|Writings_New\.php\?Id=\d+|speech_New\.(?:php|asp)\?Id=\d+|speech_latest_\d+_\d+_\d+\.php$|peace_chrono_\d+_\d+_\d+\.php$|news/\d+/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # `.speech_heading` is the article headline on the speech/Writings generations — verified 32
+  # chars ("Universal Children's Day Message") on capture 20130917154624 of Writings_New.php?Id=99.
+  # ⚠ `.blue_heading` is NOT a title, it is the DATE line ("Sunday, September 30, 2007 - 7.46
+  # GMT", or a bare "2012-12-27"). A first draft had it in this chain and duly titled news rows
+  # with their own timestamps. It lives in the `date` field below instead.
+  # ⚠ do NOT fall back on `<title>`: it is the bare string "www.president.gov.lk" on every page.
+  # ⚠ AND DO NOT ADD A LEAF-CELL FALLBACK. The news.asp/news.php generation genuinely has NO
+  # heading element — its headline is an unclassed leaf <td> sitting after the nav strip. A
+  # draft took `td:not(:has(td))` with a regex cutting everything before "| Tamil "; it titled
+  # every one of those rows **"Home"** (the first nav cell). An EMPTY title is strictly better
+  # than a uniformly wrong one: the cleaner derives a title from the body, and a constant junk
+  # string would survive into the corpus. ~620 of the ~974 captures are affected.
+  selectors: [".speech_heading", "h1", "h2"]
+text:
+  # ⚠ THE NESTED-TABLE JOIN TRAP IS SEVERE HERE AND EVERY OBVIOUS SELECTOR FALLS INTO IT.
+  # Measured on capture 2007 of news.asp?newsID=276 (whole-page text 9,009 chars):
+  #     td            -> 5,964 on the small page / whole-page duplication on the large one
+  #     td td         -> 26,960   (3x)
+  #     td td td      -> 17,970   (2x)
+  #     table table td-> 26,960   (3x)
+  # `p` is the one clean container on the news generation: n=5, 8,755 chars, no duplication.
+  # `div:not(:has(div))` (LEAF divs only) is the clean one on the Writings/speech generation:
+  # 1,905 of 1,968 chars — and it returns only 60 chars on the news pages, which is why it is
+  # second, not first. `td:not(:has(td))` is the last resort for a page with neither.
+  selectors: ["p", "div:not(:has(div))", "td:not(:has(td))", "body"]
+date:
+  # `.blue_heading` is the byline on the news generation, in two spellings ("Sunday, September
+  # 30, 2007 - 7.46 GMT" and a bare "2012-12-27"). On the Writings/speech generation there is no
+  # date element and the byline is a bare ISO string under the headline, so the leaf-div join is
+  # regexed instead. Both forms are anchored — a loose date regex over a 9,000-char body is the
+  # presidentofindia failure mode.
+  selectors: [".blue_heading", "div:not(:has(div))", "td:not(:has(td))"]
+  regex: '(?:19|20)\d\d-\d{2}-\d{2}|[A-Z][a-z]+,\s*[A-Z][a-z]+ \d{1,2}, \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The pre-WordPress, query-addressed generations of
+  president.gov.lk — news.asp / news.php / Writings_New.php / speech_New.{php,asp} /
+  speech_latest_* / peace_chrono_* / /news/<id>/ — reaching the **Mahinda Rajapaksa** presidency
+  (2005-2015), which the modern lka_president_wayback structurally cannot: that recipe matches
+  root-level WordPress slugs only. The 2026-08-05 recon plan's shape (speech_New only, ~230
+  captures) was re-measured and corrected in the header — it is 130, and the real blocks are the
+  news/Writings ones. "yes-and" to lka_president_wayback; both share data/state/Sri Lanka.json,
+  so run incrementally and never --rescrape. NO speaker_default (Kumaratunga, Rajapaksa and
+  ministerial items all appear). The Sinhala (/si/, 4,683) and Tamil (/ta/, 3,157) trees are
+  MEASURED AND BANKED in the header, not silently dropped — each needs its own recipe because
+  source_language is one field per recipe.
+  PROBE-VALIDATED --spread --n 12 (2026-08-16): **974 snapshots**, text 11/12 (bodies 542-10,096
+  chars, incl. "Address by President Mahinda Rajapaksa at the 62nd Session of the United Nations
+  General Assembly" at 10,096), date 6/12, title 4/12 BY DESIGN — see the title field comment:
+  the news generation has no heading element and an empty title is deliberate, because the only
+  available fallback titled every such row "Home". Dates that miss fall through to the cleaner's
+  corrected-date pass and the wayback_capture backstop.
+  FULL RUN is the researcher's gate (~974 fetches ≈ 2.3 h).

@@ -45,6 +45,14 @@ renderer: static
 start_urls:
   # single prefix; "predsjednik.hr/en" prefix-matches BOTH /en/… and /english/… captures.
   - predsjednik.hr/en
+  # ⚠ TRUNCATED ON PURPOSE (added 2026-08-16, Session C — generations 4 and 5). The two
+  # query-addressed eras serve every article from one script, so their URL PATH is constant
+  # ("/default.asp", "/Default.aspx") and filter_entries_for_recipe drops any capture whose path
+  # equals a start_url path. Cutting the prefix one character short dodges that entirely and
+  # still prefix-matches both: measured 2026-08-16, "predsjednik.hr/default" returns 12,884
+  # captures spanning 2003-2015 and includes the Default.aspx rows (CDX urlkey is lower-cased).
+  # This is the cheap variant of the irl_president_old_wayback bare-host + `original:` filter.
+  - predsjednik.hr/default
 
 listing:
   # gen 1 /en/(news|speeches)/<slug>; gen 2 /en/<YYYY>/<MM>/<slug>/; gen 3 /english/speeches/<f>.html.
@@ -55,7 +63,23 @@ listing:
   # old pattern's "(news|speeches)/[a-z]" happily matched /en/speeches/page/3/, because "page"
   # begins with a letter. The probe duly harvested one and extracted a pager listing as if it
   # were a speech (title from h1, text from `main`, no date). Both generations get the guard.
-  link_pattern: 'predsjednik\.hr(?::80)?/en/(?:(?:news|speeches)|\d{4}/\d{2})/(?!page/)[a-z]|predsjednik\.hr(?::80)?/english/speeches/[^/]+\.html'
+  #
+  # ⛔ WIDENED 2026-08-16 (Session C) — TWO MORE ENGLISH GENERATIONS, both query-addressed:
+  #   gen 4  default.asp?ru=<N>&gl=<YYYYMMDDnnnnnnn>&sid=&jezik=2   ~419 captures, 2005-2009
+  #          `jezik` is the language switch: 9,505 captures carry jezik=1 (Croatian, owned by
+  #          hrv_predsjednik_wayback) and 522 carry jezik=2 (English). Same lesson as Ireland's
+  #          `lang=eng` and Bulgaria's `&lang=en`.
+  #   gen 5  Default.aspx?art=<N>&sec=9xx                            ~144 captures, 2009-2010
+  #          This era has NO language parameter — the recon plan asked to "check for one" and the
+  #          answer is that there is none. The language is carried by the SECTION id, verified by
+  #          sampling four values 2026-08-16: sec 683/710-722/766-773/894 render Croatian
+  #          ("ENGLISH POČETNA MAPA KONTAKT…" nav), sec 910 and 928 render English ("CROATIAN
+  #          PRESIDENT OFFICE OF THE PRESIDENT NEWS LINKS" nav). Every English sec observed on
+  #          this host is 9xx (910, 911, 924, 928, 949, 953), so `sec=9\d\d` is the anchor.
+  # `(?!.*&amp;)` on gen 4: 731 captures record HTML-escaped ampersands, which makes classic ASP
+  # read one giant parameter, leaving ru= and gl= empty so the script returns the SECTION INDEX
+  # (verified on capture 20060604025231 — 556 chars of teasers, no article).
+  link_pattern: 'predsjednik\.hr(?::80)?/en/(?:(?:news|speeches)|\d{4}/\d{2})/(?!page/)[a-z]|predsjednik\.hr(?::80)?/english/speeches/[^/]+\.html|predsjednik\.hr(?::80)?/default\.asp\?(?!.*&amp;).*gl=\d{14}.*jezik=2|predsjednik\.hr(?::80)?/Default\.aspx\?.*art=\d+.*sec=9\d\d'
 
 pagination:
   type: wayback
@@ -66,7 +90,10 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  selectors: ["h1", ".p-post-single__title", "title"]
+  # `.TekstLead` (gen 4) and `.lead` / `.article-content h1` (gen 5) go FIRST: on those two
+  # generations a bare `h1` is either absent or the site banner, and `<title>` is the useless
+  # "Ured predsjednika RH - <section>".
+  selectors: [".TekstLead", ".lead", ".article-content h1", "h1", ".p-post-single__title", "title"]
   regex: '^\s*(.+)'
 text:
   # gen 1 (modern theme) .p-post-single__content, reused from the live recipe.
@@ -82,13 +109,25 @@ text:
   #   pages are bare — no navigation at all — so body is n=1 / 1,877 chars of pure speech, and
   #   it is SAFER here than `td` (n=10) or `table` (n=2), which invite the element-join trap.
   #   It can only ever fire on gen 3, because gens 1 and 2 match earlier in the chain.
-  selectors: [".p-post-single__content", "article", ".post", ".content", "main", "body"]
+  # gen 4 (default.asp, English Mesić) `.Tekst .Tekst` — ⚠ THE ELEMENT-JOIN TRAP: a
+  #   <td class="Tekst"> CONTAINS a second .Tekst, so a bare `.Tekst` matches n=2 and the engine
+  #   joins them (3,743 chars for a 2,258-char page). The descendant form takes only the inner
+  #   element. Measured on capture 20070611154625 of default.asp?ru=252&gl=200510210000007&jezik=2.
+  # gen 5 (Default.aspx, English Mesić) `.article-content .text` — verified 1,991 chars on
+  #   capture 20101128054922 of art=16569&sec=910 ("President Mesić receives Armenian President").
+  # Both sit BEFORE the generic `.content`/`main`/`body` so they can never be shadowed.
+  selectors: [".p-post-single__content", "article", ".post", ".Tekst .Tekst", ".article-content .text", ".article-content", ".content", "main", "body"]
 date:
   # gen 2 has no date ELEMENT: the date is the first line inside .post ("15 February 2012 Mr.
   # Speaker, President Peres, …"), so the regex below lifts it off the front of that container.
   # The regex only ever applies to whichever selector wins, and .post sits after the modern
   # .p-post-single__meta, so it cannot disturb gen 1.
-  selectors: [".p-post-single__meta", "time", ".datum", ".date", ".post"]
+  # gen 4 `.Naslov` — despite the name ("title" in Croatian) this element holds the DATE on the
+  #   default.asp template: verified "14 October 2005" on the English side, "27.01.2006." on the
+  #   Croatian twin. gen 5 `.article-content` — the byline is its first line ("7 September 2009
+  #   President Mesić receives Armenian President …"), which the regex below lifts off the front.
+  #   Both are last in the chain and exist on no other generation, so nothing earlier is disturbed.
+  selectors: [".p-post-single__meta", "time", ".datum", ".date", ".post", ".Naslov", ".article-content"]
   regex: '\d{1,2}\s+[A-Za-zČĆŽŠĐčćžšđ]+\s+\d{4}|\w+\s+\d{1,2},\s*\d{4}'
   # OLD ASP pages carry no date element — the delivery date is in the filename
   # (english/speeches/17_7_2000_2.html = 17 Jul 2000); named groups assemble an unambiguous ISO date.
@@ -119,4 +158,14 @@ notes: >
   wrong-language twins owned by the live recipe), photo albums and static institutional pages.
   Widening needs NO --rescrape: the state file's seen-set means an incremental run fetches only the
   newly matched URLs. Shares data/state/Croatia.json with hrv_predsjednik — run serially.
+  WIDENED AGAIN 2026-08-16 (Session C): 1,116 → **1,651 snapshots** by adding the two
+  QUERY-ADDRESSED English generations the recon list flagged — default.asp?…&jezik=2 (gen 4,
+  Mesić 2005-2009) and Default.aspx?art=<N>&sec=9xx (gen 5, Mesić 2009-2010). Reaching them
+  needed the truncated start_url "predsjednik.hr/default" (see the start_urls comment): their
+  path is constant, so a full prefix would have been self-dropped. The aspx era has NO language
+  parameter — the language is carried by the SECTION id, established by sampling (Croatian
+  683/710-722/766-773/894, English 910/911/924/928/949/953). Re-probed --spread --n 14: title
+  14/14, text 14/14, date 13/14, spanning 2002-06 to 2026-01 and all five generations. The
+  Croatian side of these same two eras is the new hrv_predsjednik_wayback (11,839 snapshots).
+  Still NO --rescrape.
   FULL RUN is the researcher's gate.

@@ -3,6 +3,11 @@ country: Kuwait
 source_language: Arabic
 start_urls:
   - https://www.da.gov.kw/ar/news/
+  # ⛔ RULE 1, added 2026-08-16 (Session C) — this is the follow-up the header below recorded
+  # and then never took. /ar/speeches/ is small (the English twin shows two slugs presented as
+  # in-page year tabs) but it is the only place the FULL text of those addresses sits; /ar/news/
+  # carries the wire-style summary. A section left out is invisible and permanent.
+  - https://www.da.gov.kw/ar/speeches/
 renderer: static
 
 # SUBSTITUTED SOURCE. The master lead for Kuwait was e.gov.kw (a generic e-government
@@ -19,8 +24,8 @@ renderer: static
 # (generic fallback backs it up). FOLLOW-UP: /ar/speeches (2 full speeches), /en/news
 # (English subset).
 listing:
-  link_selector: "a[href*='/ar/news/']"
-  link_pattern: '/ar/news/\d+-\d{2}_\d{2}_\d{4}/?$'
+  link_selector: "a[href*='/ar/news/'], a[href*='/ar/speeches/']"
+  link_pattern: '/ar/(?:news/\d+-\d{2}_\d{2}_\d{4}|speeches/[a-z][a-z0-9-]+)/?$'
 
 pagination:
   type: query_param

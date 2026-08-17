@@ -1,0 +1,82 @@
+# France — GOVERNMENT of France (gouvernement.fr), the WHOLE-OF-GOVERNMENT NEWS stream, via the
+# Internet Archive. French. LOW PRIORITY — see the cost note below before queueing it.
+#
+# ⚑ WHY THIS IS A SEPARATE FILE FROM fra_gouvernement_wayback (split 2026-08-16, researcher's
+# call). Both halves are in scope by RULE 1 — a section left out is invisible and permanent — but
+# they are not worth the same machine time, so they are two recipes and two queue entries rather
+# than one 60-hour block:
+#     fra_gouvernement_wayback      THE PM'S OWN WORDS: discours, villepin, fillon_version2,
+#                                   premier-ministre, conseil-des-ministres, note-aux-redactions,
+#                                   presse. HIGH priority.
+#     THIS RECIPE                   MINISTRY AND POLICY NEWS: the sections below. Real content,
+#                                   but thin in leader speech per fetch.
+# Nothing is dropped by the split; this file can be run later, or never, without touching the
+# other one. They share data/state/France.json, so run the PM one first.
+#
+# THE SECTIONS, measured 2026-08-16 over a 148,509-capture domain enumeration:
+#     gouvernement/<slug>   8,174   the government's own news stream
+#     information/<slug>    4,353
+#     actualite/<slug>      3,804
+#     argumentaire/…        1,376   briefing / talking-point pages
+#
+# ⛔ RULE 1 OUT-LIST for this host (identical to the sibling's, repeated so this file stands
+# alone): search/site/covid?f[0]=… 42,555 faceted search; partager?/partage/ 16,387 share widget;
+# l-essentiel-des-ministeres/… 7,424 a CRAWLER LOOP whose path repeats itself; player/video/,
+# print/, printmail/ ~4,100. Also excluded: acteurs/ (3,339, the ministers' diary index),
+# ministre/<slug> (2,341, biographies), chantiers/ + info-coronavirus/ + build/ (policy landing
+# pages with no per-item title or date).
+# ⚑ BANKED, MEASURED, NOT TAKEN by either recipe: archives.gouvernement.fr (3,788 captures), a
+# separate host that looks like the frozen prior-government archive — the pattern the US NARA and
+# Korean prior-president sites follow. It needs its own enumeration and probably its own recipe.
+source_id: fra_gouvernement_news_wayback
+country: France
+source_language: French
+renderer: static
+start_urls:
+  - gouvernement.fr/gouvernement
+  - gouvernement.fr/information
+  - gouvernement.fr/actualite
+  - gouvernement.fr/argumentaire
+
+listing:
+  # A slug BELOW the section is required, so the bare section indexes are excluded, and the
+  # pattern is $-anchored so `?text_size=`, `?page=` and the print/share query variants cannot
+  # match.
+  link_pattern: 'gouvernement\.fr(?::80)?/(?:gouvernement|information|actualite|argumentaire)/[a-z0-9][a-z0-9_-]{6,}/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `text_size` is an accessibility toggle that re-serves the identical article (3,075 captures
+  # carry it); `page` and `destination` belong to listings and the share widget.
+  wayback_noise_params: ["text_size", "destination", "lang"]
+
+title:
+  selectors: ["h1", ".field-name-title", ".page-title", "title"]
+text:
+  # THREE Drupal generations on one host, so three body-field spellings, newest first — see
+  # fra_gouvernement_wayback for the measurement. `.field-field-body` (Drupal 6, the 2010-2013
+  # "theme2011" site) is the one that is easy to omit and costs whole pages when you do.
+  selectors: [".field-name-body", ".field-field-body", ".node-inner", ".node__content", "article", "#content", "main"]
+date:
+  # ⚠ `.content` is scoped to `.node`: the right-hand "Derniers articles" sidebar prints dates
+  # too, and an unscoped selector would stamp rows with the newest teaser's date.
+  selectors: [".date-display-single", ".field-name-post-date", "time", ".node .content"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}'
+
+position: prime minister
+date_languages: ["fr"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C), split out of fra_gouvernement_wayback on the researcher's
+  call once the cost was surfaced. The whole-of-government news stream of gouvernement.fr —
+  in scope by RULE 1, but thin in leader speech per fetch, so it is a separate LOW-PRIORITY
+  queue entry rather than 60 h bolted onto the PM recipe. Selectors are inherited from the PM
+  sibling (same host, same three Drupal generations); its probe measured title 12/12, text 9/12,
+  date 1/12 across both halves. NO speaker_default — this stream carries ministers and the
+  government spokesperson as much as the PM. Shares data/state/France.json with
+  fra_gouvernement_wayback, fra_elysee, fra_elysee_english and fra_elysee_english_wayback; run
+  the PM recipe first, and never --rescrape. FULL RUN is the researcher's gate.

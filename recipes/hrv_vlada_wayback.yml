@@ -1,0 +1,108 @@
+# Croatia — GOVERNMENT of the Republic of Croatia (vlada.hr), CROATIAN, via the Internet Archive.
+# THE HEAD-OF-GOVERNMENT SOURCE. Croatia is a parliamentary republic: the corpus gap the
+# 2026-08-05 recon flagged is 116 rows, and **Ivica Račan (59 of them) was PRIME MINISTER**, not
+# president — so no amount of widening predsjednik.hr could ever have reached him. This recipe
+# does. Račan governed 2000-2003, Sanader 2003-2009; both are in the `default.asp` generation.
+#
+# ⛔ THE TRAP AND THE FIX — identical to hrv_predsjednik_wayback, and the CMS is literally the
+# same one. Every article of the 2000-2009 generation is served from one script:
+#     www.vlada.hr/default.asp?ru=<N>&gl=<YYYYMMDDnnnnnnn>&sid=&jezik=1
+# so its path is constant and filter_entries_for_recipe would drop the whole harvest against a
+# "/default.asp" start_url. The start_urls below are TRUNCATED one character class short, which
+# is a valid CDX prefix and no article's path.
+#
+# ⛔ RULE 1 BREADTH. cdxbatch over the vlada.hr domain, 2026-08-16: 89,482 raw captures → 78,722
+# distinct articles → 63,987 in scope. This is a big host; what is taken and what is BANKED:
+#     www.vlada.hr/default.asp?…            11,956   TAKEN (jezik=1 → 5,505 Croatian)
+#     www.otvorena.vlada.hr/default.asp?…    2,749   TAKEN — the "open government" mirror, same CMS
+#     /arhiv/<YYYY>/…                        6,121   TAKEN — the 1997-1999 press archive, i.e. the
+#                                                    Tuđman-era HDZ governments (Mateša, Valentić)
+#     default.asp?…jezik=2                   1,018   ✘ ENGLISH → hrv_vlada_english_wayback
+#     /bulletin/<YYYY>/<month>/…             1,083   ✘ ENGLISH weekly → same sibling
+#   ⚠ BANKED, MEASURED, NOT TAKEN — each needs its own selector work and is a separate pass:
+#     arhiva.vlada.hr/hr/… (26,561) + /en (3,059) — the 2009-2014 Plenković-predecessor archive,
+#         the single biggest block on this host. Worth a recipe of its own.
+#     /hrvatski/… (1,201), /aktivnosti/ (1,046), /Download/ (879 — documents, likely legal),
+#         vlada.shtml?id=<N>&year=<YYYY> (653, a 2001 generation).
+#     The LIVE site (vlada.gov.hr) renders its listings with no `/page/N` pager visible to a
+#         static fetch — `pagecount.py` reports last_page=1 / ~10 items on all four sections, so
+#         it needs `renderer: js` or an API endpoint. Deliberately NOT guessed at here.
+source_id: hrv_vlada_wayback
+country: Croatia
+source_language: Croatian
+renderer: static
+start_urls:
+  # TRUNCATED prefixes (see header). CDX prefix-matching is per HOST, so the subdomain needs
+  # its own entry — `vlada.hr/...` does not reach `otvorena.vlada.hr/...`.
+  - vlada.hr/default
+  - otvorena.vlada.hr/default
+  - vlada.hr/arhiv
+
+listing:
+  # `gl=\d{14}` is required so the menu/section views (default.asp?ru=N&sid=&jezik=1, thousands of
+  # captures with an EMPTY gl) cannot match — only a real article carries the document id.
+  # `(?!.*jezik=2)` keeps the English mirror out; `(?!.*&amp;)` drops the HTML-escaped forms,
+  # which make classic ASP read one giant parameter and return the section index (the
+  # predsjednik.hr lesson, verified there on capture 20060604025231).
+  link_pattern: 'vlada\.hr(?::80)?/(?:[Dd]efault\.asp\?(?!.*jezik=2)(?!.*&amp;).*gl=\d{14}|arhiv/\d{4}/[a-z]+/[^?#]+\.html?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `ru` is the menu id the article was reached through and varies for one gl document; `sid`
+  # and `akcija` are always empty. None of them changes the document.
+  wayback_noise_params: ["ru", "sid", "akcija"]
+
+title:
+  # ⚠ THE SAME CMS, WIRED DIFFERENTLY — do NOT copy predsjednik.hr's chain here. Measured
+  # 2026-08-16 on capture 20050512 of default.asp?gl=200505130000004:
+  #   `.TekstLead` is the CATEGORY BREADCRUMB ("|Novosti|Izjave audio|Hina|"), not a headline —
+  #      a first probe used it and titled rows "|News|Hina|" and "www.vlada.hr -".
+  #   `.Naslov` is "12. svibnja 2005. - Predsjednik Vlade otvorio radove u Žednome u sklopu
+  #      Ekoprojekta Kaštelanski zaljev - Novosti", i.e. date + headline + section.
+  #   `<title>` is "www.vlada.hr - Audio arhiv 2005" — useless.
+  # The lookbehind strips the leading date; the trailing " - <section>" is left, which the
+  # cleaner tolerates and which is safer than a greedy trailing strip on headlines that
+  # themselves contain " - ".
+  selectors: [".Naslov", "h3", "h1", "title"]
+  regex: '(?s)(?<=\. - ).+'
+text:
+  # ⚠ `.Tekst .Tekst`, NOT a bare `.Tekst`: on this CMS a <td class="Tekst"> contains a second
+  # .Tekst, so the bare form matches n=2 and the engine JOINS them — measured on the sibling host
+  # at 2,189 chars for a 1,603-char page. The descendant form takes only the inner element.
+  selectors: [".Tekst .Tekst", ".Tekst", "td", "body"]
+date:
+  # ⚠ NO SELECTOR ON PURPOSE — and this one is a WRONG-DATE trap, not a missing-date one.
+  # `.Naslov` opens with a date, so it looks like the obvious date selector, and on some pages it
+  # IS the article's date. On others it is the site's TODAY clock: capture 20260616 of
+  # otvorena.vlada.hr/default.asp?gl=200306230000003 — a JUNE 2003 article — yielded
+  # parsed_date 2026-06-16, i.e. the crawl day, silently 23 years out. A wrong date corrupts the
+  # time series where a blank one merely defers to the cleaner.
+  # The `gl` document id is an unambiguous publication stamp (gl=200209230000007 → 2002-09-23),
+  # it is in the URL, and it cannot drift. It is the only date this recipe trusts.
+  url_regex: 'gl=(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})'
+
+position: prime minister
+date_languages: ["hr"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The Croatian Government (vlada.hr) via the Internet Archive
+  — the HEAD-OF-GOVERNMENT source Croatia had no recipe for at all. Closes the part of the
+  2026-08-05 gap that predsjednik.hr structurally could not: **Ivica Račan (PM 2000-2003, 59 of
+  the 116 unmatched rows)** and Ivo Sanader (2003-2009). Same CMS as predsjednik.hr, so the
+  selector chains are inherited from hrv_predsjednik_wayback rather than re-derived. NO
+  speaker_default — the feed carries the PM, deputy PMs and ministers; the cleaner's speaker pass
+  and tenure crosscheck attribute each row. Shares data/state/Croatia.json with the four
+  predsjednik/ured recipes — incremental run, never --rescrape. Sibling
+  hrv_vlada_english_wayback takes jezik=2 and the English /bulletin/. The 26,561-capture
+  arhiva.vlada.hr block and the JS-rendered live vlada.gov.hr are MEASURED AND BANKED in the
+  header, not silently dropped.
+  PROBE-VALIDATED --spread --n 12 (2026-08-16): **10,916 snapshots**, title 12/12, text 12/12,
+  date 12/12, 2002-11 .. 2006-04 — including "PREMIJER RAČAN: AUTOCESTA DO DUBROVNIKA DO 2008"
+  (2003-07-15), i.e. the gap leader, found on the first spread sample. One sampled row was an
+  English article served without a `jezik` parameter, so a small amount of English leaks into
+  this Croatian recipe; the cleaner records `language` per row.
+  FULL RUN is the researcher's gate (~10,900 fetches ≈ 26 h).

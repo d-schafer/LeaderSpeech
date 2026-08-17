@@ -1,0 +1,53 @@
+# Kuwait — Amiri Diwan (da.gov.kw), the ARABIC render, via the Internet Archive. Wayback
+# companion to the live kwt_diwan. Structure, traps and exclusions are identical to
+# kwt_diwan_english_wayback — read that header; only the language segment differs.
+#
+# WHAT IT ADDS OVER THE LIVE RECIPE: the RETIRED /ara/ site (≈2010-2018), whose content is gone
+# from the live host entirely — /ara/articles/ 306 captures, /ara/speeches/amir_speeches_<year>
+# .php?p=<DDMMYYYY> 145, /ara/newsroom/ 75, /ara/hhamir/ 53 — plus 623 archived /ar/news/
+# permalinks that overlap the live crawl and cost nothing once kwt_diwan has run (select_unscraped
+# skips by page identity).
+#
+# ⚠ `?p=` IS THE DOCUMENT SELECTOR, NOT A PAGER. `amir_speeches_<N>.php` is the YEAR index and
+# `?p=03102007` is DDMMYYYY identifying the individual speech. Adding `p` to
+# wayback_noise_params would collapse the entire speech archive to one row per year — measured
+# on the English twin, where doing so cost 719 → 566 snapshots.
+source_id: kwt_diwan_wayback
+country: Kuwait
+source_language: Arabic
+renderer: static
+start_urls:
+  - da.gov.kw/ara
+  - da.gov.kw/ar/news
+
+listing:
+  link_pattern: 'da\.gov\.kw(?::80)?/(?:ara/(?:speeches/amir_speeches_\d+\.php|hhamir/amir_visits_\d+\.php|newsroom/news-\d+\.html$|newsroom/newsDetails\.php\?id=\d+|articles/[a-z0-9_-]+\.(?:php|html)$)|ar/news/\d+-\d{2}_\d{2}_\d{4}/?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["PHPSESSID"]
+
+title:
+  selectors: [".news-title", "h1", "h2", "title"]
+text:
+  selectors: [".col-xl-8", "article", "main", "#content", "body"]
+date:
+  # One regex for both generations — see kwt_diwan_english_wayback for why the alternation has
+  # to share a single set of named groups.
+  selectors: [".news-date", "time", ".date"]
+  url_regex: '(?:/news/\d+-|\?p=)(?P<day>\d{2})_?(?P<month>\d{2})_?(?P<year>\d{4})'
+
+position: amir
+date_languages: ["ar"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The ARABIC archive of the Kuwaiti Amiri Diwan — the retired
+  /ara/ site plus the archived /ar/news/ permalinks. Sibling of the live kwt_diwan (widened the
+  same day to add /ar/speeches/) and of kwt_diwan_english / kwt_diwan_english_wayback. All four
+  share data/state/Kuwait.json; run the LIVE recipes first, never --rescrape. NO speaker_default
+  (Sabah IV / Nawaf / Mishal) → tenure crosscheck. NON-ENGLISH, so it belongs in the deferred
+  queue under the 2026-08-10 language policy. FULL RUN is the researcher's gate.

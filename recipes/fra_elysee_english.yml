@@ -1,0 +1,75 @@
+# France — Présidence de la République (elysee.fr), the LIVE ENGLISH tree. English-native →
+# English column, no machine translation. "yes-and" sibling of fra_elysee (French, sitemap).
+#
+# WHY A LISTING CRAWL AND NOT THE SITEMAP. fra_elysee reads /sitemap.publication.xml, which is
+# the natural and cheapest interface — but the sitemap is FRENCH-ONLY. Measured 2026-08-16 with
+# sitemapshapes.py over the sitemap INDEX (7 child sitemaps, 15,640 URLs): not one /en/ URL.
+# So the English tree is invisible to a sitemap recipe however the link_pattern is written, and
+# has to be walked from its own listing.
+#
+# THE LISTING. https://www.elysee.fr/en/all-actualities is the site's own "All news" view — one
+# undifferentiated stream, which is exactly what RULE 1 wants: it carries speeches, press
+# releases, declarations, interviews and visit notes together, and the cleaner's document_type
+# gate is where they are sifted. `?page=<n>` works (verified: page=3 returns HTTP 200 with 174
+# anchors); the pager just does not expose a "last page" link, so the engine's own early-stop —
+# a page that serves no NEW links — is what ends the walk.
+#
+# ⚠ The 2026-08-05 recon list pointed at the Internet Archive for this
+# (elysee.fr/en/emmanuel-macron/YYYY/MM/DD/<slug>, 681 English captures). Re-checked 2026-08-16:
+# the LIVE English tree answers HTTP 200 to the honest bot UA and is far deeper than the archive
+# — the Archive's /en/ prefix holds 34,207 captures but they are dominated by `diary-<month>-<n>`
+# calendar stubs, not articles. Live first; a wayback sibling is a separate follow-up.
+source_id: fra_elysee_english
+country: France
+source_language: English
+renderer: static
+start_urls:
+  - https://www.elysee.fr/en/all-actualities
+
+listing:
+  link_selector: "a[href*='/en/']"
+  # Article permalinks only: /en/<person>/<YYYY>/<MM>/<DD>/<slug>. Anchored to the presidents
+  # published on this host (the same list fra_elysee uses) so the pattern cannot drift onto
+  # /en/french-presidency/... institutional pages or /en/maison-elysee/diary-<month>-<n> stubs.
+  link_pattern: 'elysee\.fr/en/(?:emmanuel-macron|francois-hollande|nicolas-sarkozy|jacques-chirac|francois-mitterrand|valery-giscard-d-estaing|charles-de-gaulle)/\d{4}/\d{2}/\d{2}/'
+
+pagination:
+  # ⚠ `?page=` IS DECORATIVE ON THIS LISTING — measured 2026-08-16: page=3 and page=40 both
+  # return the identical 515,954-byte document with 174 anchors. The English "All news" view
+  # renders its whole window server-side and its pager is client-side, so the engine's
+  # "no new links" early-stop fires at page 2 and the harvest is ~100 article permalinks, i.e.
+  # roughly the last two years. The knobs are left in place because they cost nothing and the
+  # site may restore a real pager; the DEPTH comes from fra_elysee_english_wayback instead
+  # (682 archived /en/emmanuel-macron/YYYY/MM/DD/ captures back to 2013). Do not read the
+  # 100-link probe as a broken recipe — it is the listing, and it is documented here so the
+  # next reader does not re-derive it.
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 400
+
+title:
+  selectors: ["h1", ".card__title"]
+text:
+  selectors: [".card__body", ".ck-styled", ".rich-text", "main"]
+date:
+  # The permalink carries an unambiguous ISO triple; the on-page `.published-at` is the primary
+  # and the URL is the guaranteed fallback.
+  selectors: [".published-at", "time"]
+  url_regex: '/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-08-16 (Session C). The LIVE English tree of elysee.fr, which no recipe reached
+  because fra_elysee is a SITEMAP recipe and the sitemap is French-only (measured: 0 of 15,640
+  URLs are /en/). Takes the site's own undifferentiated "All news" stream rather than a
+  speeches-only section, per RULE 1. NO speaker_default — fra_elysee's was removed in the
+  2026-08-10 widening for the same reason, since the host publishes seven presidencies. Shares
+  data/state/France.json with fra_elysee; the French and English renders are different documents
+  at different URLs, so both are wanted ("yes-and") and neither refetches the other. Never
+  --rescrape.
+  PROBE-VALIDATED --spread --n 10 (2026-08-16): **100 links**, title 10/10, text 10/10, date
+  10/10, 2026-04 .. 2026-07, bodies 797-15,010 chars. The 100 is the LISTING's ceiling, not a
+  defect — see the pagination comment; historical depth comes from fra_elysee_english_wayback.
+  FULL RUN is the researcher's gate (cheap: ~100 live fetches).
