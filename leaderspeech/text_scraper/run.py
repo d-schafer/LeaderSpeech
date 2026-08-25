@@ -48,6 +48,14 @@ try:
 except Exception:
     pass
 
+# A speech longer than the csv module's default 128 KB field cap is not exotic — a state-of-the-
+# nation address or a long wayback page clears it easily. Without this, EVERY csv.reader here dies
+# with "field larger than field limit (131072)", which made _ensure_csv_schema fail silently and
+# _append then wrote new-width rows under an old header: the exact corruption the migration exists
+# to prevent (hit on mdv/irl/aze, 2026-08). 100 MB, not sys.maxsize, which overflows a C long on
+# Windows.
+csv.field_size_limit(100_000_000)
+
 # The standardized schema (see _examples_code/02-combine_and_standardize_data.R).
 # Unsuffixed title/text/context hold ENGLISH; *_originlanguage hold the original.
 SCHEMA_COLUMNS = [
@@ -249,21 +257,24 @@ def _ensure_csv_schema(path: Path, columns: list[str]) -> None:
         return
     try:
         with path.open(encoding="utf-8", newline="") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            if header is None or header == columns:
-                return
-            data = list(reader)
+            header = next(csv.reader(f), None)
     except Exception as e:
         log.warning("could not check the schema of %s: %s", path.name, e)
+        return
+    if header is None or header == columns:
         return
     log.info("migrating %s to the current %d-column schema (its header had %d) — old rows padded, "
              "original kept as .bak", path.name, len(columns), len(header))
     tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=columns)
+    # Streamed, not list(reader): a source CSV can run to hundreds of MB and the row objects cost
+    # several times that in memory.
+    with path.open(encoding="utf-8", newline="") as fin, \
+            tmp.open("w", encoding="utf-8", newline="") as fout:
+        reader = csv.reader(fin)
+        next(reader, None)  # the stale header, already read above
+        writer = csv.DictWriter(fout, fieldnames=columns)
         writer.writeheader()
-        for r in data:
+        for r in reader:
             # A row written at the NEW width maps positionally to `columns` (so a trailing new
             # column like wayback_capture keeps its value); a narrower/older row maps by the old
             # header's names and the missing columns fill with ''.
@@ -294,8 +305,22 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
                 header = next(csv.reader(f), [])
             if header and header != columns:
                 _ensure_csv_schema(path, columns)
+                with path.open(encoding="utf-8", newline="") as f:
+                    header = next(csv.reader(f), [])
         except Exception as e:
             log.warning("could not re-check the schema of %s before appending: %s", path.name, e)
+            header = None
+        # Appending `columns`-wide rows under a narrower header is what makes a file unreadable to
+        # pandas and the merge index. If the migration did not take (or we could not even read the
+        # header), STOP — a loud failure costs one re-run, a silent one costs a corrupt source that
+        # only surfaces months later in `index`.
+        if header is not None and header and header != columns:
+            raise RuntimeError(
+                f"{path.name} has a {len(header)}-column header but this build writes "
+                f"{len(columns)} columns, and the automatic migration did not take. Refusing to "
+                f"append (it would corrupt the file). Fix it with "
+                f"`python -m leaderspeech.text_scraper.run --migrate-schema` and re-run."
+            )
     write_header = not path.exists()
     with path.open("a", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns)
@@ -943,9 +968,52 @@ def scrape_recipe(
     }
 
 
+def migrate_all_schemas(out_root: str = "data/scraped", only: list[str] | None = None) -> int:
+    """Bring every source CSV under `out_root` up to the current SCHEMA_COLUMNS.
+
+    `_ensure_csv_schema` normally runs per-source at scrape start, so a source that is not
+    re-scraped keeps a stale header indefinitely — harmless while its rows are all the same width,
+    fatal to pandas once a newer build appends a wider row. This is the corpus-wide sweep: no
+    network, no model calls, just the header rewrite. Each migrated file keeps a `.bak`.
+
+    `only` restricts the sweep to the named source_ids (a stale-but-readable file costs nothing to
+    leave alone, and rewriting the whole corpus at once churns ~2x its size through a synced
+    Dropbox folder).
+    """
+    root = Path(out_root)
+    wanted = set(only or [])
+    migrated = 0
+    for path in sorted(root.glob("*/*.csv")):
+        if path.name.endswith(("_errors.csv", "_media.csv")) or path.name.startswith("scraped_"):
+            continue
+        if wanted and path.stem not in wanted:
+            continue
+        try:
+            with path.open(encoding="utf-8", newline="") as f:
+                header = next(csv.reader(f), None)
+        except Exception as e:
+            log.warning("could not read %s: %s", path.name, e)
+            continue
+        if header is None or header == SCHEMA_COLUMNS:
+            continue
+        _ensure_csv_schema(path, SCHEMA_COLUMNS)
+        migrated += 1
+    log.info("schema migration: %d file(s) rewritten to the %d-column schema",
+             migrated, len(SCHEMA_COLUMNS))
+    return migrated
+
+
 def main():
     ap = argparse.ArgumentParser(description="LeaderSpeech text scraper")
-    ap.add_argument("--recipe", required=True, help="path to a recipe YAML file")
+    ap.add_argument("--recipe", help="path to a recipe YAML file")
+    ap.add_argument("--migrate-schema", action="store_true",
+                    help="MAINTENANCE, no scraping: rewrite every source CSV under --out-root whose "
+                         "header predates the current schema, so pandas/the merge index can read "
+                         "them again. Old rows are padded with '' for the added columns and each "
+                         "file keeps a .bak. Run without --recipe.")
+    ap.add_argument("--only", nargs="+", metavar="SOURCE_ID", default=None,
+                    help="with --migrate-schema: migrate just these source_ids instead of the whole "
+                         "corpus (a stale-but-readable CSV is harmless to leave alone).")
     ap.add_argument("--out-root", default="data/scraped")
     ap.add_argument("--state-root", default="data/state")
     ap.add_argument("--max-pages", type=int, default=None, help="cap listing pages crawled")
@@ -993,6 +1061,13 @@ def main():
                          "you verify a multi-machine campaign really is on distinct IPs (the Internet "
                          "Archive throttles per IP); pass this to avoid the third-party ping.")
     args = ap.parse_args()
+
+    if args.migrate_schema:
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+        migrate_all_schemas(args.out_root, only=args.only)
+        return
+    if not args.recipe:
+        ap.error("--recipe is required (unless --migrate-schema)")
 
     result = scrape_recipe(
         args.recipe, args.out_root, args.state_root,

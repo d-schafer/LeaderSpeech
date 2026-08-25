@@ -48,6 +48,17 @@ position: prime minister
 # first match winning: ["en"] would read 01.07.2020 as 7 January. Every date with day <= 12
 # would corrupt silently while the probe still showed a green tick.
 date_languages: ["et"]
+
+# valitsus.ee RATE-LIMITS: the 2026-08-15 run took the engine default (no per-request pause)
+# and collected 85 failures, every one an HTTP 429 "Too Many Requests", until 25 consecutive
+# 429s tripped the circuit breaker at 163 of 4,267 links. This is the site pushing back, not
+# the Archive (this recipe makes zero Archive requests), so the queue's wayback pacing flags
+# do not reach it — the pause has to live here.
+politeness:
+  delay_range: [1.5, 3.0]
+  retries: 4
+  backoff: 10
+
 notes: >
   Estonia, head of GOVERNMENT — English mirror of est_valitsus. Probe-validated 2026-08-15,
   no full run. Sitemap pagination over the same /sitemap.xml (32,413 URLs); 4,255 matched.

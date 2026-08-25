@@ -117,6 +117,32 @@ re-cleaning, so the metadata step doesn't skip the fresh rows as already-done: d
 | `keep_if FILTERED OUT ALL n fetched page(s)` | the `keep_if` selector doesn't exist on these pages (no match = no evidence = drop), or the pattern is wrong | probe the recipe and read the `KEEP_IF` line; check the selector against a page you expect to **keep** |
 | `0 links` in **both** `static` and `js` / the page is empty chrome | the speech list loads from a JSON/search API (often SharePoint behind a WAF); the served HTML has no links | capture the JSON endpoint in DevTools → Network → Fetch/XHR and use `pagination.type: api` (see [recipes.md](recipes.md)); the engine now sends browser-like `Accept`/`Accept-Language` headers by default to clear such WAFs |
 | `SnapshotTooLarge` / `SnapshotReadTimeout` on a wayback run | that capture redirects into a large media file (video/audio) rather than a speech page, so following it downloads the asset | nothing to fix — the guard already aborts it and records the URL as a normal failure. See "A wayback run that goes quiet" below |
+| `index: skipping unreadable csv ... Expected N fields in line M, saw N+1` | the CSV's **header** predates a schema addition while newer rows were appended at the current width | `python -m leaderspeech.text_scraper.run --migrate-schema [--only <source_id> …]`. See "A source CSV pandas refuses to open" below |
+| `could not check the schema of <id>.csv: field larger than field limit` | a single speech exceeds the `csv` module's default 128 KB field cap | fixed in the engine (`csv.field_size_limit`); if you see it in an old log, that run is the one that produced the mixed-width CSV above |
+
+## A source CSV pandas refuses to open
+
+`index` (or any `pd.read_csv`) reporting **`Expected N fields in line M, saw N+1`** almost never means the
+scrape failed — every row is there, with full text. It means the file's **first line** is stale: the CSV was
+created under an older `SCHEMA_COLUMNS` and a later run appended rows at the current, wider schema, so the
+header undercounts the columns.
+
+`_ensure_csv_schema` exists to prevent exactly this — it runs per-source at scrape start and again on every
+append batch, rewriting the header and padding old rows. Three sources still ended up mixed-width in
+2026-08 because that migration was failing *silently*: a speech longer than 128 KB made `csv.reader` raise
+`field larger than field limit (131072)`, the migration caught it and returned, and the append proceeded
+anyway. Both halves are now fixed — the field cap is raised at import, and an append whose migration did
+not take **raises** instead of writing.
+
+To repair files already in that state (no network, no model calls, `.bak` kept for each):
+
+```bash
+python -m leaderspeech.text_scraper.run --migrate-schema                       # whole corpus
+python -m leaderspeech.text_scraper.run --migrate-schema --only irl_president_wayback
+```
+
+A stale header whose rows are *all* the same width reads fine and can be left alone; it migrates on its own
+the next time that source is scraped.
 
 ## A wayback run that goes quiet
 

@@ -59,6 +59,18 @@ position: president
 date_languages: ["sr"]
 # No speaker_default: the archive spans Aleksandar Vučić (since 2017-05-31) and Tomislav Nikolić
 # (2012-2017), so the cleaner's tenure crosscheck must assign the speaker from country+date.
+
+# predsednik.rs STOPPED ANSWERING mid-run: the 2026-08-13 run collected 25 failures, all
+# `[WinError 10060] connection attempt failed because the connected party did not properly
+# respond`, and tripped the circuit breaker at 86 of 690 links. That is a TCP-level timeout,
+# not an HTTP status, so it is the host dropping us rather than a selector problem. Pacing is
+# the cheap thing to try first; if a paced retry still times out from the first request, the
+# host is refusing this egress and the answer is a different IP or the wayback sibling.
+politeness:
+  delay_range: [2.0, 4.0]
+  retries: 4
+  backoff: 10
+
 notes: >
   NEW 2026-08-13 (chunk A5) — the OFFICIAL ENGLISH press centre of predsednik.rs, ~708 items across
   news, press-releases, announcements and the-best-from-serbia. Authored in the same pass as the

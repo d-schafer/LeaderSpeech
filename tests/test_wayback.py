@@ -44,6 +44,46 @@ class _FakeResp:
         return iter(self._chunks)
 
 
+def test_rebuild_response_survives_a_non_ascii_header_value():
+    """A capture whose response headers carry a raw non-ASCII byte must still yield its body.
+
+    Real case (hun_keh_wayback, 2026-08): keh.hu set a cookie named after the article slug, so
+    the Archive echoed `x-archive-orig-set-cookie: kehStat1662-..._lelkiismerete_<en-dash>_...`.
+    Rebuilding from `.multi_items()` handed httpx a `str`, which it re-encodes as ASCII ->
+    UnicodeEncodeError, and three speeches were recorded as failures instead of scraped."""
+    body = "<html><body>beszéd</body></html>".encode("utf-8")
+    headers = [
+        (b"content-type", b"text/html; charset=utf-8"),
+        (b"x-archive-orig-set-cookie", "kehStat_lelkiismerete_–_Mindszenty".encode("utf-8")),
+        (b"content-length", b"999"),          # must still be dropped
+        (b"content-encoding", b"gzip"),       # must still be dropped
+    ]
+    resp = _FakeResp([body], headers=headers, request=httpx.Request("GET", "https://x.test/a"))
+
+    out = wayback._rebuild_response(resp, body)
+
+    assert out.status_code == 200
+    assert out.text == "<html><body>beszéd</body></html>"      # charset handling preserved
+    # the denylist drops the STALE values; httpx then recomputes content-length from the
+    # real body, which is the whole reason they are stripped
+    assert out.headers["content-length"] == str(len(body)) != "999"
+    assert "content-encoding" not in out.headers
+    assert out.headers.raw[1][1] == "kehStat_lelkiismerete_–_Mindszenty".encode("utf-8")
+
+
+def test_rebuild_response_keeps_a_legacy_charset_for_text():
+    """The Content-Type must survive verbatim so a legacy-encoded capture still decodes right
+    (the .raw copy must not normalize it)."""
+    body = "Ő<b>x</b>".encode("iso-8859-2")
+    resp = _FakeResp(
+        [body],
+        headers=[(b"content-type", b"text/html; charset=iso-8859-2")],
+        request=httpx.Request("GET", "https://x.test/a"),
+    )
+    out = wayback._rebuild_response(resp, body)
+    assert out.text == "Ő<b>x</b>"
+
+
 def test_list_snapshots_strips_trailing_star(monkeypatch):
     captured = {}
 

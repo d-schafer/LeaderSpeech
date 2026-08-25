@@ -31,6 +31,79 @@ def test_ensure_csv_schema_migrates_old_header_and_mixed_rows(tmp_path):
     assert (tmp_path / "arm.csv.bak").exists()                   # original kept as .bak
 
 
+def test_ensure_csv_schema_migrates_a_csv_holding_a_huge_speech(tmp_path):
+    """A speech longer than the csv module's default 128 KB field cap must not defeat the
+    migration. It used to: csv.reader raised 'field larger than field limit (131072)',
+    _ensure_csv_schema swallowed it and returned, and _append then wrote wider rows under the
+    stale header -- which is how mdv/irl/aze became unreadable to pandas (2026-08)."""
+    cols = run.SCHEMA_COLUMNS
+    old_cols = cols[:-1]
+    huge = "x" * 200_000                        # comfortably over the 131072 default
+    p = tmp_path / "big.csv"
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(old_cols)
+        row = [f"a{i}" for i in range(len(old_cols))]
+        row[old_cols.index("text")] = huge
+        w.writerow(row)
+
+    run._ensure_csv_schema(p, cols)
+
+    with p.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == cols                                       # header actually migrated
+    assert len(rows[1]) == len(cols)
+    assert rows[1][cols.index("text")] == huge                   # the long speech survived intact
+
+
+def test_append_refuses_to_widen_rows_under_a_stale_header(tmp_path, monkeypatch):
+    """If the migration cannot take, _append must FAIL rather than append wider rows under the
+    narrow header -- a silent corruption only surfaces months later in `index`."""
+    import pytest
+
+    cols = run.SCHEMA_COLUMNS
+    p = tmp_path / "stuck.csv"
+    with p.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(cols[:-1])
+        w.writerow([""] * (len(cols) - 1))
+    monkeypatch.setattr(run, "_ensure_csv_schema", lambda *a, **k: None)   # migration no-ops
+
+    with pytest.raises(RuntimeError, match="migration did not take"):
+        run._append(p, [{c: "" for c in cols} | {"doc_id": "X"}], cols)
+
+    with p.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 2                                        # nothing was appended
+    assert all(len(r) == len(cols) - 1 for r in rows)             # file left as it was
+
+
+def test_migrate_all_schemas_sweeps_the_corpus(tmp_path):
+    """The corpus-wide maintenance sweep reaches sources that are not being re-scraped."""
+    cols = run.SCHEMA_COLUMNS
+    stale = tmp_path / "Ireland" / "irl_president.csv"
+    stale.parent.mkdir(parents=True)
+    with stale.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(cols[:-1])
+        w.writerow([f"v{i}" for i in range(len(cols))])           # already-wide row, stale header
+    current = tmp_path / "Chile" / "chl.csv"
+    current.parent.mkdir(parents=True)
+    with current.open("w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerow(cols)
+    skipped = tmp_path / "Ireland" / "irl_president_errors.csv"
+    skipped.write_text("url,error\nhttp://x,boom\n", encoding="utf-8")
+
+    assert run.migrate_all_schemas(str(tmp_path)) == 1             # only the stale one
+
+    with stale.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == cols
+    assert rows[1][-1] == f"v{len(cols) - 1}"                      # wide row mapped positionally
+    assert not (tmp_path / "Chile" / "chl.csv.bak").exists()       # current file untouched
+    assert skipped.read_text(encoding="utf-8").startswith("url,error")   # _errors.csv left alone
+
+
 def test_ensure_csv_schema_noop_when_header_current(tmp_path):
     p = tmp_path / "cur.csv"
     with p.open("w", encoding="utf-8", newline="") as f:

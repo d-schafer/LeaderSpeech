@@ -526,9 +526,18 @@ def _read_capped(
 def _rebuild_response(resp: httpx.Response, body: bytes) -> httpx.Response:
     """Re-wrap an already-decoded body as a normal (read) Response, so callers keep
     httpx's own charset handling for `.text` — archived pages carry all sorts of legacy
-    encodings and re-implementing that decode would quietly change existing recipes."""
-    headers = [(k, v) for k, v in resp.headers.multi_items()
-               if k.lower() not in _ENCODING_HEADERS]
+    encodings and re-implementing that decode would quietly change existing recipes.
+
+    Headers are copied as RAW BYTES (`.raw`), never `.multi_items()`. multi_items() hands
+    back `str`, and `httpx.Headers` re-encodes a `str` value as **ASCII**, so any archived
+    response carrying a non-ASCII header value — a `Location` or `Content-Disposition`
+    echoing a page title with an en-dash, routine on legacy Hungarian/Croatian sites —
+    died here with `UnicodeEncodeError` and lost the speech. Bytes in, bytes out: no
+    re-encode, and the original Content-Type survives verbatim so `.text` decodes exactly
+    as it did before. Header NAMES are ASCII tokens by spec, so decoding the key to match
+    the denylist is safe."""
+    headers = [(k, v) for k, v in resp.headers.raw
+               if k.decode("ascii", "ignore").lower() not in _ENCODING_HEADERS]
     return httpx.Response(
         resp.status_code, headers=headers, content=body, request=resp.request,
     )
