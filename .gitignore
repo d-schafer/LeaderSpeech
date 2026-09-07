@@ -44,6 +44,10 @@ data/sources/additional_master_sources/
 
 # personal source-merge tooling (not part of the published repo — see the outbox README)
 data/sources/append_additional_sources.R
+# its update-side sibling: fills stale derivable cells in master_sources.xlsx from the
+# machine index, and reports conflicts. Local tooling for a local-only workbook.
+data/sources/refresh_master_from_index.R
+data/sources/master_sources.backup-*.xlsx
 data/sources/_archive/
 
 # --- Large / binary data artifacts ---
