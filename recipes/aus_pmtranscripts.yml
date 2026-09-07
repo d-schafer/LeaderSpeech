@@ -27,14 +27,24 @@
 # all give 2002-11-09). ["pt"] is used purely for its DMY default; the field is numeric so
 # no month names are ever parsed, and "en-AU" is not a dateparser language (it raises).
 #
-# ENUMERATION. Transcript ids are NOT contiguous — they run 5..47,307 with 25,000-29,999
-# and 35,000-39,999 entirely empty — so a sequential sweep would waste ~19,000 requests.
-# The id list in data/aus_pmtranscripts_ids.txt is derived from the Internet-Archive CDX
-# index of /release/transcript-* (15,455 captures -> 15,333 well-formed ids). Coverage
-# ratio: 15,333 of the ~26,000 items the site reports, about 59%. The Archive is used ONLY
-# as an index here — every fetch goes to the live site. To raise coverage, extend that file
-# (the remaining ids are discoverable by sweeping the gaps against the API, which answers
-# 200 with an empty <response> for an id that does not exist).
+# ENUMERATION — REBUILT 2026-09-07 FROM THE SITE'S OWN INDEX, 15,333 -> 28,432 ids.
+# Transcript ids are NOT contiguous (they run 1..47,625 with whole ranges empty), so a
+# sequential sweep would waste ~19,000 requests. The list WAS derived from the Internet
+# Archive's CDX index of /release/transcript-*, which knew only the ids the Archive happened
+# to crawl — 15,333, about 59% of the collection.
+#
+# The site enumerates itself. Its front page IS a Drupal views exposed filter, and with no
+# search term it pages the whole collection:
+#     https://pmtranscripts.pmc.gov.au/?text=&items_per_page=100&page=<N>
+# 100 /release/transcript-<id> links per page, last page 285 -> 28,414 transcripts in 286
+# requests. (`/search?...` 302s to `/?...`; `/transcripts.xml`, which /developers advertises,
+# is a Drupal batch export that 404s; `/sitemap.xml` holds only the eight static pages. This
+# pager is the only working full enumeration.) recipe_tools/pmt_index.py walks it and writes
+# the id file; the 18 ids the old Archive-derived list held but the pager does not surface
+# are KEPT (union, never replacement — a non-existent id costs one cheap failed fetch, a
+# dropped id costs a document).
+# Coverage ratio: 28,432 of the ~28,600 the pager reports = 99%. The Archive is no longer
+# used as an index here at all, and every fetch goes to the live site.
 #
 # SPEAKER is surname-first ("Howard, John"); `key_fixNames.R` normalises it downstream.
 # No speaker_default — sixteen PMs span the collection, so the value is read per record.

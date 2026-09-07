@@ -1,0 +1,111 @@
+# Italy — governo.it, the Presidency of the Council of Ministers, ENGLISH edition, via the
+# Internet Archive.
+#
+# WHY: Italy has ZERO scraped English rows. All three existing Italian recipes
+# (ita_governo, ita_governo_wayback, ita_quirinale_wayback) are `source_language: Italian`,
+# and the audit residual is 61 unmatched rows that are all `source_language = en` — matched
+# by monolingual 8-word shingle containment, so an Italian page can never close one and
+# machine translation cannot either. This is Italy's only English source.
+#
+# THE WINDOW MATCHES. The 61 rows are 2021 (23) and 2022 (38) — Draghi 55, Meloni 6 — and
+# governo.it/en's archived content begins in 2019 (2019 284 captures, 2020 164, 2021 678,
+# 2022 1,907, 2023 1,309, 2024 32,703, 2025 4,694). So the residual sits in the densest part
+# of the coverage.
+#
+# ⚠ THREE ENDPOINTS UNDER /en/ SERVE ITALIAN, and each was SAMPLED rather than dismissed on
+# its URL (RULE 1 cuts both ways). Of the host's 42,078 /en captures:
+#   9,123  /en/immagine/<N>   EXCLUDED — image assets
+#   9,120  /en/file/<N>       EXCLUDED — file assets
+#   8,354  /en/node/<N>       EXCLUDED — SAMPLED: /en/node/10050 returns the ITALIAN node
+#                             ("Autonomie, lettera ai cittadini della Lombardia e del
+#                             Veneto", 5,825 chars). The raw Drupal path ignores the language
+#                             alias, so this is the Italian site wearing an /en/ prefix.
+#   1,906  /en/articolo/<slug>/<N>   TAKEN — the English article stream (+262 captures of the
+#                             same shape without the trailing id)
+#   1,153  /en/media/<slug>/<N>      EXCLUDED — the photo/video gallery for the article one id
+#                             lower (…/articolo/158th-anniversary-harbour-masters-corps/23234
+#                             pairs with …/media/158th-anniversary-harbour-masters-corps/23235)
+#     536  /en/agenda/<date>/<slug>/<N>  EXCLUDED — SAMPLED: /en/agenda/2019-06-04t000000/
+#                             clean-air-dialogues/11997 returns the ITALIAN agenda listing
+#                             ("Gli impegni del Presidente Conte dal 16 al 19 settembre").
+# Coverage ratio: ~2,168 of ~2,168 English-article captures on the host.
+#
+# TITLE — `h1` matches TWO elements and the engine joins them, welding the site banner onto
+# the headline: "4 November, PM Draghi attends Altare della Patria remembrance service
+# Italian Government Presidency of the Council of Ministers". `<title>` is the clean
+# headline with a " | www.governo.it" suffix, which the regex strips; the same regex rejects
+# a value that is only the banner, which is what a soft-404 capture returns (several
+# archived /en/ URLs serve the Italian homepage, whose <title> is
+# "www.governo.it | Governo Italiano Presidenza del Consiglio dei Ministri").
+#
+# TEXT — TWO templates. The older one wraps the article in `div#articolo-<N>`; the 2022+
+# one wraps it in `div#primo-piano` and has no `articolo-` id at all, which is why an
+# `[id^="articolo-"]`-only recipe returned 0 chars on four of twelve sampled pages — and
+# they were the LONG ones (a Meloni speech the generic extractor read at 21,779 chars).
+# `.post_content` (`div.box_text.clearfix.padding_right_10.post_content`) matches n=1 on
+# BOTH, so it leads the chain. A THIRD variant (a 2022 Draghi press statement) has neither
+# `.post_content` nor an `articolo-` id — only `#primo-piano`, n=1, 4,043 chars — so that is
+# the middle link. Neither `.content` (n=2 on the 2022+ template) nor `.box_text` (n=5, it
+# is also the footer's contact boxes) is usable.
+#
+# DATE — there is no date element. The date is printed inside the article container
+# immediately after the headline ("4 November 2021"), so it is pulled with a
+# `regex` + `regex_required` on that container. The regex demands a YEAR, which is what
+# keeps it off the headline: headlines carry a bare "4 November," with no year.
+source_id: ita_governo_english_wayback
+country: Italy
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - governo.it/en/articolo
+
+listing:
+  link_selector: "a"
+  link_pattern: '/en/articolo/[a-z0-9][a-z0-9-]+(?:/\d+)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # NOT h1 — n=2, and the engine joins the banner onto the headline. Measured.
+  selectors: ["title"]
+  # Strip the " | www.governo.it" suffix (group(0), hence a zero-width lookahead) and reject
+  # the Italian-homepage soft-404 title outright, so those captures end blank rather than
+  # carrying the banner as a headline.
+  regex: '^(?!\s*www\.governo\.it\s*(?:\||$)).*?(?=\s*\|\s*www\.governo\.it|$)'
+  regex_required: true
+text:
+  selectors: [".post_content", "#primo-piano", '[id^="articolo-"]']
+date:
+  # Same container; the first "<D> <Month> <YYYY>" in it is the article date. A YEAR is
+  # required so the headline's bare "4 November," cannot be mistaken for it, and
+  # regex_required means a miss leaves the date BLANK rather than handing the whole
+  # container to dateparser — a wrong year would pick the wrong tenure roster.
+  selectors: [".post_content", "#primo-piano", '[id^="articolo-"]']
+  regex: '\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}'
+  regex_required: true
+
+date_languages: ["en"]   # the English edition prints "4 November 2021" — a month NAME.
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). Italy's
+  ONLY English source: all three existing Italian recipes are source_language Italian and
+  Italy has zero scraped English rows, while its 61 unmatched audit rows are all
+  source_language=en (Draghi 55, Meloni 6, 2021-2022) and the matcher is monolingual, so no
+  Italian page and no machine translation can close them. Takes the /en/articolo/ stream
+  (~2,168 captures; the host's /en tree begins in 2019 and is densest exactly over
+  2021-2022). Three other /en/ endpoints were SAMPLED, not dismissed on their URLs, and all
+  three serve Italian or assets: /en/node/<N> returns the Italian node, /en/agenda/ returns
+  the Italian agenda listing, /en/media/ is the gallery paired with each article, and
+  /en/immagine/ + /en/file/ are assets. `h1` matches two elements and the engine welds the
+  site banner onto the headline, so the title comes from <title> with a suffix-stripping,
+  banner-rejecting regex. There is no date element: the date is read from the article
+  container with a year-requiring regex under regex_required, so a miss leaves it blank
+  instead of feeding the whole container to dateparser. FULL RUN is the researcher's gate.

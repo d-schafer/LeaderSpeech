@@ -1,0 +1,153 @@
+# Canada — Prime Minister's Office, the `/eng/` GENERATION of pm.gc.ca, via the Internet
+# Archive. Companion to can_pmo_wayback (which is pinned to `pm.gc.ca/en/news`) and
+# deliberately a SEPARATE recipe: this is a different URL generation, a different era and
+# two different page templates, and leaving the finished sibling untouched preserves it.
+#
+# WHY THIS EXISTS — the language lived in a PATH SEGMENT, so no pattern widening could
+# reach it. `can_pmo_wayback` crawls the CDX prefix `pm.gc.ca/en/news`. Before the 2016
+# redesign the site put the language in a segment of its own: `pm.gc.ca/eng/...`. A CDX
+# prefix query for `/en` never returns `/eng`, so the whole pre-2016 English record was
+# invisible BY CONSTRUCTION, not by a defective link_pattern. (Same failure mode as
+# arm_president_wayback's pre-2013 `/events/<section>/eng/` tree, found 2026-09-02.)
+#
+# MEASURED 2026-09-07. `cdx.py pm.gc.ca/eng` returns 60,000 captures (the CDX ceiling),
+# 2003-2019. Grouped with shapes.py, the article-bearing shapes are:
+#   6,552  /eng/news/<YYYY>/<MM>/<DD>/<slug>     Drupal generation, article dates 2006-2019
+#   4,366  /eng/media.asp?id=<N>                 ASP generation, captures 2006-2013
+# and the rest is chrome: 15,700+ media_gallery.asp (photo galleries — RULE 1's one
+# standing exclusion), /eng/file/<N> asset stubs, bio.asp, and ~25,000 malformed captures
+# where Drupal resolved a relative asset path against the article URL
+# (`/eng/news/2006/09/07/modules/node/profiles/wetkit/...`). The link_pattern ends the
+# slug at `$` with no further slash, which is what excludes that last family.
+#
+# COVERAGE RATIO: 10,918 of the ~10,900 speech-bearing captures on the host — i.e. every
+# article shape found by the whole-host shapes.py pass is taken. The excluded remainder is
+# galleries and assets.
+#
+# WHY BOTH GENERATIONS IN ONE RECIPE. The Drupal tree back-dated its news to 2006, so a
+# handful of Harper-era documents may exist under BOTH schemes and the engine's identity
+# dedupe (which normalises scheme/www/port, not content) will not collapse them — spot
+# checks found no overlap in the captured set (there is no /eng/news/2010/03/11/* for
+# media.asp?id=3193), but a residual duplicate rate is expected and is a cleaning-stage
+# problem. A missed document is permanent; a duplicated one is not.
+#
+# FRENCH SLUGS: 179 of the 6,552 article paths (3%) are French-slugged. Sampled — they are
+# NOT French content under /eng/: the capture returns the "Latest News" landing shell with
+# no body (e.g. /eng/news/2015/05/08/declaration-du-premier-ministre-...). They fail
+# extraction cleanly and are left in rather than excluded by a brittle slug denylist.
+#
+# THREE TEMPLATES, hence the chained selectors. Measured on one capture each:
+#   Drupal (2013-2019)  h1#page-title 43 chars = headline; `h1` alone matches n=2 and JOINS
+#                       the site banner onto it ("Prime Minister of Canada PM delivers
+#                       remarks in the House of Commons") — so `h1` is NOT in the chain.
+#                       Body .field-name-body 8,202 chars (pure speech); .node-content adds
+#                       the dateline. No date element — date comes from the URL.
+#   ASP-2010            .newsViewTitle 36 / .newsContent 1,321 / .newsViewDate "11 March 2010"
+#   ASP-2013            .newsViewTitle 45 / .columncontent 2,756 / .newsViewDate "29 August 2012"
+#                       `h1` here matches n=4 and is pure chrome ("Common menu bar links
+#                       Features ... Site Map"). Again: h1 is not a title selector on this host.
+# The three body classes are mutually exclusive, so chain order is safe either way.
+#
+# DATE. The selector chain holds only `.newsViewDate`, which exists on the ASP templates
+# and nowhere else; on Drupal pages nothing matches and the field falls back to url_regex,
+# which reads the unambiguous <YYYY>/<MM>/<DD> out of the path. The right-hand sidebar of
+# the ASP pages lists several other dates ("11 March 2010 ... 3 March 2010 ...") — that is
+# why the date is taken from a class and never from a body-text regex.
+#
+# SPEAKER is not defaulted: the tree spans Martin, Harper and Trudeau.
+source_id: can_pmo_eng_wayback
+country: Canada
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # CDX prefixes, no scheme. Two generations of the same office.
+  - pm.gc.ca/eng/news
+  # ⚠ TRUNCATED ONE CHARACTER ON PURPOSE — "media.as", not "media.asp". This generation is
+  # QUERY-ADDRESSED: every article is `/eng/media.asp?id=<N>`, so every article shares the
+  # single path `/eng/media.asp`. `wayback.filter_entries_for_recipe` drops any capture
+  # whose PATH equals a start_url's path (that is how it discards the paginated listing
+  # index), so spelling the prefix in full silently discarded all 4,366 articles — the
+  # harvest reported 6,516 instead of ~10,900 and gave no error. Cutting one character
+  # keeps the CDX prefix match while taking `/eng/media.as` out of the listing-path set.
+  - pm.gc.ca/eng/media.as
+
+listing:
+  link_selector: "a"
+  # (a) the Drupal article path, ended at `$` so the malformed asset-path captures are
+  #     excluded; (b) media.asp addressed by `id`, which CDX sorts alphabetically so it can
+  #     sit first (`?id=`) or after other params (`?category=…&id=`) — hence `(?:\S*&)?`.
+  #     Lower-case `id=` cannot match `featureId=`/`pageId=` (capital I) nor
+  #     media_gallery.asp's `media_id=`, and `media\.asp` cannot match `media_gallery.asp`.
+  link_pattern: '(?:/eng/news/\d{4}/\d{2}/\d{2}/[a-z0-9-]+$|/eng/media\.asp\?(?:\S*&)?id=\d+)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # media.asp is query-addressed: `id` names the document, everything else is a listing
+  # position or a UI toggle the site carried through into the article URL. Without these,
+  # one document is written as up to six rows (the observed shapes are
+  # ?category=&featureId=&id=&pageId=, ?category=&id=, ?category=&id=&pageId=, ...).
+  # `amp` is already in the engine's built-in denylist and covers the `?amp;id=` captures.
+  wayback_noise_params:
+    - category
+    - featureId
+    - pageId
+    - page
+    - ntusd
+    - blnPhtGlryFlg
+
+title:
+  # NO bare `h1` — it is the site banner on the Drupal template and pure chrome on the
+  # 2013 ASP template. Measured, both times.
+  #
+  # FOUR templates for the title, not three: the 2016 Trudeau redesign dropped
+  # `h1#page-title` and has no single-match headline element at all — `.page-title` matches
+  # THREE elements and the engine joins them ("Statement … Vaisakhi Statement … Vaisakhi
+  # Justin Trudeau, Prime …"), `header h1` is the banner, `#main-content h1` does not
+  # exist. `<title>` is the only clean headline on that generation, so it closes the chain.
+  selectors: ["h1#page-title", ".newsViewTitle", "title"]
+  # Strips the " | Prime Minister of Canada" suffix `<title>` carries, and — via the
+  # leading negative lookahead plus regex_required — REJECTS a value that is only the site
+  # banner ("Prime Minister of Canada", "Home - Prime Minister of Canada"), so a chrome-only
+  # page ends up with a blank title instead of the banner. The engine returns group(0), so
+  # the suffix is removed with a zero-width lookahead rather than a capture group. Titles
+  # that merely mention the office ("Statement by the Prime Minister of Canada on Vaisakhi")
+  # are kept — the lookahead is anchored at the start.
+  # The trailing class also covers ':' and '-' — a dead id (media.asp?id=97, a broken
+  # article whose body never rendered) has <title> "Prime Minister of Canada:" and would
+  # otherwise be written in as a headline.
+  regex: '^(?!\s*(?:Home\s*[-|]\s*)?Prime Minister of Canada\s*(?:[|:-]|$)).*?(?=\s*\|\s*Prime Minister of Canada|$)'
+  regex_required: true
+text:
+  selectors: [".field-name-body", ".newsContent", ".columncontent", ".node-content"]
+date:
+  # ASP templates only; Drupal pages match nothing here and fall through to url_regex.
+  selectors: [".newsViewDate"]
+  url_regex: '/eng/news/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+# ".newsViewDate" is "11 March 2010" — a month NAME, never numeric DD/MM, so the
+# day/month inversion trap does not apply on this host.
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). Closes
+  Canada's 172 unmatched rows, every one of which is source_language=en and none of which
+  can_pmo_wayback can reach: that recipe is complete at 4,303 rows and is pinned to the
+  post-2016 `pm.gc.ca/en/news` prefix, while the pre-2016 site put the language in a path
+  SEGMENT (`/eng/`) that a `/en` CDX prefix cannot return. Two article generations,
+  10,918 unique captures: 6,552 Drupal `/eng/news/<Y>/<M>/<D>/<slug>` (article dates
+  2006-2019, so it carries Harper's whole term AND Trudeau 2015-2019) and 4,366
+  ASP `media.asp?id=<N>` (2006-2013). Photo galleries (media_gallery.asp), asset stubs
+  (/eng/file/) and ~25,000 malformed relative-path captures are excluded; everything else
+  on the host is taken. Three page templates, so title/text/date are chained — and a bare
+  `h1` is NOT usable on either the Drupal template (joins the site banner) or the 2013 ASP
+  template (pure chrome), both measured. media.asp is query-addressed, so
+  wayback_noise_params strips the five listing/UI parameters that would otherwise write one
+  document as up to six rows. Expect a long run: ~10,900 Internet-Archive fetches.
+  FULL RUN is the researcher's gate.

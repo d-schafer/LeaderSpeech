@@ -1,0 +1,97 @@
+# Greece — the Prime Minister's office in ENGLISH, across BOTH of its hosts, via the
+# Internet Archive.
+#
+# WHY: Greece has ZERO scraped English rows. The two existing Greek recipes
+# (grc_primeminister_wayback, grc_presidency_wayback) are Greek-language, and the audit
+# residual is 43 unmatched rows that are all `source_language = en` against a monolingual
+# 8-word-shingle matcher — so no Greek page and no machine translation can close one.
+# (grc_presidency is also the wrong OFFICE: the residual's speakers are Tsipras 25,
+# Simitis 8, Papandreou 6, Samaras 2, Mitsotakis 2 — heads of government, every one.)
+#
+# TWO HOSTS, BECAUSE THE OFFICE MOVED — and on the older one the language is a PATH
+# SEGMENT, the failure mode that hid Armenia's pre-2013 tree and Canada's `/eng/` tree:
+#   primeminister.gov.gr/english/<YYYY>/<MM>/<DD>/<slug>/   captures 2010-2016  (434 on the
+#       /english prefix; Papandreou, Samaras, Tsipras). The host's main tree,
+#       /<YYYY>/<MM>/<DD>/<id>, is GREEK — only the /english/ segment is English.
+#   primeminister.gr/en/<YYYY>/<MM>/<DD>/<id>               1,388 captures, article dates
+#       2017-2026 (Tsipras late term, Mitsotakis).
+# Together they span 2010-2026 continuously.
+#
+# ⚠ WHAT THIS DOES *NOT* REACH, stated rather than implied: the residual's 2015 block (19
+# rows, Tsipras) is thin on both hosts — primeminister.gov.gr/english has 164 captures in
+# 2015 and primeminister.gr/en has 13 — and the pre-2010 rows (Simitis 8, 1997-2003) have no
+# English source at all on either host. So this recipe is expected to close part of Greece's
+# 43, not all of it. It is still worth building: Greece currently has no English source
+# whatsoever, and 1,700+ English documents is the whole of that record.
+#
+# ⚠ THE 2023 CAPTURE SPIKE IS SPAM, NOT CONTENT. primeminister.gr/en shows 14,798 captures
+# in 2023 out of 16,821 total. They are injected search URLs — `/en/?s=<CJK spam>` and
+# `/en/search/emails/<spam>` — from an SEO-poisoning campaign. The dated link_pattern
+# excludes them by construction; the real article count is 1,388.
+#
+# TEMPLATES. Two, and they share no classes:
+#   gov.gr (2010-2016, hand-rolled WordPress)  `.articleitem_title` = headline;
+#       `.articleitem` = headline + date + body (1,721 chars sampled). There is NO h1 and
+#       no h2 on this template at all.
+#   primeminister.gr (2017+, WordPress "Newspaper" theme)  `h1` = the headline (n=1, and it
+#       is the real headline here, not a banner — checked); `article` = n=1, 9,310 chars.
+#
+# DATE COMES FROM THE URL ON BOTH, and that is deliberate. The 2017+ template prints
+# "21 October 2021" at the top of the page wrapper on a capture of a 28 September 2021
+# speech — that is the ARCHIVE CAPTURE CLOCK, the same trap measured on Bulgaria
+# (a "Friday 15 February 2002" banner over an article whose URL said 2001-09-20). The
+# <YYYY>/<MM>/<DD> path segments are unambiguous and are used instead, so no date selector
+# exists in this recipe.
+source_id: grc_primeminister_english_wayback
+country: Greece
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - primeminister.gov.gr/english
+  - primeminister.gr/en
+
+listing:
+  link_selector: "a"
+  # One dated article segment and nothing after it. The trailing `/?$` admits the older
+  # host's trailing slash while excluding its `/print/` duplicates; requiring the date
+  # excludes /english/about/, /english/category/person/primeminister/page/25/, and the
+  # whole 2023 `?s=` / `/search/emails/` spam family on the newer host.
+  link_pattern: '/(?:english|en)/\d{4}/\d{2}/\d{2}/[^/?#]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # Old host first (it has no h1 at all, so this cannot misfire on the new one); `h1` is the
+  # new host's real headline. `<title>` is not used: on the old host it is prefixed
+  # "primeminister.gov.gr | " and on the new one it runs past 200 chars with site chrome.
+  selectors: [".articleitem_title", "h1"]
+text:
+  selectors: [".articleitem", "article", ".td-ss-main-content"]
+date:
+  # NO selector — see the header. The visible date on the 2017+ template is the archive
+  # capture clock. The path is unambiguous on both hosts.
+  url_regex: '/(?:english|en)/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). Greece's
+  first English source: both existing Greek recipes are Greek-language and one is the wrong
+  office, while all 43 unmatched rows are source_language=en heads of government (Tsipras 25,
+  Simitis 8, Papandreou 6). Takes BOTH hosts of the PM's office — primeminister.gov.gr under
+  its `/english/` PATH SEGMENT (2010-2016; the host's main tree is Greek, so a language-blind
+  prefix would have harvested Greek) and primeminister.gr/en (1,388 dated articles,
+  2017-2026). Partial by design and stated as such: the residual's 2015 Tsipras block is thin
+  on both hosts and the pre-2010 Simitis rows have no English source at all, so this closes
+  part of the 43, not all. The newer host's 14,798-capture 2023 spike is SEO-poisoning spam
+  (`?s=` and `/search/emails/` URLs), excluded by the dated pattern. Dates come from the URL
+  on both hosts because the 2017+ template prints the ARCHIVE CAPTURE date in its page
+  wrapper — the same trap measured on Bulgaria. FULL RUN is the researcher's gate.

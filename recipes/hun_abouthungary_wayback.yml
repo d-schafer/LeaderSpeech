@@ -1,0 +1,109 @@
+# Hungary — abouthungary.hu, the government's English-language site, via the Internet
+# Archive. A DIFFERENT HOST from the three existing Hungarian English recipes
+# (hun_kormany_english_gov_wayback, hun_miniszterelnok_english_wayback,
+# hun_kormany_english_wayback), which between them hold 8,716 rows, are 92-100% fetched,
+# and still leave 290 unmatched Dean_scrape rows — every one source_language=en.
+#
+# THE WINDOW MATCHES, and that was checked rather than assumed. Hungary's 290 unmatched
+# rows by year: 2010 1, 2011 6, 2012 1, 2015 2, 2016 18, 2017 44, 2018 43, 2019 46,
+# 2020 37, 2021 52, 2022 40. So **280 of 290 (97%) fall in 2016-2022**, which is exactly
+# abouthungary.hu's archived span (27,032 captures, first real content 2016). The 10
+# pre-2016 rows are left as a stated residual rather than used to justify a second recipe.
+#
+# SECTIONS — RULE 1, counted from a whole-host CDX pass (27,032 captures, first path
+# segment):
+#   14,361  /news-in-brief/        taken
+#    4,353  /tags/                 EXCLUDED — navigation, not documents
+#    2,455  /blog/                 taken
+#    1,065  /speeches-and-remarks/ taken
+#      582  /search/               EXCLUDED — search-component URLs (incl. the
+#                                  /search/favicon.ico/?page= children)
+#      548  /prime-minister/       taken — sampled: real articles, e.g.
+#                                  /prime-minister/a-second-line-of-defence-needs-to-be-established
+#      141  /media/                EXCLUDED — sampled: image assets (.jpg under
+#                                  /media/didyouknowmodel-pic/766x432/)
+#       51  /issues/, 38 /migration-crisis/  EXCLUDED — sampled: both resolve to
+#                                  assets/scripts and assets/images only
+#        7  /auf-deutsch/          EXCLUDED — German, and every unmatched row is English
+# plus the small /the-spokesmans-blog-zoltan-kovacs/ and /prime-minister-viktor-orban/
+# sections, which are taken. Coverage ratio: ~18,400 of the ~18,400 article captures on the
+# host.
+#
+# The live site currently answers "under construction", so this is Wayback-only.
+#
+# TEMPLATE. Server-side rendered despite the Angular bundle in the asset paths — the
+# archived HTML carries the text. Measured on a 2022 speech: `.article__title` 105 chars
+# (the headline; `h1` happens to be the same single element here, but `.article__title` is
+# the one that cannot become a banner), `.article__date` "Sep 5, 2022", `.article__content`
+# 2,026 chars of pure speech. `article` is NOT usable as a text selector — it matches FOUR
+# elements (the article plus the three related-article cards) and the engine joins them.
+source_id: hun_abouthungary_wayback
+country: Hungary
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - abouthungary.hu/speeches-and-remarks
+  - abouthungary.hu/news-in-brief
+  - abouthungary.hu/blog
+  - abouthungary.hu/prime-minister
+  - abouthungary.hu/the-spokesmans-blog-zoltan-kovacs
+
+listing:
+  link_selector: "a"
+  # A slug of at least five characters under one of the article sections, optionally with a
+  # trailing slash (both forms are archived) and optionally with a query string (`?fbclid=`
+  # captures exist; `fbclid` is already in the engine's built-in noise-param denylist, so
+  # those collapse onto the canonical document instead of being dropped). Requiring the
+  # section to be followed by a slug excludes the section index itself; requiring no second
+  # path segment excludes the assets/scripts children.
+  link_pattern: '/(?:speeches-and-remarks|news-in-brief|blog|prime-minister|prime-minister-viktor-orban|the-spokesmans-blog-zoltan-kovacs)/[a-z0-9][a-z0-9-]{4,}/?(?:\?|$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # `h1` is NOT in the chain: on the pre-2021 generation it is the site banner
+  # ("About Hungary beta"). `<title>` carries the headline on BOTH generations, prefixed
+  # with "About Hungary - ".
+  selectors: [".article__title", "title"]
+  # A lookbehind, so group(0) is the headline alone. Deliberately NOT regex_required: when
+  # `.article__title` wins (the 2021+ generation) the value has no prefix, the regex misses,
+  # and the engine returns the unfiltered headline — which is what we want.
+  regex: '(?<=^About Hungary - ).+'
+text:
+  # NOT `article` — n=4 on the 2021+ generation (the article plus three related-article
+  # cards) — and NOT bare `.article-content`, which matches FIVE elements on the pre-2021
+  # generation for the same reason. Both compound forms are the body alone.
+  selectors: [".article__content", ".article-content.inner-article"]
+date:
+  # ⚠ Bare `.date` matches FIVE elements on the pre-2021 generation and the engine joins
+  # them — "Jun 29, 2020 Jul 10, 2017 Jan 11, 2016 Jan 11, 2016 Jul 10, 2017" — because the
+  # related-news sidebar carries a date per card. That is the textbook wrong-date failure:
+  # a wrong year picks the wrong tenure roster. `:not(.related_news *)` leaves exactly one
+  # element, the article's own date. Measured.
+  selectors: [".article__date", ".date:not(.related_news *)"]
+
+date_languages: ["en"]   # "Sep 5, 2022" — abbreviated month NAME, never numeric DD/MM.
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). The
+  Hungarian government's English-language site, never scraped, chosen because all three
+  existing Hungarian English recipes are 92-100% fetched and still leave 290 unmatched
+  source_language=en rows. 97% of those rows (280 of 290) fall in 2016-2022, which is
+  exactly this host's archived span — checked against the residual's own year histogram, not
+  assumed. 27,032 captures 2016-2026; the five article sections taken are news-in-brief
+  (14,361), blog (2,455), speeches-and-remarks (1,065), prime-minister (548) and the
+  spokesman's blog. Excluded after sampling: /tags/ (navigation), /search/ (search-component
+  URLs), /media/, /issues/ and /migration-crisis/ (all three resolve to image and script
+  assets) and /auf-deutsch/ (German — useless against an all-English residual). Pages are
+  server-side rendered, so the archived HTML carries the text. `article` is deliberately NOT
+  the text selector: it matches four elements (article + three related-article cards) and
+  the engine joins every match. The live site currently answers "under construction", so
+  this is Wayback-only. FULL RUN is the researcher's gate.

@@ -1,0 +1,110 @@
+# Moldova — gov.md, the Government of the Republic of Moldova, ENGLISH edition, via the
+# Internet Archive.
+#
+# WHY: no recipe targets this host at all. Moldova's two existing recipes
+# (mda_presedinte, mda_presedinte_wayback) are the PRESIDENCY, and the audit residual is
+# 31 unmatched rows whose speakers are, without exception, heads of GOVERNMENT — Pavel Filip
+# 16, Maia Sandu 4 (as PM), Natalia Gavrilita 4, Aureliu Ciocoi 3, Iurie Leanca 1, Chiril
+# Gaburici 1. That is the single most common cause in the whole audit: a head of government
+# looked for under a head-of-state host. Every row is source_language=en and Moldova has
+# zero scraped English rows.
+#
+# THE WINDOW MATCHES: the 31 rows run 2014-2022; gov.md/en is archived 2014-2026 (2015 169
+# captures, 2016 432, 2017 868, 2021 638, 2022 1,664, 2024 14,873).
+#
+# SECTIONS. Every article, whatever its section, is served at /en/content/<slug> — the site
+# menu ("Media / Press releases / Speeches / Interviews / Photo gallery / Video gallery") is
+# navigation over one article path, so a single pattern takes all of the text sections at
+# once, which is what RULE 1 asks for. Of the host's 20,134 /en captures:
+#   7,314  /en/node/<N>            EXCLUDED — SAMPLED: /en/node/1000 is
+#                                  "Planurile de activitate", ROMANIAN. The raw Drupal path
+#                                  ignores the language alias, exactly as governo.it/en does.
+#   6,963  /en/content/<slug>      TAKEN  (+1,758 more of the same with ?month=)
+#     296  /en/file/<N>            EXCLUDED — assets
+#     ~200 /en/media/photo?…       EXCLUDED — photo galleries
+# plus ~1,000 listing/pager captures. Coverage ratio: ~8,700 of ~8,700 English article
+# captures on the host.
+#
+# TITLE — there is NO `h1` on the article template at all. `<title>` carries the headline
+# with a " | GUVERNUL REPUBLICII MOLDOVA" suffix (the English pages keep the Romanian
+# institutional suffix), which the regex strips.
+#
+# ⚠ DATE IS DELIBERATELY BLANK. The English article template carries no date element: nine
+# candidate selectors were checked on a 2024 capture (.submitted, .date-display-single,
+# .pane-node-created, .field-name-post-date, .node-date, .views-field-created,
+# .pane-node-post-date, .news-date, .date) and every one missed. A body-text regex is not
+# used instead, because these articles open with institutional copy that names other dates —
+# and a wrong year picks the wrong tenure roster, which mis-assigns the speaker too. The
+# scraper stamps `wayback_capture` on every archived row, and the cleaner resolves a date
+# from the text; a blank beats a confident wrong one.
+source_id: mda_gov_english_wayback
+country: Moldova
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - gov.md/en/content
+
+listing:
+  link_selector: "a"
+  # Not anchored at `$`: 1,758 article captures exist only in a `?month=` form, and the
+  # noise-param list below collapses those onto the canonical document rather than the
+  # pattern discarding them.
+  link_pattern: '/en/content/[a-z0-9][a-z0-9-]+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # The calendar widget's month, the listing position and the tag filter all ride along on
+  # article URLs; none of them changes which document is served — the slug alone addresses
+  # it. Without these one article is written as several rows.
+  wayback_noise_params:
+    - month
+    - page
+    - tag
+
+title:
+  # `<title>` first; `.pane-content h2` is the fallback for the older template, where the
+  # headline sits in a "Titlu" panel pane and `<title>` is EMPTY — it reads just
+  # " | Government of Republic of Moldova". Bare `h2` is not usable there (n=5, it also
+  # matches "Search form", "Media" and "Images"); `.pane-content h2` is n=1.
+  selectors: ["title", ".pane-content h2"]
+  # Strips the institutional suffix in all three spellings, and — with regex_required —
+  # REJECTS a value that is only the banner OR that starts with the separator (the
+  # empty-headline case above), so the chain falls through to the h2 instead of writing
+  # "| Government of Republic of Moldova" as a headline.
+  regex: '^(?!\s*\|)(?!\s*(?:GUVERNUL REPUBLICII MOLDOVA|GOVERNMENT|Government of Republic of Moldova)\s*(?:\||$)).+?(?=\s*\|\s*(?:GUVERNUL REPUBLICII MOLDOVA|GOVERNMENT|Government of Republic of Moldova)|$)'
+  regex_required: true
+text:
+  # `.field-name-body` is the body alone (5,440 chars on the sampled article). NOT
+  # `.block-system-main`, which prepends the whole Media submenu.
+  selectors: [".field-name-body"]
+date:
+  # Intentionally NO selector — see the header. The engine requires every field to declare a
+  # selector or a url_regex, so this uses the same idiom as rou_guvern_english_wayback: a
+  # url_regex that can only match an ISO-date-slugged article. gov.md slugs are pure text, so
+  # in practice it matches nothing and the date stays BLANK, which is the intent.
+  url_regex: '/en/content/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})'
+
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). Moldova's
+  first English source and the first recipe to target gov.md at all: the two existing
+  Moldovan recipes are the PRESIDENCY, while all 31 unmatched rows are heads of GOVERNMENT
+  (Filip 16, Sandu 4, Gavrilita 4, Ciocoi 3, Leanca 1, Gaburici 1), all source_language=en,
+  and Moldova has zero scraped English rows. Rows run 2014-2022 against archived coverage of
+  2014-2026. Every text section (press releases, speeches, interviews) is served under one
+  path, /en/content/<slug>, so a single pattern satisfies RULE 1; ~8,700 captures. Excluded
+  after SAMPLING: /en/node/<N> returns ROMANIAN ("Planurile de activitate") because the raw
+  Drupal path ignores the language alias — the same behaviour measured on governo.it/en the
+  same day. There is no h1 on the article template, so the title comes from <title> with a
+  suffix-stripping, banner-rejecting regex. The DATE IS LEFT BLANK ON PURPOSE: nine candidate
+  date selectors were checked and all missed, and a body-text regex would be a coin flip on
+  pages that name other dates — a wrong year picks the wrong tenure roster. FULL RUN is the
+  researcher's gate.

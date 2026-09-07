@@ -1,0 +1,125 @@
+# Czechia — Václav Havel's speeches in ENGLISH: the `_uk.html` files of the hrad.cz tree,
+# via the Internet Archive.
+#
+# ⚠ THIS RECIPE EXISTS BECAUSE ITS SIBLING IS SCRAPING THE WRONG LANGUAGE. Read this before
+# touching either.
+#
+# `cze_hrad_havel_english_wayback` harvests `/president/Havel/speeches/<YYYY>/<DDMM>.html`,
+# is declared `source_language: English`, and EXCLUDES `_uk.html` on the strength of a
+# 2026-08-12 note in its own header which says the two are "BOTH English and … the SAME
+# text". **That note is wrong.** Measured 2026-09-07:
+#   * its 324 scraped rows are CZECH, and mojibake on top — e.g. 1999/0101.html reads
+#     "Novoro?n? pozdrav prezidenta republiky V?clava Havla ?esk? televize, ?esk? rozhlas,
+#     1. ledna 1999", and 1999/0303.html is "Projev prezidenta republiky Václava Havla ve
+#     francouzském Senátu";
+#   * the `_uk.html` twin of that same 0303 is "Address by Vaclav Havel President of the
+#     Czech Republic to the Senate of the French Republic" — which appears in the audit
+#     residual FOUR times.
+# `_uk` means what it looks like it means. The English tree was never scraped, and that is
+# why 116 unmatched Czechia rows survived a source reported as 99% fetched.
+#
+# PROOF, not inference. `old.hrad.cz/president/Havel/speeches/1999/1999_uk.zip` (archived,
+# application/zip) was downloaded and unpacked: 24 English speech files, and **19 of the 24
+# match an unmatched Czechia row by 8-word shingle**. The ZIPs are a subset of what is
+# already on the site (24 in the 1999 zip vs 25 `_uk` captures for 1999), so they are
+# evidence, not an extra source, and this recipe fetches the HTML rather than the archives.
+#
+# SIZE AND HOST CHOICE. Across every hrad.cz path the Archive holds **168 distinct
+# `<YYYY>/<DDMM>[a-z]_uk.html` English speeches, 1990-2003** (1999 25, 2000 19, 2002 18,
+# 1995 15, 1997 14, 1994 13 …). 165 of the 168 are reachable from the single prefix
+# `hrad.cz/president/Havel/speeches`; the other 3 exist only under `old.hrad.cz`.
+# ONE HOST IS PINNED ON PURPOSE and those 3 are given up: 164 of the 168 are ALSO captured
+# on old.hrad.cz, and the engine's identity dedupe normalises scheme/www/port but NOT the
+# host, so adding the second prefix would write almost every speech twice. The same applies,
+# far worse, to the ~24 CGI charset converters under /cgi-bin/to*/ (toISO-8859-2.cs alone
+# carries 145 of the 168) — see the sibling recipe's header for that measurement.
+# Coverage ratio: 165 of 168 = 98%.
+#
+# TEXT: these are hand-written 1990s pages with no wrapper div, no classes and no ids —
+# `body` is the only container and it is almost pure speech (5,379 chars on the sampled
+# Istanbul OSCE address, against 5,457 for the whole page). The pages are served
+# `charset=us-ascii` and read cleanly: "Vaclav Havel", no diacritics and no mojibake, which
+# is also the form the corpus rows carry.
+#
+# TITLE IS DELIBERATELY BLANK. There is no `h1`, and `<title>` is the constant banner
+# "Address by V. Havel" on every page in the tree — a title selector that probes green while
+# writing chrome. The regex rejects exactly that banner, so the field ends empty and the
+# cleaner's model pass supplies a title from the text. The headline IS the first line of the
+# body, so nothing is lost. (The corpus's own rows have no title either.)
+#
+# DATE is structural: <YYYY> directory + <DDMM> filename, the same convention the sibling
+# recipe documents and cross-checked against the datelines printed on the pages. Verified
+# here on 1999/1911_uk.html -> 1999-11-19, whose dateline reads "Istanbul, 19 November 1999".
+source_id: cze_hrad_havel_uk_english_wayback
+country: Czechia
+source_language: English
+renderer: static
+
+start_urls:
+  # ONE host, ONE prefix — the duplication defence. See the header.
+  - hrad.cz/president/Havel/speeches
+
+listing:
+  link_selector: "a"
+  # `_uk.html` ONLY — the exact inverse of cze_hrad_havel_english_wayback's pattern, so the
+  # two recipes cannot collide. `[a-z]?` catches the same-day suffixes (2304_uk.html and
+  # 2304a_uk.html are two different 23 April 1999 addresses, both in the residual).
+  # Excludes index_uk.html (the per-year table of contents), the `<YYYY>_uk.zip` bundles and
+  # the stray WS_FTP.LOG upload logs.
+  link_pattern: '/president/Havel/speeches/\d{4}/\d{4}[a-z]?_uk\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # See the header — `<title>` is the same banner on every page, so this is a deliberate
+  # blank rather than a wrong value. regex_required makes the banner a MISS, not a value.
+  selectors: ["title"]
+  # THREE banner spellings were measured across the tree — "Address by V. Havel",
+  # "Speech by Vaclav Havel" and a leftover Czech "Projev prezidenta republiky" (the last on
+  # a page whose BODY is English: 2002/0904_uk.html is the Malta honorary-doctorate address).
+  # Rather than chase the list, require a length no banner reaches: real headlines in this
+  # tree run 60-160 characters ("Address by Vaclav Havel, President of the Czech Republic, at
+  # the Summit Meeting of the Organization for Security and Co-operation in Europe"). Under
+  # regex_required a shorter <title> is a MISS, so the field ends blank — the intent.
+  regex: '^.{45,}$'
+  regex_required: true
+text:
+  selectors: ["body"]
+date:
+  # From the URL. A body-text regex is not used: several of these addresses are historical
+  # retrospectives that name earlier dates in their opening sentences — the failure that
+  # dated Koizumi's 2003 press conference to 2001-09-11.
+  selectors: []
+  url_regex: '/(?P<year>\d{4})/(?P<day>\d{2})(?P<month>\d{2})[a-z]?_uk\.html'
+
+speaker_default: Václav Havel
+position: president
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). ⚠ THIS
+  RECIPE CORRECTS A LANGUAGE DEFECT IN ITS SIBLING. cze_hrad_havel_english_wayback is
+  declared source_language English but its 324 scraped rows are CZECH and mojibake
+  ("Novoro?n? pozdrav prezidenta republiky V?clava Havla"); it excludes `_uk.html` on the
+  strength of a 2026-08-12 header note claiming both forms are English and identical, which
+  is measurably wrong. The `_uk.html` files are the English tree. PROVEN, not inferred:
+  old.hrad.cz/.../1999/1999_uk.zip was downloaded and unpacked and 19 of its 24 English
+  speech files match an unmatched Czechia row by 8-word shingle. That is why 116 Czechia
+  rows survived a source reported as 99% fetched. 168 distinct English speeches 1990-2003
+  exist across the archive; 165 are reachable from the single pinned prefix
+  hrad.cz/president/Havel/speeches (98%). ONE host and NO cgi-bin converter prefixes are
+  used on purpose: 164 of the 168 are also captured on old.hrad.cz and up to 145 under a
+  single charset converter, and the engine's identity dedupe does not normalise the host, so
+  a broader harvest would write each speech many times over. Pages are us-ascii, clean, and
+  `body` is almost pure speech. Title is deliberately BLANK — `<title>` is the constant
+  banner "Address by V. Havel" on every page and there is no h1; the headline is the first
+  line of the body, which the cleaner reads. Date is structural from <YYYY>/<DDMM>.
+  ⚠ FOLLOW-UP FOR THE RESEARCHER: the sibling's 324 Czech rows should be re-labelled
+  source_language Czech (they are real speeches, just not English) or re-scraped — they are
+  currently sitting in the English columns. FULL RUN is the researcher's gate.

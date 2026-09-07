@@ -1,0 +1,113 @@
+# Belarus — belarus.by, the official national portal, ENGLISH edition, via the Internet
+# Archive. A DIFFERENT HOST from blr_president_english_wayback (president.gov.by), which is
+# complete at 19,622 rows and still leaves 241 unmatched Dean_scrape rows, every one of them
+# source_language=en.
+#
+# WHY THIS HOST, AND IT IS NOT A GUESS. `_audit/recovered_urls_inText.csv` — real page URLs
+# recovered from the corpus's OWN text — contains
+# `belarus.by/en/press-center/speeches-and-interviews/<slug>_i_<N>.html` paths. That is
+# direct evidence the unmatched material lived here, on a host no recipe had ever targeted.
+#
+# MEASURED 2026-09-07 (unique-urlkey captures, statuscode:200, mimetype:text/html):
+#   15,266  /en/press-center/speeches-and-interviews/<slug>_i_<N>.html   2009-2026
+#   11,612  /en/press-center/news/<slug>_i_<N>.html                      2009-2026
+# The whole-host query returns 60,000 — the CDX ceiling — and shapes.py shows it is
+# dominated by `/en/press-center/photo/...` (13,000+ of the top shapes are photo captions).
+# Photo galleries are RULE 1's one standing exclusion and are the only thing dropped here;
+# both article sections are taken, which is the point of the rule.
+#
+# ⚠ SPLIT BY PRIORITY, 2026-09-07 (researcher's call). The press centre's two article
+# sections were originally one recipe of ~27,000 fetches — a multi-day run. They are now two:
+#   THIS recipe        /speeches-and-interviews/  15,266 captures  HIGH priority
+#   blr_belarusby_news_english_wayback  /news/    11,612 captures  LOWER priority
+# This is the half the corpus's own recovered in-text URLs point at, and the half whose
+# document type is what the project is actually collecting. The news half is kept because
+# RULE 1 says the CLEANER decides what is a speech, not the harvest — but it is a separate
+# queue line so it can be run later, or on a different machine, or not at all.
+#
+# TITLE — `h1` IS THE SECTION BANNER. Measured: `h1` and `.news_h1` both return
+# "Opinions & Interviews" on an article headlined "Belarusian living standards praised", and
+# `#title` returns "Archive". This is the same defect that put the site banner into 57% of
+# arm_president_wayback's rows. The headline exists only in `<title>`, suffixed with
+# " | Latest events in Belarus - <section>", which the regex strips.
+#
+# DATE — `.pages_header_inner` is a single element holding exactly "29 Sep 2015". Preferred
+# over a body regex because BelTA copy opens with its own dateline ("MOSCOW, 29 September
+# (BelTA) – ...") that carries no year.
+#
+# TEXT — `.inner_content` (== `.ic`) is the only article container this 2000s-era template
+# has; it opens with the section name, the date and the headline before the body. That
+# preamble is accepted rather than chased: there is no tighter container in the DOM, and
+# `td` is not an option on a page of this vintage (the engine joins every matching element).
+#
+# SPEAKER is not defaulted — the sections carry ministers, the president and BelTA
+# interviewees alike, and the cleaner's tenure crosscheck is the right place to sort that.
+source_id: blr_belarusby_english_wayback
+country: Belarus
+source_language: English
+renderer: static
+
+start_urls:
+  # SPEECHES AND INTERVIEWS ONLY. The /news/ half of the press centre is a SEPARATE recipe,
+  # blr_belarusby_news_english_wayback — see the priority note above.
+  - belarus.by/en/press-center/speeches-and-interviews
+
+listing:
+  link_selector: "a"
+  # `_i_<N>.html` is the article form; the section index and its ?page= variants have no
+  # such suffix. Deliberately NOT anchored at `$` — some articles are archived only in a
+  # `?page=` or `?_print=1` form, and wayback_noise_params collapses those onto the
+  # canonical document rather than the pattern discarding them.
+  link_pattern: '/en/press-center/speeches-and-interviews/[^/]*_i_\d+\.html'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `page` is the listing position the site carries through onto article URLs; `_print` is
+  # the print-view duplicate; `date` is the calendar widget's state. None of the three
+  # changes which document is served — `_i_<N>` alone addresses it. Without them one speech
+  # is written as a dozen rows.
+  wayback_noise_params:
+    - page
+    - _print
+    - date
+
+title:
+  # NOT h1 / .news_h1 / #title — all three are chrome on this host. See the header.
+  selectors: ["title"]
+  # Strip the " | Latest events in Belarus - <section>" suffix (engine returns group(0), so
+  # a zero-width lookahead, not a capture group), and reject a value that is only the
+  # section banner so a chrome-only capture ends blank instead of "Opinions & Interviews".
+  # The suffix has two spellings — "| Latest events in Belarus - Opinions & Interviews" on
+  # the speeches section and "| Latest news of Belarus ..." on the news section. Both are
+  # covered; measured on 12 captures, 2015-2025.
+  regex: '^(?!\s*(?:Opinions & Interviews|News|Latest (?:events|news) (?:in|of) Belarus)\s*(?:\||$)).*?(?=\s*\|\s*Latest (?:events|news) (?:in|of) Belarus|$)'
+  regex_required: true
+text:
+  selectors: [".inner_content", ".ic"]
+date:
+  selectors: [".pages_header_inner"]
+
+date_languages: ["en"]   # "29 Sep 2015" — abbreviated month NAME, never numeric DD/MM.
+
+notes: >
+  DRAFT — probe-validated 2026-09-07, no full run (Dean_scrape unmatched wave 3). The
+  English edition of Belarus's national portal, a host no recipe had targeted, chosen
+  because the corpus's own recovered in-text URLs point at
+  belarus.by/en/press-center/speeches-and-interviews/. Belarus's 241 unmatched rows are all
+  source_language=en and the existing blr_president_english_wayback (president.gov.by) is
+  complete at 19,622 rows, so more depth there could not reach them. Measured 15,266
+  speeches-and-interviews + 11,612 news unique captures, 2009-2026; the host's other 30,000+
+  captures are photo galleries and are excluded. ⚠ ~27,000 Internet-Archive fetches — a
+  multi-day run, and the largest single source in this wave; bound it with --max-links or
+  run the speeches-and-interviews start_url alone if that is too much. `h1` is the SECTION
+  BANNER on every article ("Opinions & Interviews"), as are `.news_h1` and `#title` — the
+  headline is only in `<title>`, so the title chain is `<title>` plus a suffix-stripping,
+  banner-rejecting regex. Date from `.pages_header_inner` ("29 Sep 2015"), never from the
+  body, because BelTA copy opens with its own yearless dateline. Query-addressed noise
+  (`page`, `_print`, `date`) is stripped so one article is not written as a dozen rows.
+  FULL RUN is the researcher's gate.
