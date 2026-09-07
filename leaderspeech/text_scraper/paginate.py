@@ -188,6 +188,27 @@ def _note(stats: dict | None, reason: str, early: bool = False) -> None:
     stats.setdefault("stopped_early", False)
 
 
+def _read_url_list_file(path: str) -> list[str]:
+    """Speech URLs from a newline-delimited file; blanks and '#' comments skipped.
+
+    For ID-addressable archives whose URL list runs to thousands of entries and has no
+    business being inline in the recipe YAML. A missing file is a hard error: silently
+    harvesting nothing would look exactly like a source that has gone empty.
+    """
+    from pathlib import Path as _Path
+
+    p = _Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"pagination.url_list_file not found: {path}")
+    urls = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            urls.append(line)
+    log.info("url_list_file: %d URL(s) from %s", len(urls), path)
+    return urls
+
+
 def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                   stats: dict | None = None, meta: dict | None = None) -> list[str]:
     """Every speech-page URL this source paginates to, de-duplicated.
@@ -203,7 +224,15 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
     if pg.type == PaginationType.url_list:
         # These are speech URLs, not listings: hand them back as the scrape targets.
         _note(stats, "single_page")
-        return list(pg.url_list or [])
+        urls = list(pg.url_list or [])
+        if pg.url_list_file:
+            urls.extend(_read_url_list_file(pg.url_list_file))
+        seen_u, out = set(), []
+        for u in urls:
+            if u not in seen_u:
+                seen_u.add(u)
+                out.append(u)
+        return out
     if pg.type == PaginationType.sitemap:
         _note(stats, "single_page")
         return _harvest_sitemap(recipe, fetcher, max_links)

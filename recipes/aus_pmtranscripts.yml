@@ -1,0 +1,93 @@
+# Australia — PM TRANSCRIPTS (pmtranscripts.pmc.gov.au), the Department of the Prime
+# Minister and Cabinet's official transcript collection.
+#
+# WHY THIS SOURCE. The coverage audit leaves 851 Australian rows unmatched and every one is
+# a head of GOVERNMENT (Howard 598, Gillard 183, Abbott 38, Turnbull 16). `aus_pm_wayback`
+# already took what the Internet Archive holds of pm.gov.au — it is 95.5% fetched and
+# accounts for 1,575 matched rows — so the remaining gap cannot be closed by fetching more
+# of it. PM Transcripts is the complete official archive of the same material: ~26,000
+# items, 1940s to the present, sixteen prime ministers, served live and unblocked.
+#
+# THE XML API, NOT THE HTML PAGE. The site documents a public API at /developers:
+#   https://pmtranscripts.pmc.gov.au/query?transcript=<id>   ->  text/xml
+# Its elements map one-to-one onto the schema and each matches exactly ONE element, so the
+# engine's join-every-match behaviour is not a hazard here (measured on id 10500):
+#   title 58 chars · prime-minister 12 · field_date 10 · release-type 9 · content 10,006
+# The human-facing page /release/transcript-<id> was measured too and is materially worse:
+# `h1` is the site banner "PM Transcripts", `.title` is the id label "Transcript 10500",
+# and there is NO date element or speaker element anywhere in the markup — only
+# `.field--name-body` (10,002 chars) is usable. The archived copies are worse again
+# (`.content` returns the whole 105k-char page including navigation). So the API is the
+# right target; the equivalent human URL for any row is /release/transcript-<id>.
+#
+# ⚠️ DATE ORDER — `field_date` is NUMERIC DD/MM/YYYY ("22/09/1997"), so `date_languages`
+# must NOT be ["en"]. Measured with the engine's own parser: ["en"] reads 09/11/2002 as
+# 2002-09-11 (September 11) when it is 9 November — silently wrong on every day ≤ 12,
+# roughly 40% of rows. A day-first language code parses it correctly (["pt"]/["es"]/["fr"]
+# all give 2002-11-09). ["pt"] is used purely for its DMY default; the field is numeric so
+# no month names are ever parsed, and "en-AU" is not a dateparser language (it raises).
+#
+# ENUMERATION. Transcript ids are NOT contiguous — they run 5..47,307 with 25,000-29,999
+# and 35,000-39,999 entirely empty — so a sequential sweep would waste ~19,000 requests.
+# The id list in data/aus_pmtranscripts_ids.txt is derived from the Internet-Archive CDX
+# index of /release/transcript-* (15,455 captures -> 15,333 well-formed ids). Coverage
+# ratio: 15,333 of the ~26,000 items the site reports, about 59%. The Archive is used ONLY
+# as an index here — every fetch goes to the live site. To raise coverage, extend that file
+# (the remaining ids are discoverable by sweeping the gaps against the API, which answers
+# 200 with an empty <response> for an id that does not exist).
+#
+# SPEAKER is surname-first ("Howard, John"); `key_fixNames.R` normalises it downstream.
+# No speaker_default — sixteen PMs span the collection, so the value is read per record.
+source_id: aus_pmtranscripts
+country: Australia
+source_language: English
+position: prime minister
+renderer: static
+
+# Not fetched as listings — url_list hands the engine speech URLs directly. The site root
+# is here only because start_urls is required; it is never requested.
+start_urls:
+  - https://pmtranscripts.pmc.gov.au/
+
+pagination:
+  type: url_list
+  # Resolved against this recipe file's own directory by load_recipe().
+  url_list_file: data/aus_pmtranscripts_ids.txt
+
+listing:
+  # url_list ignores link_pattern (the URLs are already speech targets); present because
+  # `listing` is a required block.
+  link_selector: "a"
+  link_pattern: "transcript="
+
+title:
+  # <title> inside <item> — the real headline, e.g. "Radio Interview with Matt Peacock,
+  # AM Programme, ABC Radio". NOT the HTML page's <title>, which is "Transcript N | ...".
+  selectors: ["title"]
+speaker:
+  selectors: ["prime-minister"]
+date:
+  selectors: ["field_date"]
+text:
+  selectors: ["content"]
+context:
+  # Interview / Speech / Media Release / Press Conference — the collection's own document
+  # typing, useful to the cleaner's document_type gate.
+  selectors: ["release-type"]
+
+date_languages: ["pt"]   # DMY only — see the date-order note above. Do NOT change to "en".
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. Scrapes the documented XML API of the Department of
+  the Prime Minister and Cabinet's PM Transcripts collection (~26,000 items, 1940s-present,
+  16 prime ministers). Authored to close the largest measured country gap in the coverage
+  audit: 851 unmatched rows, all heads of government, which aus_pm_wayback cannot reach
+  because it is already 95.5% fetched of everything the Internet Archive holds for
+  pm.gov.au. Returns HTTP 200 to the honest bot UA over plain httpx — no WAF, no challenge,
+  Microsoft-IIS, no Cloudflare. Every field is a single-match element (see the header for
+  measured lengths), so extraction needs no container disambiguation. Enumerated from a
+  15,333-id list derived from the IA CDX index of /release/transcript-*; the Archive is the
+  INDEX only, all fetches are live. Coverage ratio 15,333 / ~26,000 = 59%; the shortfall is
+  ids the Archive never captured, not a pattern defect, and the file can be extended. The
+  date field is numeric DD/MM/YYYY and REQUIRES a day-first date_languages — ["en"] was
+  measured to invert day and month on every day <= 12. FULL RUN is the researcher's gate.

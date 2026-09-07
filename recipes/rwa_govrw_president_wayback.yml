@@ -1,0 +1,85 @@
+# Rwanda — PRESIDENCY on the gov.rw PORTAL (pre-2007), via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 132 Rwandan rows unmatched, spanning 1999-2008 —
+# Kagame plus PM Bernard Makuza. Rwanda's only recipe, `rwa_kagame_wayback`, targets a
+# completely different host (`paulkagame.com`) and its scraped range floors at 2007-09-27, so
+# nothing we hold can reach the earlier material. Before the dedicated presidency sites
+# existed, Kagame's speeches lived on the government portal at
+# `gov.rw/government/president/speeches/<yyyy>/`.
+#
+# CONFIRMED AGAINST THE CORPUS BY READING THE DOCUMENT. The capture
+#   /government/president/speeches/2000/06_25_00_speech_women_partners_4_peace.html
+# is the unmatched row whose text reads "H.E. PAUL KAGAME, President of the Republic of
+# Rwanda ADDRESS TO 'WOMEN AS PARTNERS FOR PEACE' CONFERENCE | 26th June, 2000". (The URL
+# encodes 25 June and the document says 26 June — delivery versus publication; it is the same
+# address.) This is not an inferred mapping.
+#
+# WHAT IS TAKEN, of 1,825 captures under /government (CLAUDE.md RULE 1):
+#   /president/speeches/<yyyy>/<file>.html   218   2000-2008
+#   /president/interviews/<file>             45    first-person leader speech
+#   /government/<file>.htm(l)                801   the portal's own news items, many of them
+#                                                  presidential — e.g. 01_30_00news_Pres_DC.htm
+# LEFT OUT: /president/photo/ (676 captures — a picture gallery), and every `_PRINT` variant
+# (30 captures), which is a print view of a page already taken.
+#
+# ⚠️ DATE. The speeches and interviews carry it structurally — the path holds the year and the
+# filename opens `MM_DD_YY_`, so `/speeches/2000/06_25_00_…` is unambiguous once the 4-digit
+# year comes from the path rather than the filename's 2-digit one. The root-level news files
+# use inconsistent forms (`010203.html` alongside `01_30_00news_…`) and are deliberately left
+# dateless rather than guessed at; `wayback_capture` is the fallback and the cleaner's GPT
+# pass can read a date from the text.
+source_id: rwa_govrw_president_wayback
+country: Rwanda
+source_language: English
+renderer: static
+
+start_urls:
+  - gov.rw/government
+
+listing:
+  # Branch 1: presidency speeches and interviews. Branch 2: the portal's root-level news
+  # files. `(?!.*_PRINT)` drops the print duplicates and `(?!.*/photo/)` the gallery.
+  link_pattern: >-
+    (?i)^(?!.*_PRINT)(?!.*/photo/)(?!.*/(?:mailindex|index|sitemap|search|contact|links)\.html?$).*gov\.rw(?::80)?/government/(?:president/(?:speeches|interviews)/[^?]+\.html?|[a-z0-9_]{6,}\.html?)$
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # These are late-1990s/2000s hand-built pages; <title> is the most consistently present
+  # element. h1/h2 exist on some but not all.
+  selectors: ["h1", "h2", "title"]
+text:
+  # No semantic container on a page of this vintage — it falls through to the engine's
+  # generic (trafilatura) extractor, the documented aus_pm gen-A pattern. `td` is deliberately
+  # NOT listed: these are table-layout pages and `td` would return every cell joined, i.e. the
+  # navigation welded onto the speech.
+  selectors: [".content", "main", "article"]
+date:
+  # Year from the path, month/day from the filename prefix — see the header. Non-matching URLs
+  # (the root-level news files) are left blank rather than dated from the body.
+  url_regex: '/speeches/(?P<year>\d{4})/(?P<month>\d{2})_(?P<day>\d{2})_'
+
+position: president
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. Kagame's PRE-2007 speeches on the gov.rw government
+  portal, via the Internet Archive. Authored because Rwanda's 132 unmatched rows span
+  1999-2008 while Rwanda's only recipe (rwa_kagame_wayback) targets a different host,
+  paulkagame.com, and floors at 2007-09-27. CONFIRMED AGAINST THE CORPUS BY READING THE
+  DOCUMENT: /government/president/speeches/2000/06_25_00_speech_women_partners_4_peace.html is
+  the unmatched row "H.E. PAUL KAGAME ... ADDRESS TO 'WOMEN AS PARTNERS FOR PEACE'
+  CONFERENCE, 26th June 2000". Takes presidency speeches (218 captures, 2000-2008), interviews
+  (45) and the portal's root-level news files (801, many presidential); excludes
+  /president/photo/ (676 - a gallery) and the 30 _PRINT duplicates. Coverage ratio 1,064 of
+  1,825 /government captures = 58%, the shortfall being the photo gallery. Date is structural
+  for speeches/interviews (4-digit year from the path plus the MM_DD filename prefix, so the
+  2-digit year in the filename never has to be guessed); the root-level news files use
+  inconsistent date forms and are deliberately left dateless. td is NOT a text selector -
+  these are table-layout pages and the engine joins every matching element, so the body comes
+  from the generic extractor instead. FULL RUN is the researcher's gate.

@@ -1,0 +1,100 @@
+# Bulgaria — COUNCIL OF MINISTERS, ENGLISH (government.bg), via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 75 Bulgarian rows unmatched and they are heads of
+# GOVERNMENT — Simeon Saxe-Coburg-Gotha 38, Ivan Kostov 34 — filed under the head-of-state
+# seed host `president.bg`. Bulgaria's only English recipe is
+# `bgr_president_english_wayback` (the President, 490 links), and `bgr_government_wayback` —
+# the right office — is `source_language: Bulgarian`, so it cannot match an English corpus
+# row: the matcher is monolingual 8-word shingle containment.
+#
+# The fit is unusually exact. Kostov was PM 1997-2001 and Saxe-Coburg-Gotha 2001-2005, and the
+# Archive's English coverage of this host is concentrated precisely there: 2002 (3,566
+# captures), 2003 (4,667), 2004 (4,858), 2005 (1,838).
+#
+# TWO GENERATIONS, both harvested:
+#   A. 1999-2005  /English/<Section>/<yyyy-mm-dd>/<id>.html   — the bulk. Sections taken:
+#      PressOffice/News (4,127), Priorities/<topic> (~2,000 across Economy, Finance, Defence,
+#      ForeignPolicy and others), Europe/News (475).
+#   B. 2018-2026  /en/<Section>/News/<SLUG>                   — the modern site (1,165).
+#
+# ⚠️ THREE TRAPS ON GENERATION A, all measured:
+#   1. `<title>` is the SITE BANNER — "REPUBLIC OF BULGARIA - COUNCIL OF MINISTERS" on every
+#      single article. It is not listed as a title selector.
+#   2. `td` matches 14 elements and the engine JOINS them, so it returns the navigation
+#      ("Back Print", "Local Search") welded to the article. Deliberately NOT listed — the
+#      page has no semantic container, so it falls through to the engine's generic
+#      (trafilatura) extractor, the documented `aus_pm_wayback` gen-A pattern.
+#   3. THE VISIBLE DATE IS THE CAPTURE CLOCK, NOT THE ARTICLE DATE. The first text on
+#      /News/2001-09-20/170.html reads "Friday, 15 February 2002 10:18" — that is the site's
+#      own clock, rendered when the Archive crawled it, and it is 5 months adrift of the
+#      article. A second dotted date further down ("23.01.2002") belongs to a sidebar item.
+#      Either one would be a confident wrong date, which picks the wrong tenure roster and
+#      propagates into speaker attribution.
+#
+# SO THE DATE COMES FROM THE URL, which carries it structurally: `/<yyyy-mm-dd>/<id>.html`.
+# That is unambiguous and immune to both the clock and the sidebar. Generation B has no date
+# in its URL and no date element either, so those rows are left BLANK on purpose — the engine
+# stamps `wayback_capture` as a last-resort upper bound and the cleaner's GPT pass can read a
+# stated date from the text. A blank date beats a plausible wrong one.
+#
+# EXCLUDED: /English/Print/<id>.html (1,315 captures) — print-view duplicates of pages already
+# taken; and the bare `/News/<yyyy-mm-dd>/` forms with no article id, which are day listings.
+source_id: bgr_government_english_wayback
+country: Bulgaria
+source_language: English
+renderer: static
+
+start_urls:
+  - government.bg/English/PressOffice/News
+  - government.bg/English/Priorities
+  - government.bg/English/Europe/News
+  - government.bg/en
+
+listing:
+  # Branch 1: generation A — any /English/<section path>/<yyyy-mm-dd>/<id>.html. The trailing
+  # \d+\.html is what excludes the day-listing pages, and /English/Print/ cannot match because
+  # it carries no date segment.
+  # Branch 2: generation B — /en/<section>/News/<SLUG>.
+  link_pattern: >-
+    (?:/English/[A-Za-z/]+/\d{4}-\d{2}-\d{2}/\d+\.html$)|(?:/en/[A-Za-z0-9-]+/News/[A-Za-z0-9][A-Za-z0-9-]{9,}$)
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the real headline on generation B ("BORISSOV AFTER A MEETING WITH YILDIRIM: ...").
+  # Generation A has NO usable title element — <title> is the site banner on every page — so
+  # it is left to the cleaner's GPT pass to derive one from the body. Listing `title` here
+  # would stamp "REPUBLIC OF BULGARIA - COUNCIL OF MINISTERS" onto ~6,600 rows.
+  selectors: ["h1"]
+text:
+  # Generation B keeps its body in <p> (10 elements, ~1,400-1,600 chars joined). Generation A
+  # has no container at all and falls through to the generic extractor — see trap 2.
+  selectors: ["p"]
+date:
+  # Structural, from the URL — see the header. Generation B has no date anywhere and is left
+  # blank rather than dated from the body.
+  url_regex: '/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})/\d+\.html'
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. English Council of Ministers site via the Internet
+  Archive, in two generations: /English/<Section>/<yyyy-mm-dd>/<id>.html (1999-2005, the bulk)
+  and /en/<Section>/News/<SLUG> (2018-2026). Authored because Bulgaria's 75 unmatched rows are
+  heads of GOVERNMENT (Saxe-Coburg-Gotha 38, Kostov 34) filed under the president.bg seed
+  host, while bgr_government_wayback — the right office — is source_language: Bulgarian and
+  cannot match an English corpus row. The era fit is exact: Kostov was PM 1997-2001 and
+  Saxe-Coburg-Gotha 2001-2005, and the Archive's English coverage of this host peaks at 2002
+  (3,566), 2003 (4,667), 2004 (4,858), 2005 (1,838). Coverage ratio ~7,760 of 16,644 host
+  captures = 47%; the remainder are /English/Print duplicates (1,315), bare day-listing forms
+  and amp/c-parameter variants. THREE MEASURED TRAPS on generation A, all recorded in the
+  header: <title> is the site banner on every article so it is NOT a title selector; `td`
+  matches 14 elements the engine would join into nav-plus-article so it is NOT a text
+  selector (the page falls through to trafilatura, the aus_pm gen-A pattern); and THE VISIBLE
+  DATE IS THE ARCHIVE CAPTURE CLOCK — "Friday, 15 February 2002 10:18" on an article whose URL
+  says 2001-09-20, five months adrift — so the date is taken structurally from the URL
+  instead. Generation B rows are deliberately left dateless. FULL RUN is the researcher's gate.

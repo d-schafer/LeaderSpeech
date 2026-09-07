@@ -2,12 +2,13 @@
 page target non-numeric URLs (e.g. president.ie's /P0, /P20, /P40)."""
 
 import gzip
+from pathlib import Path
 
 import httpx
 import pytest
 
 from leaderspeech.text_scraper import paginate
-from leaderspeech.text_scraper.recipe import Recipe
+from leaderspeech.text_scraper.recipe import Recipe, load_recipe
 
 
 def _recipe(**pagination):
@@ -192,6 +193,80 @@ def test_url_list_ignores_link_pattern():
     assert paginate.harvest_links(r, RecordingFetcher()) == [
         "https://example.org/not-matching-the-pattern"
     ]
+
+
+# --- url_list_file: the same contract, read from disk. For ID-addressable archives
+# (PM Transcripts, ~26k ids) whose list has no business being inline in the YAML.
+
+
+def test_url_list_file_is_read_and_skips_blanks_and_comments(tmp_path):
+    f = tmp_path / "ids.txt"
+    f.write_text(
+        "# a comment\n"
+        "https://example.org/a\n"
+        "\n"
+        "   https://example.org/b   \n"
+        "# another\n",
+        encoding="utf-8",
+    )
+    r = _recipe(type="url_list", url_list_file=str(f))
+    fetcher = RecordingFetcher()
+    assert paginate.harvest_links(r, fetcher) == ["https://example.org/a",
+                                                  "https://example.org/b"]
+    assert fetcher.urls == []          # still never fetched as listings
+
+
+def test_url_list_file_combines_with_inline_url_list_and_dedupes(tmp_path):
+    f = tmp_path / "ids.txt"
+    f.write_text("https://example.org/b\nhttps://example.org/c\n", encoding="utf-8")
+    r = _recipe(type="url_list",
+                url_list=["https://example.org/a", "https://example.org/b"],
+                url_list_file=str(f))
+    assert paginate.harvest_links(r, RecordingFetcher()) == [
+        "https://example.org/a", "https://example.org/b", "https://example.org/c"
+    ]
+
+
+def test_url_list_file_missing_raises_rather_than_harvesting_nothing(tmp_path):
+    # A silent empty harvest is indistinguishable from a source that has gone empty,
+    # so a missing list must fail loudly.
+    r = _recipe(type="url_list", url_list_file=str(tmp_path / "nope.txt"))
+    with pytest.raises(FileNotFoundError):
+        paginate.harvest_links(r, RecordingFetcher())
+
+
+def test_url_list_pagination_accepts_file_instead_of_inline_list(tmp_path):
+    # Recipe validation: either source of URLs satisfies the url_list type.
+    Recipe(
+        source_id="x", country="Ireland", start_urls=["https://example.org/s"],
+        listing={"link_selector": "a", "link_pattern": "/s/"},
+        title={"selectors": ["h1"]}, text={"selectors": ["article"]},
+        date={"selectors": [".date"]},
+        pagination={"type": "url_list", "url_list_file": str(tmp_path / "x.txt")},
+    )
+    with pytest.raises(ValueError, match="url_list_file"):
+        Recipe(
+            source_id="x", country="Ireland", start_urls=["https://example.org/s"],
+            listing={"link_selector": "a", "link_pattern": "/s/"},
+            title={"selectors": ["h1"]}, text={"selectors": ["article"]},
+            date={"selectors": [".date"]},
+            pagination={"type": "url_list"},
+        )
+
+
+def test_load_recipe_resolves_url_list_file_against_the_recipe_directory(tmp_path):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "ids.txt").write_text("https://example.org/a\n", encoding="utf-8")
+    (tmp_path / "r.yml").write_text(
+        "source_id: x\ncountry: Ireland\nstart_urls: ['https://example.org/s']\n"
+        "listing: {link_selector: a, link_pattern: '/s/'}\n"
+        "title: {selectors: [h1]}\ntext: {selectors: [article]}\ndate: {selectors: ['.date']}\n"
+        "pagination: {type: url_list, url_list_file: data/ids.txt}\n",
+        encoding="utf-8",
+    )
+    r = load_recipe(tmp_path / "r.yml")
+    assert Path(r.pagination.url_list_file).is_absolute()
+    assert paginate.harvest_links(r, RecordingFetcher()) == ["https://example.org/a"]
 
 
 # --- issue #53: pagination must not end SILENTLY. A pager that breaks has to be

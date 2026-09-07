@@ -1,0 +1,97 @@
+# Albania — PRIME MINISTER'S OFFICE, ENGLISH (kryeministria.al/en), via the Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 86 Albanian rows unmatched and 82 of them are
+# PM Edi Rama, filed under the head-of-state seed host `president.al`. Albania's only English
+# recipe is `alb_president_english_wayback` (the President, 168 rows), and all three other
+# Albanian recipes — including `alb_kryeministria`, the right office — are
+# `source_language: Albanian`, so none can match an English corpus row: the matcher is
+# monolingual 8-word shingle containment.
+#
+# ⚠️ THE /en/ TREE WAS VERIFIED TO BE REAL ENGLISH, NOT AN UNTRANSLATED MIRROR. This is worth
+# stating because the URLs make it look otherwise: many `/en/` slugs are Albanian, e.g.
+# /en/newsroom/ditari-i-keshillit-te-ministrave-e-premte-21-mars-2014/. That page's BODY is
+# English ("Journal of the Council of Ministers, Friday 21 March 2014"; 51 English function
+# words against 2 Albanian ones). The slug is simply inherited from the Albanian original
+# while the content is translated. Judging this tree by its URLs would have wrongly rejected
+# it.
+#
+# SECTIONS TAKEN, from the site's own English navigation (Newsroom → News · Speeches · Press
+# releases · Weekly diary of the Prime Minister's Office):
+#   /en/newsroom/<slug>/           2,858 captures
+#   /en/newsroom/news/<slug>         410
+#   /en/newsroom/speeches/<slug>      94
+#   /en/newsroom/<a>/<b>             117
+# Per CLAUDE.md RULE 1 the whole newsroom is taken rather than just `speeches` — the cleaner's
+# document_type gate is where press releases and diary entries get sifted, not the harvest.
+#
+# EXCLUDED: /en/multimedia/<slug>/ (481 captures — a photo/video gallery) and
+# /en/wp-json/oembed/1.0/embed (472 captures — oEmbed stubs, on the standing out-list). Also
+# the `&page=N` listing forms, which in the Archive return a 116-char "This page can't be
+# displayed" error page rather than content.
+source_id: alb_kryeministria_english_wayback
+country: Albania
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - kryeministria.al/en/newsroom
+
+listing:
+  # Anything under /en/newsroom/ that is an article slug. The negative lookahead drops the
+  # oEmbed stubs and the paged listing forms; /en/multimedia/ cannot match because the pattern
+  # is anchored to /en/newsroom/.
+  link_pattern: >-
+    ^[^?]*/en/newsroom/(?!wp-json)(?:[a-z0-9][a-z0-9-]{9,}/?|(?:news|speeches|press-releases)/[a-z0-9][a-z0-9-]{9,}/?)$
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1.entry-title", ".entry-title", "h1", "title"]
+text:
+  # TWO page generations, measured:
+  #   .profile-details          modern newsroom template   (4,199 chars)
+  #   .newsDetailsContainer     older template             (1,803 chars), with #leftContent
+  #                                                        as its equivalent on some captures
+  # `article` catches the WordPress-era pages in between. Ordered narrow-to-wide; anything
+  # that still misses falls through to the generic extractor, which was measured recovering
+  # 1,346-4,273 chars on exactly the pages these selectors were added for.
+  selectors: [".profile-details", ".newsDetailsContainer", "#leftContent", ".entry-content",
+              "article", "main"]
+date:
+  # ⚠️ DELIBERATELY BLANK. There is no date element on either generation, and the page text is
+  # NOT safe to regex: both templates render a "latest news" sidebar, so a single article page
+  # shows several dates — "5 October 2021, 3 October 2021, 1 October 2021" on one, and
+  # "22 July 2014, 23.07.2014, 22.07.2014" on another. Taking the first would be a coin flip
+  # between the article's own date and a neighbouring item's, and a wrong date picks the wrong
+  # tenure roster. The url_regex catches a dated slug where one exists and leaves the rest
+  # blank; wayback_capture is the upper bound and the cleaner's GPT pass can read a stated date.
+  url_regex: '/(?P<year>20\d{2})[-/](?P<month>\d{2})[-/](?P<day>\d{2})'
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. English newsroom of the Albanian Prime Minister's Office
+  via the Internet Archive. Authored because 82 of Albania's 86 unmatched rows are PM Edi Rama
+  filed under the president.al seed host, while all three existing Albanian PM/President
+  recipes for the right office are source_language: Albanian and cannot match an English
+  corpus row. THE /en/ TREE WAS EXPLICITLY VERIFIED TO BE REAL ENGLISH rather than an
+  untranslated mirror — many /en/ slugs are Albanian (inherited from the original) but the
+  bodies are translated: /en/newsroom/ditari-i-keshillit-te-ministrave-e-premte-21-mars-2014/
+  reads "Journal of the Council of Ministers, Friday 21 March 2014", 51 English function words
+  to 2 Albanian. Judging the tree by its URLs would have wrongly rejected it. The whole
+  newsroom is harvested (news, speeches, press releases, the PM's weekly diary) per RULE 1,
+  3,479 captures of the 6,096 on the /en prefix = 57%; the excluded remainder is
+  /en/multimedia/ (481, a gallery), /en/wp-json/oembed stubs (472) and paged listing forms,
+  which in the Archive return a 116-char "This page can't be displayed" error rather than
+  content. THE DATE IS DELIBERATELY BLANK: neither generation has a date element and both
+  render a "latest news" sidebar, so one article page shows several dates ("5 October 2021,
+  3 October 2021, 1 October 2021" on one; "22 July 2014, 23.07.2014, 22.07.2014" on another)
+  — a body regex would be a coin flip between the article's own date and a neighbour's.
+  Text needed TWO generation-specific containers (.profile-details 4,199 chars modern,
+  .newsDetailsContainer 1,803 chars older); 9 of 10 sampled pages now extract via a
+  selector. FULL RUN is the researcher's gate.

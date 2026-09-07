@@ -243,6 +243,11 @@ class Pagination(BaseModel):
     # returned verbatim as the scrape targets -- they are NOT fetched as listings and
     # listing.link_pattern is not applied to them. To enumerate several *listing* pages,
     # put them all in start_urls with pagination.type = none.
+    url_list_file: Optional[str] = None    # same thing, read from a newline-delimited
+    # file instead of inline YAML -- for ID-addressable archives whose list runs to
+    # thousands of URLs. Blank lines and '#' comments are skipped; a relative path is
+    # resolved against the RECIPE FILE's own directory by load_recipe(). Combines with
+    # url_list (both are used, inline entries first).
     sitemap_urls: Optional[list[str]] = None  # sitemap.xml URLs (sitemap type); a
     # sitemap index is followed into its children. URLs are kept if they match
     # listing.link_pattern.
@@ -448,8 +453,9 @@ class Recipe(BaseModel):
             raise ValueError("click pagination needs 'next_selector'")
         if self.pagination.type == PaginationType.next_link and not self.pagination.next_selector:
             raise ValueError("next_link pagination needs 'next_selector'")
-        if self.pagination.type == PaginationType.url_list and not self.pagination.url_list:
-            raise ValueError("url_list pagination needs 'url_list'")
+        if (self.pagination.type == PaginationType.url_list
+                and not self.pagination.url_list and not self.pagination.url_list_file):
+            raise ValueError("url_list pagination needs 'url_list' or 'url_list_file'")
         if self.pagination.path_format:
             try:
                 substituted = self.pagination.path_format.format(n=0)
@@ -482,4 +488,11 @@ class Recipe(BaseModel):
 
 def load_recipe(path: str | Path) -> Recipe:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    # A relative pagination.url_list_file is resolved against the recipe file's own
+    # directory, so a recipe stays portable however the repo is checked out.
+    pg = data.get("pagination")
+    if isinstance(pg, dict) and pg.get("url_list_file"):
+        f = Path(pg["url_list_file"])
+        if not f.is_absolute():
+            pg["url_list_file"] = str((Path(path).parent / f).resolve())
     return Recipe(**data)

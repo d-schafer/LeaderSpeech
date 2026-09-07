@@ -1,0 +1,103 @@
+# India — PMO ARCHIVE (archivepmo.nic.in), the frozen sites of two former prime ministers.
+#
+# WHY THIS SOURCE. The coverage audit leaves 87 Indian rows unmatched and every one is a head
+# of GOVERNMENT — Manmohan Singh 77, Vajpayee 9, Modi 1 — while the corpus filed them under
+# `presidentofindia.nic.in`, the head of STATE. Their own page furniture gives it away: 76 of
+# the 87 carry the footer "Contents managed by Prime Minister's Office". `ind_pmindia*` covers
+# pmindia.gov.in, which begins with Modi in 2014, so nothing we hold can reach the 2004-2014
+# Singh administration or Vajpayee before it. This host is where that material lives, and it
+# is still served live.
+#
+# TWO SUBTREES, ONE HOST:
+#   /drmanmohansingh/   Manmohan Singh, 22 May 2004 - 26 May 2014   (12,420 captures)
+#   /abv/               Atal Bihari Vajpayee                        (1,451 captures)
+#
+# SIX ARTICLE ENDPOINTS, all taken (CLAUDE.md RULE 1 — the cleaner's document_type gate is
+# where non-speech material is sifted out, not the harvest):
+#   speech-details · press-details · interview-details · pmsinparliament ·
+#   pmmessageappeals · pmvisit_list
+# Excluded: content_print.php (print-view duplicates of pages already taken, 3,753 captures),
+# photogallery*/getdoc (galleries and binaries), and every `ln=hindi` variant (2,449) since
+# this recipe is English.
+#
+# ⚠️ verify_ssl: false is REQUIRED — the host serves an incomplete certificate chain and every
+# request fails with CERTIFICATE_VERIFY_FAILED ("unable to get local issuer certificate")
+# without it. This is a broken chain on a live government site, not an interception risk.
+#
+# ENUMERATION — why url_list_file and not a pager. The live listing pages are useless for
+# harvesting: speeches.php and each sibling render only the **10 most recent** items and
+# ignore every pagination parameter tried (`pageid`, `page`, `pn`, `start` all return page 1
+# byte-identical). There is no sitemap of articles. So the article list is derived once from
+# the Internet Archive CDX index of the host and committed alongside; the Archive is an INDEX
+# only — every fetch goes to the live site.
+#
+# ⚠️ `h1` IS THE SITE BANNER ("Prime Minister of India - Dr. Manmohan Singh") on every page.
+# The real headline is `h2.innerHead`. A title selector of `h1` would look green in a probe
+# and write the banner onto all 4,479 rows.
+#
+# SOME /abv/ NODEIDS ARE EMPTY RECORDS — nodeid=100 returns a 608-char page whose `.date`
+# reads "January 1, 1970" (a zero timestamp). They are left in deliberately: they cost one
+# cheap fetch and the cleaner's gate drops them, whereas guessing which ids are hollow would
+# risk dropping real ones.
+source_id: ind_archivepmo
+country: India
+source_language: English
+position: prime minister
+renderer: static
+verify_ssl: false          # incomplete cert chain on the live host — see the note above
+
+# Not fetched as listings: url_list hands the engine speech URLs directly. Present because
+# start_urls is required.
+start_urls:
+  - https://archivepmo.nic.in/drmanmohansingh/speeches.php
+
+pagination:
+  type: url_list
+  url_list_file: data/ind_archivepmo_ids.txt   # relative to this recipe file
+
+listing:
+  # url_list ignores link_pattern; this block is required by the schema.
+  link_selector: "a"
+  link_pattern: "nodeid="
+
+# Hollow records: some nodeids in BOTH subtrees resolve to an empty article whose `.date`
+# is the zero timestamp "January 1, 1970" and whose body is ~15 chars (verified on
+# /abv/?nodeid=100 and /drmanmohansingh/?nodeid=63338). Dropping them here rather than at
+# the cleaner is deliberate — an epoch date is a *confident wrong* date, and a wrong date
+# picks the wrong tenure roster and propagates into speaker attribution.
+keep_if:
+  selectors: [".date"]
+  pattern: "January\\s+1,\\s+1970"
+  negate: true
+
+title:
+  # h2.innerHead — the article headline ("PM's address to the Nation"). NOT h1, which is the
+  # site banner on every page.
+  selectors: ["h2.innerHead", ".innerHead"]
+text:
+  # .contentInner is the article body (2,163 chars measured on nodeid=1445). Preferred over
+  # .contentSectionInner, which is the same text plus the "SPEECHES [Back] Click here for
+  # printable Version" chrome.
+  selectors: [".contentInner", ".panels", ".contentSectionInner"]
+date:
+  # "May 17, 2014 New Delhi" — the date line carries the place too; dateparser takes the date
+  # and ignores the rest. English month names, so ["en"] is unambiguous here.
+  selectors: [".date"]
+
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. Two former-PM subtrees on archivepmo.nic.in:
+  /drmanmohansingh/ (2004-2014) and /abv/ (Vajpayee). Authored because India's 87 unmatched
+  rows are heads of GOVERNMENT filed under the head-of-state seed host, and our pmindia.gov.in
+  recipes only start with Modi in 2014. 4,479 unique English articles across six endpoints
+  (press-details 1,857, speech-details 1,663, pmmessageappeals 531, pmvisit_list 339,
+  pmsinparliament 77, interview-details 12), derived from the IA CDX index of the host (14,415
+  captures) and committed as recipes/data/ind_archivepmo_ids.txt; the Archive is the INDEX
+  only, every fetch is live. Coverage ratio: 4,479 of the 4,534 English article captures the
+  CDX index holds = 98.8%; the shortfall is malformed capture URLs. The live listings CANNOT
+  be paginated — every section shows only its 10 most recent items and ignores pageid/page/pn/
+  start — which is why the list is enumerated rather than crawled. REQUIRES verify_ssl: false
+  (incomplete certificate chain). h1 is the site banner on every page, so the title comes from
+  h2.innerHead. Excluded on purpose: content_print.php print duplicates, photo galleries, and
+  the ln=hindi variants. FULL RUN is the researcher's gate.

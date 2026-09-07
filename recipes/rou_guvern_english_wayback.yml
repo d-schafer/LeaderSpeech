@@ -1,0 +1,111 @@
+# Romania — GOVERNMENT, ENGLISH (gov.ro/en + the older gov.ro/engleza), via the Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 184 Romanian rows unmatched. They are heads of
+# GOVERNMENT — Ponta 47, Ciucă 27, Dăncilă 23, Cîțu 21 — filed under the head-of-state seed
+# host `presidency.ro`, and their own text says so: the chrome reads "Government of Romania
+# ... please take over the complete statement" and "statement of the Prime Minister Calin
+# Popescu-Tariceanu". Romania's only English recipe is `rou_presidency_english_wayback` (the
+# Presidency, 385 links), and `rou_guvern` — the right office — is `source_language:
+# Romanian`, so it can never match an English corpus row: the matcher is monolingual.
+#
+# TWO ENGLISH GENERATIONS, both harvested:
+#   A. 2003-2007  /engleza/presa/afis-doc.php?idpresa=<N>&…   1,567 captures (Năstase,
+#      Popescu-Tăriceanu). Legacy ASP-era pages, English confirmed by sampling
+#      ("The World Bank will finance the Draft on the judiciary reform…").
+#   B. 2013-2026  /en/news/<slug>                             3,758 captures (Ponta →
+#      Bolojan). The live article stream.
+# Between them they cover the whole 2002-2022 span of the unmatched rows.
+#
+# ⚠️ NOISE PARAMETERS ON GENERATION A. The same article is archived under many parameter
+# combinations — `idrubricapresa`, `idrubricaprimm`, `idtema`, `tip`, `pag`, `dr` all vary
+# while `idpresa` alone addresses the document. Without `wayback_noise_params` the same
+# speech is fetched and written many times over. `opti=print` is the print view of a page
+# already taken and is excluded by the pattern.
+#
+# ⚠️ `h1` IS THE SITE BANNER — it reads "Fresh News" on every article of generation B. The
+# real headline is `h2`. A probe would show `h1` green and it would write "Fresh News" onto
+# all 3,758 rows.
+#
+# ⚠️ THE DATE IS DELIBERATELY LEFT BLANK. There is no date element on either generation, and
+# the URL cannot supply one: of 3,758 generation-B articles exactly ONE uses a date slug
+# (/en/news/2013-05-13-18-03-59) — the other 3,757 are word slugs. A body-text regex was
+# considered and REJECTED: on that same page the first date in the body is "10 May 2013"
+# while the slug says 13 May, i.e. it is a date mentioned *in* the article, not the
+# publication date. That is exactly the failure this project has already paid for twice (a
+# body regex dated a 2003 Koizumi press conference to 2001-09-11 because the transcript
+# mentions 9/11 first). A blank date beats a confident wrong one: a wrong year picks the
+# wrong tenure roster and propagates into speaker attribution. The engine stamps
+# `wayback_capture` on every row as a last-resort upper bound, and the cleaner's GPT pass can
+# read a date from the text where one is stated. The `url_regex` below exists only to satisfy
+# the schema and to catch that single date-slugged article.
+#
+# EXCLUDED, all print-views or galleries of pages already taken: /en/print?link=&modul=
+# (6,692 captures), /en/media/photo/<slug> (1,785), /en/media/video/<slug> (892), every
+# `&page=N` listing form, and `opti=print` on generation A.
+source_id: rou_guvern_english_wayback
+country: Romania
+source_language: English
+renderer: static
+
+start_urls:
+  - gov.ro/en/news
+  - gov.ro/engleza/presa
+
+listing:
+  # Branch 1: generation B, /en/news/<slug>, end-anchored so the &page=N listing forms and
+  # the /en/media/ galleries are excluded.
+  # Branch 2: generation A, keyed on idpresa=<N>; `opti=print` is refused by the lookahead.
+  link_pattern: >-
+    (?:/en/news/[a-z0-9][a-z0-9-]{10,}$)|(?:/engleza/presa/afis-doc\.php\?(?!.*opti=print).*idpresa=\d+)
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # `idpresa` ADDRESSES the article; everything here is an on-page UI toggle that varies
+  # across captures of the same document. Listing these is what stops one speech being
+  # written as a dozen rows.
+  wayback_noise_params:
+    - idrubricapresa
+    - idrubricaprimm
+    - idtema
+    - tip
+    - pag
+    - dr
+
+title:
+  # h2 on generation B (the headline; h1 is the banner "Fresh News"), <title> on generation A
+  # where the headline is the document title.
+  selectors: ["h2", "title"]
+text:
+  # Neither generation has a semantic article container — no .content, .article, #content or
+  # .field-item exists on either. Generation B falls through to the engine's generic
+  # (trafilatura) extractor, which recovers the body; generation A is a table-layout page
+  # where `td` was measured at 7,052 chars against a 2,117-char body, i.e. it returns the
+  # navigation joined onto the article, so `td` is deliberately NOT listed.
+  selectors: ["main", "body"]
+date:
+  # See the header: no date exists to extract. This catches the single date-slugged article
+  # and leaves every other row blank rather than fabricating one.
+  url_regex: '/en/news/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})'
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. English government stream via the Internet Archive, in
+  two generations: /engleza/presa/afis-doc.php?idpresa=N (1,567 captures, 2003-2007,
+  Năstase/Popescu-Tăriceanu) and /en/news/<slug> (3,758 captures, 2013-2026, Ponta-Bolojan).
+  Authored because Romania's 184 unmatched rows are heads of GOVERNMENT filed under the
+  presidency.ro seed host, while rou_guvern — the right office — is source_language: Romanian
+  and cannot match an English corpus row. Coverage ratio 5,325 of 38,442 host captures = 14%,
+  which is low BY DESIGN: 6,692 are /en/print duplicates, 2,677 are photo/video galleries and
+  most of the remainder are &page=N listing forms of the same articles. THREE TRAPS recorded:
+  h1 is the site banner "Fresh News" on every generation-B article so the title comes from h2;
+  generation A needs wayback_noise_params because only `idpresa` addresses the document while
+  five other parameters vary freely across captures; and THE DATE IS DELIBERATELY BLANK —
+  there is no date element, only 1 of 3,758 articles carries a date slug, and the first
+  in-body date was measured to disagree with the slug (10 May vs 13 May), so a body regex
+  would fabricate confident wrong dates. wayback_capture is the fallback. `td` is deliberately
+  not a text selector on generation A (7,052 chars of nav vs a 2,117-char body). FULL RUN is
+  the researcher's gate.

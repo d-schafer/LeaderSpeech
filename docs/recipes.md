@@ -294,6 +294,35 @@ pagination:
   type: none
 ```
 
+### A url_list too long for the YAML (`url_list_file`)
+
+Some archives are **ID-addressable**: every document lives at a stable `?id=N` and there is no
+listing page to paginate. The URL list is then thousands of entries long and has no business
+being inline. `pagination.url_list_file` points at a newline-delimited file instead:
+
+```yaml
+pagination:
+  type: url_list
+  url_list_file: data/aus_pmtranscripts_ids.txt   # relative to THIS recipe file
+```
+
+- Blank lines and `#` comments are skipped, so the file can carry a header explaining where the
+  list came from and how to regenerate it.
+- A **relative path is resolved against the recipe file's own directory** by `load_recipe()`, so
+  the recipe works from any working directory and any checkout.
+- It **combines** with an inline `url_list` (inline entries first) and the result is de-duplicated.
+- A **missing file raises** rather than harvesting nothing — a silent empty harvest is
+  indistinguishable from a source that has gone dead.
+
+`recipes/aus_pmtranscripts.yml` is the worked example: PM Transcripts has ~26,000 transcripts at
+`/query?transcript=<id>` with **non-contiguous** ids (5..47,307, with two 5,000-wide gaps), so a
+sequential sweep would waste ~19,000 requests. The id list is derived once from the Internet
+Archive CDX index and committed next to the recipe; every fetch then goes to the **live** site.
+
+> **Deriving a list from CDX is not the same as scraping the Archive.** Using `cdx.py` purely as
+> an *index* — and fetching the live pages — is fine and is not a `pagination: wayback` recipe.
+> Say so in the recipe header so the next reader doesn't "fix" it.
+
 ## JSON / search-API sources (`type: api`)
 
 Some sites serve **only page chrome** as HTML — the speech list is loaded client-side from a JSON
@@ -742,6 +771,7 @@ site-specific block message.
 | `pagination.max_pages` | no | Safety cap. Omit to stop automatically when a page yields no new links. |
 | `pagination.next_selector` | for click / next_link | CSS selector of the "next" control. May point at the `<a>` itself or a wrapper (e.g. `li.next`), in which case its first descendant `<a href>` is used. |
 | `pagination.url_list` | for url_list | Explicit list of **speech-page URLs**. They are used **as-is**: the engine does *not* fetch them as listings, does *not* extract links from them, and does *not* apply `listing.link_pattern` to them. To enumerate several **listing** pages instead, put them all in `start_urls` and leave `pagination.type` as `none` — see "Several listing pages" below. |
+| `pagination.url_list_file` | alt. to url_list | Path to a **newline-delimited file** of speech-page URLs, for ID-addressable archives whose list runs to thousands of entries. Blank lines and `#` comments are skipped; a **relative path resolves against the recipe file's own directory**; it combines with an inline `url_list` and the result is de-duplicated; a **missing file raises** rather than harvesting nothing. See "A url_list too long for the YAML". |
 | `pagination.sitemap_urls` | for sitemap | Sitemap `.xml` URL(s). The full URL list comes from the sitemap (a sitemap *index* is followed into its children), filtered by `listing.link_pattern`. **Gzipped sitemaps (`*.xml.gz`, served as `application/gzip`) are decompressed transparently** (issue #63). Best for full history — see the tip below. |
 | `pagination.wayback_limit` / `wayback_match_type` / `wayback_collapse` / `wayback_delay` / `wayback_from` / `wayback_to` | for wayback | CDX/query pacing knobs. `wayback_limit` caps captures per query; `wayback_delay` controls the pause before each archived fetch; the defaults are `prefix`/`urlkey`, `5s`, and no date bounds. |
 | `pagination.wayback_adaptive` / `wayback_max_delay` | no | **Adaptive Internet-Archive pacing.** With `wayback_adaptive: true` (or the run flag `--adaptive-wayback`), the inter-fetch delay AUTO-TUNES: it starts at `wayback_delay`, rises whenever IA throttles (ConnectError/429/5xx) and eases back down over clean fetches, converging on the fastest rate IA tolerates from your IP — so a long run doesn't burn minutes on retry backoff. Bounded by `wayback_max_delay` (default 12s; run override `--wayback-max-delay`). Off by default (fixed `wayback_delay`). The end-of-run log prints where it settled. Ideal when a shared IP is being throttled. |

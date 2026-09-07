@@ -1,0 +1,99 @@
+# Belgium — PRIME MINISTER, ENGLISH (premier.fgov.be), via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 101 Belgian rows unmatched and they are heads of
+# GOVERNMENT — Verhofstadt 91, Michel 5, Leterme 4, Van Rompuy 1 — filed under the
+# head-of-state seed host `monarchie.be`. Belgium's existing English recipes are the monarchy
+# (`bel_monarchie`, 100 links), and `bel_premier_wayback` — the right office — is
+# `source_language: French` and its pattern takes `[fn]_speech` (français / Nederlands),
+# deliberately excluding the English files. Neither can match an English corpus row.
+#
+# ⚠️ THE ENGLISH STREAM IS A SEPARATE FILE PREFIX, NOT A LANGUAGE PATH. This site's speech
+# archive is one flat directory where the FIRST LETTER of the filename is the language:
+#   /topics/speeches/f_speech<N>.html   français   (82 captures, taken by bel_premier_wayback)
+#   /topics/speeches/n_speech<N>.html   Nederlands (99 captures, taken by bel_premier_wayback)
+#   /topics/speeches/e_speech<N>.html   ENGLISH    (47 captures — this recipe)
+#   /topics/speeches/d_speech<N>.html   Deutsch    (3 captures, out of scope)
+# The site's own index says so: e_speech00.html reads "All addresses are available in French
+# and Dutch, except for those listed below", i.e. English is a curated subset, which is why
+# there are fewer English files than French or Dutch ones.
+#
+# CONFIRMED AGAINST THE CORPUS. e_speech04.html is "Speech of Prime Minister Guy Verhofstadt
+# at the reception of the ELDR-Ministers and party chairmen, Helsinki, 9 December 1999" —
+# verbatim one of the unmatched rows, whose text begins "Helsinki, 9 December 1999 Dear
+# colleagues, Dear friends, For the first time that the ELDR meets at the eve of a European
+# Council". This is not an inferred mapping; the document was read.
+#
+# ALSO TAKEN: the later Drupal English tree, /en/node/<N> and /en/<slug> (228 captures on the
+# /en prefix). The corpus rows run 1999-2016 and the flat e_speech files are Verhofstadt-era
+# (1999-2007), so the Drupal tree is where Michel / Leterme / Van Rompuy would live.
+#
+# NOTE ON THE BILINGUAL SHELL: several unmatched rows carry a FRENCH or DUTCH navigation bar
+# around ENGLISH speech text ("Bienvenue sur le site web du Premier ministre de Belgique
+# Speech for the General Council of FORUM 187"). That is this site's page furniture, not a
+# sign the text is French — the language of the *document* is what the `e_` prefix and the
+# /en/ tree select for.
+source_id: bel_premier_english_wayback
+country: Belgium
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  - premier.fgov.be/topics/speeches
+  - premier.fgov.be/en
+  - premier.be/en
+
+listing:
+  # Branch 1: the English speech files ONLY — `e_` prefix. f_/n_/d_ are other languages and
+  # f_/n_ are already taken by bel_premier_wayback; matching them here would duplicate that
+  # source AND put French/Dutch text in an English recipe.
+  # Branch 2: the Drupal English tree. `node/\d+` plus slug pages; the aggregator, event
+  # calendar and language_selection helper URLs are refused by the lookahead.
+  link_pattern: >-
+    (?:/topics/speeches/e_speech\d+\.html$)|(?:/en/(?!aggregator|event/|language_selection)(?:node/\d+|[a-z0-9][a-z0-9-]{9,})$)
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "h2", "title"]
+text:
+  # The flat e_speech files are 1990s table-layout pages with no semantic container, so they
+  # fall through to the engine's generic (trafilatura) extractor — the documented aus_pm gen-A
+  # pattern. `td` is deliberately NOT listed: on a table layout it matches every cell and the
+  # engine joins them, returning the navigation welded to the speech.
+  # .l-content is the Drupal article region on premier.be (measured 1,869 chars); the older
+  # .field-name-body / .content variants cover earlier themes on the same tree.
+  selectors: [".field-name-body", ".l-content", ".content", "main", "article"]
+date:
+  # No date element on either generation. The e_speech files state the date INSIDE the speech
+  # ("Helsinki, 9 December 1999") but as a dateline that a body regex cannot reliably tell
+  # from a date merely mentioned in the text — the failure this project already paid for on
+  # Koizumi. Left to the cleaner's GPT pass, with wayback_capture as the upper bound.
+  # The url_regex catches any dated Drupal slug and leaves everything else blank.
+  url_regex: '/(?P<year>20\d{2})[-/](?P<month>\d{2})[-/](?P<day>\d{2})'
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. English sibling of bel_premier_wayback (which is
+  source_language: French). Authored because Belgium's 101 unmatched rows are heads of
+  GOVERNMENT (Verhofstadt 91, Michel 5, Leterme 4, Van Rompuy 1) filed under the monarchie.be
+  seed host, while Belgium's only English recipe is the monarchy and the PM recipe is French —
+  neither can match an English corpus row. THE KEY STRUCTURAL FINDING: on this host the speech
+  archive is a flat directory where the filename's FIRST LETTER is the language —
+  f_speech<N> français (82 captures), n_speech<N> Nederlands (99), e_speech<N> ENGLISH (47),
+  d_speech<N> Deutsch (3). bel_premier_wayback takes [fn]_speech and deliberately excludes the
+  English files; this recipe takes e_ only. The site's own index page confirms English is a
+  curated subset ("All addresses are available in French and Dutch, except for those listed
+  below"). CONFIRMED AGAINST THE CORPUS BY READING THE DOCUMENT: e_speech04.html is
+  Verhofstadt's ELDR address, Helsinki, 9 December 1999 — verbatim an unmatched row. Also
+  takes the later Drupal /en/node/<N> and /en/<slug> tree (228 captures on the /en prefix),
+  which is where Michel/Leterme/Van Rompuy would sit. Date is deliberately blank: no date
+  element exists and the in-speech dateline cannot be reliably separated from dates merely
+  mentioned in the text. td is NOT a text selector (table layout — the engine joins every
+  cell). Several corpus rows show a French/Dutch nav around English speech text; that is page
+  furniture, not the document language. FULL RUN is the researcher's gate.

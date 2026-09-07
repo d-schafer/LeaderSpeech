@@ -1,0 +1,109 @@
+# Sweden — GOVERNMENT OFFICES, ENGLISH (government.se), via the Internet Archive.
+#
+# WHY THIS SOURCE. The coverage audit leaves 135 Swedish rows unmatched and they are heads of
+# GOVERNMENT — Löfven 124, Andersson 7, Kristersson 4 — filed under the head-of-state seed
+# host `kungahuset.se` (the Royal Court). Their own text carries government.se's archive
+# banner verbatim: "This content was published in the period between 3 October 2014 and 20
+# January 2019". Sweden's two existing English recipes (`swe_kungahuset_english`,
+# `swe_kungahuset_english_wayback`) are the Royal Court and can never hold a PM speech, and
+# `swe_regeringen` is the SWEDISH site (`source_language: Swedish`) — no use against an
+# English corpus, since the matcher is monolingual.
+#
+# WHY WAYBACK AND NOT THE LIVE SITE. government.se sits behind Cloudflare and returns a
+# "Just a moment..." 403 to the honest bot UA (cf-ray present, 5,787 bytes, zero anchors).
+# Headless Chromium DOES clear the challenge — `renderer: js` fetched 209,801 bytes and 282
+# anchors — so this is the fingerprint block, not an IP block. But the challenge is on every
+# navigation, which makes a 4,800-page crawl slow and brittle, and the Archive already holds
+# 19,221 captures spanning 2012-2026. (The Swedish sibling regeringen.se answers 200 to the
+# bot UA on the same connection — only the English host is challenged.)
+#
+# FIVE SECTIONS TAKEN, of twelve on the host (CLAUDE.md RULE 1 — the cleaner's document_type
+# gate sifts, not the harvest):
+#   press-releases 2,047 · articles 1,366 · statements 735 · speeches 550 · opinion-pieces 147
+#     = 4,845 dated-article captures
+# LEFT OUT, and why: information-material 516, reports 221, legal-documents 161,
+# country-and-regional-strategies 157, international-development-cooperation-strategies 83,
+# swedish-treaty-series 18, accreditations 7. These are institutional document registers, not
+# leader speech — the same call the Armenian decrees register got.
+#
+# ⚠️ THE OLD `/sb/d/<id>/a/<id>` GENERATION IS SWEDISH, NOT ENGLISH — 3,776 captures,
+# 2012-2015, and SAMPLED before excluding: /sb/d/10005/a/97907 is "Frihet för studenter - om
+# hur kår- och nationsobligatoriet kan avskaffas", with `.title` reading "Statsminister" and
+# the skip-link "Hoppa till sidinnehållet". Before 2015 this host served both languages under
+# one scheme. Including it would put Swedish text in an English source and could never match
+# an English corpus row, so the pattern is deliberately anchored to the dated-slug generation.
+#
+# The 2015 redesign RE-PUBLISHED older material under the new scheme, so the dated sections
+# reach back to 1999 (e.g. /speeches/1999/09/statement-of-government-policy-14-september-1999/)
+# even though the captures themselves start in 2015 — better historical reach than the capture
+# histogram suggests. Those oldest re-published pages are summaries (~1,500 chars) rather than
+# full transcripts; modern ones carry the whole speech (3,400-3,600 chars measured on two 2016
+# Löfven addresses).
+source_id: swe_government_english_wayback
+country: Sweden
+source_language: English
+renderer: static
+
+start_urls:
+  # CDX prefixes — no scheme, no trailing '*'. One per harvested section.
+  - government.se/speeches
+  - government.se/statements
+  - government.se/articles
+  - government.se/press-releases
+  - government.se/opinion-pieces
+
+listing:
+  # /<section>/<yyyy>/<mm>/<slug>/ — end-anchored so the ?page=N listing pages and the
+  # Swedish /sb/d/ generation are both excluded.
+  link_pattern: >-
+    ^[^?]*/(?:speeches|statements|articles|press-releases|opinion-pieces)/\d{4}/\d{2}/[a-z0-9][^/?#]{4,}/?$
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # h1 is the real headline here (verified: "Statement of Government Policy 14 September
+  # 1999"), not a site banner — unusual enough to be worth stating.
+  selectors: ["h1", "title"]
+text:
+  # `main` is the article container. The page has no `article`, `.body` or `.content`
+  # element at all, and `body` pulls in ~8k chars of navigation.
+  selectors: ["main", "#content"]
+date:
+  # `.published` ("Published 27 January 2016") matches exactly ONE element. Deliberately NOT
+  # `time[datetime]`: that matches SIX elements on the page (the article date plus five
+  # sidebar "latest" items) and the engine joins every match, so the value would be
+  # "14 September 1999 06 February 2023 06 February 2023 ..." — the parser happens to take
+  # the first, but only by luck.
+  selectors: [".published"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+(?:19|20)\d{2}'
+
+# NO `position` and no speaker_default. government.se is the whole Government Offices,
+# not just the PM — the sampled pages include ministers (e.g. the Minister for Social
+# Affairs) alongside Löfven/Andersson/Kristersson. A fixed position would stamp
+# "prime minister" onto every minister's speech; the cleaner's tenure crosscheck
+# assigns speaker and office per row instead.
+date_languages: ["en"]   # English month names — unambiguous, no day/month inversion risk.
+
+notes: >
+  DRAFT — probe-validated 2026-09-01. English Government Offices site via the Internet
+  Archive. Authored because Sweden's 135 unmatched rows are heads of GOVERNMENT (Löfven 124,
+  Andersson 7, Kristersson 4) filed under the Royal Court seed host, and Sweden's only other
+  English recipes are the Royal Court while swe_regeringen is Swedish — useless against an
+  English corpus. The live host is Cloudflare-challenged to the bot UA (403 "Just a moment",
+  cf-ray) though headless Chromium clears it; the Archive holds 19,221 captures 2012-2026, so
+  wayback is the robust route for a ~4,800-page crawl. Five speech-bearing sections harvested
+  of twelve on the host (press-releases 2,047, articles 1,366, statements 735, speeches 550,
+  opinion-pieces 147 = 4,845 captures); the seven left out are document registers
+  (information-material, reports, legal-documents, three strategy series, accreditations,
+  1,163 captures). Coverage ratio 4,845 / 6,008 dated-article captures = 81%. The old
+  /sb/d/<id>/a/<id> generation (3,776 captures) was SAMPLED and excluded because it is
+  SWEDISH, not English — before the 2015 redesign this host served both languages. That
+  redesign re-published older material under the new dated scheme, so /speeches/ reaches back
+  to 1999. Date selector is .published (n=1), NOT time[datetime] (n=6 — the engine joins all
+  matches). FULL RUN is the researcher's gate.

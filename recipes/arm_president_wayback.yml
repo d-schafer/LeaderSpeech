@@ -50,6 +50,34 @@
 # VERDICT: flagged, not scraped. A decree register with no title, no date and the wrong
 # language is its own project — it wants its own recipe with Armenian selectors and a
 # document-id scheme, not a widening of this one.
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# 2026-09-02 — WIDENED AGAIN, AND A TITLE DEFECT FIXED. Armenia was still the second-largest
+# unmatched block (254 rows, 2007-2021) AFTER the 2026-08-10 widening, which is the signature
+# of a gap the pattern cannot express. Two separate causes, both measured:
+#
+# 1. AN ENTIRE URL GENERATION WAS UNREACHABLE BY CONSTRUCTION. Before ~2013 this site put the
+#    language in a path SEGMENT — /events/<section>/eng/?id=<N> — not a prefix. `start_urls`
+#    was `president.am/en`, and that is a CDX *prefix* query, so the old tree was excluded
+#    server-side before `link_pattern` ever ran. No amount of widening the pattern could have
+#    found it. CDX for `president.am/events`: 5,346 captures, 2008-2012, of which 1,496 are
+#    /eng/ and 881 are English ARTICLE pages carrying an `id`.
+#    SAMPLED BEFORE ADDING (RULE 1 in both directions), and the four sections taken carry real
+#    text under `.content`:
+#      statements  58 caps  "Address by President Serzh Sargsyan on the occasion of the 17th
+#                            Anniversary of Independence"                     3,301 chars
+#      press       51       "Interview of President Serzh Sargsyan to the Public TV"
+#                                                                             7,322 chars
+#      news       482       short presidential news items                       572 chars
+#      visits     217       visit reports                                       706 chars
+#    `decrees` (282 English captures) was SAMPLED AND EXCLUDED for the same reason the modern
+#    /en/decrees block was: the body is ARMENIAN even under /eng/ —
+#    "ՀԱՅԱՍՏԱՆԻ ՀԱՆՐԱՊԵՏՈՒԹՅԱՆ ՆԱԽԱԳԱՀԻ ՀՐԱՄԱՆԱԳԻՐԸ …" — so it would violate this recipe's
+#    source_language. The existing `!original:.*/decrees/.*` filter already covers it.
+#    `schedule` (135) is the president's day-view calendar and carries no `id`, so the
+#    pattern's `id=\d+` requirement excludes it without needing a rule.
+#
+# 2. THE TITLE FIELD WAS WRITING SITE CHROME ON 57% OF ROWS — see the `title` block below.
+# ─────────────────────────────────────────────────────────────────────────────────────────
 source_id: arm_president_wayback
 country: Armenia
 source_language: English
@@ -57,12 +85,22 @@ start_urls:
   # Bare-ish prefix: the eleven sections are siblings under /en, so no single narrower
   # prefix reaches them. The CDX filter below does the narrowing server-side.
   - president.am/en
+  # 2026-09-02 — THE PRE-2013 GENERATION, previously unreachable. `president.am/en` is a CDX
+  # *prefix*, and the old site put the language in a path SEGMENT (/events/<section>/eng/)
+  # rather than a prefix, so no widening of the pattern alone could ever have found it.
+  - president.am/events
 renderer: static
 
 listing:
   # Any speech-bearing section's dated permalink. The >=5-char slug requirement (kept from
   # the original) excludes section and index captures; `^[^?]*` bars a query string.
-  link_pattern: '^[^?]*/en/(?:press-release|statements-and-messages|interviews-and-press-conferences|congratulatory|condolence|domestic-visits|foreign-visits|notepad|chronicle|announcements)/item/\d{4}/\d{2}/\d{2}/[^/?]{5,}/?$'
+  # Branch 1 (2013->): the modern dated permalinks. `^[^?]*` bars a query string; the
+  # >=5-char slug excludes section and index captures.
+  # Branch 2 (2008-2012): the old generation, where `id=<N>` ADDRESSES the article.
+  # Requiring `id=\d+` is also what excludes the day-view calendar captures —
+  # /events/schedule/eng/?day=20&month=09&year=2011 carries no id, so it never matches.
+  link_pattern: >-
+    (?:^[^?]*/en/(?:press-release|statements-and-messages|interviews-and-press-conferences|congratulatory|condolence|domestic-visits|foreign-visits|notepad|chronicle|announcements)/item/\d{4}/\d{2}/\d{2}/[^/?]{5,}/?$)|(?:/events/(?:news|statements|press|visits)/eng/\?[^#]*\bid=\d+)
 
 pagination:
   type: wayback
@@ -77,11 +115,51 @@ pagination:
     # e.g. …/item/2013/10/12/<slug>/favicon.ico); they are text/html-typed junk and the
     # mimetype filter alone does not remove them.
     - "!original:.*(/decrees/|/signed-laws/|/videos/|favicon\\.ico).*"
+  # OLD GENERATION ONLY: `id` addresses the article; every parameter here is a pager or an
+  # on-page toggle that varies freely across captures of the SAME document
+  # (/events/visits/eng/?visits=2&pn=6&id=100 is the same page as ?id=100). Without this,
+  # one speech is fetched and written many times over.
+  wayback_noise_params:
+    - pn
+    - day
+    - month
+    - year
+    - visits
 
 title:
+  # ⚠️ FIXED 2026-09-02 — `h1` WAS FIRST IN THIS CHAIN AND IT IS THE SITE BANNER.
+  # Measured against the scraped file: 4,644 of 8,151 existing rows (57%) carry the title
+  # "The President of the Republic of Armenia [the official site]", and a further 527 carry
+  # the section header "Press releases - Updates - The President of the Republic of Armenia".
+  # On every template on this host h1 is the banner and <title> holds the real headline
+  # ("President Sarkissian handed state awards and congratulated on the occasion of Police
+  # Day"), so h1 is REMOVED rather than reordered. This is exactly how a title field probes
+  # GREEN while writing chrome: a matched selector is not a correct one.
+  #
+  # h1 IS KEPT IN THE CHAIN, because which element holds the headline VARIES BY TEMPLATE on
+  # this host — measured on three real captures:
+  #   /en/chronicle/item/2018/…     h1 = the headline          <title> = headline + suffix
+  #   /en/press-release/item/2015/… h1 = the BANNER            <title> = headline + suffix
+  #   /events/statements/eng/?id=16 h1 = absent                <title> = the BANNER
+  # So neither element can be trusted alone. One regex governs the whole chain and does
+  # three jobs at once (each case verified):
+  #   * REJECTS a value that starts with the site name -> `regex_required` treats it as "no
+  #     match", so a banner h1 falls through to <title>, and an all-banner old page ends up
+  #     BLANK for the cleaner's GPT pass rather than storing chrome.
+  #   * STRIPS the " - Section - Updates - The President of the Republic of Armenia [the
+  #     official site]" suffix from <title> via a zero-width lookahead, since the engine
+  #     returns group(0).
+  #   * KEEPS a real headline that merely MENTIONS the site ("Inaugural address by the
+  #     President of the Republic of Armenia his excellency Serzh Sargsyan"), because the
+  #     rejection is anchored to the START, not anywhere in the string.
   selectors: ["h1", "title"]
+  regex: '^(?!The President of the Republic of Armenia\b)[\s\S]+?(?=\s+-\s+[\s\S]*The President of the Republic of Armenia|\s*$)'
+  regex_required: true
 text:
-  selectors: [".news-text", ".static-content", ".news-content", "article"]
+  # `.content` is LAST on purpose: it is the OLD generation's body container (measured at
+  # 3,301 chars on a 2008 statement and 7,322 on a 2008 interview) and must not shadow the
+  # narrower modern containers ahead of it.
+  selectors: [".news-text", ".static-content", ".news-content", "article", ".content"]
 date:
   # New template ".date-cub" ("18 01, 2022") + older ".news-date" ("05.01.2015"),
   # both day-first -> date_languages: [hy].
