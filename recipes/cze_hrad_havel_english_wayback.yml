@@ -16,19 +16,65 @@
 # about twenty-four times. This recipe pins ONE host and ONE prefix; the engine dedupes by
 # exact URL string, which would NOT save us here because every variant is a different string.
 #
-# LANGUAGE: /president/ is the ENGLISH tree and /prezident/ the Czech one (verified by
-# reading the pages, not inferred from the spelling) — so this is native English and needs
-# no translation pass. The `.en` / `.cs` inside the cgi-bin names is the same distinction
-# applied to the converter scripts.
+# ⚠⚠ LANGUAGE — CORRECTED 2026-09-07. THIS TREE IS MOSTLY CZECH. The two paragraphs that
+# used to sit here declared it English and are reproduced at the bottom of this block,
+# struck through, because their confidence is what kept the error alive for a month.
 #
-# ⚠ RE-VERIFIED 2026-08-12 (chunk A4), because the `_uk.html` twins look exactly like a
-# wrong-language bug and are NOT one. Every speech also exists as <DDMM>_uk.html (176
-# captures). "uk" reads like an English marker, so the obvious conclusion is that this
-# English-declared recipe was harvesting the Czech files. IT IS THE OPPOSITE: 1990/0101.html
-# and 1990/0101_uk.html are BOTH English and are the SAME text — "New Year's Address to the
-# Nation", 17,437 vs 17,444 chars. `_uk` is another charset/encoding variant, like the
-# index_uk.html / indexl.html / index_l.html triplets at the tree root. Excluding it is
-# correct and must stay; including it would double every Havel speech.
+# MEASURED on all 324 scraped rows, by stopword ratio (not diacritics — see the mojibake note
+# below, which makes a diacritic test meaningless here):
+#     261 rows CZECH   ("Projev prezidenta CSFR Vaclava Havla k obcanum mesta Komarno…")
+#      63 rows ENGLISH ("New Year's Address to the Nation, Prague, January 1, 1990…")
+# and the split is chronological, which is why a single-year spot check misled:
+#     year   EN  CZ        year   EN  CZ
+#     1990   10  27        1997    5  15
+#     1991    6  17        1998    0  26
+#     1992    6  15        1999    1  30
+#     1993    4  18        2000    0  25
+#     1994   10  17        2001    0  22
+#     1995   14  10        2002    0  24
+#     1996    7  11        2003    0   4
+# From 1998 the site standardised: Czech at <DDMM>.html, English at <DDMM>_uk.html. Before
+# that it published some speeches only in English at the canonical path.
+#
+# `_uk` MEANS ENGLISH. Proven 2026-09-07 by downloading the archived
+# old.hrad.cz/president/Havel/speeches/1999/1999_uk.zip (application/zip) and unpacking it:
+# 24 English speech files, 19 of which match an unmatched Dean_scrape row by 8-word shingle.
+# The English tree is now scraped by the sibling recipe
+# **cze_hrad_havel_uk_english_wayback** (168 documents exist, 165 reachable from one prefix).
+# This recipe keeps `_uk.html` EXCLUDED — but as a NON-OVERLAP rule against that sibling, not
+# because the files are duplicates. The two together are the whole tree.
+#
+# `source_language` is therefore **Czech**: 81% of the rows, and 100% from 1998. The 63
+# English rows already scraped were re-labelled individually on 2026-09-07 with
+# recipe_tools/relabel_language.py, which moved the Czech rows' text/title into the
+# *_originlanguage columns and left the English ones alone (backup:
+# cze_hrad_havel_english_wayback.csv.pre-relabel-*.bak). 62 of those 63 also exist as `_uk`,
+# so the sibling recipe supplies a clean English copy of all but one of them.
+#
+# ⚠ MOJIBAKE, a SEPARATE and still-open defect: **141 of the 261 Czech rows contain U+FFFD
+# replacement characters** ("Projev prezidenta �SFR V�clava Havla"). The 1990s site
+# served the same file through ~24 charset converters, so the Archive holds captures in
+# cp1250, ISO-8859-2, CP852, KOI8-CS, MAC and plain ASCII, and this crawl happened to take
+# ones the engine decoded wrongly. Re-checked 2026-09-07: capture 20040108 of
+# 1999/0101.html is served `charset=us-ascii` and reads cleanly as diacritic-stripped Czech
+# ("Novorocni pozdrav prezidenta republiky Vaclava Havla"). So a `--rescrape` MAY come out
+# clean, but it is capture-dependent and not guaranteed — do not assume it fixes all 141.
+#
+# ⚠ THE source_id STILL SAYS `_english`. Renaming it would move the CSV, the link list and
+# the log files and invalidate the index, so it was left alone deliberately; read the
+# `source_language` field, not the id. The sibling that really is English is
+# cze_hrad_havel_uk_english_wayback.
+#
+# --- SUPERSEDED, kept as a warning about how this happened -------------------------------
+# (was) "LANGUAGE: /president/ is the ENGLISH tree and /prezident/ the Czech one (verified by
+# (was)  reading the pages, not inferred from the spelling) — so this is native English and
+# (was)  needs no translation pass."
+# (was) "⚠ RE-VERIFIED 2026-08-12 … the `_uk.html` twins look exactly like a wrong-language
+# (was)  bug and are NOT one. … IT IS THE OPPOSITE: 1990/0101.html and 1990/0101_uk.html are
+# (was)  BOTH English and are the SAME text … Excluding it is correct and must stay."
+# Both were tested on 1990 — the ONE year where the canonical file genuinely is English about
+# a third of the time. The lesson: a spot check on one year is not a language verification,
+# and a recorded "RE-VERIFIED" stamp is evidence, not proof.
 #
 # RULE 1 AUDIT 2026-08-12 — the other /president/Havel/ sections were SAMPLED and REJECTED,
 # recorded so nobody re-derives them:
@@ -45,7 +91,7 @@
 # the denominator is three other presidents plus Havel's non-speech sections.
 source_id: cze_hrad_havel_english_wayback
 country: Czechia
-source_language: English
+source_language: Czech
 renderer: static
 start_urls:
   # Pinned prefix, one host. CDX normalises www., so www.hrad.cz collapses in here; the
@@ -99,8 +145,21 @@ speaker_default: Václav Havel
 position: president
 date_languages: ["en"]
 notes: >
+  ⚠ LANGUAGE CORRECTED 2026-09-07: this recipe is **CZECH**, not English — see the LANGUAGE
+  block in the header. Measured across all 324 scraped rows: 261 Czech, 63 English, and the
+  split is chronological (from 1998 the site put Czech at <DDMM>.html and English at
+  <DDMM>_uk.html, so 1998-2003 is 100% Czech). The English tree is the sibling recipe
+  cze_hrad_havel_uk_english_wayback, proven by unpacking the archived 1999_uk.zip: 19 of its
+  24 English files match an unmatched Dean_scrape row. The already-scraped rows were
+  re-labelled individually with recipe_tools/relabel_language.py (Czech text moved into the
+  *_originlanguage columns, English rows untouched, .pre-relabel-*.bak kept). ⚠ SEPARATE OPEN
+  DEFECT: 141 of the 261 Czech rows carry U+FFFD mojibake from the site's ~24 charset
+  converters; a --rescrape may or may not land on a cleanly-encoded capture. The source_id
+  still says `_english` because renaming would move the CSV, link list and logs and
+  invalidate the index — read source_language, not the id.
+  --- ORIGINAL NOTE (2026-08-10), whose language claim is the thing being corrected ---
   DRAFT — probe-validated, no full run (gap-closing wave 2, 2026-08-10). Václav Havel's
-  presidency (1990-2003) in native ENGLISH, which nothing in the corpus covers and which is
+  presidency (1990-2003), which is
   129 of Czechia's 325 unmatched audit rows. ~550 captures under the pinned prefix, spanning
   every year 1990-2003 (the per-year capture histogram over all URL variants: 1990 777,
   1999 741, 1995 710, 1994 605, 2000 575, 1997 517, 1991 497, 1992 468, 1998 442, 2001 439,
