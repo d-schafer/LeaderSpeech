@@ -1,0 +1,143 @@
+# Estonia — the PRESIDENCY's 1994-1999 flat-file English archive on president.ee, via the
+# Internet Archive. Lennart Meri.
+#
+# WHY THIS EXISTS — THE EXISTING RECIPE'S NAME LIES ABOUT ITS COVERAGE.
+# `est_president_english_wayback` is pinned to path-segment section names
+#   /en/(official-duties|duties|media|meedia|archives|speeches)/(speeches|statements|
+#        interviews|press[_-]releases|visits)/<id>-<slug>
+# which only exist from 2008 onward, and its 1,562 output rows are effectively 2021-2026
+# (82 dated rows 2021-2026 plus 1,480 with no date at all). Estonia's 166 unmatched corpus
+# rows are 1996-2001 — 1997: 23, 1998: 26, 1999: 33, 2000: 47, 2001: 13 — and NOTHING we
+# hold reaches them. `est_valitsus_english` does cover 1997-2026 but it is the GOVERNMENT;
+# these rows' seed host is president.ee and the text reads as presidential addresses.
+#
+# ⚠️ READ THE SPEAKER COLUMN WITH SUSPICION. The audit lists these rows under Mart Laar (90),
+# Mart Siimann (51) and Tiit Vähi (11) — three PRIME ministers — while the documents are
+# presidential ("My dear fellow Estonians, Your Excellencies!", 24 February, Independence
+# Day). Lennart Meri was President 1992-2001. The cleaner's tenure crosscheck assigns the
+# speaker, so there is deliberately NO speaker_default here.
+#
+# ⚠️⚠️ THE LANGUAGE MARKER IS THE OPPOSITE OF WHAT IT LOOKS LIKE. On this generation the
+# filename's trailing letter is the language, and it is the ESTONIAN abbreviation:
+#     `i` = INGLISE = English        `e` = EESTI = Estonian
+# So `/statemen/090596i.htm` is English and `/est/statemen/261196e.htm` is Estonian. Read
+# both to be sure, because the intuitive reading ("e for English") is exactly wrong and
+# would harvest 558 Estonian pages into an all-English residual:
+#     /statemen/090596i.htm      "Speech by President Lennart Meri in Aavaranta, 9 May 1996
+#                                 — Does culture produce security?"                ENGLISH
+#     /est/statemen/261196e.htm  "Lati, Eesti ja Leedu Presidendi uhine avalik
+#                                 seisukohavott NATO laienemisega seonduva..."     ESTONIAN
+#     /teataja/010995e.htm       "PAIKEST TERVEKS ELUKS! Vabariigi President uueks
+#                                 oppeaastaks Eesti Televisioonis"                 ESTONIAN
+# The first of those is verbatim an unmatched corpus row.
+#
+# WHAT IS TAKEN — the English flat files, ~185 captures of 2,885 English captures on the
+# host 1996-2008 (the rest belong to the two later generations, see below):
+#   /statemen/<DDMMYY>i[N].htm    79   speeches and statements, 1994-1998
+#   /whatnew/<DDMMYY>i[N].htm     81   press notices / diary items, 1996-1999
+#   /statemen/s<DDMMYY>.htm       25   the oldest naming, 1994-1995
+#
+# EXCLUDED AFTER SAMPLING (CLAUDE.md RULE 1 — never dismiss an endpoint unsampled):
+#   /est/**, /et/**, /ru/**, /ger/**        7,884 captures, native or other-language
+#   /teataja/<DDMMYY>e.htm            30    sampled -> Estonian (see above)
+#   /vana/ev<YYYY>/<NN>en.html        58    sampled -> NOT English and not the President's
+#                                           own words: /vana/ev1999/01en.html is a GERMAN
+#                                           congratulatory letter from a foreign head of
+#                                           state ("Herr Staatspraesident! Anlaesslich des
+#                                           Nationalfeiertags der Republik Estland...").
+#                                           The en/et pair here is an item index, not a
+#                                           language flag.
+#   /print.document.html?gid=      2,110    print views of pages taken elsewhere
+#   /en/chronology/?kpv=             347    a by-date diary INDEX, not a document
+#
+# THE TWO LATER ENGLISH GENERATIONS ARE SEPARATE RECIPES, on purpose — different page
+# templates, different date sources, and a single selector chain cannot serve both:
+#   est_president_english_docid_wayback   /eng/e_*.html?DOCUMENT_ID=  ~319 captures, 1999-2001
+#   (not yet authored)                    /eng/**?gid= and /en/**?gid= ~1,738, 2002-2008
+#
+# TEMPLATE, measured on three captures (19970506, 19970714, 19980220): a bare page, no
+# navigation, no sidebar, no footer.
+#   h1     n=1, the clean headline — "The President meets the National Defence Committee",
+#          "The Presidents of the Baltic states had a meeting with US Senator Bob Dole",
+#          "Speech by President Lennart Meri in Aavaranta, 9 May 1996"
+#   title  same string on the <DDMMYY>i files; on the older s<DDMMYY> files h1 is absent
+#          and <title> is a bare label ("Speech 10/12/94") — poor but not chrome, and only
+#          ~27 pages are affected
+#   body   n=1, 1,251-11,613 chars, the whole document
+#
+# ⚠️ ENCODING. The host declares NO charset — no Content-Type charset, no <meta> — and the
+# bytes are windows-1252, so the engine's UTF-8 default produces U+FFFD. Measured:
+#   /statemen/090596i.htm   utf-8 -> 27 U+FFFD   windows-1252 -> 0  ("womb’s", not "womb?s")
+#   /statemen/s101294.htm   utf-8 ->  2 U+FFFD   windows-1252 -> 0  ("Jüri Luik")
+# Mojibake also costs MATCHES: an 8-word shingle spanning a mangled apostrophe cannot match
+# the corpus row, and 090596i.htm IS one of the rows this recipe exists to close.
+source_id: est_president_english_1990s_wayback
+country: Estonia
+source_language: English
+position: president
+renderer: static
+encoding: windows-1252
+
+start_urls:
+  # Both section directories. The listing pages themselves (/statemen/ and /whatnew/) have
+  # exactly these paths and are discarded by wayback.filter_entries_for_recipe, which is
+  # correct — the articles sit one segment deeper, so no truncated prefix is needed here.
+  - president.ee/statemen
+  - president.ee/whatnew
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH, never the host: CDX returns `www.president.ee:80/` forms.
+  # `\d{6}i` is the English file; `s\d{6}` is the 1994-95 naming. A bare `\d{6}e` file is
+  # ESTONIAN and is excluded by construction — see the language block in the header.
+  link_pattern: '(?i)^[^?]*/(?:statemen|whatnew)/(?:s\d{6}|\d{6}i\d*)\.html?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  selectors: ["h1", "title"]
+text:
+  # Bare pages — `body` IS the document. Verified n=1 with no navigation on three captures.
+  selectors: ["body"]
+date:
+  # DDMMYY in the filename, in both namings: `s101294.htm` -> 10 December 1994 and
+  # `090596i.htm` -> 9 May 1996, the latter confirmed by the page's own headline ("in
+  # Aavaranta, 9 May 1996"). The optional leading `s` and trailing `i\d*` let one pattern
+  # serve both. Two-digit years are widened by the engine (69-99 -> 19xx), which is right
+  # for every file here: the range on this host is 94-99.
+  # DD FIRST, not MM: 250696i, 261196e, 210397e and 280996i all carry a first field > 12.
+  url_regex: '/s?(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})i?\d*\.html?$'
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). Estonia's
+  166 unmatched rows are 1996-2001 presidential English and no recipe reaches them:
+  est_president_english_wayback is pinned to /en/<section>/<section>/ path segments that only
+  exist from 2008, and its 1,562 rows are effectively 2021-2026. THE FINDING THAT MATTERS
+  MOST: on this generation the filename's trailing letter is the language in ESTONIAN
+  abbreviation — `i` = inglise = ENGLISH, `e` = eesti = Estonian — the opposite of the
+  intuitive reading, verified by reading one of each. /statemen/090596i.htm is "Speech by
+  President Lennart Meri in Aavaranta, 9 May 1996 - Does culture produce security?", verbatim
+  an unmatched corpus row; /est/statemen/261196e.htm and /teataja/010995e.htm are Estonian.
+  Takes the ~185 English flat-file captures (/statemen/ and /whatnew/, <DDMMYY>i[N].htm plus
+  the 1994-95 s<DDMMYY>.htm naming). Excluded after sampling, not on sight: /vana/ev<YYYY>/
+  <NN>en.html (58 - GERMAN congratulatory letters from foreign heads of state, not the
+  President's words), /teataja/*e.htm (Estonian), /print.document.html?gid= (2,110 print
+  duplicates), /en/chronology/?kpv= (347 - a by-date index). Bare pages with no navigation,
+  so `body` is the text selector and h1 the headline. Date is DDMMYY from the filename, day
+  first (250696i, 280996i and 210397e all carry a first field > 12). `encoding:
+  windows-1252` because the host declares no charset anywhere and the UTF-8 default puts
+  27 U+FFFD into the very page this recipe exists to match. The speaker column of the audit
+  reads Laar/Siimann/Vahi (prime ministers) while the documents are presidential — Lennart
+  Meri, 1992-2001 — so there is no speaker_default and the tenure crosscheck decides.
+  PROBE 2026-09-11 (--spread --n 10): 185 snapshots, 10 of 10 green on title, text and date,
+  article dates 1993-1998. MATCH-CHECKED AGAINST THE CORPUS: /statemen/090596i.htm scores
+  containment 0.999 against unmatched row IAC_53623. The /whatnew/ items sampled are short
+  diary notices and matched nothing, which is expected — they are news items, not speeches,
+  and are taken under RULE 1 for the cleaner's document_type gate to judge. ~185
+  Internet-Archive fetches, well under an hour. FULL RUN is the researcher's gate.

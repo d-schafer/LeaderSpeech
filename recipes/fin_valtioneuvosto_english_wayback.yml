@@ -1,0 +1,146 @@
+# Finland — the PRIME MINISTER'S government, valtioneuvosto.fi English speeches, via the
+# Internet Archive. Jyrki Katainen, Juha Sipilä, Antti Rinne, Sanna Marin, Petteri Orpo.
+#
+# WHY THIS EXISTS — the head-of-GOVERNMENT-under-a-head-of-STATE-seed pattern again, and
+# Finland has NO recipe for the government at all. All four Finnish sources we hold are
+# `presidentti.fi`, the President. But 37 of Finland's 40 unmatched rows are PRIME ministers
+# (Sanna Marin 22, Juha Sipilä 11, Jyrki Katainen) and the text is unmistakable —
+# "Statement by Prime Minister Juha Sipilä at the 60th anniversary of Finland's membership
+# to the United Nations … (Check against delivery)".
+#
+# Measured, the four presidency sources cannot reach them: best 8-word-shingle containment
+# is 0.644 on `fin_presidentti_english_wayback` but only THREE rows clear 0.3 — those are
+# the three Niinistö rows, i.e. the President. Every PM row scores ~0.0.
+#
+# CONFIRMED BY READING. Twelve speech-slugged captures sampled and scored against the 40
+# rows: /en/-/prime-minister-katainen-s-speech-at-the-arctic-cooperation-seminar matches
+# **IAC_54906 (Jyrki Katainen, 2013-12-03) at containment 0.995**. Note the date: the
+# Finnish government migrated its back catalogue onto the current site, so a 2013 speech is
+# served by today's CMS and one recipe covers 2013-2026.
+#
+# ⚠️ SCOPED TO SPEECH SLUGS, AND THAT IS A DELIBERATE, STATED NARROWING. `valtioneuvosto.fi`
+# is the shared portal for the whole Finnish government: the `/en/-/` namespace holds 56,385
+# archived captures and is overwhelmingly MINISTRY press releases ("Finland sends material
+# assistance to help Nepal fight COVID-19", "Amendments to the Aliens Act"). A scan of 12
+# unfiltered captures from it matched nothing. Restricting to slugs containing `speech`,
+# `opening-remarks`, `address-by`, `statement-by` or `remarks-by` takes 241 distinct
+# documents instead of ~20,000, and every one of Finland's unmatched rows is titled with one
+# of those words. COVERAGE RATIO is therefore low BY DESIGN and by content, not by accident:
+# a speech whose slug uses none of those words is out of reach here, and widening the
+# pattern is a one-line change if a later wave wants the ministry stream.
+#
+# ⚠️ THE LANGUAGE IS A QUERY PARAMETER, AND IT IS NOT NOISE. 37,835 captures in this
+# namespace carry `?languageId=`, and on an `/en/` path `?languageId=fi_FI` or `sv_SE`
+# serves FINNISH or SWEDISH. Only the bare form and `?languageId=en_US` are taken. The
+# parameter is then listed in wayback_noise_params so the en_US form collapses onto the bare
+# one instead of being written twice — safe precisely because the non-English forms were
+# already excluded by link_pattern, which runs first.
+#
+# ⚠️ TWO PATH FORMS FOR THE SAME DOCUMENT, and both are needed. Articles appear as
+# `/en/-/<slug>` and as `/en/-/<id>/<slug>`; measured on the speech-slug subset, 126 slugs
+# exist ONLY in the bare form, 66 ONLY under an id, and 49 in both. The engine's identity
+# dedupe normalises scheme, www., port and trailing slash but NOT an extra path segment, so
+# taking both means roughly 49 documents written twice. That is the right trade — a missed
+# document is permanent, a duplicated one is a cleaning-stage problem.
+#
+# MEASURED 2026-09-11. `cdx.py valtioneuvosto.fi/en/-/` = 56,385 captures (the /en prefix
+# hits the 60,000 CDX ceiling), of which 407 are bare-or-en_US speech slugs resolving to 241
+# distinct documents. SIBLING NOT TAKEN: `vnk.fi/en` is the Prime Minister's Office
+# sub-site, 5,540 captures on the same Liferay CMS with only 111 speech slugs, and its
+# articles carry the same slugs as valtioneuvosto.fi — a different HOST, which the identity
+# dedupe does not normalise, so adding it would duplicate rather than extend. Flagged here
+# rather than harvested.
+#
+# TEMPLATE, measured on the Katainen capture:
+#   h1                             n=1  "Prime Minister Katainen's speech at the Arctic
+#                                        cooperation seminar" — clean
+#   <title>                        n=1  the same string, no suffix
+#   .journal-content-article       n=1  9,965 chars: headline, a one-line meta strip
+#                                        ("Government Communications Department 3.12.2013
+#                                        9.15 Speech -") and then the speech
+#   .journal-content-article .date n=2  joining to "Government Communications Department
+#                                        3.12.2013" — the department name and the date are
+#                                        both `.date` elements, which is why a regex pulls
+#                                        the date back out
+#   ⚠️ bare `.date`                n=5  the article's date PLUS four sidebar "latest news"
+#                                        dates ("7.3.2022 15.24 3.3.2022 15.35 …"), joined
+#                                        into one unparseable string. Always scope it.
+#   ⚠️ `time`, `.article-body`          NO MATCH on this CMS.
+#
+# ⚠️ THE DATE IS NUMERIC D.M.YYYY — "3.12.2013" is 3 December 2013, confirmed against the
+# corpus row's own date (IAC_54906 = 2013-12-03). `date_languages` is therefore ["fi"], a
+# day-first locale. An "en" here would read it as 12 March and be silently wrong on roughly
+# 40% of rows.
+source_id: fin_valtioneuvosto_english_wayback
+country: Finland
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # The article namespace. Its own path is /en/-/ which no article equals (every article has
+  # at least one more segment), so nothing is discarded as a listing.
+  - valtioneuvosto.fi/en/-/
+
+listing:
+  link_selector: "a"
+  # Host-anchored so the `(?:\d+/)?` alternative cannot be satisfied by some deeper path.
+  # Bare form or ?languageId=en_US only — see the LANGUAGE block in the header. The slug
+  # must contain a speech word; that is the content scope, stated in the header.
+  link_pattern: '(?i)^https?://(?:www\.)?valtioneuvosto\.fi(?::80)?/en/-/{1,2}(?:\d+/)?[a-z0-9][^/?]*(?:speech|opening-remarks|address-by|statement-by|remarks-by)[^/?]*(?:\?languageId=en_US)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # `(:80)?` is load-bearing — CDX returns the port form for http-era crawls and a filter
+    # without it drops every one of them.
+    - "original:.*valtioneuvosto\\.fi(:80)?/.*"
+  # Safe ONLY because link_pattern has already excluded ?languageId=fi_FI and sv_SE: this
+  # just collapses the en_US form onto the bare one.
+  wayback_noise_params:
+    - languageId
+    - fbclid
+
+title:
+  selectors: ["h1", "title"]
+text:
+  selectors: [".journal-content-article", "#main-content"]
+date:
+  # SCOPED — a bare `.date` matches n=5 and joins four sidebar dates onto the article's own.
+  # The two elements inside .journal-content-article are the department name and the date,
+  # so the regex picks the date out of the join.
+  selectors: [".journal-content-article .date"]
+  regex: '\d{1,2}\.\d{1,2}\.\d{4}'
+  regex_required: true
+# ["fi"], NOT ["en"] — the date is numeric D.M.YYYY and a day-first locale is the only safe
+# reading. See the header.
+date_languages: ["fi"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4, tier 3).
+  Finland's FIRST government recipe: all four existing Finnish sources are presidentti.fi,
+  the President, while 37 of the 40 unmatched rows are PRIME ministers (Marin 22, Sipilä 11,
+  Katainen). Measured, the presidency sources reach only the three Niinistö rows — best
+  containment 0.644 but just 3 rows above 0.3, and every PM row scores ~0.0. CONFIRMED BY
+  READING: /en/-/prime-minister-katainen-s-speech-at-the-arctic-cooperation-seminar matches
+  IAC_54906 (Katainen, 2013-12-03) at containment 0.995 — and note that a 2013 speech is
+  served by today's CMS, because the government migrated its back catalogue, so one recipe
+  covers 2013-2026. SCOPED TO SPEECH SLUGS on purpose: valtioneuvosto.fi is the shared
+  portal for the whole Finnish government and its /en/-/ namespace is 56,385 captures of
+  mostly ministry press releases (an unfiltered 12-capture scan matched nothing), so the
+  pattern requires speech / opening-remarks / address-by / statement-by / remarks-by in the
+  slug, which takes 241 distinct documents instead of ~20,000. THREE TRAPS written into the
+  header: the language is a QUERY PARAMETER and not noise (37,835 captures carry
+  ?languageId=, and fi_FI / sv_SE serve Finnish and Swedish from an /en/ path — only the
+  bare form and en_US are taken, and only then is languageId listed as a noise param); the
+  same document appears at /en/-/<slug> AND /en/-/<id>/<slug> with 126 slugs bare-only, 66
+  id-only and 49 in both, so both forms are taken and ~49 duplicates are accepted; and a
+  bare `.date` matches n=5, joining four sidebar dates onto the article's own. The date is
+  numeric D.M.YYYY so date_languages is ["fi"] — an "en" would read 3.12.2013 as 12 March.
+  vnk.fi/en (the PM's Office sub-site, 5,540 captures, same CMS, same slugs) is FLAGGED NOT
+  HARVESTED: it is a different host, which the identity dedupe does not normalise, so it
+  would duplicate rather than extend. FULL RUN is the researcher's gate.

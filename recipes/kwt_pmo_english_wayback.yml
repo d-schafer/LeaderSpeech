@@ -1,0 +1,159 @@
+# Kuwait — the DIWAN OF THE PRIME MINISTER, pm.gov.kw, English, via the Internet Archive.
+# Sabah Al-Ahmad Al-Jaber Al-Sabah, Nasser Al-Mohammed Al-Ahmed Al-Sabah,
+# Jaber Mubarak Al-Hamad Al-Sabah.
+#
+# THE HIGHEST-YIELDING FIND OF THIS WAVE: NINE of twelve sampled captures match an unmatched
+# corpus row at containment 0.98-1.00. Kuwait has 62 unmatched rows and **0.0% matched** —
+# the worst rate of any country with a scraped source.
+#
+# WHY IT WAS MISSED — WRONG OFFICE, AND THE SEED URL POINTED AT A PORTAL, NOT A SITE. The
+# corpus files all 62 rows under the seed host `https://e.gov.kw/`, which is Kuwait
+# Government Online, a 28,282-capture SharePoint portal that is overwhelmingly Arabic
+# (`/sites/KGOArabic/Pages/ApplicationPages/NewsDetail.aspx?nid=…`) and is nobody's speech
+# archive. Kuwait's two existing recipes (`kwt_diwan`, 1,694 rows; `kwt_diwan_english*`) are
+# the AMIRI Diwan — the head of STATE. But the rows read "The Address of His Highness the
+# **Prime Minister** delivered before His Highness the Amir at the first Cabinet meeting,
+# 13 February 2006", and the Prime Minister has his own Diwan at pm.gov.kw. Measured: the
+# best containment any unmatched row reaches against the three Kuwaiti sources we already
+# hold is 0.070.
+#
+# CONFIRMED BY READING, nine times over. Twelve `pm_speeches_*.asp` captures sampled and
+# scored against the 62 rows:
+#   pm_speeches_18_7_06.asp  1.000  IAC_86736   pm_speeches_2_4_07.asp   1.000  IAC_86762
+#   pm_speeches_26_6_08.asp  1.000  IAC_86753   pm_speeches_30_6_07.asp  1.000  IAC_86768
+#   pm_speeches_28_5_08.asp  1.000  IAC_86758   pm_speeches_12_1_09_2.asp 1.000 IAC_86719
+#   pm_speeches_18_3_10.asp  1.000  IAC_86735   pm_speeches_20_9_10.asp  1.000  IAC_86741
+#   pm_speeches_16_5_06.asp  0.982  IAC_86730
+# And the very first unmatched row — the 13 February 2006 Cabinet address — has its file
+# sitting right there in the capture list as `pm_speeches_13_2_06.asp`.
+#
+# MEASURED 2026-09-11. `cdx.py pm.gov.kw --match host` = 1,445 captures, 2006-2026. The
+# ENGLISH families, all taken (CLAUDE.md RULE 1):
+#   ~60  /pm_speeches_<D>_<M>_<YY>.asp        the 2006-2010 flat files. THE LANGUAGE IS THE
+#                                             DIRECTORY: the root copy is English, /ar/ is
+#                                             Arabic (31 captures) and /fr/ is French (24).
+#                                             Filenames come in three spellings —
+#                                             13_2_06, 13_2b_06, 10_April_06 — and one
+#                                             carries a sequence suffix (12_1_09_2).
+#    53  /news-releases-details.aspx?<slug>   the 2011- CMS. Again the language is in the
+#                                             FILENAME: -ar (28) and -fr (16) are excluded
+#                                             by requiring `.aspx` immediately.
+#    11  /speeches-details.aspx?<slug>        same CMS, the speeches stream
+#     9  /media-details-en.aspx?id=&code=
+#    39  /en/mediaroom/newsroom.jsp?kcp=      the 2008-2012 JSP generation
+# EXCLUDED: everything under /ar/ and /fr/ and every -ar/-fr filename (Arabic and French
+# twins, ~180 captures), photo-gallery*.aspx and media-list-ar.aspx (galleries and
+# listings), news-releases.aspx?category=&page= (the paginated index) and the /images/ tree.
+# COVERAGE RATIO: ~172 of ~172 English article captures = 100%.
+# The /en/mediaroom/newsroom.jsp family is the one part taken UNSAMPLED, on RULE 1's
+# "err toward including" — it is 39 captures and the cleaner's gate is the cheap filter.
+#
+# TWO TEMPLATES, and neither has a usable title or date ELEMENT — both are read out of the
+# body text, which is why the regexes below look heavy:
+#   2006-2010 .asp        A bare table page. `body` n=1, 2,724-14,583 chars, laid out
+#                         "Select Your Language / Arabic / English / Français <HEADLINE>
+#                         <DATE> <speech>". `h1` does not exist; `<title>` is the banner
+#                         "Diwan of His Highness The Prime Minister" on every page; `td`
+#                         matches n=81 and joins the page four times over.
+#   2011- .aspx           `article.speeach_dtls` (their spelling) n=1, 2,781 chars,
+#                         headline + body. `h1` is the banner "His Highness the Prime
+#                         Minister"; `<title>` is "Diwan OF His Highness The Prime
+#                         Minister". `.news-details`, `.content`, `.details`: no match.
+#
+# ⚠️ THE DATE APPEARS IN BOTH ORDERS. Measured across four captures: "18 July 2006",
+# "10 April 2006", "March 18th 2010" and "September  20th, 2010". The regex accepts
+# day-then-month and month-then-day, an optional ordinal suffix, an optional comma and
+# doubled spaces. It is a month NAME in every case, so there is no DD/MM inversion risk.
+# The title is then taken as the line immediately BEFORE that date — the same anchoring
+# idiom as est_president_english_docid_wayback, and for the same reason: there is no
+# element to select. Tested on four captures spanning 2006-2010: 4/4 correct.
+#
+# ⚠️ NO `encoding:` OVERRIDE IS NEEDED, and that was checked rather than assumed. The pages
+# send no Content-Type charset but DO declare `<meta charset=windows-1256>`, which
+# fetch.decode_html reads; under it "Français" and "عربي" both render correctly, while a
+# UTF-8 default would produce 5 U+FFFD per page.
+source_id: kwt_pmo_english_wayback
+country: Kuwait
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # The host root: the two CMS generations sit at different paths and the language is
+  # encoded in the directory (/ar/, /fr/) or the filename (-ar, -fr), so one prefix plus a
+  # discriminating link_pattern is cleaner than listing five section URLs. The root's own
+  # path is "/", the only capture the listing filter discards.
+  - pm.gov.kw/
+
+listing:
+  link_selector: "a"
+  # ⚠️ HOST-ANCHORED, because the rule to express is "at the ROOT of the host" — the
+  # /ar/ and /fr/ twins of pm_speeches_*.asp must NOT match, and a leading `[^?]*` would
+  # let them through by absorbing the language directory.
+  # `.aspx` immediately after the stem is what excludes news-releases-details-ar.aspx and
+  # -fr.aspx.
+  link_pattern: '(?i)^https?://(?:www\.)?pm\.gov\.kw(?::80)?/(?:pm_speeches_[0-9a-z_]+\.asp$|(?:speeches-details|news-releases-details)\.aspx\?\S+|media-details-en\.aspx\?\S*\bid=\d+|en/mediaroom/newsroom\.jsp\?\S*\bkcp=)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # ⚠️ `(:80)?` IS LOAD-BEARING. CDX returns `pm.gov.kw:80/…` for everything crawled over
+    # http, so a filter spelled `pm\.gov\.kw/` silently drops every one of those captures —
+    # the first probe of this recipe returned 99 snapshots instead of ~172 for exactly that
+    # reason. Same trap as anchoring a link_pattern on the host.
+    - "original:.*pm\\.gov\\.kw(:80)?/.*"
+
+title:
+  # No title element exists on either template — see the header. The headline is the line
+  # immediately before the printed date, so it is taken by anchoring a zero-width lookahead
+  # on that date; the engine returns group(0), which is the headline itself. On the older
+  # template `article.speeach_dtls` does not exist and the chain falls through to `body`.
+  # A capture with no printed date yields no title rather than a wrong one.
+  selectors: ["article.speeach_dtls", "body"]
+  regex: '[^\r\n]{10,300}(?=\s*(?:\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)|(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\s+\d{1,2}(?:st|nd|rd|th)?)\s*,?\s*\d{4})'
+  regex_required: true
+text:
+  selectors: ["article.speeach_dtls", ".speeach_dtls", "body"]
+date:
+  selectors: ["article.speeach_dtls", "body"]
+  regex: '(?:\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)|(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\s+\d{1,2}(?:st|nd|rd|th)?)\s*,?\s*\d{4}'
+  regex_required: true
+  # Structural fallback for the flat files whose page date failed to render. DAY FIRST —
+  # pm_speeches_18_7_06.asp is 18 July 2006 and pm_speeches_20_9_10.asp is 20 September
+  # 2010, both confirmed against the printed date on the page itself. The optional letter
+  # covers 13_2b_06; the month-name filenames (10_April_06) simply do not match here and
+  # rely on the page date, which they all carry.
+  url_regex: '/pm_speeches_(?P<day>\d{1,2})_(?P<month>\d{1,2})[a-z]?_(?P<year>\d{2})'
+# Month NAMES throughout — no numeric DD/MM anywhere on this host, so an English locale is
+# safe here.
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). THE
+  HIGHEST-YIELDING FIND OF THE WAVE: nine of twelve sampled captures match an unmatched row
+  at containment 0.98-1.00, against a country that was 0.0% matched with 62 rows open. The
+  cause of the miss was the usual one in this audit plus a red herring: the speaker is the
+  head of GOVERNMENT (the Prime Minister's own Diwan, pm.gov.kw) while Kuwait's two existing
+  recipes are the AMIRI Diwan, the head of STATE, and the corpus's seed host e.gov.kw is a
+  28,282-capture SharePoint portal that is overwhelmingly Arabic and is nobody's speech
+  archive. Best containment against the three sources already held: 0.070. The very first
+  unmatched row, the 13 February 2006 Cabinet address, is sitting in the capture list as
+  pm_speeches_13_2_06.asp. Five English families taken, ~172 captures and a 100% coverage
+  ratio: the 2006-2010 flat files /pm_speeches_<D>_<M>_<YY>.asp (where THE LANGUAGE IS THE
+  DIRECTORY — the root copy is English, /ar/ and /fr/ are the twins), plus
+  speeches-details.aspx, news-releases-details.aspx, media-details-en.aspx and
+  /en/mediaroom/newsroom.jsp from the later CMS (where the language is in the FILENAME, so
+  requiring `.aspx` immediately is what excludes -ar and -fr). Neither template has a usable
+  title or date ELEMENT — h1 and <title> are the site banner on both, `td` matches n=81 on
+  the old one — so both fields are read out of the body text by anchoring on the printed
+  date, which appears in BOTH orders ("18 July 2006" and "March 18th 2010", also
+  "September  20th, 2010") and is handled by one regex; tested 4/4 across 2006-2010. A
+  day-first url_regex on the filename is the date fallback, confirmed against the printed
+  dates. No encoding override is needed and that was checked: the pages send no
+  Content-Type charset but declare <meta charset=windows-1256>, which decode_html reads.
+  ~172 Internet-Archive fetches, well under an hour — the best rows-per-fetch on the board.
+  FULL RUN is the researcher's gate.

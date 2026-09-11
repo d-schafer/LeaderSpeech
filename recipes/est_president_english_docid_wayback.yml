@@ -1,0 +1,142 @@
+# Estonia — the PRESIDENCY's 1999-2001 `?DOCUMENT_ID=` English generation on president.ee,
+# via the Internet Archive. Lennart Meri, into Arnold Rüütel.
+#
+# SIBLING OF est_president_english_1990s_wayback, and deliberately a separate recipe: this
+# generation is a database-backed page with a completely different template (the headline
+# lives in a <b>, the date is an ISO string in the body, and <title> is the site banner on
+# every page), so one selector chain cannot serve both. Read that recipe's header for the
+# full account of why Estonia's 166 unmatched rows exist at all — in short,
+# `est_president_english_wayback` is pinned to /en/<section>/<section>/ path segments that
+# only exist from 2008, and its 1,562 rows are effectively 2021-2026.
+#
+# WHAT IS TAKEN — 320 article captures, the whole `?DOCUMENT_ID=` / `?INTERVIEW_ID=` space:
+#   /eng/e_speeches.html?DOCUMENT_ID=<N>     258
+#   /eng/e_press.html?DOCUMENT_ID=<N>         30
+#   /eng/e_statements.html?DOCUMENT_ID=<N>    12
+#   /eng/e_domestic.html?DOCUMENT_ID=<N>       5   domestic visits
+#   /eng/e_abroad.html?DOCUMENT_ID=<N>         5   foreign visits
+#   /eng/e_interviews.html?INTERVIEW_ID=<N>    5
+#   /eng/e_intervjuud.html?INTERVIEW_ID=<N>    4   the same section under its Estonian name,
+#                                                  running alongside the English spelling
+#   /eng/e_intervjuu.html?INTERVIEW_ID=<N>     1
+# Every speech-bearing section is taken, not just "speeches" (CLAUDE.md RULE 1).
+#
+# EXCLUDED: the search/listing forms of the very same files — `?DATE=&SEARCH=&ACTION=` (13),
+# `?ACTION=&SEARCH=` (5), `?DATE=` (3). They carry no document. Requiring an ID in the
+# pattern is what separates them; there is no other parameter to strip, so no
+# wayback_noise_params are needed (checked: no capture carries DOCUMENT_ID alongside
+# anything else).
+#
+# ⚠️ TRUNCATED START_URL, ON PURPOSE — "president.ee/eng/e_", not "…/eng/e_speeches.html".
+# This generation is QUERY-ADDRESSED: all 258 speeches share the single path
+# /eng/e_speeches.html, and `wayback.filter_entries_for_recipe` discards any capture whose
+# PATH equals a start_url path (that is how it throws away the paginated index). Spelling
+# the prefix in full would silently drop every article with no error — the failure that cost
+# can_pmo_eng_wayback 4,366 documents. Cutting it back to the shared `e_` stem also has the
+# happy side effect of covering all eight section files in one prefix.
+#
+# ⚠️ ARTICLE DATES RUN EARLIER THAN THE CAPTURE DATES. CDX reports this prefix as 1999: 7,
+# 2000: 239, 2001: 20 — but DOCUMENT_ID=2140, captured 2000-10-29, is dated 1998-09-01 ("On
+# the First Day of School 1998"). The ids are not chronological either (2140 is 1998,
+# 3875 is 1999). So this generation reaches back into Estonia's 1997-1999 gap even though
+# the Archive only started crawling it in 1999, and it must NOT be bounded by capture date.
+#
+# TEMPLATE, measured on two captures (DOCUMENT_ID=2140 @20001029, =3875 @20001022) — a bare
+# table page, no navigation:
+#   b      n=2 -> "<Section>\n<Headline>", e.g. "Speeches\nOn the First Day of School 1998"
+#          and "Speeches\n''Will the small endure?'' -- Lecture at the University of
+#          Helsinki, October 21, 1999". The title regex below keeps the SECOND line.
+#   p      n=3, the speech alone (4,648 and 22,301 chars) — cleaner than body, which also
+#          carries the section word, the headline and the date.
+#   body   n=1, 4,700 / 22,407 chars, laid out "<Section> <Headline> <YYYY-MM-DD> <speech>"
+#   title  "THE PRESIDENT OF ESTONIA" — the site banner on EVERY page. Never used.
+source_id: est_president_english_docid_wayback
+country: Estonia
+source_language: English
+position: president
+renderer: static
+# The header declares iso-8859-1, which decode_html would trust. windows-1252 is a strict
+# improvement on the same bytes: it differs only in the 0x80-0x9F range, where iso-8859-1
+# yields invisible C1 control characters and windows-1252 yields the curly quotes and
+# dashes these pages actually contain. The sibling 1990s recipe needs the same override for
+# a stronger reason (that generation declares no charset at all and scores 27 U+FFFD on a
+# page this audit needs to match).
+encoding: windows-1252
+
+start_urls:
+  - president.ee/eng/e_
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH (CDX returns `www.president.ee:80/` forms). An ID parameter is
+  # required, which is what excludes the ?DATE=&SEARCH=&ACTION= listing forms of the same
+  # files. Upper-case is exact — these are the literal parameter names.
+  link_pattern: '^[^?]*/eng/e_[a-z_]+\.html\?(?:\S*&)?(?:DOCUMENT_ID|INTERVIEW_ID)=\d+'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # The headline is the line immediately before the ISO date, so it is taken from the body
+  # by anchoring on that date. The engine returns group(0), so the lookahead is zero-width
+  # and the matched run IS the headline.
+  #
+  # ⚠️ WHY NOT `b`. The headline is the SECOND <b> on the page (the first is the section
+  # word, "Speeches" / "Press releases" / "Statements"), and the obvious selector chain
+  # `selectors: ["b"]` + `regex: '(?<=\n)[^\n]+'` LOOKS right and silently yields an empty
+  # title. `first_match` joins matching elements with "\n", but these elements carry their
+  # own CRLF padding — the first <b> reads literally '\r\n\r\nSpeeches\r\n\r\n' — so the
+  # first position preceded by "\n" is a lone '\r', `[^\n]+` matches that one character,
+  # and clean_text then strips it to "". Measured, not guessed. Any lookbehind-on-"\n"
+  # idiom is unsafe against 1990s CRLF markup; anchor on real content instead.
+  #
+  # `<title>` is NOT in the chain: it is "THE PRESIDENT OF ESTONIA" on every page here.
+  selectors: ["body"]
+  regex: '[^\r\n]{5,300}(?=\s*\d{4}-\d{2}-\d{2})'
+  regex_required: true
+text:
+  # `p` is the speech alone; `body` is the fallback and additionally carries the section
+  # word, headline and date at the front.
+  selectors: ["p", "body"]
+date:
+  # The page prints an unambiguous ISO date immediately after the headline. Taken from the
+  # whole body with a regex rather than from an element, because there is no element to
+  # take it from — this is a table-layout page with no classes and no ids. The header date
+  # is the first ISO-formatted string on the page (character ~40 of 4,700), and an English
+  # speech is vanishingly unlikely to contain an earlier YYYY-MM-DD. regex_required means a
+  # page without one is left BLANK rather than dated from somewhere else.
+  selectors: ["body"]
+  regex: '\d{4}-\d{2}-\d{2}'
+  regex_required: true
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). The second
+  of Estonia's three pre-2010 English generations on president.ee, and the one that covers
+  the thickest part of the 166-row gap (1999: 33, 2000: 47, 2001: 13). 320 article captures
+  across eight section files, all addressed by ?DOCUMENT_ID= or ?INTERVIEW_ID=; the
+  ?DATE=&SEARCH=&ACTION= forms of the same files are the search UI and are excluded by
+  requiring an id. Authored as a SEPARATE recipe from est_president_english_1990s_wayback
+  because the template is different in every field: the headline is the second <b> (the
+  first is the section word), the body is in <p>, the date is a bare ISO string in the body,
+  and <title> is the site banner "THE PRESIDENT OF ESTONIA" on every page. TWO TRAPS written
+  into the header: the start_url is TRUNCATED to /eng/e_ because this generation is
+  query-addressed and spelling the path in full makes wayback.filter_entries_for_recipe
+  discard every article as a listing page; and the article dates run EARLIER than the
+  capture dates (DOCUMENT_ID=2140, captured 2000-10-29, is dated 1998-09-01), so this
+  must not be bounded by wayback_from/to. Ids are not chronological. PROBE 2026-09-11
+  (--spread --n 10): 321 snapshots, article dates 1996-2001 — exactly the gap — and 8 of 10
+  sampled pages green on all three fields. The two that were not: one dead e_press capture,
+  and e_statements, whose template omits the ISO date line, so those ~12 captures get text
+  only and fall back to wayback_capture for the date and a blank title. That is deliberate:
+  no other date on the page is trustworthy. MATCH-CHECKED AGAINST THE CORPUS, not just
+  probed — three of four sampled captures score containment 1.000 against an unmatched row
+  (DOCUMENT_ID=3875 "Will the small endure?" Helsinki 1999, =2695 Victory Day in Voru 1997,
+  =4471 Washington June 2000). Note those rows are filed in the audit under Mart Laar and
+  Mart Siimann, who were prime ministers; the documents are President Lennart Meri's, which
+  is why there is no speaker_default. ~320 Internet-Archive fetches, under an hour.
+  FULL RUN is the researcher's gate.

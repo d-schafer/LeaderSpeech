@@ -1,0 +1,150 @@
+# Trinidad and Tobago — the Office of the Prime Minister at opm.gov.tt, via the Internet
+# Archive. Keith Rowley, Kamla Persad-Bissessar, Patrick Manning.
+#
+# WHY THIS EXISTS — THE SAME OFFICE ON A DIFFERENT DOMAIN. Trinidad already has two recipes,
+# `tto_otp` (live, 869 rows) and `tto_otp_wayback`, and both point at **otp.tt**. The
+# Office of the Prime Minister also ran, and still runs, **opm.gov.tt** — a separate domain
+# with its own content and its own archive, which no recipe has ever touched.
+#
+# AND `tto_otp_wayback` IS NOT BROKEN, WHICH IS WHY THIS LOOKED LIKE A DEAD END. Its CSV has
+# four rows, and a reasonable reading of that is "the recipe failed". It did not: its run log
+# says "harvested 850 archived capture(s); 4 to scrape (896 done…)" — 846 of the 850 were
+# already in data/state/Trinidad and Tobago.json because the LIVE sibling had fetched the
+# same URLs, and the engine's identity dedupe skipped them. otp.tt is exhausted: 1,083
+# captures on the whole host, 836 of them root slugs, essentially all already held.
+#
+# CONFIRMED BY READING. Ten opm.gov.tt captures sampled and scored against the 61 unmatched
+# rows: /opening-of-the-new-meteorological-facility-tobago/ scores containment **0.947**
+# against IAC_119938 (Keith Rowley, 2017). One hit in ten is the rate to expect for 61 rows
+# against 974 candidate URLs.
+#
+# MEASURED 2026-09-11. `cdx.py opm.gov.tt --match host` = 3,342 captures, 2000-2026. Two
+# article generations:
+#   974  /<slug>/                            WordPress, Rowley era
+#   197  /news/index.php?pid=<N>&nid=<YYYYMMDD>   the 2004-2012 generation, Manning and
+#                                            Persad-Bissessar. `nid` IS the publication
+#                                            date, which makes the date structural.
+# EXCLUDED: 206 `&print=1` twins of that second family (print-view duplicates of pages
+# already taken), 410 `/?p=<n>` id forms of the WordPress posts, 194+33 `gallery.php`,
+# 128 /tag/, 98 /category/…/page/N/, 111 /<slug>/opm_<n>/ image attachments, 57
+# /<slug>/page/N/ and 58 /author/<slug>/page/N/. Every one of those is either two path
+# segments deep, carries a query string, or contains an underscore, so the pattern excludes
+# them structurally rather than by denylist.
+# COVERAGE RATIO: 1,171 of the 1,171 article captures on the host = 100%.
+#
+# ⚠️ DO NOT STRIP `pid`. It is tempting to treat it as a listing parameter, but `nid` is a
+# DATE (nid=20040420), not a document id, so two different sections could legitimately share
+# one nid on the same day. Merging them would silently drop a document. `pid` stays.
+#
+# TWO TEMPLATES, and the selector chains are disjoint by construction:
+#   WordPress (2015- )   .content         n=1  2,940 chars, headline + body
+#                        .post-content .date  n=1  "10 JAN 2017"
+#                        ⚠️ bare `.date`  n=8 — the article date PLUS seven sidebar
+#                            "recent posts" dates, joined into one unparseable string
+#                        ⚠️ bare `.title` n=7 — the same sidebar
+#                        ⚠️ h1, .entry-content, .entry-title, time: NO MATCH at all
+#                        <title> is "Office of The Prime Minister - Republic of Trinidad
+#                            and Tobago | <headline>" — site name FIRST, headline after the
+#                            pipe, which is why the title regex has a post-pipe branch
+#   2004-2012 table CMS  #mainContent     n=1  14,729 chars (includes a breadcrumb line)
+#                        #releaseTitle    n=1  "Prime Minister The Honourable Patrick
+#                            Manning Opening Address 'Sixth Western Hemisphere Energy
+#                            Ministers Conference' Tobago Hilton"
+#                        .frDate          n=2 joining to one value, "April 20 2004"
+#                        <title> is the bare banner "Office of the Prime Minister of
+#                            Trinidad and Tobago - NEWS" and must be rejected
+# `.content` is a CLASS on the WordPress template and `#content` is an ID on the old one, so
+# the two never collide.
+#
+# FOLLOW-UP for the researcher, not changed here: `tto_otp_wayback.yml` and `tto_otp.yml`
+# declare `position: president`, but otp.tt is the Office of the Prime **Minister**. It is a
+# metadata error in a sibling recipe and is left alone so this wave's diff stays auditable.
+source_id: tto_opm_gov_wayback
+country: Trinidad and Tobago
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # The host root reaches both generations as a CDX prefix, and its own path is "/", which
+  # is the only capture wayback.filter_entries_for_recipe discards. No truncation needed —
+  # the query-addressed second generation lives at /news/index.php, a path this start_url
+  # does not equal.
+  - opm.gov.tt/
+
+listing:
+  link_selector: "a"
+  # ⚠️ ANCHORED ON THE HOST, NOT WITH A LEADING `[^?]*`. This is a ROOT-SLUG site, so the
+  # rule to express is "exactly one path segment" — and a leading `[^?]*` cannot express it:
+  # it happily absorbs earlier segments, so `/tag/justin-trudeau/` matched on the first
+  # probe (caught 2026-09-11, 1 of 10 sampled pages was a tag listing with no body). Naming
+  # the host is the only way to pin the segment to the root. `(?::80)?` because CDX returns
+  # the port form, and `(?:www\.)?` because it returns both.
+  # Branch 1: a single root slug of 12+ characters, hyphens only — no underscores, which is
+  # what excludes the /opm_1234/ attachment pages — ending at `$` so the ?p= and
+  # gallery.php query forms are dropped.
+  # Branch 2: the 2004-2012 news CMS, addressed by nid, with the print twins excluded.
+  link_pattern: '(?i)^https?://(?:www\.)?opm\.gov\.tt(?::80)?/(?:[a-z0-9][a-z0-9-]{11,}/?$|news/index\.php\?(?![^"]*print=)(?=[^"]*\bnid=\d{8})[^"]*)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # `(:80)?` is load-bearing: CDX returns `opm.gov.tt:80/…` for everything crawled over
+    # http, and a filter spelled without it silently drops all of them — which matters here
+    # because the whole 2004-2012 news generation was crawled in that era.
+    - "original:.*opm\\.gov\\.tt(:80)?/.*"
+
+title:
+  # #releaseTitle is the old template's headline; <title> carries the WordPress one after a
+  # pipe. The regex has one branch for each: the first accepts any value that does NOT open
+  # with the site name (so #releaseTitle passes whole), the second takes what follows
+  # " | " (so the WordPress <title> yields the headline alone). A capture that satisfies
+  # neither — the old template's bare banner — fails regex_required and falls through to
+  # url_regex.
+  selectors: ["#releaseTitle", "title"]
+  regex: '^(?!\s*Office of [Tt]he Prime Minister).+|(?<=\| ).+'
+  regex_required: true
+  # Last resort: the WordPress slug. The old generation's URL carries only ids, so those
+  # pages end up with a blank title and the cleaner derives one from the text.
+  url_regex: '/([a-z0-9][a-z0-9-]{11,})/?$'
+text:
+  selectors: [".content", "#mainContent"]
+date:
+  # Scoped to .post-content on the WordPress template — a bare `.date` matches n=8 and joins
+  # seven sidebar dates onto the article's own. `.frDate` is the old template's.
+  selectors: [".post-content .date", ".frDate"]
+  # Structural fallback for the old generation: nid IS the publication date.
+  url_regex: 'nid=(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})'
+# "10 JAN 2017" and "April 20 2004" — month NAMES on both templates, never numeric DD/MM,
+# so the day/month inversion trap does not apply.
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). The same
+  office on a DIFFERENT DOMAIN: Trinidad's two existing recipes both point at otp.tt, while
+  the Office of the Prime Minister also runs opm.gov.tt, which no recipe had touched.
+  Important negative recorded alongside it: tto_otp_wayback's four-row CSV is NOT a failure —
+  its log reads "harvested 850 archived capture(s); 4 to scrape (896 done…)", i.e. 846 were
+  already held by the live sibling and correctly skipped by the identity dedupe, and otp.tt
+  is exhausted at 1,083 host captures. CONFIRMED BY READING: of ten opm.gov.tt captures
+  sampled and scored against the 61 unmatched rows, /opening-of-the-new-meteorological-
+  facility-tobago/ matches IAC_119938 (Rowley, 2017) at containment 0.947. Two article
+  generations, 1,171 captures and a 100% coverage ratio: 974 WordPress root slugs (Rowley
+  era) and 197 /news/index.php?pid=&nid=<YYYYMMDD> pages from 2004-2012 (Manning,
+  Persad-Bissessar), where nid IS the date and so gives a structural date. Excluded: 206
+  &print=1 twins, 410 /?p= id forms, 227 gallery.php, 128 /tag/, 111 /<slug>/opm_<n>/ image
+  attachments and the category/author/page listings — all excluded structurally (two
+  segments deep, a query string, or an underscore) rather than by denylist. `pid` is
+  deliberately NOT treated as a noise parameter: nid is a date, not a document id, so two
+  sections could share one. Selector traps recorded: on the WordPress template a bare
+  `.date` matches n=8 and a bare `.title` n=7 — both are the sidebar — while h1,
+  .entry-content, .entry-title and time match nothing at all; and <title> puts the site name
+  BEFORE the headline, so the title regex has a post-pipe branch and a reject branch for the
+  old template's bare banner. PROBE 2026-09-11: 1,070 snapshots (1,311 before the link_pattern fix, which removed 241
+  listing pages), 8/8 green on title and text. ~1,070 Internet-Archive fetches, about 2.6 h. Also noted, not
+  changed: tto_otp.yml and tto_otp_wayback.yml declare position: president for an office
+  that is the Prime Minister's. FULL RUN is the researcher's gate.

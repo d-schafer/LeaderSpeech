@@ -1,0 +1,156 @@
+# Hungary — the FROZEN CYCLE-ARCHIVE subdomain 2015-2019.kormany.hu, English tree,
+# via the Internet Archive. Viktor Orbán.
+#
+# WHY THIS EXISTS — HUNGARY ARCHIVES EACH GOVERNMENT CYCLE ON ITS OWN SUBDOMAIN, and no
+# recipe has ever targeted one. Hungary has 156 unmatched rows, all Viktor Orbán, and NINE
+# scraped Hungarian sources between them cannot reach any of them. Measured 8-word-shingle
+# containment, best row against each:
+#   hun_kormany_english_wayback           1,125 rows   0.204
+#   hun_abouthungary_wayback             17,149 rows   0.163
+#   hun_miniszterelnok_english_wayback    2,406 rows   0.014
+#   hun_sandorpalota_english_wayback        693 rows   0.013
+#   hun_kormany_english_gov_wayback       4,391 rows   0.011
+#   (+ 4 more, all below 0.01)            — and NO row anywhere exceeds 0.3.
+#
+# THE FOUR OBVIOUS LEADS WERE ALL CHECKED AND ALL FAILED, so they are recorded here to stop
+# the next session re-deriving them:
+#   * miniszterelnok.hu/en   24,285 captures but effectively 2023 ONWARD — one capture each
+#                            in 2010/2014/2016/2020/2022, then 579 in 2023 and 18,455 in
+#                            2026. Matches its scraped CSV (2022-2026). Cannot hold 2016-2022.
+#   * 2015-2022.kormany.hu   NO CAPTURES. The subdomain does not exist.
+#   * 2018-2022.kormany.hu   NO CAPTURES.
+#   * orbanviktor.hu/en      ONE capture, 2007. Orbán's personal site has no archived
+#                            English tree.
+#   * abouthungary.hu        LIVE SITE IS DOWN as of 2026-09-11 — returns 688 bytes and
+#                            "A weboldal szerkesztés alatt" (site under construction) — so a
+#                            live sibling to hun_abouthungary_wayback is not available now.
+#                            Its archived speeches-and-remarks section is already scraped
+#                            (911 of this corpus's rows come from it).
+#   * kormany.hu/en/the-prime-minister  1,323 captures total, of which hun_kormany_english_
+#                            wayback already harvested 1,145 (87%). Nearly exhausted.
+#
+# CONFIRMED BY READING. Twenty captures under /the-prime-minister-s-speeches/ were sampled,
+# extracted through the selectors below and scored against the 156 unmatched rows. TWO score
+# containment **1.000**:
+#   …/prime-minister-viktor-orban-s-speech-at-the-1st-iranian-hungarian-business-forum
+#       = IAC_61003 (Orbán, 2015)
+#   …/…-the-financial-summit-of-the-asia-financial-cooperation-association-afca
+#       = IAC_61036 (Orbán, 2017)
+# Two in twenty is what the arithmetic predicts (98 in-range rows against 428 candidate
+# URLs), so the host is right.
+#
+# ⚠️ THE SUBDOMAIN'S NAME UNDERSTATES ITS RANGE. It is called 2015-2019 but it holds 2020
+# content — e.g. …/viktor-orban-on-the-kossuth-radio-programme-good-morning-hungary-20200320.
+# Against Hungary's residual by year (2015: 2, 2016: 12, 2017: 16, 2018: 29, 2019: 29,
+# 2020: 10) that is 98 of the 156 rows inside this recipe's reach. THE REMAINING 58 —
+# 2011: 6, 2012: 1, 2021: 30, 2022: 21 — are NOT closed by this recipe and are an open
+# follow-up: 2010-2014.kormany.hu exists (60,000+ captures, untested against the corpus) and
+# would cover the 2011-2012 pair, while nothing found so far reaches 2021-2022.
+#
+# MEASURED 2026-09-11. `cdx.py 2015-2019.kormany.hu/en` = 1,505 captures. Sections:
+#   246  the-prime-minister/the-prime-minister-s-speeches/    <- the speeches
+#    76  the-prime-minister/news/
+#    42  prime-minister-s-office/news/
+#    38  cabinet-office-of-the-prime-minister/news/
+#    26  government-spokesperson/news/
+#   ---  428 taken by this recipe
+#   127  ministry-for-national-economy/hungarian-outlook/   111 mofa/news/   103 agriculture
+#   100  innovation-and-technology/news/  71 national-economy/news/  37 justice  25 interior
+#    21  defence/news/  20 human-resources/news/            <- ~615 ministry articles
+#    56  the-prime-minister/photo-galleries/  7 video-gelleries/  ~88 other galleries/contacts
+#
+# ⚠️ COVERAGE RATIO 428 of ~1,043 article captures = 41%, AND THAT IS A DELIBERATE, STATED
+# NARROWING (CLAUDE.md RULE 1 asks for the number and the reason, so here they are). The
+# ~615 ministry streams are excluded not because they are uninteresting but because they are
+# **duplicates of pages already taken**: hun_kormany_english_gov_wayback exists precisely to
+# harvest "every ministry/office /news/ stream" from the canonical host kormany.hu/en and
+# holds 4,391 rows spanning 2010-2020 — the same documents under the same paths, differing
+# only in the subdomain. The engine's identity dedupe normalises scheme, www. and port but
+# NOT the host, so taking them here would write each one a second time. Every unmatched row
+# is Orbán, so the leader-bearing sections are what this wave needs. If a later wave wants
+# the ministry half, widen `link_pattern`'s first alternation to any office segment and
+# expect ~615 more fetches and a duplicate rate.
+# Galleries and /contacts are the standing RULE 1 exclusions (151 captures).
+#
+# TEMPLATE, measured on …/speech-of-viktor-orban-at-the-congress-of-the-european-people-s-party:
+#   .article-head h1  n=1  "Speech of Viktor Orbán at the congress of the European People's Party"
+#   .article-head h4  n=1  "November 8, 2018 6:28 PM"
+#   .article-content  n=1  4,831 chars, the speech alone, opening with its dateline
+#                          ("Helsinki, 8th November 2018 Distinguished President, dear Friends,")
+#   ⚠️ bare `h1`      n=2  and the engine joins both: "Website of the Hungarian Goverment
+#                          Speech of Viktor Orbán at the congress of the European People's
+#                          Party". NOT usable.
+#   ⚠️ `<title>`           "Government - The Prime Minister - The Prime Minister's speeches"
+#                          — the SECTION banner, identical on every article. NOT usable.
+#   ⚠️ bare `h4`      n=2  "The Prime Minister November 8, 2018 6:28 PM" — the section label
+#                          welded onto the date. Scoped to .article-head for that reason.
+# These are the same three selectors the canonical-host sibling hun_kormany_english_wayback
+# uses, which is expected: it is the same CMS, frozen.
+source_id: hun_kormany_2015_2019_english_wayback
+country: Hungary
+source_language: English
+position: prime minister
+speaker_default: Viktor Orbán
+renderer: static
+
+start_urls:
+  - 2015-2019.kormany.hu/en
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH (CDX returns `www.` and `:80` forms). First group: the four
+  # leader-bearing offices. Second: their article sections — `news` or any section whose
+  # name contains "speeches" (the live spelling is `the-prime-minister-s-speeches`).
+  # Galleries are excluded by naming the sections rather than by a denylist, and the `$`
+  # anchor drops the ?page= / ?items= listing forms.
+  link_pattern: '^[^?]*/en/(?:the-prime-minister|prime-minister-s-office|cabinet-office-of-the-prime-minister|government-spokesperson)/(?:news|[a-z-]*speeches[a-z-]*)/[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # Scoped to .article-head — a bare h1 matches n=2 and welds the site banner on, and
+  # <title> is the section name on every page. The url_regex is the fallback for any
+  # capture where the head block failed to render: it returns the slug, which is at least
+  # about the document.
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  selectors: [".article-content"]
+date:
+  # Scoped to .article-head for the same reason: a bare h4 matches n=2 and joins the section
+  # label onto the date.
+  selectors: [".article-head h4"]
+# "November 8, 2018 6:28 PM" — a month NAME, never numeric DD/MM, so the day/month inversion
+# trap does not apply here.
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). Hungary
+  archives each government cycle on its own frozen subdomain and no recipe had ever targeted
+  one. All 156 unmatched Hungarian rows are Viktor Orbán and NINE already-scraped Hungarian
+  sources cannot reach any of them (best containment 0.204, and no row anywhere above 0.3).
+  Four obvious leads were checked and all failed, and are recorded in the file header so they
+  are not re-derived: miniszterelnok.hu/en is effectively 2023-onward despite 24,285
+  captures; 2015-2022.kormany.hu and 2018-2022.kormany.hu have NO captures at all;
+  orbanviktor.hu/en has one, from 2007; abouthungary.hu's live site is currently down ("site
+  under construction") and its archived speeches section is already scraped. CONFIRMED BY
+  READING: of twenty captures sampled under /the-prime-minister-s-speeches/ and scored
+  against the residual, two match at containment 1.000 (IAC_61003 Orbán 2015, the 1st
+  Iranian-Hungarian Business Forum; IAC_61036 Orbán 2017, the AFCA financial summit). The
+  subdomain's name understates its range — it holds 2020 content — so it reaches 98 of the
+  156 rows (2015-2020); the other 58 (2011-2012 and 2021-2022) are an explicit open
+  follow-up, with 2010-2014.kormany.hu existing but untested. 428 fetches, about 1 h.
+  COVERAGE RATIO 428 of ~1,043 article captures = 41%, a deliberate narrowing stated in the
+  header: the ~615 excluded ministry streams are the same documents hun_kormany_english_gov_
+  wayback already holds from the canonical host kormany.hu/en, and the engine's identity
+  dedupe does not normalise the HOST, so taking them here would double-write every one.
+  Three selector traps recorded: bare h1 matches n=2 and welds on "Website of the Hungarian
+  Goverment", <title> is the section banner on every article, and bare h4 matches n=2 and
+  joins the section label onto the date — so title and date are both scoped to .article-head.
+  FULL RUN is the researcher's gate.

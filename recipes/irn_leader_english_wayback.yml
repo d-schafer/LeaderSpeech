@@ -1,0 +1,170 @@
+# Iran — leader.ir ENGLISH, the whole /en/content archive, via the Internet Archive.
+# Ayatollah Ali Khamenei, Supreme Leader.
+#
+# ⚠️ READ THIS FIRST: THIS RECIPE DOES **NOT** CLOSE IRAN'S AUDIT GAP. It was authored for
+# that purpose and the premise was measured and DISPROVEN in the same session. It is kept,
+# and is worth running, because leader.ir's English tree has never been scraped at all and
+# holds ~2,658 English Khamenei documents the corpus does not have — but it is a NEW-SOURCE
+# item, not a Dean_scrape recovery item, and it should be queued as such.
+#
+# WHY THE AUDIT PREMISE FAILED, measured 2026-09-11:
+#   * The corpus's `source` column names https://www.leader.ir/ as the seed host for all 172
+#     unmatched Iranian rows — but that column is the per-COUNTRY seed, and those 172 rows
+#     are Khamenei (70), Rouhani (70) and Khatami (30). Two of the three were never on
+#     leader.ir at all, which is the first sign the seed is not the document's host.
+#   * Iran's row DATES are default fills — whole blocks read YYYY-01-01 — so the audit's
+#     "2015: 22, 2017: 41" histogram cannot be used to aim a harvest either.
+#   * So the question was settled by READING. 40 captures sampled evenly across the whole
+#     id range (3001-28648) scored a best 8-word-shingle containment of 0.007 against any
+#     of the 172 rows. Then a DENSE scan of the 35 captured ids in 13850-14350
+#     (November 2015 - February 2016) was run against the one row whose event could be
+#     identified independently: IAC_73986, "Addressing a huge and magnificent gathering of
+#     Basij volunteer forces in the 100,000 capacity Azadi Stadium". leader.ir id 13938,
+#     dated 25 Nov 2015, is that very speech — "Ayatollah Khamenei addresses Basij
+#     commanders saying Iran…", 13,278 characters — and it scores **0.001**.
+#     Same event, a DIFFERENT English rendering. A monolingual shingle matcher cannot bridge
+#     two independent translations, so no amount of widening on this host will help.
+#   * The corpus rows' house style ("Leader of the Islamic Revolution Ayatollah Seyyed Ali
+#     Khamenei…") is english.khamenei.ir's, not leader.ir's, and their diagnosis is
+#     `other_pages` against a source we already hold 8,966 rows of — i.e. a missing SECTION
+#     of english.khamenei.ir, not a missing host. That is where Iran's recovery work goes.
+#
+# WHAT THIS SOURCE IS. leader.ir is the Supreme Leader's own office site; /en/content/<id>
+# is its single flat English article space, covering 2006-2026. CDX for the prefix returns
+# 7,713 captures.
+#
+# ⚠️ 7,713 CAPTURES ARE ONLY 2,662 DOCUMENTS, AND TAKING THE BARE URL IS A 3x SAVING.
+# Each id is captured under up to three path forms:
+#     /en/content/<id>/                     2,658 ids have this form
+#     /en/content/<id>/<slug>               2,660 ids — but 4,098 DISTINCT slug strings,
+#                                           because the punctuation encoding varies:
+#                                             Supreme-Leader%E2%80%99s-Hajj-Message-2012
+#                                             Supreme-Leader%EF%BF%BD%EF%BF%BD%EF%BF%BDs-Hajj-Message-2012
+#                                             Supreme-Leader-s-Hajj-Message-2012
+#                                           are one document under three URLs, and the
+#                                           engine's identity dedupe normalises
+#                                           scheme / www. / port / trailing slash but NOT a
+#                                           different last path segment
+#     /en/content/<id>/www.leader.ir          810 ids — a broken slug, same document
+# The bare form is exactly one URL per document and reaches 2,658 of 2,662 ids (99.85%);
+# 4 slug-only ids are the entire price. Harvesting the slug form instead would mean 4,098
+# fetches and roughly 1.5 rows per document.
+#
+# ⚠️ EXPECT A HIGH REJECT RATE, BY DESIGN. /en/content is one flat id space shared by every
+# section of the site, and a large share of ids from ~2016 on are short jurisprudence Q&A
+# ("A pregnant woman's fasting", 281 chars; "Wearing women's wear by men and vice versa",
+# 270 chars) rather than speeches. NOTHING in the URL distinguishes them — there is no
+# /en/speech/<id> form, the whole site routes through /en/content — so they are taken and
+# the cleaner's document_type gate rejects them (CLAUDE.md RULE 1). Sampled speech pages in
+# the same range run 1,400-14,900 chars, so the two separate cleanly downstream.
+#
+# ⚠️ THE OLDEST IDS ARE PERSIAN UNDER /en/. id 3001 returns a Persian title and the date
+# "8 /Nov/ 1385" — a SOLAR HIJRI year. The English tree only becomes reliably English from
+# roughly id 3600 (13 Oct 2007). Those pages will fail the cleaner's language expectations
+# rather than being silently mislabelled; `clean_structure_metadata/jalali.py` already
+# handles Solar Hijri dates if any survive.
+#
+# ID -> DATE MAP, measured by sampling and reading each page (monotonic, so an id range is
+# a usable year bound if a future wave wants one):
+#     3001 -> 1385 (Solar Hijri)   11902 -> May 2014    21097 -> May 2018
+#     3642 -> Oct 2007             14735 -> Apr 2016    23601 -> Oct 2019
+#     5961 -> Oct 2009             17344 -> Jan 2017    25120 -> Jul 2021
+#     8640 -> Oct 2011             19804 -> Nov 2017    26301 -> Jan 2023
+#                                                       28486 -> Dec 2025
+#
+# EXCLUDED: /en/pictures/** (roughly 44,000 of the host's 60,000+ /en captures — album grids
+# and image pages, the one standing RULE 1 exclusion) and /en/media/play/<id> (video).
+# /en/book/<id>/<n>?sn= (3,540 captures) is FLAGGED, NOT DISMISSED: it is a paginated book
+# reader whose `sn=` is a page number rather than a document id, so a recipe for it would
+# write one book as hundreds of fragments. It needs its own design, not a widening here.
+#
+# TEMPLATE, measured on /en/content/10013/ @20200216 and confirmed on 10 more:
+#   title            "Supreme Leader Meets with Armed Forces of North Khorasan Province ::
+#                     Leader.ir" — clean headline plus a " :: Leader.ir" suffix
+#   h1, h2           NO MATCH anywhere on this template
+#   article#details  n=1, the body (identical to .text)
+#   #heading time    n=1, "12 /Oct/ 2012" — the article's own date
+#   ⚠️ bare `time`   n=6: the article date PLUS five more from the "Selected titles" sidebar
+#                    ("21 /Aug/ 2017", "14 /Aug/ 2017", …), which the engine would join into
+#                    one unparseable string. Hence the scoping to #heading.
+source_id: irn_leader_english_wayback
+country: Iran, Islamic Republic of
+source_language: English
+position: supreme leader
+speaker_default: Ali Khamenei
+renderer: static
+
+start_urls:
+  # A section path, not a document path — every article sits one segment deeper, so only the
+  # section index itself is discarded and no truncated prefix is needed.
+  - leader.ir/en/content
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH (CDX returns `www.leader.ir:80/` forms). The trailing `(?:\?|$)`
+  # keeps the BARE form only — `/en/content/<id>` or `/en/content/<id>/`, with or without a
+  # query string — which is what excludes the slug and www.leader.ir duplicates of the same
+  # document. To bound a future run by year, put an id alternation in place of `\d+` and
+  # read the id -> date map in the header.
+  link_pattern: '^[^?]*/en/content/\d+/?(?:\?|$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  # 146 captures carry `?category=<n>`, which is the listing position the visitor arrived
+  # from, not part of the document's address. Stripping it collapses those onto the bare
+  # form instead of writing a second row.
+  wayback_noise_params:
+    - category
+
+title:
+  # No h1 and no h2 exist on this template; <title> is the only headline element.
+  selectors: ["title"]
+  # Strips the " :: Leader.ir" suffix with a zero-width lookahead (the engine returns
+  # group(0)) and rejects a value that is ONLY the site name.
+  regex: '^(?!\s*Leader\.ir\s*$).*?(?=\s*::\s*Leader\.ir|$)'
+  regex_required: true
+text:
+  selectors: ["article#details", ".text"]
+date:
+  # SCOPED to #heading. A bare `time` matches six elements here — the article's own date and
+  # five sidebar "Selected titles" dates — and the engine joins every match.
+  selectors: ["#heading time", "#content time", ".right-side time"]
+# "12 /Oct/ 2012" — an abbreviated month NAME, so the numeric DD/MM inversion trap does not
+# apply and an English locale is safe. The oldest ids carry Solar Hijri years instead
+# ("8 /Nov/ 1385"); those simply fail to parse here and fall back to wayback_capture.
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run. NEW SOURCE, NOT an audit fix: leader.ir's
+  English tree has never been scraped (the existing irn_leader.yml is source_language
+  Persian, points at leader.ir/fa/rss and has never produced a CSV) and holds ~2,658 English
+  Khamenei documents 2006-2026. THE AUDIT PREMISE WAS MEASURED AND DISPROVEN in the same
+  session: the corpus names leader.ir as the seed host for all 172 unmatched Iranian rows,
+  but that column is the per-COUNTRY seed (the 172 rows are Khamenei 70, Rouhani 70, Khatami
+  30 — two of three never on this host), Iran's row dates are default fills so the year
+  histogram cannot aim a harvest either, and reading settled it: 40 captures sampled across
+  the whole id range score a best containment of 0.007, and a dense scan of the 35 captured
+  ids in Nov 2015 - Feb 2016 found id 13938 to BE the unmatched Basij/Azadi Stadium speech
+  (IAC_73986) at containment 0.001 — the same event in a different English rendering, which
+  a monolingual 8-word shingle matcher cannot bridge. Iran's recovery work belongs on
+  english.khamenei.ir, whose house style the unmatched rows share and of which we already
+  hold 8,966 rows; see _audit/dean_scrape_dead_ends.md. THE MEASUREMENT THAT MATTERS FOR
+  COST: the prefix's 7,713 captures are only 2,662 distinct documents, each captured under
+  up to three path forms (bare, slug — with 4,098 distinct slug spellings because the
+  punctuation encoding varies — and a broken .../www.leader.ir slug), and the identity
+  dedupe does not collapse a different last segment, so the recipe takes the BARE form only:
+  one URL per document, 2,658 of 2,662 ids, ~2,658 fetches and about 6.3 h. A probe of the
+  same selectors over the 12000-20999 id window returned 1,043 snapshots and 10/10 green on
+  title, text and date with article dates 2014-06-22 to 2018-05-13. Expect a high reject
+  rate: /en/content is one flat id space for the whole site and much of 2016 onward is short
+  jurisprudence Q&A with nothing in the URL to distinguish it. Traps recorded: a bare `time`
+  matches n=6 and joins five sidebar dates onto the article's own; there is no h1 or h2 on
+  this template; and the oldest ids (below ~3,600) are Persian under /en/ with Solar Hijri
+  dates. /en/book/<id>/<n>?sn= (3,540 captures) is flagged rather than harvested — it is a
+  paginated book reader and `sn=` is a page number, so it needs its own recipe design.
+  FULL RUN is the researcher's gate.

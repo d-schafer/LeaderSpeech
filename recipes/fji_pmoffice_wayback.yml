@@ -1,0 +1,154 @@
+# Fiji — the PRIME MINISTER'S OFFICE, pmoffice.gov.fj, via the Internet Archive.
+# Frank Bainimarama (2007-2022) and Sitiveni Rabuka (2022- ).
+#
+# WHY THIS EXISTS — a host no recipe has ever targeted, found from the OFFICE rather than
+# from the seed URL. All 81 of Fiji's unmatched rows are Frank Bainimarama, 2016-2022, and
+# the corpus files them under the seed host presidentsoffice.gov.fj — but Bainimarama was
+# PRIME minister, not President. That head-of-GOVERNMENT-under-a-head-of-STATE-seed pattern
+# is the single most common cause in this whole audit.
+#
+# THE THREE FIJIAN SOURCES WE ALREADY HOLD CANNOT REACH THESE ROWS, measured: the best
+# 8-word-shingle containment any unmatched row achieves against them is
+#   fji_fijigov_wayback          16,098 rows   best 0.272
+#   fji_fijigov                   1,423 rows   best 0.235
+#   fji_presidentsoffice_wayback    181 rows   best 0.019
+# and no row anywhere exceeds 0.3. These are absent documents, not degraded copies.
+#
+# CONFIRMED BY READING, not by inferring from the URL. Sixteen captures sampled evenly
+# across this host's article space, extracted through the selectors below and scored
+# against the 81 unmatched rows: TWO score containment **1.000** —
+#   /hon-pms-opening-remarks-at-the-launch-of-the-regional-pacific-ndc-hub-office-spc-nabua/
+#       = IAC_55206 (Bainimarama, 2016)
+#   /prime-minister-hon-josaia-voreqe-bainimaramas-statement-at-the-opening-of-new-qvs-
+#    classrom-building-09-07-2020/  = IAC_55561 (Bainimarama, 2020)
+# Two hits in sixteen is what the arithmetic predicts (81 rows against 1,434 candidate
+# URLs), so the host is right and the remainder is a matter of running it.
+#
+# MEASURED 2026-09-11. `cdx.py pmoffice.gov.fj --match host` = 3,965 captures, 2012-2025.
+# Grouped with shapes.py the space is a WordPress site with ROOT-LEVEL slugs:
+#   1,541  /<slug>/                 the articles — 1,434 with a slug of 16+ characters
+#     957  /<slug>/embed/           oEmbed stubs — the standing RULE 1 exclusion
+#     110  /<YYYY>/<MM>/            month archives
+#     100  /category/<slug>/        category listings
+#      57  /tag/<slug>/             tag listings
+#      41  /?p=<n>   34  /?page_id=<n>   39  /blogs/page/<n>/   37  /author/<slug>/page/<n>/
+#      28  /wp-json/wp/v2/posts/<n> + 50 /wp-json/oembed/ …   34 /events/category/…
+# COVERAGE RATIO: 1,434 of 1,541 root-slug captures = 93%; the 107 excluded are slugs
+# shorter than 16 characters, which are menu pages ("/contact-us/", "/our-history/").
+# Everything one segment deep is a listing, a feed or an embed. Requiring a SINGLE path
+# segment is what excludes them all — no denylist needed.
+#
+# NOT YEAR-BOUNDED. 1,434 fetches is roughly 3.4 h, and there is no reliable year signal to
+# bound on anyway: only 63% of slugs carry a date and the site spans two prime ministers.
+# The Rabuka-era half is a bonus — Fiji's current PM, of whom the corpus holds very little.
+#
+# ⚠️ `h1` MATCHES n=2 AND THE ENGINE JOINS BOTH, so the title would be written twice
+# ("PM BAINIMARAMA COMMISSIONS NEW NAVOSA SUB-DIVISIONAL HOSPITAL- (23-02-2021) PM
+# BAINIMARAMA COMMISSIONS NEW NAVOSA SUB-DIVISIONAL HOSPITAL- (23-02-2021)"). `<title>` is
+# n=1 and carries a strippable " | Office of the Prime Minister Fiji" suffix, so it is the
+# only usable title element here.
+#
+# ⚠️ THERE IS NO DATE ELEMENT ON THIS THEME. Checked explicitly: `time`, `.date`,
+# `.date_label`, `.post-meta`, `.entry-date`, `.post-footer` and
+# `meta[property="article:published_time"]` ALL return no match. The date has to come from
+# the slug, which uses three spellings, all DAY-FIRST (proved by 23-02, 25-08 and 17-10,
+# whose first field cannot be a month):
+#     -DD-MM-YYYY   794 slugs   …-navosa-sub-divisional-hospital-23-02-2021/
+#     -DDMMYYYY     148 slugs   …-moderna-vaccine-for-children-aged-15-17-years-20092021/
+#     -DD-MM-YY     104 slugs   …-defence-and-security-cooperation-17-10-23/
+#     (no date)     388 slugs   left blank, falling back to wayback_capture
+# One regex serves all three by making the separators optional and allowing a 2- or 4-digit
+# year; the engine's 2-digit widening turns 23 into 2023, and its date validation turns a
+# false positive like a trailing "-budget-2023/" (which would parse as month 23) into a
+# blank rather than a wrong date.
+#
+# CONTENT NOTE: a handful of root slugs are WordPress theme demo posts
+# ("/adipiscing-fringilla-commodo/", "/aenean-lacinia-bibendum/") and one is injected SEO
+# spam ("/chatroulette-i-chatroulette-online-i-chat-roulet/"). They are left in rather than
+# excluded by a brittle denylist — three pages, and the cleaner's document_type gate is
+# exactly the right place to drop them.
+source_id: fji_pmoffice_wayback
+country: Fiji
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # The site root: every article is a first-level slug, so this is the only prefix that
+  # reaches them. The root capture itself has path "/" and is discarded as a listing.
+  - pmoffice.gov.fj/
+
+listing:
+  link_selector: "a"
+  # ONE path segment only, 16+ characters. That single constraint excludes /embed/,
+  # /category/<x>/, /tag/<x>/, /author/<x>/page/<n>/, /blogs/page/<n>/, /events/…,
+  # /wp-json/… and the /<YYYY>/<MM>/ month archives, because every one of them is at least
+  # two segments deep, and the `$` anchor drops the ?p= / ?page_id= query forms.
+  #
+  # ⚠️ ANCHORED ON THE HOST, NOT WITH A LEADING `[^?]*`. "Exactly one path segment" cannot
+  # be expressed with a leading `[^?]*`: that wildcard absorbs earlier segments, so
+  # `/category/academic-essay-writers/` and `/tag/abortion-furthermore/` both matched the
+  # first draft of this pattern. The same slip was caught on the sibling Trinidad recipe,
+  # where the first probe returned /tag/justin-trudeau/ as a page with no body. Naming the
+  # host is the only way to pin the segment to the root; `(?::80)?` and `(?:www\.)?` are
+  # there because CDX returns both of those forms.
+  link_pattern: '(?i)^https?://(?:www\.)?pmoffice\.gov\.fj(?::80)?/[a-z0-9][a-z0-9-]{15,}/$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # Keep the harvest on this host's own pages; the CDX prefix above is the site root, so
+    # this is what stops a stray cross-host capture entering the list.
+    # `(:80)?` is load-bearing: CDX returns `pmoffice.gov.fj:80/…` for everything crawled
+    # over http, and a filter spelled without it silently drops all of them.
+    - "original:.*pmoffice\\.gov\\.fj(:80)?/.*"
+
+title:
+  # NOT `h1` — it matches n=2 and the engine joins both copies. See the header.
+  selectors: ["title"]
+  # Strips the " | Office of the Prime Minister Fiji" suffix with a zero-width lookahead
+  # (the engine returns group(0)) and rejects a capture whose <title> is only the site name
+  # or the Archive's own "You are being redirected..." interstitial, both of which were
+  # seen while sampling.
+  regex: '^(?!\s*(?:Office of the Prime Minister Fiji|You are being redirected)\s*(?:\||$)).*?(?=\s*\|\s*Office of the Prime Minister|$)'
+  regex_required: true
+text:
+  # Betheme ("mfn"): the article body is .the_content_wrapper / .post-wrapper-content,
+  # measured n=1 and 2,572-14,453 chars with no navigation. #Content is 130 chars larger
+  # because it prepends the headline and a share counter, so it is only the fallback.
+  selectors: [".the_content_wrapper", ".post-wrapper-content", "#Content"]
+date:
+  # Slug only — this theme has no date element at all. Separators optional so one pattern
+  # covers -DD-MM-YYYY, -DDMMYYYY and -DD-MM-YY; day first throughout.
+  url_regex: '-(?P<day>\d{2})-?(?P<month>\d{2})-?(?P<year>\d{4}|\d{2})/?$'
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). Fiji's
+  Prime Minister's Office, a host no recipe has ever targeted, found by asking which OFFICE
+  the speaker held rather than trusting the seed URL: all 81 unmatched Fijian rows are Frank
+  Bainimarama 2016-2022 and the corpus files them under presidentsoffice.gov.fj, but
+  Bainimarama was PRIME minister. The three Fijian sources already scraped cannot reach them
+  — the best containment any unmatched row achieves is 0.272 against fji_fijigov_wayback
+  (16,098 rows) and no row anywhere exceeds 0.3. CONFIRMED BY READING: of sixteen captures
+  sampled across the host and scored against the residual, TWO match at containment 1.000
+  (IAC_55206, Bainimarama 2016, the Regional Pacific NDC Hub launch; IAC_55561, Bainimarama
+  2020, the new QVS classroom block) — which is the rate the arithmetic predicts for 81 rows
+  against 1,434 candidate URLs. WordPress with ROOT-LEVEL slugs, so the link_pattern is
+  simply "one path segment of 16+ characters": that alone excludes the 957 /embed/ stubs,
+  the category/tag/author/blogs/events listings, the wp-json feeds, the /<YYYY>/<MM>/ month
+  archives and the ?p= / ?page_id= query forms, all of which are two segments deep. 1,434 of
+  1,541 root-slug captures = 93%; the excluded 107 are short menu pages. TWO TRAPS: h1
+  matches n=2 and the engine joins both copies of the headline, so the title comes from
+  <title> with a suffix strip and a reject-regex (which also catches the Archive's "You are
+  being redirected..." interstitial); and this theme has NO date element whatsoever —
+  time/.date/.date_label/.post-meta/.entry-date/article:published_time all miss — so the
+  date is read from the slug, whose three spellings (-DD-MM-YYYY 794, -DDMMYYYY 148,
+  -DD-MM-YY 104) are covered by one optional-separator regex and are all day-first. 388
+  slugs carry no date and are left blank for wayback_capture. PROBE 2026-09-11 after that fix: 1,527 snapshots, 10/10 green on title
+  and text, 9/10 on date (the tenth slug carries no date, by design). ~1,527
+  Internet-Archive fetches, about 3.6 h; not year-bounded because only 63% of slugs carry a date and the
+  Rabuka era is worth having. FULL RUN is the researcher's gate.

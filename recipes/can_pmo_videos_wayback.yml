@@ -1,0 +1,150 @@
+# Canada — the pm.gc.ca VIDEO-TRANSCRIPT tree, via the Internet Archive.
+#
+# WHY THIS EXISTS — Canada's residual is a PAGE TYPE, not a host. Round 2 built
+# `can_pmo_eng_wayback` (the pre-2016 `/eng/` generation, 11,334 rows) on the theory that the
+# gap was a missing host. It was not: Canada went 172 -> 170 unmatched. All 170 remaining rows
+# are Justin Trudeau, 2015-2022, and the audit's own diagnosis is `other_pages` (97) plus
+# `absent` (72) — i.e. we hold those country-years densely and still do not hold these
+# documents. Median best containment 0.056, max 0.284: absent in any form, not degraded copies.
+#
+# THE SIGNAL IS IN THE TEXT. These rows carry no title, so their first line is the headline,
+# and the two styles separate cleanly:
+#   unmatched : "PM Trudeau delivers remarks following the swearing-in of the 29th Ministry"
+#               "Prime Minister Trudeau delivers remarks at G20 Summit in Turkey"
+#   matched   : "Address by Prime Minister Justin Trudeau to ..." — and those carry a dateline
+#               prefix ("Ottawa, Ontario") the unmatched rows lack.
+# The first of those is, verbatim, the slug of
+#   pm.gc.ca/en/videos/2015/11/03/pm-trudeau-delivers-remarks-following-swearing-29th-ministry
+# and the second is /en/videos/2015/11/16/prime-minister-trudeau-delivers-remarks-g20-summit-turkey.
+#
+# CONFIRMED BY READING THE DOCUMENTS, not by matching slugs — see the matchcheck figures in
+# `notes`. The page is not a bare video embed: it carries the full transcript in
+# `.transcript .field--name-body` (measured 1,520-7,830 chars on three captures).
+#
+# WHY NEITHER EXISTING CANADIAN RECIPE CAN REACH IT:
+#   can_pmo_wayback      pinned to /en/news/(speeches|statements|readouts)/<Y>/<M>/<D>/
+#   can_pmo_eng_wayback  pinned to /eng/news/<Y>/<M>/<D>/ and /eng/media.as
+# `/en/videos/` is a third path and is matched by neither pattern.
+#
+# MEASURED 2026-09-11. `cdx.py pm.gc.ca/en/videos --filter statuscode:200 --filter
+# mimetype:text/html` = 1,232 captures. Grouped with shapes.py:
+#   1,157  /en/videos/<Y>/<M>/<D>/<slug>            the transcripts — 1,158 distinct paths
+#      39  /en/videos?page=N                        the pager
+#      33  the same article paths carrying ?p= / ?ref= / ?utm_source= / ?TSPD_101_R0=
+#       1  /en/videos                               the index
+#       2  /en/videos/<Y>/<M>/<D>/no-value          dead stubs
+# COVERAGE RATIO: 1,158 of 1,158 article paths = 100%. Checked explicitly — ZERO article
+# paths appear only in a query-string form, so ending the pattern at `$` loses nothing and
+# no `wayback_noise_params` are needed here (unlike can_pmo_eng_wayback's media.asp).
+#
+# ARTICLE-DATE distribution (from the URL, NOT the capture year — the CDX by-year histogram
+# reads 2019:394 2020:179 … 2025:210 because the Archive crawled the back catalogue late):
+#   2015 28 | 2016 232 | 2017 144 | 2018 100 | 2019 46 | 2020 179 | 2021 102 | 2022 114
+#   2023 89 | 2024 55 | 2025 44 | 2026 25
+# Canada's gap is 2016:36 2017:46 2018:38 2022:32 — the four years this tree is thickest in.
+#
+# NOT YEAR-BOUNDED, DELIBERATELY. Bounding the link_pattern to 2015-2022 would take 945
+# instead of 1,158 — a saving of 213 fetches (~30 minutes) at the cost of 213 real Trudeau
+# and Carney transcripts of a page type the corpus holds nowhere. The whole tree is already
+# a ~2.7 h run, which is what "prefer small, year-bounded" is protecting against; there is
+# nothing here to protect against.
+#
+# ⚠️ EXCLUDED AFTER SAMPLING, both of them (CLAUDE.md RULE 1 — never dismiss an endpoint
+# without looking at it):
+#   * `pm.gc.ca/eng/videos/<Y>/<M>/<D>/<slug>` — 535 captures, and EVERY slug is FRENCH
+#     ("pm-trudeau-prononce-discours-apres-l'assermentation-du-29e-conseil-des-ministres",
+#     "pm-trudeau-conference-de-presse-malte"), heavily double-URL-encoded. Same artefact
+#     can_pmo_eng_wayback recorded for /eng/news. An all-English residual cannot use it.
+#   * `pm.gc.ca/eng/videos-ctg/<N>` — 3,121 captures (361 bare + 2,760 with ?page=N) and it
+#     is the Harper-era "24 Seven" weekly-video CATEGORY LISTING, not an article. Sampled
+#     /eng/videos-ctg/34741 @20140126: whole page 2,054 chars, `.field-name-body` returns
+#     35 chars — "Jan 2-8, 2014 Subscribe to 24 Seven". No transcript exists to take.
+#
+# ⚠️ `h1` IS THE SITE BANNER WELDED ONTO THE HEADLINE and is NOT in the title chain.
+# Measured on three captures: n=3 -> "Main Container Navigation Prime Minister Trudeau
+# delivers remarks at the World Economic Forum"; on the 2019-era template n=7 -> "Header
+# Home Page Logo Justin Trudeau, Prime Minister of Canada Search Box Main Container
+# Navigation Prime Minister Trudeau delivers remarks at G20 Summit in Turkey". `<title>` is
+# the only clean headline element, with the same " | Prime Minister of Canada" suffix and
+# banner-only failure mode that can_pmo_eng_wayback documents, so it gets the same regex.
+#
+# ⚠️ TEXT IS SCOPED TO `.transcript`. Bare `.field--name-body` matches n=4 on every capture
+# (the Drupal field div is repeated in the sidebar and the social block) and the engine joins
+# all four; `.transcript .field--name-body` is n=1 on all three sampled templates and returns
+# the transcript alone. Measured: 2022 capture 1,520 vs 1,646; 2019 capture 2,214 vs 2,352;
+# 2025 capture of a 2016 page 7,830 vs 7,842. `article` (n=1) is kept as a fallback — it also
+# works but welds the headline and date onto the front of the body.
+#
+# ⚠️ DATE FROM THE URL ONLY. A `time` element exists and on this template it happens to hold
+# the publication date ("November 16, 2015" on the 2015/11/16 page, checked), but
+# can_pmo_wayback's header records that on the /en/news template the same element holds the
+# WAYBACK CAPTURE time and would silently overwrite every date. The permalink carries an
+# unambiguous <Y>/<M>/<D>, so there is no reason to take the risk. Named groups mean the
+# engine assembles the ISO date directly and dateparser is never involved — hence no
+# `date_languages` here.
+source_id: can_pmo_videos_wayback
+country: Canada
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # Spelled in full on purpose: the article path (/en/videos/<Y>/<M>/<D>/<slug>) is longer
+  # than the start_url path (/en/videos), so `wayback.filter_entries_for_recipe` discards
+  # only the index and the pager — which is what we want. The truncated-prefix idiom is for
+  # QUERY-addressed generations, where every article shares the start_url's path.
+  - pm.gc.ca/en/videos
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH, never the host — CDX returns `pm.gc.ca:80/` forms as well as
+  # `www.`. Ends at `$` so the ?p= / ?ref= / ?utm_source= / ?TSPD_101_R0= duplicates are
+  # dropped (verified: no article path exists ONLY in a query form). `[a-z0-9]` first
+  # excludes the `/no-value` stubs is not enough on its own, so they are excluded by name.
+  link_pattern: '(?i)^(?!.*/no-value$)[^?]*/en/videos/\d{4}/\d{2}/\d{2}/[a-z0-9][a-z0-9%.-]{4,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # NO bare `h1` — measured n=3 to n=7 and it joins the site banner onto the headline.
+  selectors: ["title"]
+  # Strips the " | Prime Minister of Canada" suffix with a zero-width lookahead (the engine
+  # returns group(0)), and via the leading negative lookahead + regex_required REJECTS a
+  # value that is only the banner, so a chrome-only capture ends up with a blank title
+  # rather than "Prime Minister of Canada". Same idiom, same host, as can_pmo_eng_wayback.
+  regex: '^(?!\s*(?:Home\s*[-|]\s*)?Prime Minister of Canada\s*(?:[|:-]|$)).*?(?=\s*\|\s*Prime Minister of Canada|$)'
+  regex_required: true
+text:
+  # Scoped to .transcript — see the TEXT block in the header. `article` is the fallback for
+  # any capture where the transcript wrapper class differs; it welds the headline and date
+  # onto the front but is far better than nothing.
+  selectors: [".transcript .field--name-body", "article"]
+date:
+  url_regex: '/en/videos/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). Canada's
+  170 remaining unmatched rows are 100% Justin Trudeau 2015-2022 and are a PAGE TYPE we have
+  never taken: the pm.gc.ca video-transcript tree, /en/videos/<Y>/<M>/<D>/<slug>, 1,158
+  distinct article captures with article dates 2015-2026. Round 2 already proved the gap is
+  not a missing host — can_pmo_eng_wayback added 11,334 rows and moved Canada only 172 -> 170.
+  The unmatched rows' first line is their headline and it is the video tree's own phrasing
+  ("PM Trudeau delivers remarks following the swearing-in of the 29th Ministry" is the slug
+  of /en/videos/2015/11/03/pm-trudeau-delivers-remarks-following-swearing-29th-ministry),
+  while the rows that DID match read "Address by Prime Minister Justin Trudeau to ..." with
+  an "Ottawa, Ontario" dateline. Pages carry the full transcript, not just a video embed
+  (1,520-7,830 chars measured). Two endpoints excluded after sampling rather than on sight:
+  /eng/videos/ (535 captures, every slug FRENCH) and /eng/videos-ctg/ (3,121 captures, the
+  Harper-era "24 Seven" category listing — sampled, 35 chars of body). Three traps written
+  into the file header: h1 is the banner welded onto the headline (n=3 to n=7), bare
+  .field--name-body matches n=4 so the text selector is scoped to .transcript, and the date
+  comes from the permalink because a `time` element on the sibling /en/news template holds
+  the Archive capture clock. ~1,158 Internet-Archive fetches, about 2.7 h. Not year-bounded:
+  bounding to 2015-2022 saves 213 fetches and loses 213 real transcripts. FULL RUN is the
+  researcher's gate.

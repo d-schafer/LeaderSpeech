@@ -1,0 +1,135 @@
+# Thailand — thaigov.go.th's ENGLISH Joomla/K2 generation (/en/<section>/item/<id>-<slug>),
+# via the Internet Archive. Yingluck Shinawatra and Prayuth Chan-ocha, 2012-2016.
+#
+# WHY THIS EXISTS — THE PARKED "MODERN" RECIPE IS THE WRONG LANGUAGE. Thailand's plan for
+# this wave was to take a year-bounded slice of `tha_thaigov_modern_wayback` to reach the 66
+# unmatched rows in 2013-2016. That recipe cannot close a single one of them: it is
+# `source_language: Thai` and harvests /news/contents/details/<id>, the Thai CMS. Every
+# unmatched row is English. Its 82,132 captures and ~140 h are irrelevant to this audit.
+#
+# The sibling `tha_thaigov_wayback` IS English, but it is pinned to three LEGACY sections
+# (/news/press, /news/speech, /news/cab) whose content is 1999-2006. Between 2006 and the
+# Thai-only modern CMS there was a third, English, Joomla/K2 generation — and that is this
+# one. 902 captures under the /en prefix, of which 302 are articles.
+#
+# CONFIRMED BY READING. Twelve captures sampled across the article sections and scored
+# against the 66 unmatched rows: TWO match —
+#   /en/speech-2/item/90442-90442.html
+#       "National Broadcast by General Prayut Chan-o-cha, …"   containment 0.997
+#       = IAC_117865 (Prayuth Chan-ocha, 2015)
+#   /en/news-room/item/76252-pm's-press-conference-on-the-success-of-papua-new-guinea's-visit.html
+#       "Statement of H.E. Yingluck Shinawatra at a Joint press conference …" containment 1.000
+#       = IAC_117894 (Yingluck Shinawatra, 2013)
+#
+# MEASURED 2026-09-11. `cdx.py thaigov.go.th/en` = 902 captures, spanning 2006-2026 but
+# concentrated 2012: 89, 2013: 185, 2014: 140, 2015: 65 — exactly the gap window. The
+# article shapes, all /en/<section>/item/<id>… .html (302 captures in 11 sections, every one
+# of which is taken — CLAUDE.md RULE 1):
+#   143 news-room   34 schedule-of-events   32 speech-a-press-release   15 cabinet-a-synopsis
+#    13 government-agencies   12 speech-2   9 government-en1   6 news-ministry   6 news-2
+#     5 social   + a small tail incl. about-thailand and announcement-2
+# Note there are TWO speech sections running at once — `speech-a-press-release` and
+# `speech-2` — and the second is where the Prayuth national broadcast lives. Taking only the
+# one that looks like "the speeches section" would have missed it.
+#
+# ⚠️ EXCLUDED AFTER SAMPLING, not on sight:
+#   * /en/government/news.aspx?newsid=<R…> and /en/<s>/view.aspx|detail.aspx?M_CODE=&newsid=
+#     — roughly 86 captures, the 2006-2008 ASP generation. SAMPLED: newsid=R49000000357 is a
+#     real article ("GOVERNMENT NEWS THE CABINET LINE-UP 09 October 2006 His Majesty…") but
+#     it has no clean body container (the whole page including the nav comes back as 2,058
+#     chars) and its <title> is the bare banner ":: Royal Thai Government ::". Its era is
+#     already covered by tha_thaigov_wayback's three legacy English sections (4,406
+#     snapshots, 1999-2006), and it is outside this audit's 2013-2016 window. Left out
+#     deliberately; it would need its own selector work.
+#   * /en/calendarEn/calendarEn.aspx?newsDate=… — 67 captures, a by-date calendar index.
+#   * /en/component/…/book/<n>.html?page=… — 32 captures, a paginated document reader.
+#   * /eng/pageconfig/search/… — 45 captures, search-component URLs (a standing RULE 1
+#     exclusion). The whole /eng prefix is only 90 captures, 2007-2012, and is search and
+#     index pages.
+#   * `?tmpl=component&print=1` twins, dropped by the `$` anchor after `.html`.
+# COVERAGE RATIO: 302 of ~388 article captures on the English tree = 78%; the 86 excluded
+# are the sampled ASP generation above.
+#
+# TEMPLATE (Joomla + K2), measured on the Papua New Guinea capture:
+#   .itemBody      n=1  1,334 chars — the K2 intro plus the full text. The one to use.
+#   .itemFullText  n=1  1,233 chars — the full text without the intro paragraph.
+#   <title>        n=1  "PM's press conference on the success of Papua New Guinea's visit"
+#                       — a clean headline with no suffix.
+#   ⚠️ `h1`        n=1  and it is "www.thaigov.go.th", the site banner. NOT usable.
+#   ⚠️ THERE IS NO DATE ELEMENT. `.itemDateCreated` and `time` both return no match, and the
+#      URL carries only an item id. The date is therefore left BLANK on purpose and
+#      wayback_capture is the fallback — which is a reasonable approximation here because
+#      the Archive crawled this generation contemporaneously (2012: 89, 2013: 185, 2014: 140
+#      captures), and the cleaner's GPT pass can read a date out of the text. A blank date
+#      beats a confident wrong one.
+source_id: tha_thaigov_en_item_wayback
+country: Thailand
+source_language: English
+position: prime minister
+renderer: static
+
+start_urls:
+  # The /en prefix, not a section path: the sections are numerous and some are named
+  # unpredictably (speech-2, government-en1, news-2), so enumerating the language tree and
+  # filtering in link_pattern is safer than listing eleven start_urls.
+  - thaigov.go.th/en
+
+listing:
+  link_selector: "a"
+  # Anchored on the PATH (CDX returns `www.thaigov.go.th:80/` forms). Any section, an item
+  # id, ending at `.html$` — which is what drops the `?tmpl=component&print=1` print twins
+  # and every .aspx / calendar / search URL on the same prefix.
+  link_pattern: '(?i)^[^?]*/en/[a-z0-9][a-z0-9-]*/item/\d+[^?]*\.html$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # NOT `h1` — it is the site banner "www.thaigov.go.th" on every page of this generation.
+  selectors: ["title"]
+  # Rejects the banner forms seen on neighbouring generations of the same host, so a stray
+  # capture ends up with a blank title rather than the site name.
+  regex: '^(?!\s*(?:::\s*)?(?:Royal Thai Government|www\.thaigov\.go\.th)\b).+'
+  regex_required: true
+text:
+  selectors: [".itemBody", ".itemFullText", ".ja-content-main"]
+date:
+  # Kept in the chain in case a later capture of this template renders them, but measured
+  # as NO MATCH on the sampled page — see the header. There is deliberately no body-text
+  # date regex and no url_regex: the item id is not a date.
+  selectors: [".itemDateCreated", ".itemDateModified", "time"]
+date_languages: ["en", "th"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-11, no full run (Dean_scrape unmatched wave 4). THE PLAN
+  FOR THAILAND WAS WRONG AND THE MEASUREMENT FIXED IT: this wave intended a year-bounded
+  slice of the parked tha_thaigov_modern_wayback, but that recipe is source_language: Thai
+  and cannot close a single one of Thailand's 66 unmatched English rows, so its 82,132
+  captures and ~140 h are irrelevant here. The English record between the 1999-2006 legacy
+  sections (already held by tha_thaigov_wayback) and the Thai-only modern CMS is a third,
+  Joomla/K2 generation at /en/<section>/item/<id>-<slug>.html — 302 article captures whose
+  CDX histogram (2012: 89, 2013: 185, 2014: 140, 2015: 65) is exactly the gap window.
+  CONFIRMED BY READING: of twelve captures sampled, two match — /en/speech-2/item/90442
+  ("National Broadcast by General Prayut Chan-o-cha") at containment 0.997 against
+  IAC_117865, and the Yingluck/Papua New Guinea joint press conference at 1.000 against
+  IAC_117894. Eleven article sections are all taken, including BOTH concurrent speech
+  sections (speech-a-press-release and speech-2 — the Prayuth broadcast is in the second, so
+  taking only the obvious one would have missed it). Excluded after sampling rather than on
+  sight: the 2006-2008 ASP generation (~86 captures; sampled, a real article but with no
+  clean body container and a banner <title>, and its era is already covered by
+  tha_thaigov_wayback), the calendarEn by-date index (67), a paginated book reader (32) and
+  the /eng search-component URLs (45). Coverage ratio 302 of ~388 English article captures =
+  78%. Traps: h1 is the site banner "www.thaigov.go.th", and there is NO date element at all
+  (.itemDateCreated and time both miss, the item id is not a date), so the date is left
+  blank for wayback_capture — defensible here because the Archive crawled this generation
+  contemporaneously. PROBE 2026-09-11 (--spread --n 10): 261 snapshots, 10/10 title, 8/10 text (the two misses
+  are a ministry directory page and a video page, neither an article) and 0/10 date, as
+  designed. ~261 Internet-Archive fetches, well under an hour. Shares
+  data/state/Thailand.json with tha_thaigov_wayback, tha_thaigov_modern_wayback and
+  tha_royaloffice_wayback — never run two Thai sources at once. FULL RUN is the researcher's
+  gate.

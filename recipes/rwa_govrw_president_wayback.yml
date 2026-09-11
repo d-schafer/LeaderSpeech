@@ -1,7 +1,65 @@
 # Rwanda — PRESIDENCY on the gov.rw PORTAL (pre-2007), via the Internet Archive.
 #
-# WHY THIS SOURCE. The coverage audit leaves 132 Rwandan rows unmatched, spanning 1999-2008 —
-# Kagame plus PM Bernard Makuza. Rwanda's only recipe, `rwa_kagame_wayback`, targets a
+# ⚠️ REPAIRED 2026-09-11 (Dean_scrape unmatched wave 4). THE 2026-09-02 RUN ABORTED AND
+# COLLECTED NONE OF 2004-2008. Read this before touching the selectors again.
+#
+#   The run log ends:
+#     "ABORTING after 25 consecutive failures ... DONE ... scraped=655 failed=132 |
+#      ABORTED EARLY"
+#   All 25 consecutive failures were `empty:` on /president/speeches/2004/*. Measured
+#   against data/state/Rwanda.json, of the 912 harvested captures:
+#     655 scraped      132 failed (25 of them 2004 speeches)      125 NEVER ATTEMPTED
+#   and the 125 are ALL of 2005 (40), 2006 (22), 2007 (13), 2008 (7), the remaining 15 of
+#   2004, plus 28 root news files. The output CSV holds speech rows for 2000, 2001 and 2003
+#   only — ZERO for 2004-2008, which is exactly the era of Rwanda's 79 remaining unmatched
+#   corpus rows (2004: 25, 2005: 26, 2006: 14, 2007: 8).
+#
+#   CAUSE, measured with selcheck on four captures spanning 2002-2006: NONE of the three
+#   text selectors (.content / main / article) exists anywhere on this host — every row it
+#   ever produced came from the generic (trafilatura) extractor, which the run log confirms
+#   ("scraped=655 generic=655"). trafilatura returns nothing on the 2004 template (a
+#   Word-exported table of MsoBodyText2 paragraphs), so those pages failed as
+#   "empty_text (no recipe match; generic also empty)" until the consecutive-failure guard
+#   stopped the run.
+#
+#   FIX: `body` added to the end of the text chain. The previous header asserted that a
+#   table-cell selector "would return every cell joined, i.e. the navigation welded onto the
+#   speech". That is NOT true of this host, and believing it is why these pages were left to
+#   the generic extractor in the first place. Measured:
+#     /speeches/2004/13_02_04_nepad_speech.html  body n=1  4,590 chars, opens "REMARKS BY
+#       H.E PAUL KAGAME ... AFRICAN PEER REVIEW MECHANISM" — the whole page IS the speech
+#     /speeches/2000/06_25_00_speech_women_partners_4_peace.html  body n=1  4,002 chars
+#     /speeches/2006/23_04_06_ontario.html       body n=1  5,902 chars
+#     /government/01_30_00news_Pres_DC.htm       body n=1    944 chars (a news item, no nav)
+#   There is no navigation, no sidebar and no footer on any of them — these are bare static
+#   pages, one document each. `body` is therefore the correct selector here and is strictly
+#   better than the generic extractor, which drops the 2004 template entirely.
+#
+#   CONSEQUENCE FOR THE DATA: the 655 rows already written came from trafilatura and the new
+#   ones will come from `body`. Expect slightly more leading/trailing furniture on the new
+#   rows and a small inconsistency between the two halves. A missed document is permanent; a
+#   marginally noisier one is the cleaner's problem.
+#
+#   HOW TO RESUME:  run --recipe recipes/rwa_govrw_president_wayback.yml --retry-failed
+#   That re-attempts the 132 failures AND picks up the 125 never-attempted captures:
+#   257 fetches, of which 122 are the 2004-2008 presidential speeches.
+#
+# ⚠️ TITLE WAS WRITING THE SITE BANNER — also fixed 2026-09-11. Of the 655 titles already
+# stored, 577 (88%) are chrome: "Latest News From Rwanda" 269, "Latest news from Rwanda"
+# 172, "News from Rwanda" 29, "Rwanda News" 20, "Untitled"/"Untitled Document" 10,
+# "Archives:September 2002" 9, "Official News From the Government of Rwanda" 6, "Official
+# Website of the Government of Rwanda" 4, blank 66. Only a handful are real headlines. And
+# `h1` — which was FIRST in the chain — is worse than useless on the 2004 template: it
+# matches n=2 and returns the DATELINE, "Kigali, 13 th February 2004". So `h1` is gone, and
+# `<title>` now has to survive a reject-regex naming the measured banners; when it does not,
+# the field falls through to `url_regex` and takes the filename slug, which is at least
+# always about the document. The real headline on these pages is the first line of the body,
+# which the cleaner's GPT pass reads. A blank/slug title beats a confident wrong one.
+# FOLLOW-UP for the researcher: the 577 banner titles already in the CSV are NOT corrected
+# by this change — those URLs are in seen_urls and will not be refetched.
+#
+# WHY THIS SOURCE. The coverage audit leaves Rwandan rows unmatched spanning 1999-2008 —
+# Kagame plus PM Bernard Makuza. Rwanda's only other recipe, `rwa_kagame_wayback`, targets a
 # completely different host (`paulkagame.com`) and its scraped range floors at 2007-09-27, so
 # nothing we hold can reach the earlier material. Before the dedicated presidency sites
 # existed, Kagame's speeches lived on the government portal at
@@ -33,6 +91,22 @@ country: Rwanda
 source_language: English
 renderer: static
 
+# ⚠️ THIRD DEFECT, found 2026-09-11: the host declares NO charset anywhere — no
+# Content-Type charset, no <meta> — and its bytes are windows-1252, so `decode_html` falls
+# through to httpx's UTF-8 default and every curly quote and accent becomes U+FFFD. This is
+# the exact case the `encoding:` override exists for (the ured.predsjednik.hr precedent in
+# fetch.decode_html's docstring). Measured on three captures spanning 2002-2006:
+#   /speeches/2004/21_10_04_HD_speech.html   utf-8 -> 26 U+FFFD   windows-1252 -> 0
+#   /speeches/2006/23_04_06_ontario.html     utf-8 -> 18 U+FFFD   windows-1252 -> 0
+#   /government/01_30_00news_Pres_DC.htm     utf-8 ->  1 U+FFFD   windows-1252 -> 0
+#   /speeches/2000/06_25_00_speech_women_partners_4_peace.html   pure ASCII (unaffected)
+# Under UTF-8 the HD_speech title reads 2004: "CULTURAL LIBERTY IN TODAY?S DIVERSE WORLD?;
+# under windows-1252 it reads 2004: “CULTURAL LIBERTY IN TODAY’S DIVERSE WORLD”. Mojibake
+# also costs MATCHES — an 8-word shingle spanning a mangled apostrophe cannot match the
+# corpus row. Note the 655 rows already scraped were written WITHOUT this override and will
+# carry U+FFFD wherever the page had a smart quote; they are not refetched.
+encoding: windows-1252
+
 start_urls:
   - gov.rw/government
 
@@ -51,35 +125,88 @@ pagination:
     - "mimetype:text/html"
 
 title:
-  # These are late-1990s/2000s hand-built pages; <title> is the most consistently present
-  # element. h1/h2 exist on some but not all.
-  selectors: ["h1", "h2", "title"]
+  # NO `h1` — measured n=2 on the 2004 template, and it returns the dateline
+  # ("Kigali, 13 th February 2004"), not a headline. See the TITLE block in the header.
+  selectors: ["title"]
+  # `regex_required` is used here as a REJECT filter: a <title> that is one of this host's
+  # measured banners fails the lookaheads, `first_match` keeps walking (the chain ends), and
+  # the field falls through to `url_regex` below. The engine returns group(0), so the
+  # trailing `.+` carries a real headline through unchanged when one exists.
+  regex: "^(?i:(?!\\s*(?:latest\\s+)?(?:official\\s+)?news\\b)(?!\\s*rwanda\\s+news\\s*$)(?!\\s*untitled)(?!\\s*archives\\s*:)(?!\\s*official\\s+website)(?!\\s*home\\s*$))\\s*.+"
+  regex_required: true
+  # Fallback: the filename slug, minus the MM_DD_YY_ date prefix the speech files carry.
+  url_regex: '/(?:\d{2}_\d{2}_\d{2}_?)?([A-Za-z][A-Za-z0-9_-]{2,})\.html?$'
 text:
-  # No semantic container on a page of this vintage — it falls through to the engine's
-  # generic (trafilatura) extractor, the documented aus_pm gen-A pattern. `td` is deliberately
-  # NOT listed: these are table-layout pages and `td` would return every cell joined, i.e. the
-  # navigation welded onto the speech.
-  selectors: [".content", "main", "article"]
+  # `body` is the working selector on this host — see the FIX block in the header. The three
+  # semantic containers ahead of it have never matched a single page here; they are kept only
+  # so the 655 rows already written remain explicable.
+  selectors: [".content", "main", "article", "body"]
 date:
-  # Year from the path, month/day from the filename prefix — see the header. Non-matching URLs
-  # (the root-level news files) are left blank rather than dated from the body.
-  url_regex: '/speeches/(?P<year>\d{4})/(?P<month>\d{2})_(?P<day>\d{2})_'
+  # ⚠️ THE FILENAME DATE ORDER CHANGES MID-ARCHIVE, AND THE OLD REGEX WAS THE WRONG ONE FOR
+  # 2003-2008. Measured over every filename in the harvested link list:
+  #   2000  06_25, 07_14, 09_19, 10_18, 10_28, 12_07  -> 2nd field > 12  => MM_DD_YY
+  #   2001  01_16, 02_05, 04_07                       -> 2nd field > 12  => MM_DD_YY
+  #   2003  15_07, 16_04, 17_07, 22_04, 26_06         -> 1st field > 12  => DD_MM_YY
+  #   2004  13_02, 15_04, 21_10, 23_06, 24_06         -> 1st field > 12  => DD_MM_YY
+  #   2005  14_04   2006  13_01,17_05,18_12,20_01,22_11,23_02
+  #   2007  14_02,18_07,19_11,28_01,29_10,30_08       2008  13_05,22_05,23_04,23_09,24_04
+  # Corroborated on the page itself: /2004/13_02_04_nepad_speech.html carries the dateline
+  # "Kigali, 13 th February 2004", and /2004/15_04_04..18_04_04_us_speech.html is a run of
+  # four consecutive days of a US visit. The OLD regex read the path year plus MM_DD, which
+  # on 2003-2008 silently swaps day and month whenever both are <= 12 and returns nothing at
+  # all when the day is 13-31 (which is why 2004-2008 shows as dateless in the CSV today).
+  #
+  # SO: 2003 onward only, DD_MM order, and the YEAR comes from the FILENAME, not the folder.
+  # The folder is not reliable — /speeches/2007/01_01_08_newyear.html is a New Year address
+  # for 2008 filed in the 2007 directory; the engine's 2-digit-year widening (00-68 -> 20xx)
+  # resolves it correctly from the filename. `\d{1,2}` for the day covers 6_11_07 and
+  # 7_11_07. Three irregular filenames match nothing and are left blank by design rather
+  # than guessed: 03_05_2005 / 04_05_2005 (4-digit year) and 070205_simtel (no separators).
+  #
+  # 2000-2001 are deliberately NOT matched here. They are MM_DD and are ALREADY SCRAPED
+  # (they will not be refetched), so a second, contradictory pattern would buy nothing and
+  # could only mis-date them. The root-level news files use inconsistent forms and stay
+  # dateless; `wayback_capture` is the fallback and the cleaner's GPT pass can read a date
+  # from the text.
+  #
+  # FOLLOW-UP for the researcher: the 9 DATED 2003 rows already in the CSV were written by
+  # the old MM_DD regex in a year that is DD_MM, so their day and month are probably
+  # transposed (e.g. 12_05_03 stored as 5 December, actually 12 May). 2000-2001 are fine.
+  url_regex: '/speeches/200[3-9]/(?P<day>\d{1,2})_(?P<month>\d{2})_(?P<year>\d{2})_'
 
 position: president
 
 notes: >
-  DRAFT — probe-validated 2026-09-01. Kagame's PRE-2007 speeches on the gov.rw government
-  portal, via the Internet Archive. Authored because Rwanda's 132 unmatched rows span
-  1999-2008 while Rwanda's only recipe (rwa_kagame_wayback) targets a different host,
-  paulkagame.com, and floors at 2007-09-27. CONFIRMED AGAINST THE CORPUS BY READING THE
-  DOCUMENT: /government/president/speeches/2000/06_25_00_speech_women_partners_4_peace.html is
+  REPAIRED 2026-09-11 (Dean_scrape unmatched wave 4) — was DRAFT/probe-validated 2026-09-01
+  and then ABORTED mid-run on 2026-09-02 with 2004-2008 entirely uncollected. Four measured
+  defects fixed. (1) None of the three text selectors exists anywhere on gov.rw, so every row
+  came from the generic extractor, which returns nothing on the 2004 Word-exported template —
+  25 consecutive empties tripped the abort guard and left 125 captures never attempted,
+  including ALL of 2005-2008. `body` added to the chain: measured n=1 and 944-5,902 chars of
+  pure document on four captures spanning 2002-2006, with no navigation, sidebar or footer
+  anywhere on this host, so the earlier header's warning about welded-on navigation is simply
+  wrong for gov.rw. (2) The title chain was writing the site banner on 577 of 655 rows and,
+  on the 2004 template, `h1` returns the dateline; `h1` removed, and `<title>` now has to
+  pass a reject-regex before it is accepted, with the filename slug as the url_regex
+  fallback. (3) The filename date order CHANGES mid-archive — 2000-2001 are MM_DD_YY,
+  2003-2008 are DD_MM_YY — and the old url_regex used the 2000 order against the whole
+  archive, so it silently transposed day and month whenever both were <= 12 and returned
+  nothing whenever the day was 13-31; the new one is DD_MM, restricted to the 2003+ folders,
+  and takes the YEAR from the filename because /speeches/2007/01_01_08_newyear.html is a
+  2008 address filed in the 2007 directory. Confirmed on the page: 23_04_06_ontario.html
+  prints "Monday, 23 April 2006", and 13_02_04_nepad_speech.html carries the dateline
+  "Kigali, 13 th February 2004". (4) The host declares no charset anywhere and serves
+  windows-1252, so every capture was decoding as UTF-8 with 1-26 U+FFFD per page;
+  `encoding: windows-1252` added, measured to 0 on all three non-ASCII captures sampled.
+  RESUME WITH `--retry-failed`: 257 fetches (132 failures + 125 never attempted),
+  of which 122 are the 2004-2008 presidential speeches that Rwanda's 79 unmatched corpus rows
+  need. Kagame's PRE-2007 speeches on the gov.rw government portal; Rwanda's other recipe
+  (rwa_kagame_wayback) is paulkagame.com and floors at 2007-09-27. CONFIRMED AGAINST THE
+  CORPUS BY READING THE DOCUMENT — the capture 06_25_00_speech_women_partners_4_peace.html is
   the unmatched row "H.E. PAUL KAGAME ... ADDRESS TO 'WOMEN AS PARTNERS FOR PEACE'
   CONFERENCE, 26th June 2000". Takes presidency speeches (218 captures, 2000-2008), interviews
   (45) and the portal's root-level news files (801, many presidential); excludes
   /president/photo/ (676 - a gallery) and the 30 _PRINT duplicates. Coverage ratio 1,064 of
   1,825 /government captures = 58%, the shortfall being the photo gallery. Date is structural
-  for speeches/interviews (4-digit year from the path plus the MM_DD filename prefix, so the
-  2-digit year in the filename never has to be guessed); the root-level news files use
-  inconsistent date forms and are deliberately left dateless. td is NOT a text selector -
-  these are table-layout pages and the engine joins every matching element, so the body comes
-  from the generic extractor instead. FULL RUN is the researcher's gate.
+  for speeches/interviews (4-digit year from the path plus the MM_DD filename prefix); the
+  root-level news files are deliberately left dateless. FULL RUN is the researcher's gate.
