@@ -1,0 +1,99 @@
+# North Macedonia — GOVERNMENT of the Republic of Macedonia (vlada.mk), the ENGLISH tree, via
+# the Internet Archive.
+#
+# ⚑ THE HEAD-OF-GOVERNMENT SOURCE, and North Macedonia had no recipe for it at all. Both existing
+# Macedonian recipes (mkd_pretsedatel, mkd_pretsedatel_english_wayback) are pretsedatel.mk — the
+# PRESIDENT. 24 of the 25 unmatched audit rows are PRIME MINISTERS: Vlado Buckovski 20 (2005-2006),
+# Nikola Gruevski 4, Emil Dimitriev 1. Same diagnosis as Kuwait, Fiji and Trinidad in wave 4.
+# The near-miss test scored 0.049 against everything already scraped for this country, i.e. these
+# documents are on no host we hold.
+#
+# ⚑ THE LANGUAGE SEGMENT IS `/english/`, NOT `/en/`. A `/en` CDX prefix reaches it only by
+# accident of prefix matching; the modern site uses `/en-GB` and holds nothing from this era.
+#
+# ⛔ RULE 1 BREADTH — the whole English tree, measured 2026-09-11 on a `vlada.mk/en` prefix query
+# (539 status-200 HTML captures, 2005-2008 with a thin 2021-2026 tail):
+#     english/News/<Month><Y>/ei<D>-<M>-<YYYY>[a-z].htm          338   the daily stream
+#     english/Government Sessions/<Month><Y>/e<N>session<D>-…     34   cabinet readouts
+#     english/Speeches/<Month><Y>/speech<D>-<M>-<YYYY>.htm        30   ⚑ 2005-2006, Buckovski
+#     english/Announcements/<Month><Y>/pr<D>-<M>-<YYYY>.htm        8   press releases
+#     english/interviews/<Month><Y>/[<date>/]interview<D>-…        7
+# All five are taken. ✘ Out: bio-<name>.htm (minister biographies), the `speeches.htm` /
+# `news_<month><year>.htm` section indexes, /en-GB/* (the modern institutional pages, no
+# articles), and adm_organizations.htm.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11. candscan over News+Speeches, 16 captures sampled evenly:
+#   english/Speeches/August2005/speech2-8-2005.htm   -> IAC_92816 (Buckovski 2005) containment 1.000
+#   english/News/December2006/ei4-12-2006b.htm       -> IAC_92819 (Gruevski 2006)  containment 0.974
+# 2 hits where the arithmetic predicted 1.1. The date arithmetic corroborates it independently:
+# the four earliest unmatched rows are 2005-03-31, 2005-04-06, 2005-04-14 and 2005-04-20 and the
+# Speeches section holds speech31-3-2005, speech6-4-2005, speech14-4-2005 and speech20-4-2005.
+#
+# ⚠ SELECTORS — measured with selcheck on all three templates, and two obvious choices are traps:
+#   * `h1` matches ONE element and the engine gets **0 characters** from it. `title` is the SITE
+#     BANNER ("Government of the Republic of Macedonia") on every page. Neither is usable.
+#   * `td` is the table-layout trap: n=39, 30,564 chars, and it opens with the nav menu.
+#   `p` is clean on all three templates (n=44/37/16, 9,981 / 9,244 / 5,091 chars, no navigation)
+#   and its FIRST element is the headline — hence the title regex below rather than a selector.
+source_id: mkd_vlada_english_wayback
+country: North Macedonia
+source_language: English
+renderer: static
+start_urls:
+  # One CDX query for the whole English tree — the host is small (539 captures) and five
+  # per-section prefixes would risk the Archive rate limit, whose failure mode is
+  # HTTP 200 + an EMPTY body and reads exactly like "not archived".
+  - vlada.mk/english
+
+listing:
+  # ⚠ ANCHORED ON THE HOST, deliberately — the one place the project's usual "anchor on the PATH"
+  # advice does not apply, because a leading `[^?]*` absorbs earlier segments (wave-4 trap 8a).
+  # `(?::80)?` is required: CDX returns `vlada.mk:80/…` for every http-era capture, and that is
+  # all of them here (wave-4 trap 8b).
+  # Every article ends in <D>-<M>-<YYYY>[a-z].htm; the section indexes (`speeches.htm`,
+  # `news_september2006.htm`) do not, so the anchor is also the out-list.
+  # "Government Sessions" carries a literal space, so both %20 and + spellings are admitted.
+  link_pattern: '//(?:www\.)?vlada\.mk(?::80)?/english/(?:News|Speeches|Government(?:%20|\+|\s)Sessions|Announcements|interviews)/[^?]*\d{1,2}-\d{1,2}-\d{4}[a-z]?\.htm$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # No title element exists on this host (see the header), so the headline is lifted off the
+  # FIRST <p> with a regex. ⚠ MEASURED, because the obvious '^[^\n]{8,240}' returns the WHOLE
+  # BODY: el.get_text("\n") yields nine lines of layout whitespace before the headline
+  # (raw begins '\n\n\n\n \n \n\n\n\xa0\nADDRESS\n  OF PRIME MINISTER...'), so a start-anchored
+  # match FAILS — and a failed regex without regex_required silently returns the unfiltered
+  # value. The leading `^\s*` is therefore load-bearing. Wave-4 trap 9 in a new guise.
+  # The optional short-line group exists because the Speeches template breaks its headline after
+  # the first word; without it the title would be the single word "ADDRESS". Verified on both:
+  #   Speeches -> 'ADDRESS / OF PRIME MINISTER BUCKOVSKI AT THE OPENING OF THE 10 TH REPUBLIC...'
+  #   News     -> 'PM Gruevski: Political destabilisation is impossible'
+  selectors: ["p"]
+  regex: '^\s*(?:[^\n]{0,22}\n\s*)?[^\n]{8,240}'
+text:
+  selectors: ["p"]
+date:
+  # The filename's trailing triple is DD-M-YYYY, corroborated by the <Month><Year> folder it sits
+  # in (speech2-8-2005.htm lives in August2005, ei4-12-2006b.htm in December2006). NO date
+  # selector: the visible date is a bare "2.8.2005" inside the same table cell as the nav menu,
+  # and a wrong date is worse than a blank one.
+  url_regex: '(?P<day>\d{1,2})-(?P<month>\d{1,2})-(?P<year>\d{4})[a-z]?\.htm$'
+
+position: prime minister
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The English tree of
+  vlada.mk — North Macedonia's head-of-GOVERNMENT source, which the corpus had no recipe for:
+  both existing Macedonian recipes are the President (pretsedatel.mk), while 24 of the 25
+  unmatched rows are prime ministers. Authored BROAD per RULE 1 across all five article sections
+  rather than the one called "Speeches"; the coverage ratio is 417 of 539 captures on the host
+  (77%), the remainder being minister biographies, section indexes and the modern /en-GB
+  institutional pages, all enumerated in the header. NO speaker_default — the News stream carries
+  ministers as well as the PM, and the cleaner's tenure crosscheck resolves it from country+date.
+  Shares data/state/North Macedonia.json with mkd_pretsedatel and mkd_pretsedatel_english_wayback
+  — incremental, never --rescrape. FULL RUN is the researcher's gate (~417 fetches, ~1 h).

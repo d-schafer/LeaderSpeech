@@ -7,14 +7,57 @@
 # targeted here. Covers PMs Andrew Holness (2016– , and 2011–12), Portia Simpson Miller
 # (2012–2016) and the tail of Bruce Golding — so speaker_default is deliberately omitted.
 #
-# WHERE THE SPEECHES ARE — three shapes, all in this one harvest:
-#   * /speech/<slug>/      the current WordPress category (396 captures, 2013–2026)
-#   * /speeches/<slug>/    the older plural path (2015 era)
-#   * /<speech|address|statement|remarks>-<long-slug>/   root-level posts (Simpson Miller era
-#     and recent Holness statements), which is why start_urls is the bare host.
-# The general /news/<slug> stream (1,746 captures) is NOT harvested: it is third-person press
-# reporting rather than the leader's own words. It could be added later as a separate recipe if
-# the researcher wants official_statement coverage.
+# ⛔ WIDENED 2026-09-11 (Dean_scrape unmatched recovery, wave 5). THE PREVIOUS SCOPE WAS WRONG,
+# AND IT WAS WRONG IN EXACTLY THE WAY RULE 1 WARNS ABOUT. The version below this line used to
+# read: "The general /news/<slug> stream is NOT harvested: it is third-person press reporting
+# rather than the leader's own words." That was an inference from the section's NAME, never
+# sampled — and it is false. Measured 2026-09-11, five captures fetched and scored against the
+# audit residual by 8-word shingle containment, FIVE of five matched:
+#     /news/joint-communique-vale-royal-talks-resumed/      -> IAC_75997 (Holness 2022)  0.985
+#     /news/pm-holness-statement-government-finalizing-negotiation-to-repatriate-jamaicans/
+#                                                           -> IAC_76004 (Holness 2020)  0.988
+#     /news/prime-minister-issues-statement-on-land-transactions-involving-hon-j-c-hutchinson-mp/
+#                                                           -> IAC_76010 (Holness 2020)  0.964
+#     /news/statement-by-prime-minister-holness-on-the-pollution-of-rio-cobre/
+#                                                           -> IAC_76014 (Holness 2022)  0.936
+#     /featured/throne-speech-2018/                         -> IAC_75966 (Holness 2018)  0.998
+# The old pattern matched 416 of the host's 5,490 captures (8%); it now matches 3,144 (57%), and
+# 28 of Jamaica's 30 unmatched rows become reachable. This is the exact failure mode CLAUDE.md
+# RULE 1 describes: "never dismiss an endpoint without SAMPLING it."
+#
+# WHERE THE SPEECHES ACTUALLY ARE — six shapes, all in this one harvest. Host enumerated
+# 2026-09-11: 5,490 status-200 HTML captures, 2009-2026.
+#   * <root-slug>/              1,438  root-level WordPress posts. ⚑ The old pattern required the
+#                                      slug to START with speech-/address-/statement-/remarks-,
+#                                      which silently dropped
+#                                      "address-by-the-pm-on-the-occasion-of-the-ceremony-to-
+#                                      commemorate-the-10th-anniversary-of-the-petrocaribe-
+#                                      agreement" only by luck and dropped
+#                                      "christmas-message-2013-by-prime-minister-..." outright.
+#                                      Now any root slug of 20+ characters.
+#   * news/<slug>/              1,205  ⚑ THE SECTION THE OLD HEADER DISMISSED. 2014-2026.
+#   * news_and_public_affairs/<slug>  539  the 2008-2013 generation, UNDERSCORE slugs — a second
+#                                      reason the old pattern could not reach it, since its slug
+#                                      class was [a-z0-9-] with no underscore. The unmatched rows
+#                                      from that era carry its breadcrumb verbatim in their text:
+#                                      "- Home - News and Public Affairs - Speeches - ...".
+#   * news_and_public_affairs/speeches/<slug>  7  the same era's explicit Speeches subsection;
+#                                      4 of its 7 archived files match an unmatched row at
+#                                      0.960-0.999 (Golding's 2008 Budget Presentation, the 2010
+#                                      Christopher Coke extradition broadcast, the Jan-13 Debt
+#                                      Management national broadcast, Simpson Miller's 2012
+#                                      Labour Day message).
+#   * speech/<slug>/ + speeches/<slug>/  382  the shapes the recipe already had.
+#   * statement/, featured/, post-cabinet-notes/, videos/  ~150  small article sections; videos/
+#                                      is kept rather than dropped on sight because wave 4's
+#                                      Canada result was that a video page can carry the full
+#                                      transcript.
+# ✘ STILL OUT, and these are listings or registers rather than a judgement about content:
+#   photo_of_the_day/ (304, a gallery), category/ + node/ + search/ + tag/ (term and search
+#   listings), participate/ (201, forms), agencies/ + opm_agency/ + ministries/ + ministry/ +
+#   ministers/ + cabinet_ministers/ (institutional registers), tender/, employment_opp/,
+#   disaster-risk-management-act/ (a statute), and the v2/ + v3/ prefixes (243), which are
+#   partial mirrors of the old site and include wp-login.php.
 source_id: jam_opm_wayback
 country: Jamaica
 source_language: English
@@ -28,7 +71,13 @@ listing:
   # Anchored at the end so the ?utm_/?share query-string duplicates of the same post are
   # dropped (they would otherwise be scraped twice). (?::80)? tolerates the archived
   # http://opm.gov.jm:80/ form that the Wayback CDX records for older captures.
-  link_pattern: 'opm\.gov\.jm(?::80)?/(?:speech(?:es)?/[a-z0-9][a-z0-9-]*/?|(?:speech|address|statement|remarks)-[a-z0-9-]{15,}/?)$'
+  # ⚠ ANCHORED ON THE HOST since the widening: the third branch is a ROOT slug, and on a
+  # root-slug site a leading wildcard absorbs earlier segments, which is how the Trinidad and
+  # Fiji recipes ended up harvesting /tag/ and /category/ pages (wave-4 trap 8a).
+  # Branch 2 admits underscores because the 2008-2013 generation uses them; branch 3 does not,
+  # so the underscore section names (photo_of_the_day, cabinet_ministers, employment_opp) can
+  # never be mistaken for root articles, and the 20-character floor drops the rest.
+  link_pattern: '//(?:www\.)?opm\.gov\.jm(?::80)?/(?:(?:news|speech|speeches|statement|featured|videos|post-cabinet-notes)/[a-z0-9][a-z0-9_%-]{8,}/?|news_and_public_affairs/(?:speeches/)?[a-z0-9][a-z0-9_%-]{8,}/?|(?!disaster-risk-management-act)[a-z0-9][a-z0-9-]{19,}/?)$'
 
 pagination:
   type: wayback
@@ -47,8 +96,14 @@ title:
   selectors: ["title"]
   regex: '^\s*.+?(?=\s*[|–—-]\s*Office of the Prime Minister|$)'
 text:
-  # .entry-content on both generations (5.3k on the current, 12.6k on the 2015 one).
-  selectors: [".entry-content", "article", ".post-content"]
+  # .entry-content on both WordPress generations (5.3k on the current, 12.6k on the 2015 one).
+  # ⚑ .discussion ADDED 2026-09-11 with the widening: the 2008-2013 news_and_public_affairs
+  # generation is DRUPAL, not WordPress, and has no .entry-content at all — before this the
+  # probe returned 0 chars on every page of it. Measured on that generation: .discussion n=1,
+  # 22,622 chars, opening at "NATIONAL BROADCAST BY HON. BRUCE GOLDING, PRIME MINISTER" with no
+  # chrome. Two near-misses rejected: .content (n=1 but opens with the breadcrumb "You are here:
+  # Home News and Public Affairs Speeches") and .node (n=2 — the engine joins them).
+  selectors: [".entry-content", ".discussion", "article", ".post-content"]
 date:
   # .published is the article's own publish date on the current generation ("August 15, 2016").
   # The 2015 generation has no .published; its <time> carries "February 11, 2015 at 9:28 am."

@@ -1,0 +1,121 @@
+# France — GOVERNMENT of France (gouvernement.fr), the MODERN ENGLISH tree, via the Internet
+# Archive. English.
+#
+# ⚑ THE THIRD PIECE OF FRANCE'S ENGLISH RECOVERY, and the one that covers the 2014-2017 block.
+# France's 42 unmatched audit rows split cleanly across three hosts, each identified from the
+# rows' own chrome and then confirmed by reading:
+#     Chirac 2001-2006   ->  elysee.fr/ang/          fra_elysee_english_old_wayback
+#     Villepin 2005-2007 ->  premier-ministre.gouv.fr/en/  fra_matignon_english_wayback
+#     Valls/Philippe/Sarkozy -> THIS RECIPE
+# The three existing gouvernement.fr recipes (fra_gouvernement_wayback, _news_, _archives_) are
+# all source_language: French and cannot close a single row — every unmatched row is
+# source_language = en and the matcher is monolingual 8-word shingle containment.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11. A broad even sample of the root-slug tree was INCONCLUSIVE
+# by design (16 captures against 42 rows over 1,138 URLs predicts 0.6 hits, and returned 0), so
+# the eight slugs the residual's own titles name were fetched directly — 5 of 8 matched:
+#     prime-minister-s-general-policy-statement        -> IAC_56705 (Valls 2014)    0.995
+#     prime-minister-s-general-policy-statement-0      -> IAC_56688 (Valls 2014)    0.964
+#     france-is-making-a-clear-statement-we-cannot-let-greece-leave-the-eurozone
+#                                                      -> IAC_56673 (Valls 2015)    0.961
+#     edouard-philippe-s-general-policy-statement-key-points-at-a-glance
+#                                                      -> IAC_56670 (Philippe 2017) 0.937
+#     en/information/press_871/fifteenth_ambassadors_conference_speech_57109.html
+#                                                      -> IAC_56679 (Sarkozy 2007)  0.960
+#
+# ⛔ RULE 1 BREADTH — 2,147 status-200 HTML captures on gouvernement.fr/en, 2004-2023:
+#     /en/<root-slug>                 1,416   ⚑ THE ARTICLES, 2014-2023. Taken (1,138 after the
+#                                             length floor and the gallery out-list).
+#     /en/search/site/…                 283   search component. ✘ Out by RULE 1.
+#     /en/information/latest_news_97…   103   ⚑ see the mirror note below
+#     /en/information/photos_318         62   photo gallery. ✘ Out.
+#     /en/information/reports_98         45   mirror
+#     /en/chantiers/major_projects_94    22   mirror
+#     /en/acteurs/speeches_45            17   mirror
+#     /en/acteurs|information/<other>   ~57   mirror
+#
+#   ✘ THE 2006-2009 SPIP SECTIONS (207 captures) ARE A HOST MIRROR, NOT A SECOND SOURCE, and
+#     are excluded for that reason. The identical path and the identical document id are served
+#     by THREE hosts: premier-ministre.gouv.fr, gouvernement.fr and archives.gouvernement.fr all
+#     answer .../en/information/latest_news_97/commemorating_the_abolition_of_55275.html. The
+#     engine's identity dedupe normalises scheme, www., port and trailing slash but NOT the HOST,
+#     so harvesting them here would write every one of those documents a second time. They are
+#     taken once, on premier-ministre.gouv.fr, by fra_matignon_english_wayback — which is the
+#     host with the deepest coverage of that generation (1,871 captures against 207).
+#     ⚑ EXCEPTION, and it is why the exclusion is expressed as a path shape rather than a blanket
+#     rule: /en/information/press_871/fifteenth_ambassadors_conference_speech_57109.html (the
+#     Sarkozy 2007 row, containment 0.960) is captured HERE and not on the Matignon host. The
+#     link_pattern therefore keeps the SPIP shape but the sibling runs first, and the identity
+#     dedupe collapses the overlap within the shared data/state/France.json. Run order is
+#     load-bearing for cost here, exactly as CLAUDE.md says.
+#
+#   ✘ Also out: photo-gallery / photo-galleries slugs (galleries, RULE 1), and the bare /en/
+#     section and person index pages, which the 12-character slug floor drops.
+#   ⚑ KEPT ON PURPOSE: video- slugs. Canada's wave-4 result was that a video page can carry the
+#     full transcript, so they are sampled by the cleaner rather than dropped on sight.
+source_id: fra_gouvernement_english_wayback
+country: France
+source_language: English
+renderer: static
+start_urls:
+  - gouvernement.fr/en
+
+listing:
+  # ⚠ ANCHORED ON THE HOST. This is the exact case wave-4 trap 8a describes: a root-slug site
+  # where `[^?]*/[a-z0-9-]{11,}$` would happily absorb earlier segments and match
+  # /en/search/site/paris and /en/information/photos_318/<slug>. (?::80)? is required for the
+  # http-era captures (trap 8b).
+  # Branch 1: exactly one segment under /en/ — the 2014-2023 articles.
+  # Branch 2: the SPIP shape, kept only for the captures the Matignon sibling does not hold.
+  link_pattern: '//(?:www\.)?gouvernement\.fr(?::80)?/en/(?:(?!photo-galler)[a-z0-9][a-z0-9-]{11,}/?$|(?!photos)[a-z_-]+/[a-z_-]+_\d+/(?:[^?]*/)?[a-z0-9_]+_\d+\.html?$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["page", "doc_courant", "var_recherche", "lang"]
+
+title:
+  # h1 is the real article title on the modern Drupal template (n=1, "Prime Minister's general
+  # policy statement"). ⚠ On the 2006-2009 SPIP pages h1 is the SITE BANNER instead, which is
+  # why `title` follows it in the chain rather than leading — and why the Matignon sibling, whose
+  # pages are ALL SPIP, uses `title` alone. Two generations, two right answers, one chain.
+  selectors: ["h1", "title"]
+text:
+  # .field-name-field-texte is the modern body field (n=1, 2,899-17,426 chars, no chrome);
+  # .texte is the SPIP body. No generic fallback: pages where neither matches are soft 404s.
+  selectors: [".field-name-field-texte", ".texte"]
+date:
+  # .entete-surtitre is the modern template's dateline — n=1 and NOTHING but the date
+  # ("8 April 2014", "1 February 2019"). .imprim_date is the SPIP equivalent.
+  # ⚠ A bare `.date` is the sidebar "latest news" feed on the SPIP template (n=9) and is not in
+  # this chain for that reason.
+  selectors: [".entete-surtitre", ".imprim_date"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+\d{4}|(?:1[3-9]|2\d|3[01])(?:st|nd|rd|th)-\d{1,2}-\d{4}'
+  regex_required: true
+context:
+  # The standfirst — "Excerpts from the general policy statement given on 8 April 2014 by Prime
+  # Minister Manuel Valls..." — which is exactly what the schema's `context` column is for.
+  selectors: [".field-name-field-description"]
+
+# ⚠ Safe here: every date this recipe parses carries a MONTH NAME ("8 April 2014"), or is the
+# SPIP ordinal form already narrowed to days 13-31 by the regex above. The standing warning that
+# date_languages ["en"] flips numeric DD/MM does not bite where there is no numeric month.
+date_languages: ["en"]
+position: prime minister
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The modern ENGLISH tree
+  of gouvernement.fr — the 2014-2023 root-slug articles, plus the handful of 2006-2009 SPIP
+  captures its Matignon sibling does not hold. Confirmed by reading at containment 0.937-0.995 on
+  five directly-fetched slugs named by the residual's own titles; a broad even sample was
+  correctly INCONCLUSIVE (0 hits where the arithmetic predicted 0.6) and is recorded that way
+  rather than as a negative. ~1,150 fetches for ~14 audit rows, and it is also the largest new
+  English France source available (France holds 532 scraped English rows today). NO
+  speaker_default — the stream carries the PM, ministers and the President. Shares
+  data/state/France.json with the five existing France recipes and the two siblings from this
+  wave; they must run in ONE queue file, with fra_matignon_english_wayback FIRST so the identity
+  dedupe skips the mirrored SPIP documents. Incremental, never --rescrape. FULL RUN is the
+  researcher's gate.

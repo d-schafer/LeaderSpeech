@@ -1,0 +1,94 @@
+# Sri Lanka — Presidential Secretariat (president.gov.lk), the 2005-2007 ENGLISH tree, via the
+# Internet Archive.
+#
+# ⚠ THE LANGUAGE MARKER IS THE OPPOSITE OF WHAT IT LOOKS LIKE — read this before touching the
+# link_pattern. On this generation the ENGLISH pages live under `/sinhala/html/`, and the Sinhala
+# and Tamil editions live one level deeper, under `/sinhala/Sinhala/html/` and
+# `/sinhala/Tamil/HTML/`. `sinhala` is the site-root directory name, not a language flag.
+# Verified by reading: /sinhala/html/speeches/2006/national_year_of_child.htm is English and
+# matches an unmatched corpus row at containment 1.000. This is the same trap as president.ee's
+# trailing `i` = *inglise* = English (wave 4) — read one page of each before deciding.
+#
+# ⚑ WHY A THIRD SRI LANKA RECIPE. The two existing ones cannot reach this generation:
+#     lka_president_old_wayback  takes the QUERY-addressed CMS — news.asp?newsID=,
+#                                speech_New.php?Id=, Writings_New.php?Id= — 955 rows, 2007-2014.
+#     lka_president_wayback      takes the modern WordPress root slugs — 2,107 rows.
+# Neither has a branch for the static /sinhala/html/ tree, which is where 2005-2007 lives.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11, and the figure is honest rather than flattering: 14
+# captures sampled evenly from the 39 in the speeches tree, ONE matched —
+# national_year_of_child.htm -> IAC_89039 (Rajapaksa 2006) at containment 1.000 — where the
+# arithmetic predicted 15.4. So this tree holds a little of Sri Lanka's residual, not most of it.
+# It is built anyway because it is 305 fetches (about 45 minutes) and it is the only English
+# source the corpus has for Rajapaksa's first two years.
+#
+# ⛔ RULE 1 BREADTH — 765 status-200 HTML captures under president.gov.lk/sinhala/html:
+#     photoessays/<year>/…   458   ✘ OUT: a photo gallery (photo_large/, photo_thumb/).
+#     news/<YYYYMM>/…        265   TAKEN. ⚠ Measured NEGATIVE for recovery on its own account
+#                                  (0 of 14 sampled matched, expected 2.3) — it is presidential
+#                                  news in English, real content, but not where the residual is.
+#                                  Recorded so the next session does not re-measure it.
+#     speeches/<year>/…       40   TAKEN. The one confirmed family.
+#     the two section index pages (newsarchives.htm, photogallery.htm)  ✘ OUT.
+# ✘ Also out, host-wide: photoAlbumViewLarge.asp / photoAlbumViewThumbs.asp (gallery viewers),
+#   and the /sinhala/Sinhala/ + /sinhala/Tamil/ subtrees, which are the non-English editions and
+#   belong to a different recipe if anyone wants them.
+#
+# ⚠ DEFECT FOUND IN THE SIBLING WHILE DOING THIS, recorded here because it is the same country
+# and nobody else will look: **lka_president_wayback's link_pattern is NOT ANCHORED**, so it
+# matches the host inside a QUERY PARAMETER. 525 of its 2,107 rows (25%) are
+# `wp-json/oembed/1.0/embed?url=http://www.president.gov.lk/<slug>/` — oEmbed stubs, which
+# CLAUDE.md RULE 1 lists explicitly as out of scope. The `(?!wp-|…)` guard never fires because
+# the regex simply matches further along the string, at the `president.gov.lk/` inside `url=`.
+# The fix is the same anchoring every recipe in this wave uses:
+# `'//(?:www\.)?president\.gov\.lk(?::80)?/(?!wp-|category/|…)…'`. NOT applied here because it
+# changes a source that has already run and the researcher owns that call.
+source_id: lka_president_english_2005_wayback
+country: Sri Lanka
+source_language: English
+renderer: static
+start_urls:
+  - president.gov.lk/sinhala/html
+
+listing:
+  # ⚠ Anchored on the host with (?::80)?. The `html/` segment immediately after `sinhala/` is
+  # what excludes the Sinhala and Tamil editions — `/sinhala/Sinhala/html/` and
+  # `/sinhala/Tamil/HTML/` both fail it, since the pattern requires `sinhala/html/` adjacent.
+  link_pattern: '//(?:www\.)?president\.gov\.lk(?::80)?/sinhala/html/(?:speeches/\d{4}|news/\d{6})/[a-z0-9][a-z0-9_-]*\.htm$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # ⚠ The <title> TAG IS THE SECTION BANNER — "President of Sri Lanka - Speeches" on every page
+  # in the tree — and there is no h1 at all. `.head` is the real headline: n=1, 67 chars,
+  # "No differentiation whatever among children of Sri Lanka – President".
+  selectors: [".head", "title"]
+text:
+  # .paragraph (n=11, 6,804 chars) is the body and excludes the headline and dateline.
+  # ⚠ `td` is the table-layout trap here as everywhere: n=32, 27,691 chars, the whole page
+  # several times over (the page nests tblOuter inside tblInner).
+  selectors: [".paragraph"]
+date:
+  # .date matches THREE elements but two are empty, so the engine's join yields exactly
+  # "01st February 2006" — verified, not assumed. The month name makes the day/month order
+  # unambiguous, which is why date_languages ["en"] is safe here.
+  selectors: [".date"]
+  regex: '\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4}'
+
+position: president
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The 2005-2007 static
+  ENGLISH tree of president.gov.lk, which neither existing Sri Lanka recipe reaches — one takes
+  the query-addressed CMS, the other the modern WordPress slugs. 305 fetches. The English pages
+  sit under a directory literally named `sinhala`; see the header, and do not "fix" that.
+  Confirmed by reading at containment 1.000 on one capture; the speeches tree is small (40
+  captures) and the news tree measured negative for recovery, both stated rather than blurred.
+  Shares data/state/Sri Lanka.json with the two existing recipes — incremental, never
+  --rescrape. FULL RUN is the researcher's gate.

@@ -1,0 +1,113 @@
+# Ghana — Ghana Official Portal (ghana.gov.gh), the 2007-2009 JSP GENERATION, via the Internet
+# Archive. English-native.
+#
+# ⚑ A GENERATION, NOT A HOST. Ghana already has six recipes and three of them are this same host
+# — and all three miss this tree entirely, because they were written against the LATER Joomla
+# site. Measured 2026-09-11:
+#     gha_ghanagov_wayback        takes index.php/<section>/<id>-<slug>, /news|governing|living|
+#                                 studying|investing|visiting/article.php?id=, story.asp,
+#                                 newsdetails.asp   -> 5,719 rows, 2008-2015
+#     gha_ghanagov_news_wayback   index.php/<section>/<id>-<slug> only
+#     gha_ghanagov_query_wayback  option=com_content articles, wayback_to 20130101 -> 980 rows
+# None has a branch for /ghana/<slug>.jsp, and gha_ghanagov_wayback's pattern explicitly excludes
+# `index.php/ghana/`. So the whole KUFUOR ERA was invisible: Ghana's scraped English starts in
+# 2008, and 38 of its 44 unmatched audit rows are 2007-2008.
+#
+# ⚑ HOW IT WAS FOUND. The unmatched rows carry this site's NAV MENU as their opening text —
+# "About Ghana Government Directories Public Services Doing Business Tourism What's Happening
+# Special Features" — which is exactly what `h1` returns on this template (n=10; see the title
+# note below). The chrome named the host and the generation.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11. A broad even sample was correctly INCONCLUSIVE (44 rows
+# over 2,051 candidate URLs predicts 0.3 hits at n=14, and returned 0). Narrowing the sample to
+# the 216 slugs containing speech/address/statement/kufuor and sampling 16:
+#     president_kufuors_statement_climate_change_un.jsp          -> IAC_58563 (Kufuor 2007) 1.000
+#     ..._kufuor_51st_independence_indepencence_square_accra_6th_...  -> IAC_58596 (Kufuor 2008) 0.977
+# 2 hits where the arithmetic predicted 3.3. The narrowed sample is a MEASUREMENT DEVICE only —
+# the recipe itself takes the whole section, per RULE 1.
+#
+# ⛔ RULE 1 BREADTH. `ghana.gov.gh/ghana` holds 2,785 status-200 HTML captures, 2007-2009, and
+# the recipe takes 2,490 of them (89%) — every <slug>.jsp article, section-agnostic, because on
+# this generation the section is not in the URL at all: presidential addresses, ministerial
+# speeches, sports reports and health-service notices share one flat namespace and the cleaner's
+# document_type gate is what sorts them.
+# ✘ The 295 not taken are the `.jsp_0` / `.jsp_1` suffix variants, which are re-captures of a
+#   URL already in the list and would write the same document twice — the identity dedupe
+#   normalises scheme, www., port and trailing slash but NOT a different last path segment.
+# ✘ Elsewhere on the host and NOT this recipe's business: /node/<N>/print (print duplicates),
+#   /forward/<N> (the "email this page" widget), /taxonomy/term/<N> (term listings),
+#   /user/, /comment/, /forum/ (a discussion board).
+source_id: gha_ghanagov_jsp_wayback
+country: Ghana
+source_language: English
+renderer: static
+start_urls:
+  - ghana.gov.gh/ghana
+
+listing:
+  # ⚠ Anchored on the host with (?::80)? — every capture of this generation is http-era.
+  # The underscore slug class is what distinguishes this generation from the later Joomla one
+  # (hyphens), so the two recipes cannot collide.
+  link_pattern: '//(?:www\.)?ghana\.gov\.gh(?::80)?/ghana/[a-z0-9][a-z0-9_]{8,}\.jsp$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # ⚠ h1 IS THE NAVIGATION MENU on this template — n=10, and the engine joins every match, so it
+  # returns "About Ghana Media Government Directories Public Services Doing Business Tourism
+  # What's Happening...". That string is literally what the unmatched corpus rows open with,
+  # which is how this source was identified; it is not a title. The <title> tag is per-article
+  # and clean, and the lookahead strips the site suffix (the engine's title regex keeps group(0),
+  # so a capture group would strip nothing).
+  selectors: ["title"]
+  regex: '^\s*.+?(?=\s*\|\s*Ghana Official Portal|$)'
+text:
+  # p (n=18, 5,097 chars) opens at "Statement By H.E. John Agyekum Kufuor, President Of The
+  # Republic Of Ghana At The High-Level Event On Climate Change" — no navigation.
+  # Two rejected alternatives, both measured: `td` is the table-layout trap (n=17, 6,915 chars,
+  # opens with "HOME RESOURCES CITIZENS INVESTORS TOURISTS"), and #centercoltop / td.centercol
+  # (5,679) prepend the breadcrumb "Home <headline>".
+  selectors: ["p"]
+
+date:
+  # ⚠ THERE IS NO DATE ELEMENT ON THIS TEMPLATE. .submitted, .date, .breadcrumb, .archivelink
+  # and the URL were all checked; none carries one. So the date is lifted from the speech's own
+  # DATELINE in the body, and the regex is the whole safety mechanism:
+  #   * it matches ONLY a date ("9TH JUNE, 2008"), never a surrounding blob. That is not
+  #     cosmetic — `first_match` returns group(0), and handing dateparser a long headline blob
+  #     was measured on the French sibling to return **TODAY'S DATE** rather than failing.
+  #   * (?i) is required because these pages set their datelines in capitals; without it the
+  #     hit rate on a 6-page sample was 1/6, with it 5/6.
+  #   * regex_required makes a miss leave the field EMPTY instead of falling through to the
+  #     unfiltered 5,000-character body.
+  # Residual risk, stated: on a page with no dateline the first date MENTIONED in the speech
+  # would win. Accepted because the alternative is ~2,490 wholly undated rows, and the cleaner's
+  # corrected-date pass plus the wayback_capture stamp remain the backstop either way.
+  selectors: ["p"]
+  regex: '(?i)\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december),?\s+\d{4}'
+  regex_required: true
+
+position: president
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The 2007-2009 JSP
+  generation of ghana.gov.gh — the Kufuor era, which none of Ghana's three existing ghana.gov.gh
+  recipes reaches because all of them were written against the later Joomla site. 2,490 fetches
+  for ~38 audit rows; the ratio is honest rather than good (about 57 fetches per row), and it is
+  queued accordingly. NO speaker_default even though `position: president` is set: the flat
+  namespace carries ministers and agency notices as well as the President, and the cleaner's
+  tenure crosscheck assigns from country+date.
+  ⚠ THIS GENERATION IS DATELESS. There is no date element anywhere on the template — .submitted,
+  .date, .breadcrumb and .archivelink were all checked and none carries one — and the URL has no
+  date either, so NO date selector is set rather than a guessed one. Every row will rely on the
+  cleaner's corrected-date pass (these speeches carry their own dateline in the body) and on the
+  wayback_capture stamp the scraper writes on every archive row. That is a known cost of this
+  source, not an oversight; Ghana's existing gha_ghanagov_wayback already holds 4,498 undated
+  rows from the same site for the same reason.
+  Shares data/state/Ghana.json with the six existing Ghana recipes — incremental, never
+  --rescrape. FULL RUN is the researcher's gate.

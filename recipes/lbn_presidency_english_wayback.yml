@@ -11,7 +11,30 @@
 # The English stream is the SharePoint generation only — presidency.gov.lb's current WordPress
 # site publishes at /posts/ with no English mirror, so there is nothing here after ~2022.
 #     330  /English/News/Pages/Details.aspx?nid=N
-#      ~x  /english/Pages/NewsDetails.aspx?NewsRef=…   (the older generation, same idea)
+#      ~x  /english/Pages/NewsDetails.aspx?NewsRef=...   (the older generation, same idea)
+#       29  /English/Pages/SpeechesDetails.aspx?nid=N    ADDED 2026-09-11 -- see below
+#
+# WIDENED 2026-09-11 (wave-5 Dean_scrape recovery). The link_pattern read
+# `(news)?details\.aspx` and so matched NewsDetails and Details but not **SpeechesDetails** --
+# a one-word gap that hid the host's only dedicated English SPEECH endpoint. 29 captures, and
+# FIVE of fourteen sampled match an unmatched corpus row by 8-word shingle containment:
+#     nid=25281 -> IAC_87409 (Suleiman 2014)  1.000
+#     nid=24387 -> IAC_87407 (Suleiman 2014)  0.996
+#     nid=19782 -> IAC_87403 (Suleiman 2013)  0.995
+#     nid=27142 -> IAC_87422 (Aoun 2022)      0.995
+#     nid=26963 -> IAC_87414 (Aoun 2022)      0.987
+# 29 extra fetches for roughly ten audit rows -- the best ratio in wave 5.
+# ⚑ Some of these nids answer "This news is unavailable" (1,797-1,892 chars) rather than 404ing;
+#   the cleaner's document_type gate rejects them, and they are cheap enough not to filter.
+#
+# ⛔ AND THE REST OF THE HOST IS EXHAUSTED, measured the same day so nobody re-derives it: the
+# WHOLE of presidency.gov.lb holds 6,671 status-200 HTML captures and only **639 are English**
+# -- 348 English/News/Pages (this recipe already had them), 29 SpeechesDetails (now added), 122
+# photogallery, and ~140 institutional Pages (palaces, Republican Guard, former presidents).
+# There is NO archived English tree from the Hrawi/Lahoud era: the host's 2000-2007 captures are
+# dominated by president/album/<year> photo albums (1,700+), and the Arabic SharePoint tree
+# (1,757 captures) is the only article stream that reaches back. Lebanon's 1996-2006 rows
+# (Hrawi 2, Lahoud 19) should be treated as unreachable on this host.
 # 330 English documents against 1,766 Arabic is the usual ratio for a Levantine presidency site:
 # the English edition is a selective translation, not a mirror. Take both — this file is cheap
 # and its rows need no translation stage.
@@ -25,10 +48,12 @@ start_urls:
   # With the full ".aspx" the harvest silently collapses to near zero. See the Arabic sibling.
   - presidency.gov.lb/English/News/Pages/Details.asp
   - presidency.gov.lb/english/Pages/NewsDetails.asp
+  # Truncated for the same reason as the two above.
+  - presidency.gov.lb/English/Pages/SpeechesDetails.asp
 renderer: static
 
 listing:
-  link_pattern: '(?i)/english/(news/)?pages/(news)?details\.aspx\?(nid=\d+|newsref=)'
+  link_pattern: '(?i)/english/(news/)?pages/(news|speeches)?details\.aspx\?(nid=\d+|newsref=)'
 
 pagination:
   type: wayback

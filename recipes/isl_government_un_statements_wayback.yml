@@ -1,0 +1,95 @@
+# Iceland — Permanent Mission of Iceland to the United Nations (government.is), statements,
+# via the Internet Archive. English-native.
+#
+# ⚑ READ THE ROWS BEFORE READING THE SEED HOST. Iceland's 12 unmatched audit rows are filed
+# under the seed host forseti.is (the President) and attributed to Katrín Jakobsdóttir, but they
+# are not presidential speeches at all — they are UN and Nordic joint statements:
+#     "Joint Nordic Statement on Upholding the United Nations Charter"
+#     "Joint Nordic Statement on the occasion of Arria formula meeting in UN Security Council"
+#     "Statement at the Meeting of the OECD Council at Ministerial Level, Paris, May 21-22, 1996"
+# The corpus even records the speaker's position inconsistently across them ("president" on one,
+# "Foreign Minister" on the next), which is the tell. The near-miss test scored 0.000 against
+# everything already scraped for Iceland, and the reason is simply that nothing we hold is this
+# kind of document.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11, and the statistics are worth stating precisely because
+# they look weak and are not: 16 captures sampled evenly across the 2,290 diplomatic-mission
+# statements, ONE matched —
+#     .../permanent-mission-of-iceland-to-the-united-nations/statements/statement/2021/01/06/
+#     Nordic-Joint-Statement-in-the-UN-Security-Council-...  -> IAC_74816  containment 0.991
+# The EXPECTED hit count at that sample size was **0.1**. Finding one is a ten-fold
+# over-performance, not a near-miss.
+#
+# ⛔ RULE 1 / breadth, and a DELIBERATE NARROWING that is a researcher question, not a
+# scraping one. government.is holds 2,290 archived `diplomatic-missions/<mission>/statements/`
+# captures, split by mission:
+#     embassy-of-iceland-in-geneva                        844
+#     permanent-mission-and-embassy-of-iceland-in-geneva  788
+#     permanent-mission-of-iceland-to-the-united-nations  508   ⚑ TAKEN (404 article-shaped)
+#     embassy-of-iceland-in-vienna                        278
+#     permanent-mission-of-iceland-in-geneva               94
+#     permanent-representation-of-iceland-to-the-coe       89
+#     embassies in Paris, Brussels and others            ~110
+# This recipe takes ONLY the New York mission — 404 of 2,290, i.e. 18% — because that is where
+# every unmatched row is, and because the rest is Human Rights Council and OSCE text delivered
+# by AMBASSADORS. Whether ambassador-level diplomatic statements belong in a leader-speech
+# corpus at all is a scope decision for the researcher; the other 1,886 captures are measured
+# and banked here rather than silently taken or silently dropped. If the answer is "yes", the
+# widening is one alternation in the link_pattern.
+# ✘ Iceland's two 1996 Davíð Oddsson rows (an OECD Council statement and a Barents Euro-Arctic
+#   Council statement) are NOT reachable: government.is's archive begins in 2001 and its
+#   diplomatic-mission statements begin in 2018. Treat those two as unreachable on this host.
+source_id: isl_government_un_statements_wayback
+country: Iceland
+source_language: English
+renderer: static
+start_urls:
+  - government.is/diplomatic-missions/permanent-mission-of-iceland-to-the-united-nations/statements
+
+listing:
+  # ⚠ Anchored on the host. The /<YYYY>/<MM>/<DD>/<slug>/ tail is what distinguishes a statement
+  # from the section index and its pager.
+  link_pattern: '//(?:www\.)?government\.is/diplomatic-missions/permanent-mission-of-iceland-to-the-united-nations/statements/statement/\d{4}/\d{2}/\d{2}/[^/?]+/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # ⚠ h1 MATCHES TWICE inside the article (headline plus standfirst) and the engine joins them
+  # into 271 characters. The regex keeps the first line only — and the leading `^\s*` is
+  # load-bearing, because el.get_text("\n") emits layout whitespace first and a failed regex
+  # without regex_required silently returns the unfiltered join.
+  # `title` is the fallback but is prefixed "Government of Iceland | ", which the engine's
+  # group(0) semantics cannot strip, so it is second by design.
+  selectors: ["article.single-news h1", "title"]
+  regex: '^\s*[^\n]{8,250}'
+text:
+  # .single-news__content, n=1, 6,320 chars, opens at the statement itself.
+  selectors: [".single-news__content"]
+date:
+  # Scoped to the article: a bare `time` would be reachable from the sidebar's news teasers.
+  # Format "January 06, 2021" — month name, so the numeric DD/MM inversion cannot arise.
+  selectors: ["article.single-news time"]
+  regex: '[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}'
+
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). 404 fetches. The
+  documents Iceland's residual actually contains are UN Security Council and Nordic joint
+  statements, not presidential speeches — see the header; the seed host (forseti.is) and the
+  recorded speaker are both misleading on these rows. Confirmed by reading at containment 0.991,
+  against an expected hit count of 0.1. NO speaker_default and NO position: these statements are
+  delivered variously by the Prime Minister, the Foreign Minister and the Permanent
+  Representative, and the cleaner's speaker pass plus the tenure crosscheck should decide;
+  several will legitimately fail the leader gate, which is the correct outcome.
+  ⚠ SCOPE QUESTION FOR THE RESEARCHER, flagged rather than decided: the other 1,886 archived
+  statements on this host belong to the Geneva, Vienna, Paris and Brussels missions and are
+  ambassador-level Human Rights Council and OSCE text. They are measured in the header and left
+  out. Say the word and it is one alternation in the link_pattern.
+  Shares data/state/Iceland.json with the three forseti recipes — incremental, never --rescrape.
+  FULL RUN is the researcher's gate.

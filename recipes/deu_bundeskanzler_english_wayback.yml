@@ -1,0 +1,113 @@
+# Germany — the FEDERAL CHANCELLOR's own site, ENGLISH tree, via the Internet Archive.
+# Two hosts, one office: bundeskanzlerin.de (Merkel, to Dec 2021) and bundeskanzler.de (Scholz
+# onward). The site was renamed with the chancellorship, so both are in this one recipe.
+#
+# ⚑ GERMANY HAD NO CHANCELLOR RECIPE AT ALL. All three existing German recipes are
+# bundespraesident.de — the FEDERAL PRESIDENT, a ceremonial head of state. Every one of
+# Germany's 31 unmatched audit rows is a head of GOVERNMENT: Merkel 27, Scholz 3, Schröder 1.
+# Same diagnosis as Kuwait, Fiji, Trinidad and North Macedonia. The near-miss test scored 0.012
+# against everything already scraped for this country.
+#
+# ⚑ THE PATH SEGMENT IS THE LANGUAGE, AND IT IS NOT "/en". A CDX prefix of
+# `bundeskanzlerin.de/en` returns NO CAPTURES; the English tree is `/bkin-en` (the German one is
+# `/bkin-de`), and on the successor host it is `/bk-en`. Wave 4 recorded this and could not get
+# past it; the fix was simply to enumerate both hosts rather than infer the path.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11 — FOUR OF FOUR, containment 0.978-0.998. Wave 4's broad
+# 10-capture scan of this host matched nothing, which was correctly within noise (31 rows over
+# ~400 documents predicts 0.8 hits). The productive move was to take the residual's own titles
+# and look for them as slugs:
+#   .../bkin-en/news/speech-by-angela-merkel-at-the-47th-munich-security-conference-477578
+#                                                     -> IAC_51829 (Merkel 2011) 0.997
+#   .../bkin-en/news/speech-by-federal-chancellor-dr-angela-merkel-at-the-xth-petersberg-climate-dialogue-berlin-14-may-2019-1612592
+#                                                     -> IAC_51842 (Merkel 2019) 0.998
+#   .../bkin-en/news/speech-by-federal-chancellor-angela-merkel-at-the-49th-world-economic-forum-annual-meeting-in-davos-on-23-january-2019-1574188
+#                                                     -> IAC_51831 (Merkel 2019) 0.991
+#   .../bkin-en/news/speech-by-federal-chancellor-dr-angela-merkel-at-the-2020-annual-meeting-of-the-world-economic-forum-in-davos-on-23-january-2020-1716620
+#                                                     -> IAC_51835 (Merkel 2020) 0.978
+# 26 of Germany's 31 rows are 2018-2022 and land in this window. (The 5 earlier ones — Schröder
+# 2003, Merkel 2011 and 2013 — are on bundesregierung.de/Content/EN; see the sibling
+# deu_bundesregierung_english_wayback, and note the 2011 Munich Security Conference row is
+# reachable from BOTH, since this host republished it.)
+#
+# ⛔ RULE 1 BREADTH, measured 2026-09-11:
+#     bundeskanzlerin.de/bkin-en   590 captures, 2018-2021 (2018: 50, 2019: 156, 2020: 119,
+#                                  2021: 265)
+#     bundeskanzler.de/bk-en       614 captures, 2021-2026
+#   The recipe takes all 775 article-shaped captures across both — news/, homepage/, issues/ and
+#   any other section — because the section is not a reliable guide here: the Auschwitz and
+#   Davos speeches sit under `homepage/`, not `news/`.
+# ✘ ONE DELIBERATE EXCLUSION, and it is a LANGUAGE exclusion, not a topic one: nine captures
+#   under these English paths have PERCENT-ENCODED slugs and are NOT English — e.g.
+#   /bk-en/news/%D9%83%D9%84%D9%85%D8%A9-...-2336338 is a Ramadan greeting in ARABIC, 1,770
+#   chars, served from the `/bk-en/` tree. Requiring an ASCII-lowercase slug drops all nine.
+#   This matters because the recipe declares source_language: English and a non-English body
+#   would land in the English column — the exact defect recorded for
+#   cze_hrad_havel_english_wayback (324 Czech rows in the English columns).
+source_id: deu_bundeskanzler_english_wayback
+country: Germany
+source_language: English
+renderer: static
+start_urls:
+  - bundeskanzlerin.de/bkin-en
+  - bundeskanzler.de/bk-en
+
+listing:
+  # ⚠ Anchored on the host. The trailing -<id> of 6+ digits is what distinguishes an article
+  # from a section index, and the ASCII-only slug class is the language guard described above.
+  link_pattern: '//(?:www\.)?bundeskanzler(?:in)?\.de/bk(?:in)?-en/[a-z-]+/[a-z0-9][a-z0-9-]*-\d{6,}$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["fbclid", "nn", "jsessionid", "view"]
+
+title:
+  # ⚠ SCOPED TO main ON PURPOSE. A bare h1 matches FOUR elements on this template and the engine
+  # joins them, so it returns "Footer-Area Footer-Area Speech by Federal Chancellor..." — the
+  # standing h1-is-chrome trap, in its most literal form. `main h1` is n=1 and clean.
+  # `head > title` is the fallback (a bare `title` matches FIVE elements here, because the
+  # inline SVG icons carry their own <title>).
+  selectors: ["main h1", "head > title"]
+text:
+  # ⚠ .bpa-richtext IS NOT THE BODY. It matches THREE elements — the first is the COOKIE BANNER
+  # ("Data privacy information We use cookies to enable you...") — and even scoped as
+  # `.bpa-article .bpa-richtext` it matches twice and the engine's join DOUBLES the speech
+  # (40,737 chars for a 20,368-char document). `.bpa-article` is n=1 and exact.
+  # ⚑ .basepage_pages is the OLDER (2018-2021) template on the same host — it carries none of
+  #   the .bpa-* classes, and without it 4 of 12 probed pages extracted ZERO. Measured n=1,
+  #   3,463 chars, opening at the article lead. Its #content (3,924) and .text (n=2) were
+  #   both rejected: the first prepends the literal word "Content", the second doubles.
+  selectors: [".bpa-article", ".basepage_pages"]
+date:
+  # .bpa-government-declaration-place-date is the Merkel-era dateline, n=1, "Tuesday, 14 May 2019
+  # in Berlin" — the regex keeps only the date part. `main time` covers the successor host
+  # ("Saturday, 1 March 2025") and is scoped to main so a teaser feed cannot reach it.
+  # #main .date is the older template's dateline ("Feb 11, 2021"), scoped to #main so the
+  # teaser feed in the sidebar cannot reach it.
+  # ⚠ TWO ORDERS, so the regex carries both alternatives: the two newer templates print
+  # "14 May 2019" and the older one prints "Feb 11, 2021". A single day-first alternative would
+  # silently leave the older template's rows blank. Both carry a MONTH NAME, so neither can be
+  # transposed by date_languages ["en"].
+  selectors: [".bpa-government-declaration-place-date", "main time", "#main .date"]
+  regex: '\d{1,2}\s+[A-Za-z]{3,}\s+\d{4}|[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}'
+
+position: chancellor
+# Safe: every date on this template carries a MONTH NAME, so the numeric DD/MM inversion that
+# makes ["en"] dangerous elsewhere cannot arise.
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The English tree of the
+  Federal Chancellor's site across its two hostnames — Germany's head-of-GOVERNMENT source, which
+  the corpus had no recipe for: all three existing German recipes are the Federal President.
+  775 fetches for ~26 audit rows, the best rows-per-fetch in this wave after North Macedonia, and
+  it also roughly triples Germany's English holdings (509 rows scraped today). Confirmed by
+  reading at containment 0.978-0.998 on four of four targeted captures. NO speaker_default — the
+  window spans Merkel and Scholz and the cleaner's tenure crosscheck resolves it from
+  country+date. Shares data/state/Germany.json with the three bundespraesident recipes and with
+  the sibling deu_bundesregierung_english_wayback — incremental, never --rescrape. FULL RUN is
+  the researcher's gate.

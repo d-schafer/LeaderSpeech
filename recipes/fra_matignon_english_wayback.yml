@@ -1,0 +1,135 @@
+# France — MATIGNON, the Prime Minister's own site (premier-ministre.gouv.fr), the ENGLISH tree,
+# via the Internet Archive. English.
+#
+# ⚑ THE HEAD-OF-GOVERNMENT ENGLISH SOURCE, and France had no recipe for it. All five existing
+# France recipes are either elysee.fr (the PRESIDENT) or gouvernement.fr in FRENCH
+# (fra_gouvernement_wayback / _news_ / _archives_, all source_language: French). Every unmatched
+# audit row is source_language = en and the matcher is monolingual 8-word shingle containment, so
+# a French recipe can never close one — worth re-checking, because the pt2 brief had those three
+# queued as the France answer.
+#
+# ⚑ HOW IT WAS FOUND. France's unmatched rows carry their host in their own chrome: the Chirac
+# block reads ">>Homepage  >> Speeches of President Chirac" (elysee.fr — see the sibling
+# fra_elysee_english_old_wayback) and the Villepin block reads "The team : The Prime minister".
+# That second string is literally the h2 of this site's template. 13 Villepin rows and the 2005
+# Chirac "A new political Europe" row are here.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11. candscan over /en/acteurs/speeches_45/, 14 captures sampled
+# evenly — SEVEN matched an unmatched row, where the arithmetic predicted 11.3:
+#     government_seminar_on_the_56080.html   -> IAC_56650 (Villepin 2006)  containment 0.995
+#     an-interview-with-the_54525.html       -> IAC_56649 (Villepin 2006)  containment 0.997
+#     speech_by_m._dominique_55408.html      -> IAC_56658 (Villepin 2006)  containment 0.993
+#     new_political_europe_53423.html        -> IAC_56656 (Chirac 2005)    containment 0.994
+#     statements_made_by_m._55938.html       -> IAC_56660 (Villepin 2006)  containment 0.990
+#     interview_given_by_m._56985.html       -> IAC_56653 (Villepin 2006)  containment 0.986
+#     interministerial_committee_for_sustainable_57253.html -> IAC_56657   containment 0.979
+#
+# ⛔ RULE 1 BREADTH, and the two deliberate narrowings, both measured. 1,871 status-200 HTML
+# captures on premier-ministre.gouv.fr/en, 1997-2009.
+#
+#   TAKEN — the whole SPIP generation (2005-2009), section-agnostic:
+#     information/latest_news_97      205   the daily stream
+#     chantiers/major_projects_94      78
+#     information/reports_98           66
+#     acteurs/speeches_45              52   literally "Speeches"
+#     information/special_reports_98   49   (nests one level deeper — the pattern allows it)
+#     acteurs/press_releases_184       26
+#     thematique/<topic>_m<N>         ~54
+#     information/press_871            14
+#     acteurs/premier_ministre + biography_44 + symbols_of_the_republic_185  ~25
+#
+#   ✘ NARROWING 1 — the p.cfm ref-id GENERATION (1997-2004) IS BANKED, NOT TAKEN.
+#     ~660 captures: /en/p.cfm?ref=N (221), the &txt=1 print duplicates (176), and the
+#     /ENG/PRESIDEN, /ENG/PMGVT, /ENG/HIST, /ENG/PRATIQUE sections (~200). Excluded for a
+#     measured reason, not on sight: it is a different CMS with NO article container. #texte on
+#     it is the "version texte" accessibility link (38 chars), the body is reachable only
+#     through p (n=22) which opens with the breadcrumb "Home > News items > Headlines", and its
+#     title tag is the site banner. It needs its own selectors, i.e. its own recipe. It also
+#     closes ZERO audit rows — France's 2001-2004 unmatched rows are all Chirac, i.e. elysee.fr,
+#     not Matignon — and sampled content is news and institutional pages ("Opinion polls now
+#     permitted up to two days prior to the election"), thin in leader speech. A future wave
+#     should give it a recipe; this one records why it did not.
+#
+#   ✘ NARROWING 2 — ONE SLUG SPELLING. The host serves the same document under BOTH a hyphen and
+#     an underscore slug (dominique-villepin-prime-minister_50210.html and
+#     dominique_villepin_prime_minister_50210.html). The engine's identity dedupe normalises
+#     scheme, www., port and trailing slash but NOT a different last path segment — the leader.ir
+#     lesson from wave 4. Measured over the 420 captures the both-spellings pattern matches: 308
+#     distinct document ids, 87 of them under both spellings. Requiring underscores in the final
+#     slug gives 314 captures / 291 documents = 94% of the ids for 75% of the fetches, and zero
+#     duplicate rows.
+#
+#   ✘ Also out: information/photos_318 (97, the photo gallery), p_imp.cfm (print views),
+#     p_mail.cfm (email-a-friend).
+source_id: fra_matignon_english_wayback
+country: France
+source_language: English
+renderer: static
+start_urls:
+  - premier-ministre.gouv.fr/en
+
+listing:
+  # ⚠ ANCHORED ON THE HOST — a leading [^?]* absorbs earlier segments (wave-4 trap 8a) — and
+  # (?::80)? is mandatory because CDX returns host:80/... for every http-era capture, which is
+  # nearly all of them here (wave-4 trap 8b).
+  # Shape: /en/<section>/<subsection>_<N>/[<deeper>/]<slug>_<N>.html — requiring the _<N> section
+  # id is what drops the section indexes; the final [a-z0-9_]+_\d+ (no hyphen) is NARROWING 2.
+  link_pattern: '//(?:www\.)?premier-ministre\.gouv\.fr(?::80)?/en/(?!.*(?:photos|p_imp|p_mail))[a-z_-]+/[a-z_-]+_\d+/(?:[^?]*/)?[a-z0-9_]+_\d+\.html?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_noise_params: ["doc_courant", "var_recherche", "lang"]
+
+title:
+  # The title TAG, deliberately — h1 and h3 are both traps on this template:
+  #   h1 = "Site du Premier ministre - Portail du Gouvernement", the SITE BANNER on every page.
+  #   h3 matches THREE elements and the engine joins them, welding "Topics Same topic" onto the
+  #      headline.
+  # The title tag is per-article and complete: "Speeches - Government seminar on the country's
+  # investment attractiveness - Speech by M. Dominique de Villepin, Prime Minister".
+  selectors: ["title"]
+text:
+  # NO generic fallback on purpose. The pages where .texte matches nothing are SOFT 404s served
+  # with HTTP 200 ("La page que vous avez demandee n'existe pas ou a change d'adresse", 286
+  # chars in #colonne_milieu). The probe flags them as "generic fallback would recover 396
+  # chars" — taking that advice here would write a French error page into the corpus as an
+  # English speech. Failing the row is the correct outcome.
+  selectors: [".texte"]
+date:
+  # ⚠ A BARE .date IS THE SIDEBAR "latest news" FEED on the 2005+ template — n=9, joined by the
+  # engine into "18th-08-2006 26th-07-2006 16th-12-2005 ..." — so it would stamp rows with the
+  # newest teaser's date. But it is NOT always the sidebar: on the 2003-2004 template .date is
+  # n=1 and IS the article's own date. Both selectors below are therefore ARTICLE-SCOPED:
+  # .imprim_date (n=1, the 2005+ print header) and #colonne_milieu .date (the centre column,
+  # n=1 on the older template and absent on the newer). The right-hand #colonne_droite feed is
+  # unreachable from either.
+  #
+  # ⚠ AND THE DAY/MONTH ORDER CANNOT BE PARSED FOR DAYS 1-12. The format is "22nd-05-2006 00:00";
+  # dateparser strips the ordinal suffix and then reads "3rd-07-2006" as 2006-03-07 — MONTH
+  # first. Measured: ["en"], ["fr"], ["fr","en"] and no hint at all ALL return 2006-03-07. So the
+  # regex admits only days 13-31, where the order is unambiguous, and regex_required makes a miss
+  # leave the field EMPTY rather than fall through to the unfiltered blob. Roughly 60% of rows
+  # get a date and it is right; the rest defer to the cleaner's corrected-date pass and the
+  # wayback_capture backstop. A wrong date is worse than a blank one.
+  selectors: [".imprim_date", "#colonne_milieu .date"]
+  regex: '(?:1[3-9]|2\d|3[01])(?:st|nd|rd|th)-\d{1,2}-\d{4}'
+  regex_required: true
+
+position: prime minister
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The ENGLISH tree of
+  premier-ministre.gouv.fr — France's head-of-GOVERNMENT source in English, which the corpus had
+  no recipe for: the three existing gouvernement.fr recipes are all source_language French and
+  cannot close a single English audit row. Confirmed by reading at containment 0.979-0.997 on
+  seven of fourteen sampled captures before any YAML was written. 314 fetches for ~14 audit rows,
+  and it roughly doubles France's English holdings (532 rows scraped today). NO speaker_default —
+  the stream carries the PM, the government spokesperson and ministers, and the Speeches section
+  also republishes the President. Shares data/state/France.json with the five existing France
+  recipes and with the two siblings authored in the same wave (fra_gouvernement_english_wayback,
+  fra_elysee_english_old_wayback) — they must run in ONE queue file, incremental, never
+  --rescrape. FULL RUN is the researcher's gate.

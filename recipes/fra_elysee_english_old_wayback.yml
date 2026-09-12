@@ -1,0 +1,137 @@
+# France — Présidence de la République (elysee.fr), the PRE-MACRON ENGLISH tree, via the
+# Internet Archive. English.
+#
+# ⚑ THIS CORRECTS A CLAIM IN A SIBLING RECIPE. fra_elysee_english_wayback's header states that
+# "only Macron has an English tree; the earlier presidencies published on this host (Hollande
+# back to de Gaulle) are FRENCH-ONLY". That is wrong for Chirac, and the evidence was sitting in
+# the audit residual the whole time: 14 unmatched France rows carry the literal chrome
+# ">>Homepage  >> Speeches of President Chirac" — an English breadcrumb from this host. The
+# sibling could not see it because its CDX prefix is elysee.fr/en, and the Chirac-era English
+# lives under /ang/ (for "anglais") and /elysee/anglais/. Language in a path segment a /en prefix
+# cannot reach, for the fourth time in this project.
+#
+# ⚑ CONFIRMED BY READING, 2026-09-11. candscan over /ang/actus/speeches/, 14 captures sampled —
+# NINE matched an unmatched row:
+#     january25.htm     -> IAC_56520 (Chirac 2003)  containment 1.000
+#     22march04.htm     -> IAC_56489 (Chirac 2004)  containment 1.000
+#     january22.htm     -> IAC_56519 (Chirac 2003)  containment 0.996
+#     february2.htm     -> IAC_56495 (Chirac 2003)  containment 0.994
+#     26may03.htm       -> IAC_56492                containment 0.982
+#     14october2003.htm -> IAC_56487 (Chirac 2003)  containment 0.959
+#     05march04.htm     -> IAC_56483 (Chirac 2004)  containment 0.954
+#     26march04.htm     -> IAC_56491 (Chirac 2004)  containment 0.897
+#     25march04.htm     -> IAC_56490 (Chirac 2004)  containment 0.881
+#
+# ⚑ AND A MEASURED NEGATIVE, KEPT IN SCOPE ANYWAY. The SECOND generation below
+# (/elysee/anglais/speeches_and_documents/ and /speeches_of_president_chirac/, 2005-2007) scored
+# **0 of 14** against the residual, expected 3.7 — real English Chirac speeches, but not the
+# corpus's documents. It is taken all the same: it is 157 fetches on the same host with the same
+# selectors, and it is 157 English presidential speeches the corpus does not hold. So this recipe
+# is ~14 audit rows PLUS a new source, and the split is stated rather than blurred.
+#
+# ⛔ RULE 1 / breadth, measured 2026-09-11, and one caveat about the enumeration:
+#   A CDX prefix query on elysee.fr/ang returns the 60,000 ceiling, and 59,655 of those are a
+#   CRAWLER LOOP: /ang/index.shtm/actus/actus/images/images/... repeats its own path segments
+#   indefinitely (49,595 captures in 2002 alone). Stripping the loop leaves only **345 real
+#   paths**, in these sections:
+#       ang/actus/…      119   ⚑ THE ARTICLES: speeches (20), pfue (38), agenda (46), iraq (5),
+#                              dday, elections, g8evian
+#       ang/elysee/…     212   the PALACE: virtual tour (jvr/qvr), architecture (gde), and
+#                              president biographies. ✘ Out by RULE 1 — a gallery, no per-item
+#                              date, not leader communication.
+#       ang/ecrire/…       7   contact forms. ✘ Out.
+#       ang/disc, ang/comm 4   section index FRAMES only (disc_.htm, navig.html). Nothing below.
+#   ⚠ CAVEAT, stated rather than hidden: because the ceiling truncates by urlkey order, any
+#   section sorting AFTER "index.shtm" would be invisible. A 2003-bounded re-query to settle it
+#   was attempted and the Archive answered 503 (rate limit). The sections found do account for
+#   every unmatched row, so this is a completeness caveat, not a known gap. Worth one cheap
+#   `cdx.py elysee.fr/ang --from 2003 --to 2003` when the Archive is healthy.
+#
+#   The second host prefix, elysee.fr/elysee/anglais, is small and fully enumerated (339
+#   captures): speeches_and_documents/<year> (116) and speeches_of_president_chirac/<year> (41)
+#   are taken = 157; the other 182 are the_elysee_palace/virtual_visit (56), presidential
+#   residences (24), president_s_gallery (23), history (20), biography (13) and
+#   the_symbols_of_the_republic — all out by RULE 1.
+source_id: fra_elysee_english_old_wayback
+country: France
+source_language: English
+renderer: static
+start_urls:
+  - elysee.fr/ang/actus
+  - elysee.fr/elysee/anglais
+
+listing:
+  # ⚠ ANCHORED ON THE HOST (wave-4 trap 8a) with (?::80)? (trap 8b) — every capture in the first
+  # generation is http-era and CDX returns it as elysee.fr:80/…
+  # Branch 1: /ang/actus/<section>/[<sub>/]<file>.htm — requiring a section DIRECTORY is what
+  #   drops the section indexes (agenda.htm, speeches_.htm, navig.html) that sit one level up.
+  # Branch 2: /elysee/anglais/speeches{_and_documents,_of_president_chirac}/<year>/<slug>.<id>.html
+  #   The year folder is [0-9-]+ because one of them is literally "2002-2001".
+  link_pattern: '//(?:www\.)?elysee\.fr(?::80)?/(?:ang/actus/[a-z0-9]+/(?:[a-z0-9_]+/)?[a-z0-9][a-z0-9_-]*\.html?$|elysee/anglais/speeches(?:_and_documents|_of_president_chirac)/[0-9-]+/[^/]+\.\d+\.html$)'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_collapse: urlkey
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+title:
+  # TWO GENERATIONS, one chain.
+  #   2005-2007 (/elysee/anglais): h1 is the real article title, n=1 ("XIIIth French Ambassador's
+  #     Conference"). Note the `title` TAG is NOT usable here or anywhere on this host — on the
+  #     /ang/ tree it is a stale SECTION label, identical on every page ("Situation on Iraq" on
+  #     all twenty speech files, including the one about the Bundestag).
+  #   1998-2005 (/ang/): no h1, no h2, no classes and no ids — raw table markup. The headline is
+  #     the first <p>, lifted by the regex.
+  # ⚠ THE LEADING ^\s* IS LOAD-BEARING. el.get_text("\n") emits layout whitespace before the
+  # first real line, so a bare ^[^\n]{8,240} FAILS to match — and a failed regex without
+  # regex_required silently returns the WHOLE joined body as the title. The optional short-line
+  # group absorbs a headline broken after its first word.
+  selectors: ["h1", "p"]
+  regex: '^\s*(?:[^\n]{0,22}\n\s*)?[^\n]{8,240}'
+text:
+  # #mainContent on the 2005-2007 CMS (n=1, 26,685 chars, opens at the headline); p on the /ang/
+  # tree (n=75, 19,801 chars, clean — the ">> Homepage >> Speeches of President Chirac" chrome
+  # lives in the surrounding td, not in any p, which is why td is not in this chain).
+  selectors: ["#mainContent", "p"]
+date:
+  # 2005-2007: .date_lieu, n=1, "ELYSEE PALACE - MONDAY 29 AUGUST 2005" — the regex strips the
+  #   venue and keeps the unambiguous "29 AUGUST 2005".
+  # 1998-2005: no date element at all, so the FILENAME is the fallback, and only the form that
+  #   carries a year is admitted: 05march04, 14october2003, 26may03, 22march04 all parse
+  #   correctly. ⚠ The other half of that section is named <monthname><day> with NO YEAR
+  #   (january22.htm, february2.htm) — deliberately NOT matched, because completing it from the
+  #   capture year would invent a date. Those rows stay blank for the cleaner.
+  #
+  # ⚠ MEASURED AND REJECTED — do not "improve" this by adding #mainContent to the chain. Most
+  # 2005-2007 pages have no .date_lieu and instead print the dateline inside the headline
+  # ("(Tarbes, 14 August 2004)"), so a windowed body regex looks like the obvious fix. It is a
+  # trap: `first_match` returns the whole match, and handing dateparser the resulting 130-char
+  # headline blob returned **2026-09-11 — TODAY'S DATE** ('...POPE JOHN-PAUL II (Tarbes,
+  # 14 August 2004' -> 2026-09-11). The shorter sibling blob happened to parse correctly, which
+  # is what makes it dangerous: it fails on some pages and silently stamps them with the run
+  # date. Probe fill is 1/12 as a result; that is deliberate. Blank dates defer to the cleaner's
+  # corrected-date pass and the wayback_capture backstop, and the half of this recipe that
+  # closes audit rows (/ang/actus/speeches/) is dated from its filename anyway.
+  selectors: [".date_lieu"]
+  regex: '\d{1,2}\s+[A-Za-z]+\s+\d{4}'
+  url_regex: '/(\d{1,2}(?:january|february|march|april|may|june|july|august|september|october|november|december)\d{2,4})\.html?$'
+
+# ⚠ ["en"] is safe HERE specifically, and only because every date this recipe parses carries a
+# MONTH NAME ("29 AUGUST 2005", "05march04"). The standing project warning — that date_languages
+# ["en"] flips numeric DD/MM month-first — does not bite where there is no numeric month. The
+# sibling fra_matignon_english_wayback is the case where it does.
+date_languages: ["en"]
+notes: >
+  NEW RECIPE 2026-09-11 (Dean_scrape unmatched recovery, wave 5, Tier 3). The pre-Macron ENGLISH
+  tree of elysee.fr, which no recipe reached because the language segment is /ang/ and
+  /elysee/anglais/, not /en/. 268 fetches across two generations: ~111 under /ang/actus/ (the
+  half that closes ~14 audit rows, confirmed by reading at containment 0.881-1.000 on nine of
+  fourteen sampled captures) and 157 under /elysee/anglais/speeches*, which measured 0 of 14
+  against the residual and is taken as corpus expansion rather than recovery. NO speaker_default:
+  the /ang/actus/ stream is Chirac but also carries communiques and the French EU presidency
+  pages. Shares data/state/France.json with the five existing France recipes and the two siblings
+  from this wave (fra_matignon_english_wayback, fra_gouvernement_english_wayback) — they must run
+  in ONE queue file, incremental, never --rescrape. FULL RUN is the researcher's gate.
