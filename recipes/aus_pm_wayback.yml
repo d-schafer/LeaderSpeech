@@ -17,6 +17,55 @@
 # FOUR URL GENERATIONS, each live in a different window (all four are in start_urls):
 #   A. 1998-2007 Howard   /news/speeches/<yyyy>/speech<N>.htm , /news/speeches/speech<N>.html
 #                         /news/interviews/interview<N>.html  (see INTERVIEWS below)
+#   A'. 1997-2000 Howard  THE SAME SECTIONS UNDER **NAMED** SLUGS, not numbered ones —
+#                         /news/speeches/1998/wef_.htm, /news/interviews/1999/3AW0511.htm,
+#                         /media/pressrel/1998/2ue0608.htm,
+#                         /media/pressrel/speech/1998/SBSBroadcastVan.htm
+#                         WIDENED IN 2026-09-12 (wave 6). See the next block.
+#
+# ⚠️ WIDENED 2026-09-12 — THE FIRST HOWARD GENERATION WAS 96% INVISIBLE. The original
+# gen-A branches required a NUMBERED slug (`speech\d+`, `interview\d+`). pm.gov.au only
+# adopted numbered slugs around 2000; before that the same sections used descriptive names,
+# and there is a whole further tree, **/media/pressrel/**, that the pattern never touched at
+# all. Measured on the CDX index (statuscode:200, text/html, the 2014-recursion filter on):
+#     window / tree                      captures   matched BEFORE   matched AFTER
+#     pm.gov.au/news (all years)            5,186            2,672           4,869
+#     pm.gov.au/media/pressrel              1,228                0           1,021
+#     both trees, captures dated 1998-2000  2,546               86           2,151
+# **86 of 2,546 — 3.4% — in the window that holds 71 of Australia's 124 unmatched rows.**
+# The residual by year is 1998:29 1999:16 2000:26 2004:1 2012:2 2013:4 2014:13 2015:22
+# 2016:3 2018:2 2019:2 2020:2 2021:2, and the speakers are Howard 72, Abbott 34, Turnbull 6,
+# Morrison 6, Gillard 4, Rudd 2 — so this widening is aimed squarely at the Howard block.
+#
+# CONFIRMED BY READING, per document: /media/pressrel/speech/1998/wef_.htm extracts to
+# 22,167 chars and scores containment **0.956** against IAC_12433 (John Howard, 1998, the
+# World Economic Forum dinner) — a row the audit reports as unmatched. The same document is
+# ALSO served at /news/speeches/1998/wef_.htm and scores the same 0.956 there.
+#
+# ⚠️ THAT LAST POINT IS A KNOWN COST: THIS SITE SERVES ONE DOCUMENT UNDER TWO PATHS.
+# /media/pressrel/speech/<yyyy>/<name>.htm and /news/speeches/<yyyy>/<name>.htm are the same
+# file. The engine's identity dedupe normalises scheme, `www.`, port and trailing slash but
+# NOT THE PATH, so both are fetched and both are written. Taking only one tree is not a
+# safe fix — /media/pressrel/<yyyy>/ also holds speeches that have no /news/ twin (e.g.
+# /media/pressrel/1999/adddress1003.htm, "Address at the National Youth Roundtable Lunch",
+# 6,737 chars). RULE 1 says take both and let the duplicate pair be visible downstream.
+#
+# ⚠️ THE PROBE WILL REPORT `✗ text  NO MATCH  0 chars` ON EVERY GEN-A AND GEN-A' PAGE.
+# THAT IS CORRECT AND IS NOT A BUG TO FIX. The 1997-2007 pages are table-layout HTML with no
+# semantic container, so none of the `text.selectors` matches — and `run.py` then falls
+# through to `fallback_generic.extract_generic`, which recovers the transcript. The probe
+# says so itself on the same line ("generic fallback would recover 6163 / 28528"), and the
+# 666 rows this recipe already holds dated <=2001 average **12,999 characters**. Do NOT add a
+# `td` selector to "fix" it: on gen A `td` returns ~65k chars of duplicated navigation,
+# because the engine joins every matching element.
+# Probe after the widening: 13,536 wayback snapshots, up from 10,793 — **+2,743**.
+#
+# ⚠️ /news/media_releases/ AND /media/pressrel/ ARE NOW INCLUDED, reversing the original
+# header's "media releases are NOT harvested: third-person office copy". They were never
+# sampled. They are MIXED: /media/pressrel/1999/adddress1003.htm is a full speech, while
+# /media/pressrel/austday98.htm is a 1,086-char stub. CLAUDE.md RULE 1 is explicit that a
+# cheap wrongly-harvested page beats an invisible missing section, and the cleaner's
+# document_type gate is what removes the releases. Do not re-narrow this without sampling.
 #   B. 2007-2010 Rudd     /media/Speech/<yyyy>/speech_<N>.cfm , /media/Interview/<yyyy>/...
 #   C. 2013-2017 Abbott   /media/<yyyy>-<mm>-<dd>/<slug>        (Drupal 7)
 #      /Turnbull
@@ -58,8 +107,12 @@ listing:
   # drops the Drupal facet junk such as
   #   /media/2015-01-23/<slug>%3E?field_start_date[value]&...&page=7
   # which is a search-result page, not an article (verified: h1 "Media", no date).
+  # Branch 1 replaces the old `speech\d+` / `interview\d+` branches with a slug that is
+  # EITHER numbered or named, which is what makes gen A' visible; branch 2 adds the
+  # /media/pressrel tree, which the old pattern never touched. `(?!index\.)` drops the
+  # section indexes, and requiring `.htm`/`.html` drops the bare directory captures.
   link_pattern: >-
-    (?:/news/speeches/(?:\d{4}/)?speech\d+\.html?$)|(?:/news/interviews/(?:\d{4}/)?[Ii]nterview\d+\.html?$)|(?:/media/[Ss]peech/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/[Ii]nterview/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/\d{4}-\d{2}-\d{2}/[a-z0-9][a-z0-9-]+$)|(?:/media/[a-z0-9][a-z0-9-]{10,}$)
+    (?:/news/(?:speeches|interviews|media_releases)/(?:\d{4}/)?(?!index\.)[A-Za-z0-9_][A-Za-z0-9_.-]*\.html?$)|(?:/media/pressrel/(?:speech/)?(?:\d{4}/)?(?!index\.)[A-Za-z0-9_][A-Za-z0-9_.-]*\.html?$)|(?:/media/[Ss]peech/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/[Ii]nterview/\d{4}/[A-Za-z0-9_]+\.cfm$)|(?:/media/\d{4}-\d{2}-\d{2}/[a-z0-9][a-z0-9-]+$)|(?:/media/[a-z0-9][a-z0-9-]{10,}$)
 
 pagination:
   type: wayback

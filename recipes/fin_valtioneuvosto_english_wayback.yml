@@ -71,6 +71,35 @@
 # corpus row's own date (IAC_54906 = 2013-12-03). `date_languages` is therefore ["fi"], a
 # day-first locale. An "en" here would read it as 12 March and be silently wrong on roughly
 # 40% of rows.
+# ⚠️ WIDENED + BUG-FIXED 2026-09-12 (wave 6). This recipe held 156 rows and Finland has 26
+# unmatched Dean_scrape rows, 22 of them PRIME MINISTERS (Sanna Marin 13, Juha Sipilä 9) —
+# i.e. this host, not presidentti.fi. The cause was a regex off-by-one plus an over-narrow
+# keyword list; both are documented at `link_pattern` below.
+#
+# CONFIRMED BY READING — per document, against named rows. Eight captures of the newly
+# reachable slugs were extracted and scored against Finland's 26 unmatched rows:
+#   …/prime-minister-sanna-marin-government-address-at-the-national-veterans-day-event-on-27-april-2022
+#                                                          = IAC_54798  cont 0.991
+#   …/speech-delivered-by-prime-minister-sanna-marin-at-parliament-s-topical-debate-on-15-march-2022
+#                                                          = IAC_54832  cont 0.993
+#   …/joint-statement-on-the-60th-anniversary-of-diplomatic-relations-between-finland-and-ireland-6-february-2022
+#                                                          = IAC_54901  cont 0.987
+# FOUR of eight sampled captures matched (one document matched under two URL forms). These
+# were found by GREPPING THE SAVED CDX LIST for the row's own title, not by an even sample —
+# 13 in-window rows over 17,336 candidates predicts far less than one hit, so a broad scan
+# here reads NEGATIVE and tells you nothing.
+#
+# ⚠️ WINDOW — WIDER THAN THE CAPTURE DATES SUGGEST, AND THAT IS THE POINT. CDX reports the
+# /en/-/ namespace as 2020-2026 (56,386 captures), which looks like it cannot reach the 13
+# rows dated 2015-2019. It can: Finland MIGRATED ITS BACK CATALOGUE INTO THE CURRENT CMS, so
+# a 2016 speech is served from a 2021 capture of a /en/-/ URL. Verified by grepping the saved
+# CDX list for the older rows' own titles — …/prime-minister-sipila-s-speech-at-the-nordic-
+# investment-bank-s-40th-anniversary-seminar-in-copenhagen-2-november-2016,
+# …/speech-by-prime-minister-juha-sipila-at-the-uarctic-congress-2018, the World Press
+# Freedom Day remarks and the Supporting Syria conference are all present. So DO NOT read the
+# capture-year histogram as a content window on this host. The one older row whose title
+# returns nothing is IAC_10411 (Latin American Spectrum, Mexico City, 13.10.2016), a genuine
+# absence rather than a pattern problem.
 source_id: fin_valtioneuvosto_english_wayback
 country: Finland
 source_language: English
@@ -87,7 +116,33 @@ listing:
   # Host-anchored so the `(?:\d+/)?` alternative cannot be satisfied by some deeper path.
   # Bare form or ?languageId=en_US only — see the LANGUAGE block in the header. The slug
   # must contain a speech word; that is the content scope, stated in the header.
-  link_pattern: '(?i)^https?://(?:www\.)?valtioneuvosto\.fi(?::80)?/en/-/{1,2}(?:\d+/)?[a-z0-9][^/?]*(?:speech|opening-remarks|address-by|statement-by|remarks-by)[^/?]*(?:\?languageId=en_US)?$'
+  # ⚠️ FIXED 2026-09-12 — THE OLD PATTERN HAD AN OFF-BY-ONE THAT SILENTLY EXCLUDED EVERY
+  # SLUG THAT *STARTS* WITH A SPEECH WORD. It opened `[a-z0-9][^/?]*(?:speech|…)`, and that
+  # leading `[a-z0-9]` CONSUMES the slug's first character, so the alternation could only ever
+  # match a keyword appearing at position 2 or later. `…/speech-delivered-by-prime-minister-
+  # sanna-marin-at-parliament-s-topical-debate-on-15-march-2022` was dropped; only the
+  # possessive form `…-s-speech-…` survived. The guard is now a LOOKAHEAD, `(?=[a-z0-9])`,
+  # which asserts a real slug without eating it.
+  # The keyword list is also widened from five hyphenated literals to whole words. The old
+  # list required `address-by` / `statement-by` / `remarks-by`, so
+  # `prime-minister-sanna-marin-government-address-AT-the-national-veterans-day-event` and
+  # `joint-statement-ON-the-60th-anniversary-…` both failed on the preposition alone.
+  # Measured on the CDX index (56,386 captures under /en/-/):
+  #     old pattern                       228 captures /   152 distinct documents
+  #     bug fixed + whole-word keywords   856 captures /   532 distinct documents
+  #     no keyword filter at all       29,352 captures / 17,336 distinct documents
+  # ⚠️ THE LAST LINE IS THE HONEST RULE 1 NUMBER AND THIS RECIPE STILL DOES NOT TAKE IT.
+  # That is a deliberate, stated narrowing, not an oversight: see the sibling
+  # fin_valtioneuvosto_english_all_wayback, which takes the whole English article namespace
+  # and is costed there (~17,300 fetches, ~41 h at the Archive's ~420 pages/hour/stream).
+  # Run this one FIRST — the state file dedupes by page identity, so the broad sibling then
+  # skips everything this recipe already holds.
+  # The `?languageId=` handling is load-bearing and unchanged: en_US is the same document,
+  # fi_FI and sv_SE are the FINNISH and SWEDISH renderings of an English-looking slug and
+  # score 0.000 against the English corpus (measured). Only en_US is admitted.
+  # ⚠️ `(?::\d+)?` NOT `(?::80)?` — see the wayback_filter note below: this host is
+  # archived under valtioneuvosto.fi:443 as well as the bare form.
+  link_pattern: '(?i)^https?://(?:www\.)?valtioneuvosto\.fi(?::\d+)?/en/-/{1,2}(?:\d+/)?(?=[a-z0-9])[^/?]*(?:speech|remarks|address|statement|interview|press-conference|briefing|comments-by|op-ed|column)[^/?]*(?:\?languageId=en_US)?$'
 
 pagination:
   type: wayback
@@ -98,7 +153,10 @@ pagination:
     - "mimetype:text/html"
     # `(:80)?` is load-bearing — CDX returns the port form for http-era crawls and a filter
     # without it drops every one of them.
-    - "original:.*valtioneuvosto\\.fi(:80)?/.*"
+    # `(:[0-9]+)?` NOT `(:80)?` — this host is also archived under
+    # **valtioneuvosto.fi:443** (48 of 56,386 captures). The documented ":80" trap has an
+    # HTTPS twin, and a `(:80)?` alternation rejects `:443` silently.
+    - "original:.*valtioneuvosto\\.fi(:[0-9]+)?/.*"
   # Safe ONLY because link_pattern has already excluded ?languageId=fi_FI and sv_SE: this
   # just collapses the en_US form onto the bare one.
   wayback_noise_params:

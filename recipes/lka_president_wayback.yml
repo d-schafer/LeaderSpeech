@@ -16,7 +16,22 @@ start_urls:
 
 listing:
   # root-level hyphenated article slugs; exclude WP taxonomy/section/asset paths.
-  link_pattern: 'president\.gov\.lk/(?!wp-|category/|tag/|author/|page/|feed|news/page|media/|en/page)[a-z0-9][a-z0-9-]{16,}/?$'
+  # ⚠️ FIXED 2026-09-12 — THE PATTERN WAS NOT ANCHORED ON THE HOST, and WordPress punished it.
+  # `president\.gov\.lk/…` with no `^` matches ANYWHERE in the URL, including inside a QUERY
+  # PARAMETER. Every WordPress page carries an oEmbed discovery endpoint shaped
+  #   https://president.gov.lk/wp-json/oembed/1.0/embed?url=https://president.gov.lk/<slug>/
+  # and the regex happily matched at the SECOND occurrence of the host — where the `(?!wp-…)`
+  # lookahead sees `<slug>/`, not `wp-json/`, so the guard that was written to stop exactly
+  # this never fired. Result: **525 of this source's 2,107 rows (25%) are oEmbed stubs**,
+  # median 349 characters against 1,618 for a real article, and CLAUDE.md RULE 1 lists
+  # `/embed/` stubs as one of the few things that stay OUT.
+  # Anchoring with `^https?://(?:www\.)?…` fixes it, and picks up a SECOND bug for free: the
+  # old pattern could not match the `www.` or `:80` forms that CDX returns for http-era
+  # crawls, so those were being dropped silently.
+  # ⚠️ THE EXISTING 525 STUB ROWS ARE NOT REPAIRED BY THIS EDIT. The state file has already
+  # seen those URLs, so a normal re-run skips them — this needs `run --rescrape`, which
+  # re-does every harvested link and rewrites the CSV. See recipe_tools/stalerows.py.
+  link_pattern: '^https?://(?:www\.)?president\.gov\.lk(?::\d+)?/(?!wp-|category/|tag/|author/|page/|feed|news/page|media/|en/page)[a-z0-9][a-z0-9-]{16,}/?$'
 
 pagination:
   type: wayback

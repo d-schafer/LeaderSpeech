@@ -1,0 +1,116 @@
+# Hungary — the frozen cycle-archive subdomain 2010-2014.kormany.hu, English tree,
+# THE LIVE SITE. Viktor Orbán's own speeches.
+#
+# WHY THIS EXISTS. Hungary's residual has 7 rows dated 2011-2012 that no Hungarian source
+# reaches. Wave 4 recorded "2010-2014.kormany.hu exists (60,000+ captures, untested against
+# the corpus)" as an open follow-up and a later pass scored its ARCHIVED captures as a
+# measured negative (0 of 14, expected 2.0). That negative was about the Internet Archive's
+# copy. **The subdomain is still live, and the live listing is what holds them.**
+#
+# CONFIRMED BY READING — the strongest kind of confirmation available, a NAMED-ROW match
+# found by the §6 grep-the-slug-list move rather than by an even sample. All 172 live speech
+# URLs were harvested (28 productive listing pages) and grepped for the title lines that the
+# 2011 corpus rows carry verbatim in their own text. Three slugs came straight back, and all
+# three score at containment 0.986-0.997 through the `.article-content` selector below:
+#   …/speech-at-the-inauguration-of-ronald-reagan-s-statue          = IAC_60646  cont 0.989
+#   …/speech-in-the-european-parliament                             = IAC_60652  cont 0.997
+#   …/viktor-orban-s-speech-at-the-opening-of-the-tom-lantos-institute
+#                                                                   = IAC_60658  cont 0.986
+# THREE OF THREE. This is a per-document measurement on three scored pages, not an
+# extrapolation from section size — it proves the family is right and it names the rows it
+# closes. The residual in this window is 7 rows (2011:6, 2012:1), so the honest estimate is
+# "up to 7, three of them already proven".
+#
+# ⚠️ AN EVEN SAMPLE WOULD HAVE MISSED THIS, and that is the reusable lesson. 7 rows over 172
+# candidate URLs predicts 0.5 hits in a 12-page scan, so a broad candscan here would have
+# returned 0 and read as NEGATIVE — which is exactly what happened to the archived copy.
+# The slug grep costs nothing once the URL list is on disk and it broke the case in one
+# command. (Four wave-5 countries went the same way; see the table in §6 of the wave brief.)
+#
+# ⚠️ THE SAME THREE MECHANICAL TRAPS AS THE 2015-2019 SIBLINGS — same CMS, same generation:
+#   1. the cert chain does not verify -> `verify_ssl: false`, or every fetch dies with
+#      CERTIFICATE_VERIFY_FAILED, which a scan tool reports as a clean zero;
+#   2. the pages declare `<base href="https://2010-2014.kormany.hu/" />` and their article
+#      hrefs are relative with NO leading slash, so joined against the listing URL they
+#      become /en/<section>/en/<section>/… and 404. The engine honours `<base href>`
+#      (issue #56);
+#   3. the pager shows only a SIX-PAGE WINDOW with no "last" link, so the advertised page
+#      count is NOT the depth — ?page=12 is Sept 2013 and ?page=30 is the end (5 links, back
+#      to 2010). Sizing this section from its pager would have under-run it fivefold. Set
+#      max_pages generously and let the engine stop on the empty page.
+#
+# SPLIT BY SPEAKER, as on the 2015-2019 pair and on the canonical kormany.hu pair. This file
+# is ONLY /en/prime-minister-s-office/the-prime-ministers-speeches — the section that is
+# demonstrably Orbán speaking in the first person — and carries `speaker_default: Viktor
+# Orbán`. Everything else on the host, INCLUDING prime-minister-s-office/news (which is PMO
+# press reporting about several people, not the PM speaking), goes to the sibling
+# hun_kormany_2010_2014_gov_english with no speaker_default. RULE 1 is satisfied across the
+# pair.
+#
+# TEMPLATE, measured with selcheck.py on the live Reagan-statue speech:
+#   .article-head h1   n=1  "Speech at the inauguration of Ronald Reagan's statue"
+#   .article-head h4   n=1  "June 29, 2011 7:04 PM" — a month NAME, never numeric DD/MM, so
+#                           the day/month inversion trap does not apply.
+#   .article-content   n=1  4,849 chars, the speech alone
+#   ⚠️ bare `h1`       n=2  -> "Website of the Hungarian Goverment Speech at the …". NOT usable.
+#   ⚠️ bare `h4`       n=2  -> "Prime minister June 29, 2011 7:04 PM". NOT usable.
+#   ⚠️ `<title>`            "Government - Prime Minister's Office - The Prime Minister's
+#                           speeches" — the SECTION banner on every article. NOT usable.
+source_id: hun_kormany_2010_2014_english
+country: Hungary
+source_language: English
+position: prime minister
+speaker_default: Viktor Orbán
+renderer: static
+
+# The cert chain on this frozen host does not verify. See trap 1 above.
+verify_ssl: false
+
+start_urls:
+  - https://2010-2014.kormany.hu/en/prime-minister-s-office/the-prime-ministers-speeches
+
+listing:
+  link_selector: "a"
+  # HOST-ANCHORED. This generation spells the section `the-prime-ministers-speeches` (no
+  # apostrophe segment), where 2015-2019 spells it `the-prime-minister-s-speeches` — hence
+  # the `[a-z-]*speeches[a-z-]*` wildcard rather than a literal, which covers both and any
+  # third spelling. The `$` anchor drops the ?page= listing echoes.
+  link_pattern: '^https?://2010-2014\.kormany\.hu/en/prime-minister-s-office/[a-z-]*speeches[a-z-]*/[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  # The pager shows a six-page window and no "last" link, so it is NOT a ceiling — the real
+  # end is page 29. Generous; pagination stops on the first empty page.
+  max_pages: 80
+
+title:
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  selectors: [".article-content"]
+date:
+  selectors: [".article-head h4"]
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-12, no full run (Dean_scrape unmatched recovery, wave 6).
+  The LIVE frozen 2010-2014.kormany.hu cycle-archive, PM-speeches section, ~172 documents
+  spanning 2010-2014. Wave 4 left this subdomain as an explicit open follow-up and a later
+  pass scored its ARCHIVED captures as a measured negative (0 of 14, expected 2.0) — that
+  negative was about the Internet Archive's copy, and the live listing is what holds the
+  rows. CONFIRMED BY READING and by NAMED ROW: all 172 live speech URLs were harvested and
+  grepped for the title lines the 2011 corpus rows carry verbatim in their own text, which
+  returned three slugs, all three matching at containment 0.986-0.997 — IAC_60646 (Reagan
+  statue), IAC_60652 (European Parliament), IAC_60658 (Tom Lantos Institute). An even sample
+  would have missed this: 7 in-window rows over 172 URLs predicts 0.5 hits in a 12-page scan,
+  so the broad scan reads NEGATIVE and the slug grep is what breaks it. Closes up to the 7
+  rows dated 2011-2012, three already proven. Three mechanical traps documented in the
+  header, each of which independently produces a silent or misleading zero: verify_ssl:false
+  for the broken cert chain, <base href> resolution of non-slash-prefixed relative hrefs, and
+  a pager that shows only a six-page window while the section actually runs to page 29. Split
+  by SPEAKER from hun_kormany_2010_2014_gov_english, which takes the rest of the host
+  including prime-minister-s-office/news (PMO press reporting, not the PM speaking). About
+  172 fetches — the cheapest recipe in this wave. FULL RUN is the researcher's gate.

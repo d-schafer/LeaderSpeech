@@ -1,0 +1,178 @@
+# Hungary — the frozen cycle-archive subdomain 2015-2019.kormany.hu, English tree,
+# THE LIVE SITE. Viktor Orbán, the PM half.
+#
+# WHY THIS EXISTS — THE FROZEN SUBDOMAIN IS STILL SERVING, AND IT IS ~4x DEEPER THAN THE
+# ARCHIVE. Wave 4 built hun_kormany_2015_2019_english_wayback against the same subdomain and
+# got 415 rows, because the Internet Archive holds only 246 captures under
+# /en/the-prime-minister/the-prime-minister-s-speeches/. The LIVE listing pages to
+# **?page=101** — about 1,010 documents — and /en/the-prime-minister/news to ?page=176.
+# Nobody had checked the live host: the wave-4 header records five candidate leads, all
+# archived ones, and concludes "nothing found reaches 2021-2022". The live subdomain was not
+# among them.
+#
+# CONFIRMED BY READING — a per-capture containment measurement, not an extrapolation from
+# section size (see the calibration note in _audit/find_unmatched_sources_pt2.md §1).
+# EIGHTEEN live pages, sampled evenly across all 101 listing pages and extracted through the
+# `.article-content` selector below, scored against Hungary's 129 unmatched rows:
+#   …/doorstep-statement-by-prime-minister-viktor-orban            = IAC_60627  cont 1.000
+#   …/orban-viktor-s-speech-at-the-inauguration-of-the-memorial-for-smolensk
+#                                                                  = IAC_60669  cont 1.000
+#   …/…-s-speech-at-the-inauguration-of-the-restored-tomb-of-gul-baba
+#                                                                  = IAC_61065  cont 0.993
+# THREE hits in eighteen. The arithmetic predicts 1.7 (98 in-range rows over ~1,010
+# candidate URLs), so this is comfortably positive. Row estimate: it reaches the 98 rows
+# dated 2015-2020; how many of those 98 it actually closes is bounded by that figure and
+# not measured beyond the three above — quote it as "3 scored hits in 18 captures", not as
+# a row count.
+#
+# ⚠️ THE SUBDOMAIN'S NAME UNDERSTATES ITS RANGE — it carries 2020 content (the "State of the
+# Nation" 2020 address, the 10 Oct 2020 Kertész Institute speech). Hungary's residual by
+# year is 2011:6 2012:1 2015:1 2016:7 2017:12 2018:20 2019:23 2020:8 2021:30 2022:21, so
+# this recipe's window is 2015-2020 = 71 rows, and the 2011-2012 pair is the sibling
+# hun_kormany_2010_2014_english. **2021-2022 (51 rows) remains OPEN** — abouthungary.hu is
+# the right host for them and its archived speeches section is already exhausted, while its
+# LIVE site has answered "A weboldal szerkesztés alatt" (under construction, 688 bytes)
+# since at least 2026-09-11 and still did on 2026-09-12.
+#
+# ⚠️ TWO MECHANICAL TRAPS ON THIS HOST, both load-bearing:
+#   1. THE CERT CHAIN DOES NOT VERIFY -> `verify_ssl: false`. Without it every fetch dies
+#      with CERTIFICATE_VERIFY_FAILED. This is quiet in a scan tool that reports failures as
+#      zeros: the first candscan run here returned "0 of 18, NEGATIVE" purely because of it.
+#   2. THE PAGE DECLARES `<base href="https://2015-2019.kormany.hu/" />` and its article
+#      hrefs are RELATIVE WITH NO LEADING SLASH (`en/the-prime-minister/...`). Joined against
+#      the listing URL instead of the base they become
+#      /en/the-prime-minister/en/the-prime-minister/... which 404s. The engine honours
+#      `<base href>` (issue #56), so this works — but any hand-rolled harvester will not.
+#   3. ⚠️ EXPECT `stop_reason: no_new_links` ON EVERY start_url, AND IGNORE IT — THE HARVEST
+#      IS COMPLETE. This pager CLAMPS: ?page=102, 103, 999 all re-serve page 101 rather than
+#      404ing or returning an empty list, so the engine's "the site may be ignoring the
+#      pager" warning fires at exactly one page past each section's true end (102 of 101,
+#      177 of 176, 100 of 99, 50 of 49, 50 of 49 — verified by reading pages 101/102/103,
+#      which are byte-identical). That warning normally means a truncated harvest and should
+#      normally be believed; here it does not. The tell is that the stop page is the
+#      advertised last page + 1 for every section independently.
+#
+# SPLIT BY SPEAKER, following the convention the two kormany.hu recipes already set:
+# this file is the PM subtree and carries `speaker_default: Viktor Orbán`; the sibling
+# hun_kormany_2015_2019_gov_english takes the rest of the English site through the /en/news
+# aggregate and carries no speaker_default. Together they are the whole English tree, so
+# CLAUDE.md RULE 1 is satisfied ACROSS THE PAIR, not within this file.
+#
+# SECTIONS ON THE LIVE HOST, measured by reading each listing's own pager (2026-09-12):
+#    101 pages  ~1,010 docs  the-prime-minister/the-prime-minister-s-speeches   <- taken here
+#    176 pages  ~1,760 docs  the-prime-minister/news                            <- taken here
+#     99 pages  ~  990 docs  prime-minister-s-office/news                       <- taken here
+#     49 pages  ~  490 docs  cabinet-office-of-the-prime-minister/news          <- taken here
+#     49 pages  ~  490 docs  government-spokesperson/news                       <- taken here
+#  1,109 pages ~11,090 docs  /en/news  — THE AGGREGATE over every office and ministry;
+#                            taken by the _gov_ sibling, not here.
+#    404 pages              deputy-prime-minister/news — pager advertises 404 pages but page
+#                            1 renders no article links; reached via /en/news anyway.
+#   photo-galleries / video-galleries / video-gelleries (sic) — the standing RULE 1
+#   exclusions; excluded by NAMING the article sections rather than by a denylist.
+#
+# ⚠️ CROSS-HOST DUPLICATION IS EXPECTED AND IS NOT A BUG TO FIX HERE. The same documents are
+# also served from kormany.hu/en, where hun_kormany_english_wayback holds 1,125 rows. The
+# engine's identity dedupe normalises scheme, `www.`, port and trailing slash but NOT THE
+# HOST, so a document held under kormany.hu/en/... will be written again under
+# 2015-2019.kormany.hu/en/... . 1,125 rows is the upper bound on the overlap against ~4,740
+# fetches here. Running the two kormany.hu wayback recipes FIRST does not help, because the
+# hosts differ; the duplicate pair is a known, stated cost of reaching the other ~3,600.
+#
+# TEMPLATE, measured with selcheck.py on the live Kertész Institute speech:
+#   .article-head h1   n=1  the headline
+#   .article-head h4   n=1  "November 8, 2018 6:28 PM" — a month NAME, never numeric DD/MM,
+#                           so the day/month inversion trap does not apply and
+#                           date_languages: ["en"] is safe here.
+#   .article-content   n=1  15,972 chars, the speech alone, opening with its own dateline
+#   ⚠️ bare `h1`       n=2  -> "Website of the Hungarian Goverment <headline>". NOT usable.
+#   ⚠️ bare `h4`       n=2  -> "The Prime Minister November 8, 2018 6:28 PM". NOT usable.
+#   ⚠️ `<title>`            "Government - The Prime Minister - The Prime Minister's speeches"
+#                           — the SECTION banner, byte-identical on every article. NOT usable.
+#
+# ⚠️ THE SECTION CARRIES GERMAN RENDERINGS UNDER /en/ (…/viktor-orbans-rede-bei-der-…),
+# roughly a third of the slugs. They are taken rather than excluded — CLAUDE.md RULE 1, and
+# the cleaner's language field is the right place to sort them — but it does mean
+# `source_language: English` is the MAJORITY, not a guarantee. The sibling recipe
+# hun_abouthungary_wayback has the same property for the same reason.
+source_id: hun_kormany_2015_2019_english
+country: Hungary
+source_language: English
+position: prime minister
+speaker_default: Viktor Orbán
+renderer: static
+
+# The cert chain on this frozen host does not verify. See trap 1 above.
+verify_ssl: false
+
+# Ordered highest-value-first, so a run stopped early still has the speeches.
+start_urls:
+  - https://2015-2019.kormany.hu/en/the-prime-minister/the-prime-minister-s-speeches
+  - https://2015-2019.kormany.hu/en/the-prime-minister/news
+  - https://2015-2019.kormany.hu/en/prime-minister-s-office/news
+  - https://2015-2019.kormany.hu/en/cabinet-office-of-the-prime-minister/news
+  - https://2015-2019.kormany.hu/en/government-spokesperson/news
+
+listing:
+  link_selector: "a"
+  # HOST-ANCHORED (the §8 trap: `[^?]*` cannot express "exactly one path segment"). First
+  # group: the four leader-bearing offices. Second: their article sections — `news`, or any
+  # section whose name contains "speeches" (the live spelling here is
+  # `the-prime-minister-s-speeches`; the 2010-2014 sibling spells it
+  # `the-prime-ministers-speeches`, hence the wildcard rather than a literal). Naming the
+  # sections is what excludes photo-galleries / video-galleries / video-gelleries, and the
+  # `$` anchor drops the ?page= listing echoes.
+  link_pattern: '^https?://2015-2019\.kormany\.hu/en/(?:the-prime-minister|prime-minister-s-office|cabinet-office-of-the-prime-minister|government-spokesperson)/(?:news|[a-z-]*speeches[a-z-]*)/[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  # The deepest section advertises ?page=101, but the pager on some sections shows only a
+  # SIX-page window with no "last" link, so the advertised number is not a ceiling. A
+  # generous cap costs nothing: query_param pagination stops on the first page that serves
+  # no links (stop_reason `empty_page`) or 404s (`pager_404`). 400 is above the 176 that
+  # the-prime-minister/news needs and above the engine's 200-page default, which is applied
+  # PER start_url.
+  max_pages: 400
+
+title:
+  # Scoped to .article-head: a bare h1 matches n=2 and welds the site banner on, and
+  # <title> is the section name on every page. url_regex is the fallback for a page whose
+  # head block failed to render — it returns the slug, which is at least about the document.
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  selectors: [".article-content"]
+date:
+  # Scoped for the same reason: a bare h4 matches n=2 and joins the section label onto the
+  # date.
+  selectors: [".article-head h4"]
+date_languages: ["en"]
+
+notes: >
+  DRAFT — probe-validated 2026-09-12, no full run (Dean_scrape unmatched recovery, wave 6).
+  The LIVE half of the frozen 2015-2019.kormany.hu cycle-archive, which wave 4 reached only
+  through the Internet Archive and therefore saw at a quarter of its true depth: 246 archived
+  captures under the PM speeches section versus ~1,010 documents the live pager actually
+  serves. CONFIRMED BY READING, per-capture rather than extrapolated — 18 live pages sampled
+  evenly across the 101 listing pages and scored against the 129 unmatched Hungarian rows
+  gave 3 hits at containment 0.993-1.000 (IAC_60627, IAC_60669, IAC_61065), against an
+  arithmetic expectation of 1.7. Reaches the 71 residual rows dated 2015-2020; the 2011-2012
+  pair belongs to the sibling hun_kormany_2010_2014_english and the 51 rows dated 2021-2022
+  remain OPEN, since abouthungary.hu is their host and its live site has been answering "site
+  under construction" since at least 2026-09-11. Two mechanical traps are recorded in the
+  header because each independently produces a silent zero: the cert chain does not verify
+  (verify_ssl:false — a candscan run without it reported a clean NEGATIVE), and the pages
+  declare <base href> with relative, non-slash-prefixed article hrefs that 404 if joined
+  against the listing URL instead. Split by SPEAKER from the sibling
+  hun_kormany_2015_2019_gov_english, following the convention the existing kormany.hu pair
+  set; RULE 1 is satisfied across that pair, which between them take the whole English tree.
+  Cross-host duplication against hun_kormany_english_wayback (1,125 rows on kormany.hu/en) is
+  expected and stated: the identity dedupe does not normalise the host. Probe harvested
+  4,716 links spanning 2015-2020 with title/text/date/speaker all green. Every start_url
+  ends with stop_reason `no_new_links`, which here is BENIGN and documented in the header:
+  the pager clamps past its last page instead of emptying, so the warning fires one page
+  beyond each section's true end. About 4,716 fetches.
+  FULL RUN is the researcher's gate.

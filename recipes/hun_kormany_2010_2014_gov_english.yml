@@ -1,0 +1,113 @@
+# Hungary — the frozen cycle-archive subdomain 2010-2014.kormany.hu, English tree,
+# THE LIVE SITE — the GOVERNMENT half: every office and ministry EXCEPT the PM's own
+# speeches section.
+#
+# THE PAIR, and why RULE 1 is satisfied across it rather than within this file:
+#   hun_kormany_2010_2014_english   /en/prime-minister-s-office/the-prime-ministers-speeches
+#                                   — Orbán speaking in the first person, speaker_default
+#                                   set, 172 documents, three rows already proven by name
+#   THIS RECIPE                     everything else under /en/ — NO speaker_default and NO
+#                                   position, because the ministries (and PMO press
+#                                   reporting) are many different speakers
+# Same split as the 2015-2019 pair and as the canonical kormany.hu pair.
+#
+# HOW THE WHOLE SITE IS REACHED IN ONE start_url. As on the 2015-2019 subdomain, `/en/news`
+# is THE AGGREGATE over every office and ministry, serving each article under its own
+# canonical URL, so one listing chain covers what would otherwise be twelve. Measured
+# 2026-09-12 by reading the stream itself: ?page=1 is June 2014, ?page=200 is June 2013,
+# ?page=400 is April 2012 — so it runs continuously back through the cycle. A whole-host CDX
+# pass gives the section inventory it is reaching:
+#     920  prime-minister-s-office/news
+#     783  ministry-of-foreign-affairs/news        59  …/speeches-publications-and-interviews
+#     662  ministry-for-national-economy/news     102  …/hungarian-outlook
+#     519  ministry-of-rural-development/news
+#     509  ministry-of-public-administration-and-justice/news
+#     442  ministry-of-defence/news
+#     435  ministry-of-human-resources/news
+#     308  ministry-of-national-development/news
+#     158  hungary-in-afghanistan/news
+#     154  ministry-of-interior/news
+#      39  minister-without-portfolio-…/news
+#     116  prime-minister-s-office/the-prime-ministers-speeches   <- the SIBLING's, excluded
+#     photo-galleries / video-galleries — the standing RULE 1 exclusions, excluded by NAMING
+#     the article sections rather than by a denylist.
+# Those are ARCHIVED capture counts and understate the live site, which is the whole reason
+# this recipe is live rather than wayback.
+#
+# ⚠️ THE SAME THREE MECHANICAL TRAPS AS EVERY OTHER FILE IN THIS FAMILY — see
+# hun_kormany_2010_2014_english's header for the detail:
+#   1. the cert chain does not verify -> `verify_ssl: false` (without it every fetch dies and
+#      a scan tool reports it as a clean zero);
+#   2. `<base href>` plus relative, non-slash-prefixed article hrefs — the engine honours the
+#      base tag (issue #56), a hand-rolled harvester will not;
+#   3. the pager shows a SIX-PAGE WINDOW with no "last" link, so the advertised count is not
+#      the depth. max_pages must be set from reading the stream, not from the pager.
+#
+# ⚠️ CROSS-HOST DUPLICATION IS EXPECTED. hun_kormany_english_gov_wayback holds 4,391 rows
+# 2010-2020 of the same ministry documents from the canonical host kormany.hu/en, and the
+# identity dedupe normalises scheme, `www.`, port and trailing slash but NOT THE HOST. Some
+# of those rows will be written again here under the 2010-2014.kormany.hu host. Stated cost.
+#
+# ⚠️ EXPECTED TO CLOSE ZERO AUDIT ROWS. All 129 unmatched Hungarian rows are Viktor Orbán;
+# the sibling is what reaches the 2011-2012 seven. This file is corpus value — English
+# Hungarian government documents from a cycle the Archive covers thinly — and belongs LAST in
+# any queue for this country.
+#
+# TEMPLATE — identical to the rest of the family (same CMS): `.article-head h1`,
+# `.article-head h4` ("June 29, 2011 7:04 PM", a month NAME so date_languages ["en"] is
+# safe), `.article-content`. Bare `h1` n=2 welds on "Website of the Hungarian Goverment";
+# bare `h4` n=2 welds on the section label; `<title>` is the section banner on every article.
+source_id: hun_kormany_2010_2014_gov_english
+country: Hungary
+source_language: English
+renderer: static
+
+# The cert chain on this frozen host does not verify.
+verify_ssl: false
+
+start_urls:
+  - https://2010-2014.kormany.hu/en/news
+
+listing:
+  link_selector: "a"
+  # HOST-ANCHORED. `(?:[a-z0-9-]+/)?` is the optional office/ministry segment, so this
+  # matches both the top-level /en/news/<slug> and /en/<office>/news/<slug>. The negative
+  # lookahead carves the sibling's PM-speeches section back out so the two cannot collide —
+  # note it excludes only that SECTION, not the whole prime-minister-s-office office, whose
+  # /news stream is PMO press reporting and belongs here. (There is no `link_exclude_pattern`
+  # field in the engine — a lookahead inside link_pattern is the only way to say "not this".)
+  link_pattern: '^https?://2010-2014\.kormany\.hu/en/(?!prime-minister-s-office/[a-z-]*speeches)(?:[a-z0-9-]+/)?(?:news|hungarian-outlook|[a-z-]*speeches[a-z-]*|[a-z-]*interviews[a-z-]*)/[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  # Read from the stream, not from the pager: ?page=400 is still April 2012, so the cycle
+  # needs well over 400. Generous; pagination stops on the first empty page or on this
+  # host's end-of-pager clamp.
+  max_pages: 1300
+
+title:
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  selectors: [".article-content"]
+date:
+  selectors: [".article-head h4"]
+date_languages: ["en"]
+
+notes: >
+  DRAFT — authored 2026-09-12 alongside hun_kormany_2010_2014_english (Dean_scrape unmatched
+  recovery, wave 6). The GOVERNMENT half of the live frozen 2010-2014.kormany.hu
+  cycle-archive: every office and ministry except the PM's own speeches section, reached
+  through the /en/news AGGREGATE, which serves all twelve sections under their canonical URLs
+  and runs continuously back through the cycle (?page=1 June 2014, ?page=400 April 2012).
+  Split from the sibling by SPEAKER, not topic — no speaker_default and no position, because
+  prime-minister-s-office/news is PMO press reporting about several people rather than the PM
+  speaking. Expected to close ZERO audit rows and queued last for this country accordingly;
+  its value is English Hungarian government documents from a cycle the Internet Archive
+  covers thinly. Three mechanical traps carried across the family and documented in the
+  header — verify_ssl:false for the broken cert chain, <base href> resolution, and a
+  six-page pager window that badly understates depth. Cross-host duplication against
+  hun_kormany_english_gov_wayback is expected and stated. FULL RUN is the researcher's gate.

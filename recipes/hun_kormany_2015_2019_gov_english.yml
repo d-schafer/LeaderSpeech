@@ -1,0 +1,109 @@
+# Hungary — the frozen cycle-archive subdomain 2015-2019.kormany.hu, English tree,
+# THE LIVE SITE — the GOVERNMENT half: every office and ministry EXCEPT the PM subtree.
+#
+# THE PAIR. This file exists so that CLAUDE.md RULE 1 is satisfied for the live
+# 2015-2019.kormany.hu host without breaking the project's speaker convention:
+#   hun_kormany_2015_2019_english      the four leader-bearing offices, speaker_default:
+#                                      Viktor Orbán, ~4,716 links
+#   THIS RECIPE                        everything else under /en/, NO speaker_default and NO
+#                                      position — the ministries are many different speakers
+# That is exactly the split hun_kormany_english_wayback / hun_kormany_english_gov_wayback
+# already use on the canonical host kormany.hu, and it is a split by SPEAKER, not a
+# narrowing: between them the two files take the whole English tree.
+#
+# HOW THE WHOLE SITE IS REACHED IN ONE start_url. `/en/news` is not a section — it is THE
+# AGGREGATE STREAM over every office and ministry, and it serves each article under its own
+# canonical URL. Read at ?page=600 it returns ministry-of-human-resources/news/…,
+# ministry-of-foreign-affairs-and-trade/news/…, ministry-of-interior/news/…,
+# the-prime-minister/news/… and top-level /en/news/… side by side, dated June 2017. So one
+# listing chain covers what would otherwise be fifteen, and no per-ministry enumeration can
+# add a section it misses. Measured 2026-09-12: the pager advertises **?page=1,109**, about
+# 11,090 documents, and page 600 is already back in 2017.
+#
+# ⚠️ THE SAME THREE MECHANICAL TRAPS AS THE SIBLING, all load-bearing — see that file's
+# header for the detail:
+#   1. the cert chain does not verify -> `verify_ssl: false`, or every fetch dies with
+#      CERTIFICATE_VERIFY_FAILED (and a scan tool will report that as a clean zero);
+#   2. the pages declare `<base href>` with relative, non-slash-prefixed article hrefs,
+#      which 404 if joined against the listing URL instead of the base — the engine honours
+#      `<base href>` (issue #56);
+#   3. the pager CLAMPS rather than emptying, so `stop_reason: no_new_links` fires one page
+#      past the true end and is BENIGN here. Expect it; do not "fix" it.
+#
+# ⚠️ CROSS-HOST DUPLICATION IS EXPECTED. hun_kormany_english_gov_wayback holds 4,391 rows of
+# the same ministry documents from the canonical host kormany.hu/en, and the engine's
+# identity dedupe normalises scheme, `www.`, port and trailing slash but NOT THE HOST. So up
+# to ~4,391 of the documents here will be written a second time under the
+# 2015-2019.kormany.hu host. That is the stated price of reaching the other ~6,700, which
+# the Internet Archive never captured. It is a data-quality cost, not an error.
+#
+# ⚠️ FETCHES-PER-AUDIT-ROW IS TERRIBLE HERE AND THAT IS THE POINT OF SPLITTING. Every one of
+# Hungary's 129 unmatched rows is Viktor Orbán, so this file is expected to close ZERO of
+# them; the sibling closes them. This recipe is corpus value — ~11,000 English Hungarian
+# government documents 2015-2020 that exist nowhere else in the collection — and should be
+# queued and judged on that basis, behind the sibling.
+#
+# TEMPLATE — identical to the sibling (same CMS, frozen): `.article-head h1`,
+# `.article-head h4` ("November 8, 2018 6:28 PM", a month NAME so date_languages ["en"] is
+# safe), `.article-content`. Bare `h1` matches n=2 and welds on "Website of the Hungarian
+# Goverment"; bare `h4` matches n=2 and welds on the section label; `<title>` is the section
+# banner on every article. All three are unusable, hence the scoping.
+source_id: hun_kormany_2015_2019_gov_english
+country: Hungary
+source_language: English
+renderer: static
+
+# The cert chain on this frozen host does not verify.
+verify_ssl: false
+
+start_urls:
+  - https://2015-2019.kormany.hu/en/news
+
+listing:
+  link_selector: "a"
+  # HOST-ANCHORED (the trap: `[^?]*` cannot express "exactly one path segment").
+  # `(?:[a-z0-9-]+/)?` is the optional office/ministry segment, so this matches both the
+  # top-level /en/news/<slug> and /en/<office>/news/<slug>. The negative lookahead carves
+  # the PM subtree back out so the two recipes cannot collide and double-write. Naming the
+  # article sections — `news`, anything containing "speeches" or "interviews", and the
+  # Ministry of Finance's `hungarian-outlook` column — is what excludes photo-galleries,
+  # video-galleries and the site's `video-gelleries` typo.
+  link_pattern: '^https?://2015-2019\.kormany\.hu/en/(?!the-prime-minister/|prime-minister-s-office/|cabinet-office-of-the-prime-minister/|government-spokesperson/)(?:[a-z0-9-]+/)?(?:news|hungarian-outlook|[a-z-]*speeches[a-z-]*|[a-z-]*interviews[a-z-]*)/[a-z0-9][a-z0-9-]{8,}$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  # The aggregate advertises ?page=1,109. Set above it: pagination stops on the first empty
+  # page or 404 anyway, and on this host it stops on the clamp one page past the end.
+  # The engine's default is 200 and is applied PER start_url, so this MUST be raised or the
+  # harvest silently truncates at 2,000 documents — the newest fifth of the archive.
+  max_pages: 1300
+
+title:
+  selectors: [".article-head h1"]
+  url_regex: '/([a-z0-9][a-z0-9-]{8,})$'
+text:
+  selectors: [".article-content"]
+date:
+  selectors: [".article-head h4"]
+date_languages: ["en"]
+
+notes: >
+  DRAFT — authored 2026-09-12 alongside hun_kormany_2015_2019_english (Dean_scrape unmatched
+  recovery, wave 6). The GOVERNMENT half of the live frozen 2015-2019.kormany.hu
+  cycle-archive: every office and ministry except the PM subtree, reached through the
+  /en/news AGGREGATE, which serves articles from all fifteen sections under their own
+  canonical URLs and pages to ?page=1,109 (~11,090 documents, page 600 already back in June
+  2017). Split from the sibling by SPEAKER, not by topic, following the convention the
+  existing kormany.hu pair set — this file carries no speaker_default and no position because
+  the ministries are many different speakers. Expected to close ZERO audit rows: all 129
+  unmatched Hungarian rows are Viktor Orbán and the sibling is what reaches them. Its value
+  is ~11,000 English Hungarian government documents 2015-2020 that the Internet Archive never
+  captured, so it belongs BEHIND the sibling in any queue. Cross-host duplication against
+  hun_kormany_english_gov_wayback (4,391 rows of the same documents on kormany.hu/en) is
+  expected and stated: the identity dedupe does not normalise the host. Three mechanical
+  traps carried over from the sibling and documented in the header — verify_ssl:false for the
+  broken cert chain, <base href> resolution, and a pager that CLAMPS so stop_reason
+  `no_new_links` is benign here. About 11,000 fetches. FULL RUN is the researcher's gate.
