@@ -546,6 +546,24 @@ def test_recipe_can_add_its_own_noise_params():
         ie, r"index\.php", extra_noise_params=["qfr", "mode"])) == 2
 
 
+def test_identity_strip_folds_plone_download_twins():
+    """`pagination.wayback_identity_strip` — Plone serves every File object twice, the object
+    and its `@@download/file/<name>` twin, and the Archive holds a PDF capture of one, the other
+    or both. Each DOCUMENT must be taken once: whichever variant was captured, never both."""
+    base = ("http://www.biblioteca.presidencia.gov.br/presidencia/ex-presidentes/"
+            "castello-branco/discursos/1965")
+    entries = [
+        _e(f"{base}/31.pdf"), _e(f"{base}/31.pdf/@@download/file/31.pdf"),   # both captured
+        _e(f"{base}/32.pdf/@@download/file/32.pdf"),                         # twin only
+        _e(f"{base}/33.pdf"),                                                # object only
+    ]
+    assert len(wayback.filter_entries_for_recipe(entries, r"/discursos/")) == 4
+    kept = wayback.filter_entries_for_recipe(entries, r"/discursos/",
+                                             identity_strip=[r"/@@download/.*$"])
+    assert [k["original"] for k in kept] == [
+        f"{base}/31.pdf", f"{base}/32.pdf/@@download/file/32.pdf", f"{base}/33.pdf"]
+
+
 def test_page_identity_extra_noise_params_are_case_insensitive():
     a = wayback.page_identity("https://x.gov/a.aspx?Mode=Dark", extra_noise_params=["mode"])
     b = wayback.page_identity("https://x.gov/a.aspx")

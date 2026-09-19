@@ -71,6 +71,16 @@ BLOCK_SIGNATURES = (
     "request unsuccessful. incapsula incident",
     "the requested url was rejected",          # F5 BIG-IP ASM
     "this website is using a security service to protect itself",
+    # F5 BIG-IP ASM image CAPTCHA ("Please enable JavaScript… Your support ID is: … What code is
+    # in the image?"). gov.br serves it intermittently, and the Internet Archive stored it with
+    # HTTP 200 as the ONLY capture of many 2024-26 gov.br/planalto speech pages (2026-09-19).
+    "testing whether you are a human visitor",
+    "what code is in the image",
+    # F5 BIG-IP's JavaScript challenge / rejection page ("Please enable JavaScript to view the
+    # page content. Your support ID is: …", ~90 visible chars). The Archive holds it as the
+    # only HTML capture of ~900 Biblioteca da Presidência speech objects (2026-09-19).
+    "please enable javascript to view the page content",
+    "your support id is",
 )
 
 

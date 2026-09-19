@@ -426,6 +426,134 @@ def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     assert "2008-01-01" in csv
 
 
+# The F5 BIG-IP image CAPTCHA the Internet Archive stored (HTTP 200) as the only capture of
+# many 2024-26 gov.br/planalto speech pages — trimmed from a real capture (2026-09-19).
+ARCHIVED_F5_CAPTCHA = (
+    "<html><head><title></title></head><body><noscript>Please enable JavaScript to view the "
+    "page content.<br/>Your support ID is: 15133350323661531783.</noscript>"
+    "<div>This question is for testing whether you are a human visitor and to prevent "
+    "automated spam submission.</div><div>Audio is not supported in your browser.</div>"
+    "<div>What code is in the image?</div><input type='submit' value='submit'/>"
+    "<div>Your support ID is: 15133350323661531783.</div></body></html>"
+)
+
+
+def test_archived_captcha_capture_fails_cleanly_instead_of_writing_a_row(tmp_path, monkeypatch):
+    """A capture that IS a WAF/CAPTCHA page must not be written as a speech (the recipe
+    selectors miss it and the generic extractor would otherwise return the CAPTCHA text), and
+    its URL must stay un-seen so a later live recipe on the host can still fetch it."""
+    good = "https://www.casarosada.gob.ar/informacion/discursos/1"
+    captcha = "https://www.casarosada.gob.ar/informacion/discursos/2"
+    entries = [{"timestamp": "20080101", "original": good},
+               {"timestamp": "20260209", "original": captcha}]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None:
+            ARCHIVED_F5_CAPTCHA if entry["original"] == captcha else WAYBACK_HTML)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    monkeypatch.setattr(run.wayback, "alternate_capture", lambda *a, **k: None)  # no other capture
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1
+    assert res["failed_this_run"] == 1
+    assert res["archived_block_pages"] == 1
+    assert res["via_generic_fallback"] == 0
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["seen_urls"] == [good]
+    assert captcha in state["failed_urls"]
+    csv = (out / "Argentina" / "test_wayback.csv").read_text(encoding="utf-8")
+    assert "What code is in the image" not in csv
+    errors = (out / "Argentina" / "test_wayback_errors.csv").read_text(encoding="utf-8")
+    assert "archived_block_page" in errors and "2026-02-09" in errors
+
+
+def test_archived_block_page_recovered_from_another_capture(tmp_path, monkeypatch):
+    """The earliest capture is the F5 shell, but the URL has a later REAL capture (the
+    Biblioteca da Presidência case): the row is written from that capture, stamped with its
+    date, and counted as recovered — not failed."""
+    url = "https://www.casarosada.gob.ar/informacion/discursos/7"
+    entries = [{"timestamp": "20240612000000", "original": url, "digest": "SHELL"}]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    asked = {}
+
+    def _alt(entry, **kw):
+        asked.update(kw, entry=entry)
+        return {"timestamp": "20241208000000", "original": url, "digest": "REAL", "length": "12000"}
+
+    monkeypatch.setattr(run.wayback, "alternate_capture", _alt)
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None:
+            WAYBACK_HTML if entry["timestamp"] == "20241208000000" else ARCHIVED_F5_CAPTCHA)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1 and res["failed_this_run"] == 0
+    assert res["archived_block_recovered"] == 1 and res["archived_block_pages"] == 0
+    assert asked["to_date"] == "20151210"          # searched inside the recipe's own window
+    assert asked["entry"]["digest"] == "SHELL"     # ... excluding the shell in hand
+    import pandas as pd
+    df = pd.read_csv(out / "Argentina" / "test_wayback.csv", dtype=str).fillna("")
+    assert df["wayback_capture"].tolist() == ["2024-12-08"]
+    assert "Texto archivado" in df["text_originlanguage"].iloc[0] + df["text"].iloc[0]
+
+
+def test_alternate_capture_picks_the_largest_other_capture(monkeypatch):
+    """Never the capture in hand (same timestamp or digest); largest `length` first; the
+    recipe's filters are kept and statuscode:200 is added when missing."""
+    from leaderspeech.text_scraper import wayback
+    seen = {}
+
+    def _ls(url, **kw):
+        seen.update(kw, url=url)
+        return [
+            {"timestamp": "1", "original": url, "digest": "A", "length": "2806"},    # the shell in hand
+            {"timestamp": "2", "original": url, "digest": "A", "length": "2806"},    # same digest
+            {"timestamp": "3", "original": url, "digest": "B", "length": "3100"},    # another shell
+            {"timestamp": "4", "original": url, "digest": "C", "length": "11800"},   # the real page
+        ]
+
+    monkeypatch.setattr(wayback, "list_snapshots", _ls)
+    alt = wayback.alternate_capture({"original": "http://x/p", "timestamp": "1", "digest": "A"},
+                                    to_date="20260704", filters=["mimetype:text/html"])
+    assert alt["timestamp"] == "4"
+    assert seen["match_type"] == "exact" and seen["collapse"] == ""
+    assert seen["to_date"] == "20260704"
+    assert seen["filters"] == ["mimetype:text/html", "statuscode:200"]
+    # nothing but the shell itself -> None
+    monkeypatch.setattr(wayback, "list_snapshots", lambda url, **kw: [
+        {"timestamp": "1", "original": url, "digest": "A", "length": "2806"}])
+    assert wayback.alternate_capture({"original": "http://x/p", "timestamp": "1", "digest": "A"}) is None
+
+
+def test_archived_captcha_captures_do_not_trip_the_circuit_breaker(tmp_path, monkeypatch):
+    """A folder the Archive crawled during a CAPTCHA spell yields many in a row. That is a fact
+    about the captures, not a sign the Archive is blocking us, so the run must carry on."""
+    captchas = [{"timestamp": "20260209",
+                 "original": f"https://www.casarosada.gob.ar/informacion/discursos/{i}"}
+                for i in range(1, 9)]
+    last = {"timestamp": "20080101", "original": "https://www.casarosada.gob.ar/informacion/discursos/99"}
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries",
+                        lambda *a, **k: captchas + [last])
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None:
+            WAYBACK_HTML if entry["original"] == last["original"] else ARCHIVED_F5_CAPTCHA)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    monkeypatch.setattr(run.wayback, "alternate_capture", lambda *a, **k: None)
+
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(tmp_path / "s"),
+                            state_root=str(tmp_path / "st"), max_consecutive_failures=5)
+    assert res["aborted_early"] is False
+    assert res["archived_block_pages"] == 8
+    assert res["scraped_this_run"] == 1          # the page after the run of 8 is still reached
+
+
 def test_wayback_delay_override_paces_archive_fetches(tmp_path, monkeypatch):
     """`--wayback-delay` (scrape_recipe wayback_delay=) overrides the recipe's
     pagination.wayback_delay for the actual archived fetches; None keeps the recipe default (5.0)."""
@@ -680,6 +808,62 @@ def test_pdf_static_recipe_extracts_body_and_url_date(tmp_path, monkeypatch):
     assert "Lula da Silva" in csv                       # speaker_default
 
 
+def _pdf_wb_run(tmp_path, monkeypatch, entries, by_ts, alt):
+    """Run PDF_WAYBACK_RECIPE_YAML over `entries`; fetch_snapshot_bytes serves by_ts[timestamp];
+    alternate_capture returns `alt`. The PDF extractor echoes the payload's first line."""
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: [dict(e) for e in entries])
+    monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes",
+                        lambda entry, **kw: ("application/pdf", by_ts[entry["timestamp"]]))
+    monkeypatch.setattr(run.wayback, "alternate_capture", lambda *a, **k: alt)
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text",
+                        lambda data, ocr=False, ocr_language="eng":
+                            "" if b"%%EOF" not in data else "Mensagem ao Congresso Nacional, 1907.")
+    p = tmp_path / "test_pdf_wb.yml"
+    p.write_text(PDF_WAYBACK_RECIPE_YAML, encoding="utf-8")
+    out = tmp_path / "scraped"
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(tmp_path / "state"))
+    return res, out
+
+
+F5_SHELL = b"<html><body>Please enable JavaScript to view the page content. Your support ID is: 1427.</body></html>"
+
+
+def test_pdf_capture_served_as_f5_shell_is_recovered_from_a_larger_capture(tmp_path, monkeypatch):
+    """Afonso Pena 1907 (2026-09-19): the earliest PDF capture replays as an F5 page, a later one
+    is the real 1.9 MB PDF — the row must come from the later capture, stamped with its date."""
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    res, out = _pdf_wb_run(
+        tmp_path, monkeypatch,
+        entries=[{"timestamp": "20161014060610", "original": url}],
+        by_ts={"20161014060610": F5_SHELL, "20251007213147": b"%PDF-1.4 body\n%%EOF"},
+        alt={"timestamp": "20251007213147", "original": url, "length": "1979254"})
+    assert res["scraped_this_run"] == 1 and res["archived_block_recovered"] == 1
+    csv = (out / "Brazil" / "test_pdf_wb.csv").read_text(encoding="utf-8")
+    assert "Mensagem ao Congresso" in csv and "2025-10-07" in csv
+    assert "enable JavaScript" not in csv
+
+
+def test_pdf_capture_that_is_only_an_f5_shell_is_refused_not_written(tmp_path, monkeypatch):
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    res, out = _pdf_wb_run(tmp_path, monkeypatch,
+                           entries=[{"timestamp": "20161014060610", "original": url}],
+                           by_ts={"20161014060610": F5_SHELL}, alt=None)
+    assert res["scraped_this_run"] == 0 and res["archived_block_pages"] == 1
+    assert "archived_block_page" in (out / "Brazil" / "test_pdf_wb_errors.csv").read_text(encoding="utf-8")
+
+
+def test_truncated_pdf_with_no_other_capture_fails_as_empty_text(tmp_path, monkeypatch):
+    """A PDF cut at 1 MB (no %%EOF) with no complete twin extracts nothing: an ordinary
+    empty_text failure, not a block page and not a row."""
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    res, out = _pdf_wb_run(tmp_path, monkeypatch,
+                           entries=[{"timestamp": "20240522103841", "original": url}],
+                           by_ts={"20240522103841": b"%PDF-1.4 " + b"x" * 64}, alt=None)
+    assert res["scraped_this_run"] == 0 and res["failed_this_run"] == 1
+    assert res["archived_block_pages"] == 0
+    assert "empty_text" in (out / "Brazil" / "test_pdf_wb_errors.csv").read_text(encoding="utf-8")
+
+
 def test_pdf_wayback_recipe_extracts_archived_pdf(tmp_path, monkeypatch):
     """content_type: pdf over pagination: wayback — archived captures are fetched as bytes
     (fetch_snapshot_bytes) and run through the PDF extractor, and the CDX `filters` are
@@ -697,9 +881,11 @@ def test_pdf_wayback_recipe_extracts_archived_pdf(tmp_path, monkeypatch):
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", fake_lsfq)
     monkeypatch.setattr(
         run.wayback, "fetch_snapshot_bytes",
-        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None: ("application/pdf", b"%PDF-1.4 x"),
+        lambda entry, delay=5.0, timeout=60.0, client=None, pacer=None: ("application/pdf", b"%PDF-1.4 x\n%%EOF"),
     )
     monkeypatch.setattr(pdf, "pdf_bytes_to_text", lambda data, ocr=False, ocr_language="eng": "Texto do PDF arquivado.")
+    monkeypatch.setattr(run.wayback, "alternate_capture",   # a complete PDF never needs one
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no CDX lookup")))
 
     out, state_dir = tmp_path / "scraped", tmp_path / "state"
     p = tmp_path / "test_pdf_wb.yml"
@@ -1143,6 +1329,19 @@ def test_select_unscraped_keeps_query_addressed_documents_distinct():
     kept, already, within = run.select_unscraped(links, lambda u: u, seen)
     assert kept == ["https://president.ie/index.php?section=5&speech=205"]
     assert already == 1
+
+
+def test_select_unscraped_honours_identity_strip():
+    """A document held as the Plone object is not re-fetched as its @@download twin on a later
+    run (pagination.wayback_identity_strip)."""
+    seen = {"http://x.gov/discursos/1965/31.pdf"}
+    links = ["http://x.gov/discursos/1965/31.pdf/@@download/file/31.pdf",
+             "http://x.gov/discursos/1965/32.pdf/@@download/file/32.pdf"]
+    kept, already, _ = run.select_unscraped(links, lambda u: u, seen,
+                                            identity_strip=(r"/@@download/.*$",))
+    assert kept == [links[1]] and already == 1
+    kept2, already2, _ = run.select_unscraped(links, lambda u: u, seen)
+    assert kept2 == links and already2 == 0
 
 
 def test_select_unscraped_honours_recipe_noise_params():

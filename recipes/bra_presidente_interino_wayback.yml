@@ -1,0 +1,67 @@
+# Brazil — Presidência, the INTERIM-PRESIDENCY tree of www2.planalto.gov.br (May–Aug 2016) — WAYBACK.
+#
+# While Dilma Rousseff was suspended during her impeachment trial (2016-05-12 .. 2016-08-31),
+# Vice-President Michel Temer served as interim president ("presidente interino" / "presidente
+# em exercício"), and the Presidency published his material in a SEPARATE Plone tree,
+# www2.planalto.gov.br/presidente-em-exercicio/, not under /acompanhe-planalto/. So
+# bra_planalto_old_wayback (which takes /acompanhe-planalto/) never saw it. After 2016-08-31
+# Temer's material moves to /acompanhe-planalto/ (bra_planalto_old_wayback).
+#
+# The whole tree was enumerated 2026-09-19 (CDX): 6,499 unique URLs, but only 628 with a 200
+# text/html capture (the rest are gallery JPEGs, redirects and 404s). By section (200/HTML):
+#   noticias (311 — YYYY/MM/<slug> and YYYY/<slug>), imagens (132), agenda (90), videos (42),
+#   chefe-de-gabinete (29, the chief of staff's agenda), notas-oficiais (8), discursos (7),
+#   entrevistas (4), audios, biografia, foto-do-dia.
+# Taken: noticias, discursos, notas-oficiais, entrevistas (+ artigos/releases/pronunciamentos,
+# which the tree never used but cost nothing). 295 pages matched of ~330 speech-bearing
+# captures (~90%; probe 2026-09-19, --spread 12 green 12/12, 2016-05 .. 2016-08); the remainder
+# is section index pages, the ?b_start pager, the ultimas-noticias listing, @@nitf_galleria
+# views and relatar-erros forms.
+# LEFT OUT, with reasons: imagens / videos / foto-do-dia (galleries; the video pages carry a
+# caption and a player, no transcript), audios (players), agenda + chefe-de-gabinete (daily
+# schedules — same call as bra_planalto_wayback), biografia.
+# The presidencia.gov.br alias of www2 holds no capture of this tree (CDX, 0).
+source_id: bra_presidente_interino_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - www2.planalto.gov.br/presidente-em-exercicio
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # <section>/[subfolders]/<slug of >=12 chars>, anchored at scheme+host. The negative
+  # lookaheads drop Plone views/forms and the ultimas-noticias listing anywhere in the path,
+  # and the three per-section folder index pages (e.g. discursos/discursos-do-presidente-em-exercicio).
+  link_pattern: '^https?://(?:www2\.planalto|(?:www\.)?presidencia)\.gov\.br(?::\d+)?/presidente-em-exercicio/(?:noticias|discursos|notas-oficiais|notas|entrevistas|artigos|releases|pronunciamentos)/(?![^?#]*(?:@@|\+\+|/view/?$|image_view|relatar-erros|atualize-seu-navegador|ultimas-noticias))(?:[^?#]*/)?(?!(?:discursos-do-presidente-em-exercicio|notas-oficiais-do-presidente-interino|entrevistas-concedidas-pelo-presidente-interino-michel-temer)/?$)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.js)(?<!-)/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # Same bound as bra_planalto_old_wayback: from 2019 the host serves the gov.br cover page.
+  wayback_to: "20190101"
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  # Plone content divs + the collective.nitf news body (the 2016 news pages are nitf items;
+  # .documentDescription is only the lead). No article/main fallback. (A capture that misses
+  # them still reaches the engine's generic extractor; a WAF/CAPTCHA shell is refused before
+  # that, as an `archived_block_page` failure.)
+  selectors: ["#parent-fieldname-text", "[property='rnews:articleBody']", "#content-core", ".documentDescription"]
+date:
+  # Plone byline "Publicado em DD/MM/YYYY HHhMM" -> pull the DD/MM/YYYY out.
+  selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
+  regex: '\d{2}/\d{2}/\d{4}'
+
+position: president   # interim president (head of state while the President was suspended)
+speaker_default: Michel Temer   # the tree's whole span (May–Aug 2016) is Temer's interim term
+date_languages: ["pt"]
+notes: >
+  Wayback over www2.planalto.gov.br/presidente-em-exercicio/ (Plone), 2016-05 .. 2016-08:
+  Michel Temer as interim president during Dilma Rousseff's impeachment suspension. A separate
+  tree the Presidency used only for that period; bra_planalto_old_wayback does not cover it.
+  Takes noticias, discursos, notas-oficiais and entrevistas: 295 pages of ~330 speech-bearing
+  captures (~90%), statuscode:200 + text/html. Galleries, audio/video players and daily
+  agendas are left out.

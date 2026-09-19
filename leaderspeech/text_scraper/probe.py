@@ -23,11 +23,13 @@ from bs4 import BeautifulSoup
 from .extract import (apply_entry_meta, clean_text, date_from_url, entry_source,
                       extract_pdf_record, extract_record, first_match, looks_like_document,
                       match_url, parse_date)
+from .block import looks_like_block_page
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
 from .recipe import FieldSpec, PaginationType, WaybackExtend, load_recipe
-from .run import _follow_pdf_body, wants_pdf
+from .run import (_fetch_archived_document, _follow_pdf_body, _is_block_payload,
+                  _unblocked_alternate, wants_pdf)
 from . import api, feed, index, wayback
 
 try:
@@ -246,6 +248,7 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
     pages = []
     for item in sample:
         pdf_data = None
+        recovered_from = None     # set when a WAF/CAPTCHA capture was replaced by another
         try:
             url = item["original"] if is_wayback else item
             # Same gate as the run (run.wants_pdf / looks_like_document): the binary-document
@@ -253,12 +256,36 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
             # decoded every Word file as HTML and reported an empty body the run would fill.
             want_pdf = wants_pdf(recipe, url)
             if is_wayback and want_pdf:
-                _, data = wayback.fetch_snapshot_bytes(item, delay=0.0, client=wayback_client)
+                # Same fetch as the run: an incomplete/blocked capture falls back once to the
+                # URL's largest other capture, and a block page that remains is a failure.
+                data, used, recovered = _fetch_archived_document(item, recipe,
+                                                                 client=wayback_client, delay=0.0)
+                if recovered:
+                    recovered_from = used.get("timestamp")
+                elif _is_block_payload(data, recipe):
+                    pages.append({"url": url, "error": "archived_block_page: the Archive serves a "
+                                  f"WAF/CAPTCHA page for this document ({item.get('timestamp')})"})
+                    continue
                 pdf_data = data if looks_like_document(data) else None
                 phtml = None if pdf_data else data.decode("utf-8", "replace")
             elif is_wayback:
                 phtml = wayback.fetch_snapshot(item, delay=0.0, client=wayback_client,
                                                encoding=recipe.encoding)
+                # Same handling as the run: an archived WAF/CAPTCHA capture is replaced by the
+                # URL's largest other capture when that one is real, else reported as the
+                # failure the run records (run.ArchivedBlockPageError) — never as a
+                # generic-extractor "success".
+                if recipe.block_page and looks_like_block_page(phtml, recipe.block_page_patterns):
+                    alt_html, alt = _unblocked_alternate(item, recipe, client=wayback_client,
+                                                         delay=0.0)
+                    if alt_html is None:
+                        pages.append({"url": url, "error": "archived_block_page: the Archive's "
+                                      f"capture ({item.get('timestamp')}) is a WAF/CAPTCHA page"
+                                      + (f"; so is the largest other ({alt.get('timestamp')})"
+                                         if alt else "; no other capture")})
+                        continue
+                    phtml = alt_html
+                    recovered_from = alt.get("timestamp")
             elif want_pdf:
                 _, data = fetcher.get_bytes(url)
                 pdf_data = data if looks_like_document(data) else None
@@ -303,6 +330,8 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         }
         if pdf_body_len is not None:
             page["pdf_body_len"] = pdf_body_len   # body recovered from a followed PDF link
+        if recovered_from:
+            page["recovered_from_capture"] = recovered_from   # the first capture was a WAF shell
         pages.append(page)
     return pages
 
@@ -377,6 +406,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 start_urls=recipe.start_urls,
                 dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
                 extra_noise_params=recipe.pagination.wayback_noise_params or (),
+                identity_strip=recipe.pagination.wayback_identity_strip or (),
             )
             # NB the spread here is across the CDX listing, which comes back in urlkey
             # (alphabetical) order, not chronological — so unlike the live-listing branches

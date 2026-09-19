@@ -734,6 +734,24 @@ Overrides: `block_page: false` disables the guard for the rare site whose legiti
 matches a signature; `block_page_patterns: ["…"]` adds extra case-insensitive phrases for a
 site-specific block message.
 
+**Archived block pages (wayback sources, 2026-09-19).** The Internet Archive's crawler meets the
+same WAFs, and it STORES what it got — often with HTTP 200. On an F5-fronted site that can be the
+only capture of a page: ~3-4% of gov.br/planalto's 2024-26 captures are F5 image CAPTCHAs, ~60% of
+the Biblioteca da Presidência's HTML captures are F5 JavaScript-challenge shells. Until this
+date those captures reached the generic extractor and were written as ~100-800-char rows. Now:
+
+- an archived HTML capture that matches the guard is **refused before extraction**;
+- the engine then asks CDX for the URL's **largest other capture** inside the recipe's own window
+  and `wayback_filter` (`wayback.alternate_capture`) and fetches it once; a real page is used and
+  its date stamped in `wayback_capture` (logged as *recovered from another capture*);
+- if that is a shell too — or there is none — the row fails as `archived_block_page`, which is
+  **not** counted toward the circuit breaker (it describes a capture, not a block on us);
+- binary documents get the same treatment: a "PDF" capture that replays as a WAF page, or a PDF
+  **cut at 1 MiB / 5 MiB** (no `%%EOF`), falls back once to the largest other capture.
+
+The probe does the same and reports `recovered_from_capture` on a rescued page. Rows written as
+shells before this date are removed with `recipe_tools/purgeblocked.py` (see debugging.md).
+
 ## Field reference
 
 | Key | Required | Notes |
@@ -777,6 +795,7 @@ site-specific block message.
 | `pagination.wayback_adaptive` / `wayback_max_delay` | no | **Adaptive Internet-Archive pacing.** With `wayback_adaptive: true` (or the run flag `--adaptive-wayback`), the inter-fetch delay AUTO-TUNES: it starts at `wayback_delay`, rises whenever IA throttles (ConnectError/429/5xx) and eases back down over clean fetches, converging on the fastest rate IA tolerates from your IP — so a long run doesn't burn minutes on retry backoff. Bounded by `wayback_max_delay` (default 12s; run override `--wayback-max-delay`). Off by default (fixed `wayback_delay`). The end-of-run log prints where it settled. Ideal when a shared IP is being throttled. |
 | `pagination.wayback_filter` | no | A list of raw CDX `filter=` expressions (`field:regex`) ANDed together — e.g. `["mimetype:application/pdf", "statuscode:200"]` to keep only real PDF captures and drop a prefix query's text/html noise. |
 | `pagination.wayback_dedupe_noise_params` | no | Default `true`. Treat two captures as the SAME page when they differ only by a tracking/UI query parameter (`?utm_source=`, `?fbclid=`, `?comment=`, `?print=`, …) and fetch it once. Only a fixed denylist is ignored, so query-ADDRESSED pages (`index.php?speech=204`) keep their identifying params. Set `false` to fetch every query variant as its own document. |
+| `pagination.wayback_identity_strip` | no | **Regexes removed from each captured URL before the one-capture-per-page dedupe** — the PATH-level counterpart of `wayback_noise_params`. Two URLs that differ only by a matched tail count as one document; the first captured wins, and the same rule applies against the state file on later runs. Written for Plone, which serves every File object twice (`…/31.pdf` and `…/31.pdf/@@download/file/31.pdf`) while the Archive holds a PDF capture of one, the other or both: `wayback_identity_strip: ['/@@download/.*$']` takes whichever was captured, once (`bra_biblioteca_wayback`: 1,753 captures → 957 documents). ⚠ Anchor it at the end of the URL, and never strip a part that tells documents apart. |
 | `pagination.wayback_noise_params` | no | **Extra query parameter NAMES (case-insensitive) that THIS SITE uses as on-page UI toggles**, added to the denylist above. The built-in list is deliberately generic; some CMSes invent their own. Two worked cases: La Moncloa's SharePoint serves one article as `…council.aspx`, `…council.aspx?qfr=130` and `…council.aspx?mode=Dark`; gob.mx re-serves the identical Spanish article under `?idiom=en`, which accounts for **6,593 of that host's 16,866 captures**. Without the knob those become duplicate ROWS, and the recipe usually cannot just anchor the pattern at `$` instead — on La Moncloa, 97 articles were archived ONLY in a query-carrying form. ⚠ List only parameters that do NOT change which document is served: a parameter that ADDRESSES the article would collapse the whole source to one row. |
 | `wayback_extend` | no | Opt-in continuation of a **live** recipe into the Internet Archive after its crawl finishes (see "Auto-continuing a live recipe into the archive"). `true` reuses everything; a mapping supplies overrides. `false`/absent = off. Same-host only. |
 | `wayback_extend.prefix` | no | CDX prefix to enumerate. Default = derived from `start_urls[0]` (host+path). Set it when speeches don't live under the listing path. |

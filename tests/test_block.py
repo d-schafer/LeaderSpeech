@@ -39,6 +39,24 @@ def test_just_a_moment_interstitial_is_detected():
     assert looks_like_block_page(JUST_A_MOMENT) is True
 
 
+def test_f5_image_captcha_is_detected():
+    """F5 BIG-IP's image CAPTCHA — served intermittently by gov.br, and stored by the Internet
+    Archive with HTTP 200 as the only capture of many gov.br/planalto speech pages."""
+    f5 = ("<html><body><noscript>Please enable JavaScript to view the page content.<br/>Your "
+          "support ID is: 15133350323661531783.</noscript><div>This question is for testing "
+          "whether you are a human visitor and to prevent automated spam submission.</div>"
+          "<div>What code is in the image?</div><input type='submit' value='submit'/></body></html>")
+    assert looks_like_block_page(f5) is True
+
+
+def test_f5_javascript_challenge_shell_is_detected():
+    """The bare F5 challenge the Archive stored for most Biblioteca da Presidência objects:
+    no CAPTCHA question, just the JavaScript notice and a support ID (~90 visible chars)."""
+    shell = ("<html><head><title></title></head><body>Please enable JavaScript to view the page "
+             "content.<br/>Your support ID is: 13432364876686238570.<br/></body></html>")
+    assert looks_like_block_page(shell) is True
+
+
 def test_real_short_speech_is_not_a_block():
     assert looks_like_block_page(REAL_SPEECH) is False
 

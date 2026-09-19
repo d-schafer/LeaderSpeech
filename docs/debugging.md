@@ -80,6 +80,12 @@ python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --retry-failed
 #    as 200, or a thin/wrong extraction) they are `seen`, so --retry-failed will NOT re-do
 #    them. --rescrape re-fetches the WHOLE source from scratch and rewrites its CSV:
 python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --rescrape
+
+#    Lighter, when the junk is WAF/CAPTCHA pages only (before 2026-09-19 a wayback run wrote
+#    an archived interstitial as a ~100-800-char row): drop just those rows and move their
+#    URLs back to `failed`. Dry run first; --apply refuses while a scrape is writing the source.
+python ../../recipe_tools/purgeblocked.py <id>            # workspace tool, run from the repo dir
+python ../../recipe_tools/purgeblocked.py <id> --apply
 ```
 
 ### `--rescrape`: re-fetch one source from scratch
@@ -108,6 +114,8 @@ re-cleaning, so the metadata step doesn't skip the fresh rows as already-done: d
 | Error in the CSV / log | Likely cause | Fix |
 |------------------------|--------------|-----|
 | `empty_text (no recipe match; generic also empty)` | `text` selectors don't match this page | inspect the page, update the `text` selector chain; if it's a JS page, set `renderer: js` |
+| `archived_block_page: the Archive's capture (…) is a WAF/CAPTCHA page …` | a **wayback** source: the Internet Archive stored a WAF interstitial (F5 "Please enable JavaScript… Your support ID is", F5 image CAPTCHA, Incapsula, Cloudflare) **with HTTP 200** as this URL's capture. The engine already tried the URL's largest other capture (inside the recipe's window and filters) and that was a shell too, or there was none | nothing to fix in the recipe — the Archive holds no real copy. It is counted as failed but NOT toward the circuit breaker. A `… recovered from another capture` log line is the good case: the shell was replaced by a real capture. Seen on gov.br/planalto (~3-4% of 2024-26 captures) and the Biblioteca da Presidência (~60% of HTML captures) |
+| a PDF source with many `empty_text` rows | the Archive's PDF captures are **cut at exactly 1 MiB (or 5 MiB)** — no `%%EOF`, nothing extracts — or the PDF is an image-only scan | the engine already falls back once to the URL's largest other PDF capture; if every capture is cut, the Archive has no whole copy. Image-only scans need `pdf_ocr: true` (Tesseract + Ghostscript) |
 | many `via_generic_fallback` | the site redesigned, or older pages use a different layout | add the new/old selectors to the field's fallback chain |
 | `HTTPStatusError: ... 404/500` | dead or moved URL | usually fine to leave failed; for a whole dead source, use the Wayback fallback (`leaderspeech.text_scraper.wayback`) |
 | `CERTIFICATE_VERIFY_FAILED` / SSL error | the site's TLS cert chain is broken/incomplete (common on old gov sites) | set `verify_ssl: false` in the recipe |

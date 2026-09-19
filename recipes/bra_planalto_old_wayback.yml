@@ -30,6 +30,17 @@
 # (policy-report PDFs, a highlights magazine), presidente-em-exercicio and vice-presidente (a
 # different office — the acting VP), centrais-de-conteudos / multimidia / imagens (galleries),
 # centrodeestudos (a study-centre sub-site), ccivil_03 / legislacao (legislation).
+# SECOND HOST (widened 2026-09-19, L2): the site was also served as (www.)presidencia.gov.br,
+# and the Archive's captures there differ: of 617 alias pages the pattern takes, 390 are paths
+# the www2 harvest never saw — notas-oficiais (185, Dilma's official notes), conversa-com-a-
+# presidenta (118, her weekly column), entrevistas (28, incl. Temer's interim-period
+# interviews), discursos (25), plus a few releases/cafe/bom-dia-ministro. The other ~227 are the
+# same pages under both hosts; the engine dedupes within a host only, so those are fetched
+# twice and deduplicated downstream by text. presidencia.gov.br/imprensa has no captures, and
+# presidencia.gov.br/noticias adds one page, so neither is queried.
+# MEASURED NEGATIVE: /presidenta/ (71 www2 + 48 alias captures) is navigation only —
+# collection listings, biography, photos; its items live under /imprensa/ and
+# /acompanhe-o-planalto/, which are taken.
 # MEASURED NEGATIVE: /mandatomicheltemer/ is a post-2018 frozen copy of the Temer site (768
 # news URLs, 238 of them not under /acompanhe-planalto/), but every Archive capture of it
 # (2019–2026, six sampled) is an empty F5 challenge shell — nothing to recover.
@@ -41,6 +52,10 @@ start_urls:
   - www2.planalto.gov.br/acompanhe-planalto
   - www2.planalto.gov.br/imprensa
   - www2.planalto.gov.br/noticias
+  # The same Plone site was served under a second host, (www.)presidencia.gov.br, and the
+  # Archive captured different pages there (added 2026-09-19 — see the header).
+  - presidencia.gov.br/acompanhe-o-planalto
+  - presidencia.gov.br/acompanhe-planalto
 renderer: static
 
 listing:
@@ -49,7 +64,7 @@ listing:
   # merely CONTAINS a matching path in its query string (sendto_form?url=...) is not taken.
   # Plone copy*_of_* items are kept: the Cafe com a Presidenta episodes were published under
   # them (copied from a template), so they are distinct programmes, not drafts.
-  link_pattern: '^https?://(?:www2\.)?planalto\.gov\.br(?::\d+)?/(?:(?:acompanhe-o-planalto|acompanhe-planalto|imprensa)/(?:discursos|releases|noticias|noticias-de-governo|notas-oficiais|notas|nota-imprensa|entrevistas|conversa-com-a-presidenta|cafe-com-a-presidenta|bom-dia-ministro|artigos|brasil-em-pauta|brasileiras|briefings|porta-voz|pronunciamentos|relacoes-internacionais)|noticias/\d{4}/\d{1,2})/(?:[^?#]*/)?(?!@@|\+\+|advsearch|atualize-seu-navegador|relatar-erros|ultimas-noticias)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.js)(?<!-)/?$'
+  link_pattern: '^https?://(?:(?:www2\.)?planalto|(?:www\.)?presidencia)\.gov\.br(?::\d+)?/(?:(?:acompanhe-o-planalto|acompanhe-planalto|imprensa)/(?:discursos|releases|noticias|noticias-de-governo|notas-oficiais|notas|nota-imprensa|entrevistas|conversa-com-a-presidenta|cafe-com-a-presidenta|bom-dia-ministro|artigos|brasil-em-pauta|brasileiras|briefings|porta-voz|pronunciamentos|relacoes-internacionais)|noticias/\d{4}/\d{1,2})/(?:[^?#]*/)?(?!@@|\+\+|advsearch|atualize-seu-navegador|relatar-erros|ultimas-noticias)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.js)(?<!-)/?$'
 
 pagination:
   type: wayback

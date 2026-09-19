@@ -1,0 +1,88 @@
+# Brazil — Biblioteca da Presidência da República, ex-presidents' archive: the HTML PAGES of
+# Dilma Rousseff (2011–16), Michel Temer (2016–18) and Jair Bolsonaro (2019–22) — WAYBACK.
+#
+# The library's ex-presidentes/<name>/ folders hold two kinds of material. The older
+# presidents' (and Lula I–II's) are PDF files — bra_biblioteca_wayback. For Dilma, Temer and
+# Bolsonaro the library kept their speeches, interviews, notes, radio programmes and columns as
+# Plone PAGES, one per item, full text in #parent-fieldname-text. That is this recipe.
+# The origin shows "Esta página está em manutenção" on every path since mid-September 2026
+# (bounded below) and sat behind an F5 challenge before that.
+#
+# Enumerated 2026-09-19 (CDX, statuscode:200 text/html, every capture). THE COMPLICATION: most
+# captures of these pages are F5 JavaScript-challenge shells ("Please enable JavaScript to view
+# the page content. Your support ID is …", 3–4 KB), not the page. Per URL, by the size of its
+# captures, in the sections taken here:
+#                  URLs   first capture real   rescued by a later capture   no real capture
+#   Dilma         1,172          518                    190                        464
+#   Bolsonaro       367          234                     20                        113
+#   Temer           317          139                     60                        118
+# ≈1,160 usable pages. The engine refuses a shell (archived_block_page) and fetches the URL's
+# largest other capture instead; the ~700 URLs with no real capture fail cleanly, and are
+# listed in the _errors.csv. Much of this material also exists on the Planalto hosts
+# (bra_planalto_old_wayback, bra_planalto_wayback); exact duplicates are deduplicated
+# downstream by text, and the library copy fills pages the Planalto captures missed.
+# Sections taken: Dilma discursos, entrevistas-presidenta, entrevistas, notas-oficiais,
+# cafe-presidenta + cafe-com-a-presidenta (weekly radio), conversa-presidenta +
+# conversa-com-a-presidenta-busca (weekly column), brasil-em-pauta, viagens-*; Bolsonaro
+# discursos, entrevistas, pronunciamentos-oficiais, viagens; Temer discursos-do-presidente-da-
+# republica, entrevistas-concedidas-pelo-presidente-michel-temer, artigos-do-presidente-michel-
+# temer, notas-oficiais-do-presidente, pronunciamentos-oficiais, viagens-*.
+# LEFT OUT, with reasons: fotos*/galleries (Dilma 1,129), audios (Temer 981, Dilma 419 —
+# players), agenda*, caderno-destaques (highlights magazine), videos, biografia, foto-oficial,
+# orgaos-governo-*, mensagem-ao-congresso (PDFs, taken by bra_biblioteca_wayback), and the
+# duplicated `…/<name>/presidencia/ex-presidentes/<name>/…` relative-link paths.
+# MEASURED NEGATIVE: luiz-inacio-lula-da-silva-ii/ (35 speech/pronouncement URLs) — every
+# capture is an F5 shell.
+source_id: bra_biblioteca_html_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - biblioteca.presidencia.gov.br/presidencia/ex-presidentes/dilma-rousseff
+  - biblioteca.presidencia.gov.br/presidencia/ex-presidentes/bolsonaro
+  - biblioteca.presidencia.gov.br/presidencia/ex-presidentes/michel-temer
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # <president>/<section>/[subfolders]/<slug of >=20 chars>, anchored at scheme+host. The
+  # lookaheads drop Plone views/forms anywhere in the path and the per-section folder index
+  # pages (discursos-da-presidenta and its broken-hyphen spellings, conversa-com-a-presidenta_,
+  # …). `(?<!-)` drops link-truncated slugs ("…-dilma-rousseff-dil-"), which never resolve.
+  link_pattern: '^https?://(?:www\.)?biblioteca\.presidencia\.gov\.br(?::\d+)?/presidencia/ex-presidentes/(?:dilma-rousseff/(?:discursos|entrevistas-presidenta|entrevistas|notas-oficiais|cafe-presidenta|cafe-com-a-presidenta|conversa-com-a-presidenta-busca|conversa-presidenta|brasil-em-pauta|viagens-nacionais|viagens-internacionais)|bolsonaro/(?:discursos|entrevistas|pronunciamentos-oficiais|viagens)|michel-temer/(?:discursos-do-presidente-da-republica|entrevistas-concedidas-pelo-presidente-michel-temer|artigos-do-presidente-michel-temer|notas-oficiais-do-presidente|pronunciamentos-oficiais|viagens-nacionais|viagens-internacionais))/(?![^?#]*(?:@@|\+\+|/view/?$|image_view|sendto_form|relatar-erros|atualize-seu-navegador|/presidencia/ex-presidentes/))(?:[^?#]*/)?(?!(?:discur-?sos-da-presi-?denta|conversa-com-a-presidenta_?|cafe-com-a-presidenta_?|entrevistas-presidenta|notas-oficiais)/?$)[a-z0-9%][a-z0-9%_.-]{19,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!-)/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # The last normal capture of the site is 2026-09-15; later ones are the maintenance page,
+  # which is real HTML (not a block page) and would otherwise be written as a row.
+  wayback_to: "20260915"
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1"]
+text:
+  # Plone body only — no generic container, so a page without it fails rather than yielding
+  # chrome. (F5 shells are refused before extraction; see the header.)
+  selectors: ["#parent-fieldname-text", "#content-core"]
+date:
+  # Dilma's and Temer's speech titles lead with the date: "12-12-2013 - Brinde da Presidenta…",
+  # "25-08-2016-Discurso do senhor…" (day-first). Other items carry it only in the body's
+  # dateline ("Washington/EUA, 19 de março de 2019"), left to the cleaner. NOT the Plone
+  # byline: on this library it records when the page was ADDED to the library, not when the
+  # speech was given (and .documentByLine here holds only tags).
+  selectors: ["h1.documentFirstHeading"]
+  regex: '^\s*\d{2}-\d{2}-\d{4}'
+  regex_required: true
+
+position: president
+# No speaker_default: three presidents. The folder in the URL names the president; the cleaner
+# assigns the speaker from the text and the date.
+date_languages: ["pt"]
+notes: >
+  Wayback over the Biblioteca da Presidência's ex-presidents' HTML pages: Dilma Rousseff,
+  Michel Temer and Jair Bolsonaro - speeches, interviews, official notes, radio programmes,
+  columns, pronouncements, trips. Most captures are F5 challenge shells; the engine refuses
+  them and tries the URL's largest other capture (~1,160 of ~1,860 URLs usable, 270 of those
+  only via a later capture). Bounded wayback_to 20260915 (maintenance page after). Date from
+  the title's DD-MM-YYYY prefix where present. Overlaps the Planalto recipes; duplicates are
+  deduplicated downstream.

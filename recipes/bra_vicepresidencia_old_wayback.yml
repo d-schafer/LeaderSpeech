@@ -1,0 +1,76 @@
+# Brazil — VICE-PRESIDÊNCIA on www2.planalto.gov.br / presidencia.gov.br, 2011–2016 — WAYBACK.
+#
+# The Vice-President's office published its own Plone sub-site inside the Presidency's host.
+# For this whole span the Vice-President was Michel Temer (2011-01-01 .. 2016-05-12, when he
+# became interim president — see bra_presidente_interino_wayback). Two generations:
+#   /vice-presidente/ (2011–14): noticias (YYYY/MM/<slug> and <slug>), artigos (Temer's op-eds),
+#     entrevistas, plus a handful of 2011 items filed directly under /vice-presidente/YYYY/MM/.
+#   /vice-presidencia/vice-presidente/ (2014–16): noticias/noticias-do-vice/YYYY[/MM]/<slug>,
+#     notas-oficiais, artigos, entrevistas.
+# The same pages were served under two hosts, www2.planalto.gov.br and (www.)presidencia.gov.br,
+# and the Archive captured different subsets under each: of 212 unique article paths, only 22
+# were captured under both (CDX, 2026-09-19). Both hosts are therefore queried.
+#
+# Enumerated 2026-09-19 (CDX, statuscode:200 + text/html): /vice-presidente/ 570 + 37 URLs,
+# /vice-presidencia/ 383 + 233 URLs. Matched 234 captures = 212 unique pages (the 22 captured
+# under both hosts are fetched twice and deduplicated downstream by text); probe 2026-09-19
+# --spread 14 green 14/14 on title/text/date, 2011-06 .. 2016-03. The rest, by
+# section: fotos (~200 — galleries), agenda / agendas (~190 — daily schedules), videos (~70) and
+# audios (~45) — players with a caption; the "Transcrição" tab on the audio pages is empty and
+# the only download is the MP3 (sampled 2026-09-19) — acessoainformacao / institucional /
+# biografia / residencia-oficial / bandeira-insignia (institutional pages), plus index pages,
+# ?b_start pagers, @@nitf_galleria and relatar-erros forms. Coverage of the speech-bearing
+# sections (noticias, notas-oficiais, artigos, entrevistas): ~90%; the misses are their folder
+# indexes and /view duplicates.
+# MEASURED NEGATIVE: the Lula-era Vice-Presidency (José Alencar, 2003–10) at
+# www.presidencia.gov.br/vice_pres/ holds only institutional pages in the Archive (biography,
+# duties, official residence, insignia) — no news, speeches or statements. Nothing to take.
+source_id: bra_vicepresidencia_old_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - www2.planalto.gov.br/vice-presidente
+  - www2.planalto.gov.br/vice-presidencia
+  - presidencia.gov.br/vice-presidente
+  - presidencia.gov.br/vice-presidencia
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # Either host; either generation; a content section (or the 2011 /YYYY/MM/ folders); then a
+  # slug of >=12 chars. Anchored at scheme+host. The lookaheads drop Plone views/forms and
+  # image children anywhere in the path, and the folder index pages (notas-oficiais,
+  # notas-oficiais-1, noticias-do-vice, colecao-de-noticias).
+  link_pattern: '^https?://(?:www2\.planalto|(?:www\.)?presidencia)\.gov\.br(?::\d+)?/(?:vice-presidente|vice-presidencia/vice-presidente)/(?:(?:noticias|notas-oficiais|notas|entrevistas|artigos|discursos|releases|pronunciamentos|destaque-vice-presidencia)/|\d{4}/\d{1,2}/)(?![^?#]*(?:@@|\+\+|/view/?$|image_view|relatar-erros|atualize-seu-navegador|ultimas-noticias|\.(?:jpe?g|png|gif)/))(?:[^?#]*/)?(?!(?:notas-oficiais(?:-\d)?|noticias-do-vice|colecao-de-noticias)/?$)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.js)(?<!-)/?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # Same bound as bra_planalto_old_wayback: from 2019 the host serves the gov.br cover page.
+  wayback_to: "20190101"
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  # Plone content divs + the collective.nitf news body. No article/main fallback. (A capture
+  # that misses them still reaches the engine's generic extractor; a WAF/CAPTCHA shell is
+  # refused before that, as an `archived_block_page` failure.)
+  selectors: ["#parent-fieldname-text", "[property='rnews:articleBody']", "#content-core", ".documentDescription"]
+date:
+  # Plone byline "Publicado em DD/MM/YYYY HHhMM" -> pull the DD/MM/YYYY out.
+  selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
+  regex: '\d{2}/\d{2}/\d{4}'
+
+position: vice president
+speaker_default: Michel Temer   # the Vice-President for the whole 2011–2016 span
+date_languages: ["pt"]
+notes: >
+  Wayback over the Vice-Presidency's Plone sub-site on www2.planalto.gov.br and its
+  presidencia.gov.br alias, 2011 .. 2016: Michel Temer as Vice-President (not a head of
+  state or government - the cleaner will mostly type these rows as non-leader, which are
+  retained). Two generations, /vice-presidente/ (2011-14) and
+  /vice-presidencia/vice-presidente/ (2014-16); news, official notes, op-eds, interviews.
+  212 unique pages, ~90% of the speech-bearing captures. Galleries, audio/video players,
+  agendas and institutional pages are left out. The Lula-era vice_pres/ section (José
+  Alencar) holds no news or speeches in the Archive.

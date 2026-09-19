@@ -17,6 +17,7 @@ import argparse
 import csv
 import json
 import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,7 @@ from bs4 import BeautifulSoup
 from .. import datetext
 from .extract import (apply_entry_meta, extract_pdf_record, extract_record, first_match,
                       looks_like_document, should_keep)
+from .block import looks_like_block_page
 from .fallback_generic import extract_generic
 from .fetch import Fetcher, egress_ip
 from .msword import is_doc_url, is_docx_url
@@ -115,7 +117,8 @@ def _log_identity_dupes(already: int, within: int) -> None:
                  "more than one path in this source's own listings", within)
 
 
-def select_unscraped(candidates: list, url_of, skip: set, noise_params=()) -> tuple[list, int, int]:
+def select_unscraped(candidates: list, url_of, skip: set, noise_params=(),
+                     identity_strip=()) -> tuple[list, int, int]:
     """Drop candidates we already hold, comparing by DOCUMENT IDENTITY, not URL string.
 
     `skip` is the state file's seen/failed/filtered URLs. Testing membership with `in skip`
@@ -139,9 +142,19 @@ def select_unscraped(candidates: list, url_of, skip: set, noise_params=()) -> tu
       * `within`  — two candidates in THIS batch are the same document (e.g. a board that serves
                     one article under /Speeches/<id> and /Briefings/<id>)
 
+    `identity_strip` (the recipe's `pagination.wayback_identity_strip`) is applied first, so a
+    Plone `…/x.pdf/@@download/…` twin of a document held as `…/x.pdf` counts as held.
+
     Returns (kept, already, within).
     """
-    state_ids = {wayback.page_identity(u, noise_params) for u in skip}
+    strips = [re.compile(p) for p in (identity_strip or ())]
+
+    def _pid(u: str) -> str:
+        for rx in strips:
+            u = rx.sub("", u)
+        return wayback.page_identity(u, noise_params)
+
+    state_ids = {_pid(u) for u in skip}
     batch_ids: set[str] = set()
     kept, already, within = [], 0, 0
     for c in candidates:
@@ -150,7 +163,7 @@ def select_unscraped(candidates: list, url_of, skip: set, noise_params=()) -> tu
             continue
         if url in skip:
             continue             # exact hit — the ordinary already-scraped case, counted by `skip`
-        pid = wayback.page_identity(url, noise_params)
+        pid = _pid(url)
         if pid in state_ids:
             already += 1
         elif pid in batch_ids:
@@ -329,6 +342,82 @@ def _append(path: Path, rows: list[dict], columns: list[str]):
         writer.writerows(rows)
 
 
+class ArchivedBlockPageError(Exception):
+    """The Internet Archive's capture of a page IS a WAF/CAPTCHA interstitial (stored with
+    HTTP 200), not the document. The live Fetcher already refuses such pages (issue #65), but
+    archived captures bypass it: the recipe selectors miss the interstitial, the generic
+    extractor then returns its ~300 chars of "What code is in the image?", and that was written
+    as a speech with the URL marked seen — so the real document could never be fetched later,
+    not even by a live recipe on the same host (the identity dedupe reads `seen`). Found on
+    gov.br/planalto, where ~4% of the 2024-26 speech captures are F5 CAPTCHAs (2026-09-19).
+
+    Recorded as a failure (in `_errors.csv`, not seen) but deliberately NOT counted toward the
+    circuit breaker: it says something about one archived capture, nothing about whether the
+    Archive is blocking us, and a folder the Archive crawled during a CAPTCHA spell can yield
+    dozens in a row."""
+
+
+def _unblocked_alternate(entry: dict, recipe: Recipe, *, client=None, delay: float = 5.0,
+                         pacer=None) -> tuple[str | None, dict | None]:
+    """The capture in hand was a WAF/CAPTCHA page: fetch the largest OTHER capture of the same
+    URL (wayback.alternate_capture) and return (html, that_entry) if it is real content, else
+    (None, entry_tried_or_None). One CDX query and at most one extra fetch per blocked URL — if
+    the largest remaining capture is a shell too, the smaller ones are not worth fetching."""
+    alt = wayback.alternate_capture(entry, from_date=recipe.pagination.wayback_from,
+                                    to_date=recipe.pagination.wayback_to,
+                                    filters=recipe.pagination.wayback_filter)
+    if alt is None:
+        return None, None
+    html = wayback.fetch_snapshot(alt, delay=delay, client=client, pacer=pacer,
+                                  encoding=recipe.encoding)
+    if looks_like_block_page(html, recipe.block_page_patterns):
+        return None, alt
+    return html, alt
+
+
+def _complete_document(data) -> bool:
+    """Is `data` a whole binary document? A PDF must end in `%%EOF` (within its last 4 KB):
+    the Archive stores some large files cut at exactly 1 MB (issue #70), and a cut PDF has no
+    trailer, so it extracts nothing. Word files carry no such marker and count as complete."""
+    if not looks_like_document(data):
+        return False
+    if looks_like_pdf(data):
+        return b"%%EOF" in bytes(data[-4096:])
+    return True
+
+
+def _fetch_archived_document(entry: dict, recipe: Recipe, *, client=None, delay: float = 5.0,
+                             pacer=None) -> tuple[bytes, dict, bool]:
+    """Fetch an archived binary document (PDF/Word), falling back ONCE to the URL's largest
+    other capture when the one in hand is not a complete document — an F5 challenge page the
+    Archive serves in its place, or a partial cut at 1 MB. Both are real on the Biblioteca da
+    Presidência: Afonso Pena's 1907 message to Congress comes back as a 5.8 KB F5 page from its
+    earliest capture and as the 1.9 MB PDF from a later one (2026-09-19).
+
+    Returns (data, entry_used, recovered). If nothing better exists the original bytes are
+    returned unchanged — the caller then extracts what it can, or refuses a block page."""
+    _, data = wayback.fetch_snapshot_bytes(entry, delay=delay, client=client, pacer=pacer)
+    if _complete_document(data):
+        return data, entry, False
+    alt = wayback.alternate_capture(entry, from_date=recipe.pagination.wayback_from,
+                                    to_date=recipe.pagination.wayback_to,
+                                    filters=recipe.pagination.wayback_filter)
+    if alt is not None:
+        _, alt_data = wayback.fetch_snapshot_bytes(alt, delay=delay, client=client, pacer=pacer)
+        if _complete_document(alt_data) or (not looks_like_document(data)
+                                            and looks_like_document(alt_data)):
+            return alt_data, alt, True
+    return data, entry, False
+
+
+def _is_block_payload(data, recipe: Recipe) -> bool:
+    """A 'document' fetch that came back as a WAF/CAPTCHA HTML page instead."""
+    if not recipe.block_page or looks_like_document(data):
+        return False
+    html = data if isinstance(data, str) else bytes(data).decode("utf-8", "replace")
+    return looks_like_block_page(html, recipe.block_page_patterns)
+
+
 def wants_pdf(recipe: Recipe, url: str) -> bool:
     """Should `url` be fetched+parsed as a binary document (PDF or Word)? Forced by
     `content_type: pdf` (which now covers PDF/.docx/.doc, dispatched by file type at extraction);
@@ -464,6 +553,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         start_urls=recipe.start_urls,
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
+        identity_strip=recipe.pagination.wayback_identity_strip or (),
     )
 
 
@@ -541,6 +631,7 @@ def scrape_recipe(
     # The recipe's own UI-toggle parameter names, so identity dedupe (below) collapses the same
     # document addressed with and without them.
     noise_params = tuple(recipe.pagination.wayback_noise_params or ())
+    identity_strip = tuple(recipe.pagination.wayback_identity_strip or ())
 
     fetcher = Fetcher(
         renderer=recipe.renderer.value,
@@ -567,7 +658,8 @@ def scrape_recipe(
     # counters live in a dict, and pending_rows/errors are cleared in place (never
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
-    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0}
+    stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0,
+             "archived_block": 0, "archived_block_recovered": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -611,15 +703,46 @@ def scrape_recipe(
                     # fill_date=False: don't let the generic extractor invent a template date
                     # on an archived page — wayback_capture is the honest date fallback.
                     if wants_pdf(phase_recipe, url):
-                        _, data = wayback.fetch_snapshot_bytes(
-                            todo_item, delay=wayback_delay, client=wayback_client, pacer=pacer,
-                        )
+                        data, used, recovered = _fetch_archived_document(
+                            todo_item, phase_recipe, client=wayback_client,
+                            delay=wayback_delay, pacer=pacer)
+                        if recovered:
+                            wb_capture = _wayback_capture_iso(used.get("timestamp"))
+                            stats["archived_block_recovered"] += 1
+                            log.info("archived document incomplete/blocked; recovered from "
+                                     "another capture (%s): %s", wb_capture, url)
+                        elif _is_block_payload(data, phase_recipe):
+                            raise ArchivedBlockPageError(
+                                f"archived_block_page: the Archive serves a WAF/CAPTCHA page for "
+                                f"this document's capture ({wb_capture}), and no other capture "
+                                f"is a complete document")
                         rec, via_generic = _extract_payload("pdf", data, url, phase_recipe, fill_date=False)
                     else:
                         html = wayback.fetch_snapshot(
                             todo_item, delay=wayback_delay, client=wayback_client, pacer=pacer,
                             encoding=phase_recipe.encoding,
                         )
+                        # An archived WAF/CAPTCHA interstitial: try the URL's largest other
+                        # capture, and refuse the row if that is a shell too — never extract
+                        # it, or the generic fallback writes it as a speech
+                        # (ArchivedBlockPageError).
+                        if phase_recipe.block_page and looks_like_block_page(
+                                html, phase_recipe.block_page_patterns):
+                            alt_html, alt = _unblocked_alternate(
+                                todo_item, phase_recipe, client=wayback_client,
+                                delay=wayback_delay, pacer=pacer)
+                            if alt_html is None:
+                                tried = (f"; the largest other capture "
+                                         f"({_wayback_capture_iso(alt.get('timestamp'))}) is one too"
+                                         if alt else "; no other capture")
+                                raise ArchivedBlockPageError(
+                                    f"archived_block_page: the Archive's capture ({wb_capture}) is "
+                                    f"a WAF/CAPTCHA page, not the document{tried}")
+                            html = alt_html
+                            wb_capture = _wayback_capture_iso(alt.get("timestamp"))
+                            stats["archived_block_recovered"] += 1
+                            log.info("archived block page; recovered from another capture (%s): %s",
+                                     wb_capture, url)
                         rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
                         # a page that is just a title + a link to the speech PDF: pull the body
                         # from the archived PDF nearest this capture (see _follow_pdf_body).
@@ -684,6 +807,13 @@ def scrape_recipe(
                     if via_generic:
                         stats["generic"] += 1
                         log.info("recovered via generic extractor: %s", url)
+            except ArchivedBlockPageError as e:
+                # A failure (retryable, not seen) — but NOT a consecutive failure: see the class.
+                errors.append({"timestamp": stamp(), "url": url, "error": str(e)[:300]})
+                failed.add(url)
+                stats["failed"] += 1
+                stats["archived_block"] += 1
+                log.warning("%s :: %s", url, e)
             except Exception as e:
                 detail = f"{type(e).__name__}: {e}"
                 errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
@@ -796,7 +926,7 @@ def scrape_recipe(
         skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
             todo_entries, dup_state, dup_batch = select_unscraped(
-                entries, lambda e: e.get("original"), skip, noise_params)
+                entries, lambda e: e.get("original"), skip, noise_params, identity_strip)
             if sample:
                 todo_entries = _sample_evenly(todo_entries, sample)
             elif limit:
@@ -809,7 +939,7 @@ def scrape_recipe(
             todo = todo_entries
         else:
             todo, dup_state, dup_batch = select_unscraped(
-                links, lambda u: u, skip, noise_params)
+                links, lambda u: u, skip, noise_params, identity_strip)
             if sample:
                 todo = _sample_evenly(todo, sample)
             elif limit:
@@ -862,7 +992,7 @@ def scrape_recipe(
                     failed -= ext_urls
                 skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
                 todo2, dup_state2, dup_batch2 = select_unscraped(
-                    ext_entries, lambda e: e.get("original"), skip, noise_params)
+                    ext_entries, lambda e: e.get("original"), skip, noise_params, identity_strip)
                 _log_identity_dupes(dup_state2, dup_batch2)
                 if sample:
                     todo2 = _sample_evenly(todo2, sample)
@@ -915,8 +1045,12 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
+                 f" (of which {stats['archived_block']} archived WAF/CAPTCHA captures)"
+                 if stats["archived_block"] else "",
+                 f" | {stats['archived_block_recovered']} recovered from another capture after a "
+                 f"WAF/CAPTCHA capture" if stats["archived_block_recovered"] else "",
                  f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
                  # 0 here on a recipe that sets item_selector means it matched nothing and
                  # the rows landed as bare as they would have without it.
@@ -948,6 +1082,10 @@ def scrape_recipe(
         "via_generic_fallback": stats["generic"],   # high => recipe selectors are drifting
         "bodies_from_linked_pdf": stats["pdf_body"],  # pages whose body came from a followed PDF link
         "failed_this_run": stats["failed"],
+        # of those, archived captures that were a WAF/CAPTCHA page (ArchivedBlockPageError)
+        "archived_block_pages": stats["archived_block"],
+        # WAF/CAPTCHA captures replaced by a real capture of the same URL (and written)
+        "archived_block_recovered": stats["archived_block_recovered"],
         # keep_if rejections: fetched, judged not this source's content, not written.
         # filtered_out == links_found with 0 scraped => the keep_if is wrong, not the site.
         "filtered_out_this_run": stats["filtered"],

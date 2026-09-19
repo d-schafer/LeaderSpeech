@@ -282,6 +282,14 @@ class Pagination(BaseModel):
     # ⚠ Only list parameters that do NOT change which document is served — a parameter that
     # ADDRESSES the article (index.php?speech=204) would collapse the whole source to one row.
     wayback_noise_params: Optional[list[str]] = None
+    # PATH-level twins of one document, the counterpart of wayback_noise_params for the query:
+    # regexes REMOVED from each captured URL before the one-capture-per-page dedupe, so two
+    # URLs that differ only by a matched tail count as one page (the first captured wins).
+    # Plone serves every File object twice — `…/31.pdf` and `…/31.pdf/@@download/file/31.pdf`
+    # — and the Archive holds a PDF capture of one, the other or both; taking either variant
+    # but never both is `wayback_identity_strip: ['/@@download/.*$']`. Anchor the pattern to
+    # the end of the URL; it must never strip a part that tells documents apart.
+    wayback_identity_strip: Optional[list[str]] = None
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 

@@ -1,0 +1,100 @@
+# Brazil — VICE-PRESIDÊNCIA on gov.br/planalto, 2019–2026 — WAYBACK.
+#
+# From 2019 the Vice-President's office publishes inside the Presidency's gov.br Plone site:
+# Hamilton Mourão (2019–22) and Geraldo Alckmin (2023–, who is also Minister of Development,
+# Industry and Trade — so the Alckmin-era news mixes Vice-Presidency and MDIC business). Like
+# the rest of gov.br/planalto (see bra_planalto_wayback), these pages are behind a login since
+# July 2026, so the Archive is the route and the harvest is bounded at 2026-07-04.
+#
+# The sub-site was rebuilt twice; all three generations are taken (CDX, 2026-09-19):
+#   /conheca-a-vice-presidencia/ (2019–21, Mourão): nota-a-imprensa (press notes, incl. ~12
+#     PDFs: "resumo informativo" bulletins, the Amazon Council opening remarks),
+#     discursos-pronunciamentos-artigos, discursos-e-pronunciamentos, conselho-da-amazonia.
+#   /nova-vice-presidencia/ (2021–22, Mourão): assuntos/noticias, central-de-conteudo/publicacoes/
+#     {discursos,artigos,noticias}, canais-de-atendimento/imprensa/comunicados-a-imprensa,
+#     conselho-nacional-da-amazonia-legal/imprensa.
+#   /vice-presidencia/ (2022–26, Mourão then Alckmin): central-de-conteudo/{noticias (~800 URLs,
+#     2023–26), discursos, artigos, publicacoes}, assuntos/noticias, comunicados-a-imprensa,
+#     conselho-nacional-da-amazonia-legal/imprensa. (Mourão chaired the Amazon Council —
+#     CNAL — so its press notes are his.)
+# Each rebuild re-homed the older items, so some Mourão pages appear under two or three
+# generations; the duplicates are few (dozens) and are deduplicated downstream by text.
+# Matched: 338 pages (probe 2026-09-19; 15 of them PDFs) of 1,486 captures with a 200 HTML or
+# PDF status. --spread 15 green 15/15 on title/text/date, 2019-01 .. 2026-05.
+# The rest are, in bulk, acesso-a-informacao (procurement, contracts, CVs, accounts — ~500),
+# agenda-vice-presidente* (daily schedules, ~250) and aviso-de-pauta (47 press advisories
+# announcing the day's events — the same call as the agendas), plus audio players, image
+# banners, folder indexes and truncated-link 404s. Coverage of the speech-bearing sections:
+# ~95%.
+# Some 2025–26 captures are gov.br's F5 image-CAPTCHA page stored with HTTP 200 instead of the
+# article (one of the pages checked by hand, 2026-02). The engine refuses those as
+# `archived_block_page` failures rather than writing them.
+# LEFT OUT, with reasons: agendas and avisos de pauta (schedules), acesso-a-informacao
+# (administrative transparency), audio, galleries, reunioes-cnal (only the Plone /view
+# wrappers of meeting-minute PDFs were captured, not the PDFs), and the conselho-da-amazonia
+# PDFs (portarias and a resolução appointing council members — legal boilerplate, no per-item
+# statement).
+source_id: bra_vicepresidencia_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - www.gov.br/planalto/pt-br/conheca-a-vice-presidencia
+  - www.gov.br/planalto/pt-br/nova-vice-presidencia
+  - www.gov.br/planalto/pt-br/vice-presidencia
+renderer: static
+# PDFs (the nota-a-imprensa bulletins) are detected by their .pdf URL and extracted as
+# documents; everything else is parsed as HTML.
+content_type: auto
+
+listing:
+  link_selector: "a[href]"
+  # Any of the three generations; a content section; then a slug of >=12 chars. Anchored at
+  # scheme+host. Lookaheads drop the conselho-da-amazonia legal PDFs, Plone views/forms and
+  # image children anywhere in the path, the English copy of a speech PDF (*_ingles_* — the
+  # Portuguese original is taken), the ultimos-* listing pages and one folder index.
+  # Letters may be upper-case (several PDF file names are). A query tail is allowed because
+  # some pages were only captured with ?utm_* / ?fbclid / ?_authenticator — the engine folds
+  # those onto the bare URL (see wayback_noise_params).
+  link_pattern: '^https?://(?:www\.)?gov\.br(?::\d+)?/planalto/pt-br/(?![a-z-]+/conselho-da-amazonia/[^?#]*\.pdf)(?:conheca-a-vice-presidencia|nova-vice-presidencia|vice-presidencia)/(?:acesso-a-informacao/acoes-e-programas/)?(?:central-de-conteudo/(?:noticias|discursos|artigos|publicacoes|entrevistas?)|assuntos/(?:noticias|campanhas)|nota-a-imprensa|notaaimprensa|discursos-pronunciamentos-artigos|discursos-e-pronunciamentos|canais-de-atendimento/imprensa/comunicados-a-imprensa|conselho-da-amazonia|conselho-nacional-da-amazonia-legal/(?:imprensa(?:-1)?|artigos))/(?![^?#]*(?:@@|\+\+|/view/?(?:\?|$)|image_view|relatar-erros|ultimas-noticias|_ingles|\.(?:jpe?g|png|gif)/))(?:[^?#]*/)?(?!ultimos-)(?!discursos-e-artigos/?(?:\?|$))[A-Za-z0-9%][A-Za-z0-9%_.-]{11,}(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.svg)(?<!\.js)(?<!-)/?(?:\?.*)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  # Real HTML pages and the press-note PDFs only. CDX filters are regexes, so the alternation
+  # keeps both. Bounded before the July-2026 login lock (see bra_planalto_wayback).
+  wayback_filter: ["statuscode:200", "mimetype:text/html|application/pdf"]
+  wayback_to: "20260704"
+  # Plone's CSRF token, appended to a few captured links; it varies per session and never
+  # changes the document.
+  wayback_noise_params:
+    - _authenticator
+
+title:
+  selectors: ["h1.documentFirstHeading", "h1", "title"]
+text:
+  # Plone content divs + the collective.nitf news body. No article/main fallback. (A capture
+  # that misses them still reaches the engine's generic extractor; a WAF/CAPTCHA shell is
+  # refused before that, as an `archived_block_page` failure.)
+  selectors: ["#parent-fieldname-text", "[property='rnews:articleBody']", "#content-core", ".documentDescription"]
+date:
+  # Plone byline "Publicado em DD/MM/YYYY HHhMM" -> pull the DD/MM/YYYY out.
+  selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
+  regex: '\d{2}/\d{2}/\d{4}'
+  # PDFs have no DOM: a file name that STARTS with YYYY-MM-DD / YYYY.MM.DD (2021-02-10_…,
+  # 2021.08.18_…) carries the date. Also a fallback for an HTML page whose byline is missing;
+  # no in-scope HTML slug starts with a year-first date.
+  url_regex: '/(?P<year>20[12]\d)[-.](?P<month>[01]\d)[-.](?P<day>[0-3]\d)[_-]'
+
+position: vice president
+# No speaker_default: the span covers Mourão (2019–22) and Alckmin (2023–). The cleaner assigns
+# the speaker from the text.
+date_languages: ["pt"]
+notes: >
+  Wayback over the Vice-Presidency's pages on gov.br/planalto (Plone), 2019 .. 2026-07:
+  Hamilton Mourão (2019-22) and Geraldo Alckmin (2023-). Vice-Presidents are not heads of
+  state or government - the cleaner will mostly type these rows as non-leader (retained),
+  except items where the VP acted as president. All three generations of the sub-site
+  (conheca-a-vice-presidencia, nova-vice-presidencia, vice-presidencia): news, speeches,
+  op-eds, press notes and communiques, Amazon Council press notes; ~12 press-note PDFs.
+  338 pages, ~95% of the speech-bearing captures. Bounded wayback_to 20260704 (login
+  lock). Agendas, press advisories, transparency pages and galleries are left out.

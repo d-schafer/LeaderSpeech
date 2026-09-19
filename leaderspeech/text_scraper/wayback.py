@@ -206,6 +206,49 @@ def best_capture(url: str, timeout: float = 60.0) -> Optional[dict]:
     return max(usable, key=_length) if usable else None
 
 
+def alternate_capture(entry: dict, *, from_date: Optional[str] = None,
+                      to_date: Optional[str] = None, filters: Optional[Iterable[str]] = None,
+                      timeout: float = 60.0) -> Optional[dict]:
+    """The best OTHER capture of ``entry['original']`` — for when the capture in hand turned out
+    to be a WAF/CAPTCHA interstitial the Archive stored with HTTP 200 (run.ArchivedBlockPageError).
+
+    The harvest takes one capture per URL (the earliest matching one), and on an F5-fronted site
+    that can be the challenge shell while a later capture holds the real page: on the Biblioteca
+    da Presidência ~1 in 5 of Dilma Rousseff's speech URLs is recoverable that way (2026-09-19).
+    Searched inside the recipe's own window and filters (a later capture outside `wayback_to`
+    can be a different kind of shell — gov.br's login lock), never the same timestamp or digest,
+    and the LARGEST `length` first: a real page is several times the size of a ~3-4 KB shell,
+    so if the largest candidate is a shell too the caller can stop there. None if there is no
+    other capture (or CDX errors — the caller then fails the row as before)."""
+    url = entry.get("original")
+    if not url:
+        return None
+    flt = list(filters or [])
+    if not any(f.startswith("statuscode:") for f in flt):
+        flt.append("statuscode:200")
+    try:
+        snaps = list_snapshots(url, from_date=from_date, to_date=to_date, match_type="exact",
+                               collapse="", filters=flt, timeout=timeout)
+    except Exception as e:
+        log.info("cdx alternate_capture query failed for %s: %s", url, e)
+        return None
+
+    def _length(s: dict) -> int:
+        try:
+            return int(s.get("length") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    bad_ts, bad_digest = entry.get("timestamp"), entry.get("digest")
+    cands = [s for s in snaps
+             if s.get("timestamp") and s.get("timestamp") != bad_ts
+             and not (bad_digest and s.get("digest") == bad_digest)]
+    if not cands:
+        return None
+    best = max(cands, key=_length)
+    return {**best, "original": best.get("original") or url}
+
+
 def create_client(timeout: float = 60.0) -> httpx.Client:
     # Spelled out per phase rather than as a bare float so it's clear what `timeout`
     # does and does not cover: `read` is the longest allowed WAIT BETWEEN CHUNKS, so on
@@ -329,6 +372,7 @@ def filter_entries_for_recipe(
     start_urls: Iterable[str] = (),
     dedupe_noise_params: bool = True,
     extra_noise_params: Iterable[str] = (),
+    identity_strip: Iterable[str] = (),
 ) -> list[dict]:
     """Filter CDX captures down to speech pages — country-agnostic.
 
@@ -345,8 +389,12 @@ def filter_entries_for_recipe(
         Set it False to fetch every query variant as its own document.
       * `extra_noise_params` (the recipe's `pagination.wayback_noise_params`) adds
         site-specific UI-toggle parameter names to that denylist.
+      * `identity_strip` (the recipe's `pagination.wayback_identity_strip`) — regexes cut
+        from the URL before the identity is taken, for PATH-level twins of one document
+        (Plone's `…/x.pdf` and `…/x.pdf/@@download/file/x.pdf`). The first captured wins.
     """
     extra_noise_params = tuple(extra_noise_params or ())
+    strips = [re.compile(p) for p in (identity_strip or ())]
     pattern = re.compile(link_pattern) if link_pattern else None
     listing_paths = {_url_path(u) for u in start_urls}
     out: list[dict] = []
@@ -357,8 +405,11 @@ def filter_entries_for_recipe(
         original = entry.get("original")
         if not original:
             continue
-        key = (page_identity(original, extra_noise_params)
-               if dedupe_noise_params else original)
+        ident = original
+        for rx in strips:
+            ident = rx.sub("", ident)
+        key = (page_identity(ident, extra_noise_params)
+               if dedupe_noise_params else ident)
         if key in seen:
             # A second capture of a page we already have (usually the same article with a
             # ?utm_source= / ?comment= suffix). Count it so the run log can show the saving.
@@ -373,7 +424,8 @@ def filter_entries_for_recipe(
 
     if deduped:
         log.info("wayback: skipped %d duplicate capture(s) of pages already harvested "
-                 "(same page, different tracking/UI query string)", deduped)
+                 "(same page, different tracking/UI query string%s)", deduped,
+                 " or wayback_identity_strip twin" if strips else "")
     return out
 
 
@@ -431,6 +483,7 @@ def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
         entries, extend_link_pattern(recipe, ext), start_urls=[prefix],
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
+        identity_strip=recipe.pagination.wayback_identity_strip or (),
     )
 
 

@@ -416,6 +416,43 @@ def test_probe_reads_word_files_like_the_run(monkeypatch):
     assert page["fields"]["title"]["value_preview"] == "Discurso do presidente"
 
 
+def test_probe_reports_archived_captcha_as_a_failure_like_the_run(monkeypatch):
+    """2026-09-19 (gov.br/planalto): an archived capture that IS an F5 CAPTCHA page must show
+    up in the probe as the failure the run records, not as a generic-extractor success."""
+    from tests.test_run import ARCHIVED_F5_CAPTCHA
+
+    recipe = Recipe(
+        source_id="bra_x", country="Brazil",
+        start_urls=["www.gov.br/planalto/pt-br/acompanhe-o-planalto"],
+        listing={"link_pattern": r"/acompanhe-o-planalto/"},
+        pagination={"type": "wayback"},
+        title={"selectors": ["h1"]}, text={"selectors": ["#parent-fieldname-text"]},
+        date={"selectors": [".documentByLine"]},
+    )
+    monkeypatch.setattr(wayback, "fetch_snapshot", lambda item, **kw: ARCHIVED_F5_CAPTCHA)
+    monkeypatch.setattr(wayback, "alternate_capture", lambda *a, **k: None)
+    entry = {"original": "https://www.gov.br/planalto/pt-br/acompanhe-o-planalto/discursos/x",
+             "timestamp": "20260209053926"}
+    [page] = probe._diagnose_pages([entry], recipe, is_wayback=True)
+
+    assert page["error"].startswith("archived_block_page")
+    assert "no other capture" in page["error"]
+    assert "fields" not in page
+
+    # ... and when the URL has a real later capture, the probe reports THAT page, as the run
+    # would write it.
+    real = ("<html><h1>Discurso</h1><div class='documentByLine'>Publicado 12/02/2024</div>"
+            "<div id='parent-fieldname-text'>Texto real do discurso, longo o bastante.</div></html>")
+    monkeypatch.setattr(wayback, "alternate_capture",
+                        lambda e, **k: {"original": e["original"], "timestamp": "20240301000000"})
+    monkeypatch.setattr(wayback, "fetch_snapshot",
+                        lambda item, **kw: real if item["timestamp"] == "20240301000000"
+                        else ARCHIVED_F5_CAPTCHA)
+    [page] = probe._diagnose_pages([entry], recipe, is_wayback=True)
+    assert page["recovered_from_capture"] == "20240301000000"
+    assert page["recipe_text_len"] > 0
+
+
 # --- issue #57: --spread must reach the OLDEST items -------------------------------------
 # Listings are newest-first, so entries[-1] is the oldest item — the one --spread exists to
 # check, and the one the old `i * (len // n)` stepping could never reach.
