@@ -1,57 +1,87 @@
-# Brazil — Presidência (Planalto), OLDER host planalto.gov.br — WAYBACK fallback.
-# Historical-depth companion for Brazil. The live gov.br/planalto site is hard-blocked
-# (F5 TSPD + login-redirect + 429 — see recipes/bra_planalto.yml), and the existing
-# recipes/bra_planalto_wayback.yml recovers only the Lula-era gov.br host (2023-2024).
-# BEFORE the 2023 migration to gov.br, discursos lived on the OLD host
-# www2.planalto.gov.br/acompanhe-o-planalto/discursos (a Plone CMS) — the Internet Archive
-# holds ~1,050 captures there, reaching the Dilma / Temer / Bolsonaro eras (2014-2022).
-# This recipe recovers that older span via Wayback; bounded to pre-2023 so it does not
-# overlap bra_planalto_wayback (gov.br host). Portuguese; speaker varies by date (Dilma /
-# Temer / Bolsonaro) -> left to the cleaner + leader-tenure crosscheck.
+# Brazil — Presidência (Planalto), the 2011–2019 host www2.planalto.gov.br — WAYBACK.
+#
+# Between the Lula-era portal (www.presidencia.gov.br, see bra_presidencia_old_wayback) and the
+# 2019 move to gov.br (bra_planalto_wayback), the Presidency published on www2.planalto.gov.br
+# (Plone): Dilma Rousseff (2011–16) and Michel Temer (2016–18). The host is gone; the Archive
+# holds it. (Its 2019 captures are the gov.br cover page served at old URLs — see wayback_to.)
+#
+# RULE 1 WIDENING (2026-09-18). This recipe used to take ONE subtree —
+# acompanhe-o-planalto/discursos/*/discurso-* — 205 of ~5,100 speech-bearing pages (4%). The
+# WHOLE host was enumerated (CDX, 315,431 unique HTML URLs 2008–2024, 90% of them the ccivil_03
+# legislation tree) and the site turned out to have used FOUR trees over time, three of which
+# the old recipe never touched:
+#   /imprensa/ (2011–13, Dilma I): noticias-de-governo, cafe-com-a-presidenta (weekly radio),
+#     discursos, notas-oficiais, entrevistas, bom-dia-ministro (ministers' radio programme),
+#     conversa-com-a-presidenta (the President's weekly column), releases, brasil-em-pauta,
+#     brasileiras, artigos, briefings.
+#   /noticias/YYYY/MM/ (2015, Dilma II).
+#   /acompanhe-o-planalto/ (2014–16): releases, discursos, noticias, notas-oficiais, notas,
+#     entrevistas, conversa-com-a-presidenta, bom-dia-ministro, cafe-com-a-presidenta, artigos,
+#     porta-voz, brasil-em-pauta, pronunciamentos.
+#   /acompanhe-planalto/ — the SAME tree under a second spelling, used for Temer (2016–18):
+#     noticias (~1,650), releases (~400), discursos (~320), notas-oficiais, entrevistas,
+#     relacoes-internacionais.
+# Coverage: 4,331 unique pages matched across the whole host, ~4,050 after the 2019 cut below
+# (probe 2026-09-18: 4,061 snapshots; --spread 18 green 17/18 on text and date, 2011-06 ..
+# 2018-10, the miss a listing page since excluded). The unmatched remainder in these sections
+# is /view, @@nitf_galleria, relatar-erros and advsearch_calendar duplicates plus index pages.
+# LEFT OUT, with reasons: avisos-de-credenciamento / credenciais (press accreditation), agenda*
+# and chefe-de-gabinete (daily schedules), mensagem-ao-congresso and especiais/caderno-destaques
+# (policy-report PDFs, a highlights magazine), presidente-em-exercicio and vice-presidente (a
+# different office — the acting VP), centrais-de-conteudos / multimidia / imagens (galleries),
+# centrodeestudos (a study-centre sub-site), ccivil_03 / legislacao (legislation).
+# MEASURED NEGATIVE: /mandatomicheltemer/ is a post-2018 frozen copy of the Temer site (768
+# news URLs, 238 of them not under /acompanhe-planalto/), but every Archive capture of it
+# (2019–2026, six sampled) is an empty F5 challenge shell — nothing to recover.
 source_id: bra_planalto_old_wayback
 country: Brazil
 source_language: Portuguese
 start_urls:
-  - www2.planalto.gov.br/acompanhe-o-planalto/discursos
+  - www2.planalto.gov.br/acompanhe-o-planalto
+  - www2.planalto.gov.br/acompanhe-planalto
+  - www2.planalto.gov.br/imprensa
+  - www2.planalto.gov.br/noticias
 renderer: static
 
 listing:
-  link_selector: "a[href*='/acompanhe-o-planalto/discursos']"
-  # a SINGULAR `discurso-<slug>` page (>=14 chars, ending alphanumeric) somewhere under the
-  # discursos tree — the real path nests a subfolder: /discursos/discursos-da-presidenta/discurso-...
-  # (with capture-variant spellings like discursos-da-residenta), so allow any subfolder(s)
-  # between. Requiring `discurso-` (not `discursos`) drops the section/listing captures, and
-  # the trailing [a-z0-9]$ drops CDX-truncated `...-` fragments, .pdf files, and ?query tails.
-  link_pattern: '/acompanhe-o-planalto/discursos.*/discurso-[a-z0-9-]{12,}[a-z0-9]$'
+  link_selector: "a[href]"
+  # <tree>/<section>/[subfolders]/<slug of >=12 chars>, anchored at scheme+host so a URL that
+  # merely CONTAINS a matching path in its query string (sendto_form?url=...) is not taken.
+  # Plone copy*_of_* items are kept: the Cafe com a Presidenta episodes were published under
+  # them (copied from a template), so they are distinct programmes, not drafts.
+  link_pattern: '^https?://(?:www2\.)?planalto\.gov\.br(?::\d+)?/(?:(?:acompanhe-o-planalto|acompanhe-planalto|imprensa)/(?:discursos|releases|noticias|noticias-de-governo|notas-oficiais|notas|nota-imprensa|entrevistas|conversa-com-a-presidenta|cafe-com-a-presidenta|bom-dia-ministro|artigos|brasil-em-pauta|brasileiras|briefings|porta-voz|pronunciamentos|relacoes-internacionais)|noticias/\d{4}/\d{1,2})/(?:[^?#]*/)?(?!@@|\+\+|advsearch|atualize-seu-navegador|relatar-erros|ultimas-noticias)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.js)(?<!-)/?$'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
-  wayback_to: "20230101"   # pre-migration only; 2023+ is bra_planalto_wayback's (gov.br host)
+  # Real HTML pages only — the unfiltered harvest was ~40% redirect/landing shells.
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # 2019 captures of this host are the gov.br cover page served at the old URLs (0 chars in the
+  # content divs; sampled 2026-09-18) — the real 2019 items are on gov.br (bra_planalto_wayback).
+  wayback_to: "20190101"
 
 title:
   selectors: ["h1.documentFirstHeading", "h1", "title"]
 text:
-  # Plone content divs only — no article/main fallback, so redirect/landing SHELL captures
-  # (which lack these) yield empty text and are recorded as failures rather than junk rows;
-  # genuinely drifted old layouts still get rescued by the engine's generic extractor.
-  selectors: ["#parent-fieldname-text", "#content-core", ".documentDescription"]
+  # Plone content divs only, plus the collective.nitf news body [property=rnews:articleBody]
+  # (Temer-era news pages have no #parent-fieldname-text; .documentDescription is only the lead).
+  # No article/main fallback, so a shell capture that lacks them is recorded as a failure
+  # rather than written as a junk row.
+  selectors: ["#parent-fieldname-text", "[property='rnews:articleBody']", "#content-core", ".documentDescription"]
 date:
   # Plone byline "Publicado em DD/MM/YYYY HHhMM" -> pull the DD/MM/YYYY out.
   selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
   regex: '\d{2}/\d{2}/\d{4}'
 
 position: president
+# No speaker_default (Dilma / Temer / Bolsonaro across the span) -> the cleaner assigns the
+# speaker by date from the tenure key.
 date_languages: ["pt"]
 notes: >
-  Wayback over the OLD Planalto host www2.planalto.gov.br/acompanhe-o-planalto/discursos
-  (Plone), recovering the Dilma/Temer/Bolsonaro discursos (2014-2022) that predate the 2023
-  gov.br migration. Companion to bra_planalto_wayback (gov.br host, 2023-2024) and the
-  live-but-blocked bra_planalto; bounded wayback_to=20230101 so the two wayback recipes do
-  not overlap. No speaker_default (multiple presidents across the span) -> the
-  clean_structure_metadata pass assigns the speaker by date via the leader-tenure key.
-  Archived Plone layout: title h1.documentFirstHeading, body #parent-fieldname-text, date
-  the "Publicado em DD/MM/YYYY" byline (regex); older captures fall back to the generic
-  text extractor automatically. NOTE: the pre-2014 Lula I-II era (2003-2010) is NOT here —
-  those discursos are PDFs on biblioteca.presidencia.gov.br (see bra_biblioteca outbox note;
-  needs a PDF stage the engine doesn't yet have).
+  Wayback over www2.planalto.gov.br (Plone), 2011-2018: Dilma Rousseff and Michel Temer.
+  Widened 2026-09-18 from one subtree (205 pages) to every speech-bearing section of all four
+  trees the host used: /imprensa/ (2011-13), /noticias/ (2015), /acompanhe-o-planalto/
+  (2014-16) and /acompanhe-planalto/ (Temer, 2016-18), statuscode:200 + text/html only. Bounded wayback_to
+  20190101 (from 2019 the host served the gov.br cover page). Earlier: the Lula-era
+  portal (bra_presidencia_old_wayback, bra_planalto_info_wayback); later: gov.br
+  (bra_planalto_wayback).

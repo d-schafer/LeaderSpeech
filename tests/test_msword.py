@@ -56,6 +56,54 @@ def test_doc_bytes_to_text_degrades_without_backend(monkeypatch):
     assert msword.doc_bytes_to_text(msword.DOC_MAGIC + b"whatever") == ""
 
 
+def test_find_doc_tool_falls_back_to_git_for_windows(monkeypatch, tmp_path):
+    # antiword is not on PATH (a PowerShell session), but Git for Windows bundles it
+    root = tmp_path / "Git"
+    (root / "cmd").mkdir(parents=True)
+    (root / "mingw64" / "bin").mkdir(parents=True)
+    (root / "cmd" / "git.exe").write_bytes(b"")
+    bundled = root / "mingw64" / "bin" / "antiword.exe"
+    bundled.write_bytes(b"")
+    paths = {"git": str(root / "cmd" / "git.exe")}
+    monkeypatch.setattr(msword.shutil, "which", lambda name: paths.get(name))
+    assert msword._find_doc_tool() == str(bundled)
+
+
+def test_find_doc_tool_none_without_path_or_git(monkeypatch):
+    monkeypatch.setattr(msword.shutil, "which", lambda name: None)
+    assert msword._find_doc_tool() is None
+
+
+def test_doc_bytes_to_text_asks_antiword_for_utf8(monkeypatch):
+    # Without `-m UTF-8.txt` antiword emits ISO-8859-1 and every accent decodes to U+FFFD.
+    calls = []
+
+    def fake_run(args, capture_output, timeout):
+        calls.append(args)
+        return types.SimpleNamespace(stdout="Discurso do presidente da República".encode("utf-8"))
+
+    monkeypatch.setattr(msword, "_find_doc_tool", lambda: "/usr/bin/antiword")
+    monkeypatch.setattr(msword.subprocess, "run", fake_run)
+    assert msword.doc_bytes_to_text(msword.DOC_MAGIC + b"x") == "Discurso do presidente da República"
+    assert calls[0][1:3] == ["-m", "UTF-8.txt"]
+
+
+def test_doc_bytes_to_text_catdoc_utf8_and_latin1_fallback(monkeypatch):
+    calls = []
+
+    def fake_run(args, capture_output, timeout):
+        calls.append(args)
+        # first call (UTF-8 requested) yields nothing -> fallback call, default mapping
+        out = b"" if len(calls) == 1 else "República".encode("latin-1")
+        return types.SimpleNamespace(stdout=out)
+
+    monkeypatch.setattr(msword, "_find_doc_tool", lambda: "/usr/bin/catdoc")
+    monkeypatch.setattr(msword.subprocess, "run", fake_run)
+    assert msword.doc_bytes_to_text(msword.DOC_MAGIC + b"x") == "República"
+    assert calls[0][1:3] == ["-d", "utf-8"]
+    assert len(calls[1]) == 2          # the fallback drops the mapping flag
+
+
 def test_doc_url_vs_docx_url():
     assert msword.is_docx_url("http://x/gov/Speech.docx") is True
     assert msword.is_doc_url("http://x/gov/Speech.docx") is False   # .docx is not .doc

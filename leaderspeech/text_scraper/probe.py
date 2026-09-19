@@ -21,13 +21,13 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from .extract import (apply_entry_meta, clean_text, date_from_url, entry_source,
-                      extract_pdf_record, extract_record, first_match, match_url, parse_date)
+                      extract_pdf_record, extract_record, first_match, looks_like_document,
+                      match_url, parse_date)
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
-from .pdf import is_pdf_url, looks_like_pdf
-from .recipe import ContentType, FieldSpec, PaginationType, WaybackExtend, load_recipe
-from .run import _follow_pdf_body
+from .recipe import FieldSpec, PaginationType, WaybackExtend, load_recipe
+from .run import _follow_pdf_body, wants_pdf
 from . import api, feed, index, wayback
 
 try:
@@ -248,18 +248,20 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         pdf_data = None
         try:
             url = item["original"] if is_wayback else item
-            want_pdf = recipe.content_type == ContentType.pdf or (
-                recipe.content_type == ContentType.auto and is_pdf_url(url))
+            # Same gate as the run (run.wants_pdf / looks_like_document): the binary-document
+            # path covers .doc/.docx as well as PDF. The probe used to test for PDF only, so it
+            # decoded every Word file as HTML and reported an empty body the run would fill.
+            want_pdf = wants_pdf(recipe, url)
             if is_wayback and want_pdf:
                 _, data = wayback.fetch_snapshot_bytes(item, delay=0.0, client=wayback_client)
-                pdf_data = data if looks_like_pdf(data) else None
+                pdf_data = data if looks_like_document(data) else None
                 phtml = None if pdf_data else data.decode("utf-8", "replace")
             elif is_wayback:
                 phtml = wayback.fetch_snapshot(item, delay=0.0, client=wayback_client,
                                                encoding=recipe.encoding)
             elif want_pdf:
                 _, data = fetcher.get_bytes(url)
-                pdf_data = data if looks_like_pdf(data) else None
+                pdf_data = data if looks_like_document(data) else None
                 phtml = None if pdf_data else data.decode("utf-8", "replace")
             else:
                 phtml = fetcher.get(url)

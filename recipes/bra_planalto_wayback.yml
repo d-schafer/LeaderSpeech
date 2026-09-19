@@ -1,46 +1,75 @@
-# Brazil — Presidência (Planalto), speeches & pronouncements — WAYBACK fallback.
-# The LIVE gov.br site (recipes/bra_planalto.yml) is hard-blocked for scraping: an
-# F5/BIG-IP "TSPD" JS bot-defense challenge, the /discursos-e-pronunciamentos folder
-# 302-redirects automated sessions to acl_users .../require_login, AND the Plone
-# search/data endpoints return HTTP 429 "Acesso Temporariamente Interrompido" — so the
-# Svelte listing never renders any article links (0 links live, even with renderer: js).
-# The Internet Archive has ~332 Lula-era speech pages (2023-2025), so this Wayback
-# companion recovers them. Portuguese; president is Lula.
+# Brazil — Presidência (Planalto) on the gov.br host, 2019–2026 — WAYBACK.
 #
-# Speech pages live at /discursos-e-pronunciamentos/{YEAR}/{slug}; the link_pattern
-# requires a 4-digit year folder + a descriptive slug and excludes Plone static assets
-# (++resource++) and the bare-number list pagers (/2, /20, /2023 with no slug).
+# gov.br/planalto (Plone) replaced www2.planalto.gov.br in 2019 and carries both the Bolsonaro
+# (2019–22) and Lula III (2023–) presidencies. The live site is not scrapable (see
+# recipes/bra_planalto.yml): an F5 JS challenge, and — observed 2026-09-18 — every speech and
+# news page now answers "Conteúdo Restrito / É necessário autenticar para visualizar essa
+# página". The Archive's captures show the switch: speech pages carry full text through June
+# 2026 and redirect to require_login from August 2026. The timing matches the pre-election
+# restriction on institutional publicity (election 2026-10-04), so the live site may reopen
+# after the election — revisit then.
+#
+# RULE 1 WIDENING (2026-09-18). This recipe used to take ONE section in ONE URL generation:
+# `discursos-e-pronunciamentos/{YYYY}/{slug}` — 341 of the host's ~5,250 speech-bearing pages
+# (6.5%), and nothing after mid-2024, when the site switched to `{YYYY}/{MM}/{slug}`. The whole
+# `acompanhe-o-planalto` tree was enumerated (CDX, 13,710 captures under /planalto/pt-br) and
+# every speech-bearing section is now taken, in every generation:
+#   noticias (4,708 captures, 2019–2026), discursos-e-pronunciamentos (495, 2023–26),
+#   discursos (195, Bolsonaro 2019–22), notas-oficiais (+ -2, notas; 258), entrevistas (162),
+#   porta-voz (34, 2019), pronunciamentos (33), artigos (16, op-eds), noticias-2 (36),
+#   central-de-conteudo/textos (joint declarations).
+# Coverage: 5,252 unique pages matched of ~5,300 speech-bearing captures (~99%); the remainder
+# are section/year index pages.
+# LEFT OUT, with reasons: agenda-do-presidente-* (~2,300 daily schedules — a diary, not a
+# statement; same call as Romania's PM agenda), audios (91 audio players), notas-comunicados/
+# boletins (219 COVID-era interministerial PDF bulletins), mensagempresidencial (policy-report
+# PDF chapters), agenda-internacional (summit landing pages whose news is mirrored under
+# /noticias), vice-presidencia trees (a different office), galleries, @@search.
 source_id: bra_planalto_wayback
 country: Brazil
 source_language: Portuguese
 start_urls:
-  - gov.br/planalto/pt-br/acompanhe-o-planalto/discursos-e-pronunciamentos
+  - www.gov.br/planalto/pt-br/acompanhe-o-planalto
 renderer: static
 
 listing:
-  link_selector: "a[href*='/discursos-e-pronunciamentos/']"
-  # {year}/{slug}: require a year folder then a slug of >=12 chars; drop ++resource++ assets
-  link_pattern: '/discursos-e-pronunciamentos/20\d{2}/(?!\+\+)[a-z][a-z0-9-]{11,}/?$'
+  link_selector: "a[href*='/acompanhe-o-planalto/']"
+  # <section>/[any year/month folders]/<slug of >=12 chars>. Excludes @@views, ++resource++
+  # assets, "ultimos-*" listing pages and file extensions (.pdf/view, images, js). Plone
+  # copy_of_* items are KEPT: several are the only copy of a distinct statement (porta-voz
+  # declarations copied from a template), and exact duplicates are deduped downstream. An optional
+  # query tail is allowed because some pages were only captured with ?ref= / ?utm_*; the
+  # engine's page_identity dedupe folds those onto the bare URL.
+  link_pattern: '^https?://(?:www\.)?gov\.br(?::\d+)?/planalto/pt-br/acompanhe-o-planalto/(?:discursos-e-pronunciamentos|discursos|pronunciamentos|entrevistas|notas-oficiais(?:-2)?|notas|porta-voz|artigos|noticias(?:-2)?|central-de-conteudo/textos)/(?:[^?#]*/)?(?!ultimos-|@@|\+\+)[a-z0-9%][a-z0-9%_.-]{11,}(?<!\.pdf)(?<!\.jpg)(?<!\.jpeg)(?<!\.png)(?<!\.gif)(?<!\.svg)(?<!\.js)/?(?:\?.*)?$'
 
 pagination:
   type: wayback
   wayback_delay: 5.0
+  # Only real HTML pages, and only captures from BEFORE the July-2026 lock: after it the
+  # Archive holds 301/302s to require_login and ~45 KB login shells. CDX returns the earliest
+  # matching capture per URL, so with this window every page resolves to a pre-lock copy.
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  wayback_to: "20260704"
 
 title:
   selectors: ["h1.documentFirstHeading", "h1", "title"]
 text:
-  selectors: ["#parent-fieldname-text", "#content-core", ".documentDescription", "article", "main"]
+  # Plone content divs only (+ the collective.nitf news body, [property=rnews:articleBody] —
+  # Temer-era news pages have no #parent-fieldname-text, and .documentDescription is only the lead) — a login/redirect shell lacks them and is recorded as a failure
+  # rather than written as a junk row.
+  selectors: ["#parent-fieldname-text", "[property='rnews:articleBody']", "#content-core", ".documentDescription"]
 date:
-  # Plone byline: "Publicado em DD/MM/YYYY HHhMM" — pull the DD/MM/YYYY out of the byline.
-  selectors: ["#plone-document-byline", ".documentByLine", "span[itemprop='datePublished']"]
+  # Plone byline: "Publicado em DD/MM/YYYY HHhMM" (the "Atualizado em" date follows it).
+  selectors: ["#plone-document-byline", ".documentByLine", ".documentPublished", "span[itemprop='datePublished']"]
   regex: '\d{2}/\d{2}/\d{4}'
 
 position: president
-speaker_default: Lula da Silva
+# No speaker_default: the host spans Bolsonaro (2019–22) and Lula (2023–). The cleaner assigns
+# the speaker by date from the tenure key.
 date_languages: ["pt"]
 notes: >
-  Wayback fallback for gov.br/planalto discursos-e-pronunciamentos (Lula era, 2023-2025)
-  because the live site is TSPD-challenged + login-redirected + 429-throttled (see the
-  live recipe's header). ~332 archived speech pages. Archived Plone layout: title
-  h1.documentFirstHeading, body #parent-fieldname-text/#content-core, date is the
-  "Publicado em DD/MM/YYYY" byline pulled by regex. speaker_default Lula da Silva.
+  Wayback over gov.br/planalto/pt-br/acompanhe-o-planalto (2019-06 .. 2026-07), Bolsonaro and
+  Lula III. Widened 2026-09-18 from one section/one URL generation (341 pages) to every
+  speech-bearing section in all three generations (5,252 unique pages; ~99% of speech-bearing
+  captures). Bounded wayback_to 20260704 (the live pages were locked behind a login from
+  July 2026). Earlier presidencies are on www2.planalto.gov.br (bra_planalto_old_wayback).

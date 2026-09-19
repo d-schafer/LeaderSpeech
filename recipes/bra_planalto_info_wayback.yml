@@ -1,0 +1,56 @@
+# Brazil — Presidência (Planalto), Lula I–II document store on www.info.planalto.gov.br —
+# WAYBACK + Word/PDF.
+#
+# In 2004–2011 the Planalto's "info" host served the president's texts as downloadable Word
+# files under /download/<folder>/, named by a running number (prNNNN.doc, prNNNN-2@.doc):
+#   discursos + Discursos (67 captures) — speeches, e.g. pr1052.doc = Petrolina-PE, 2006-02-21
+#   Entrevistas (9), notas (7), cafe_Presidente (3; the weekly radio programme),
+#   Informe_da_Hora (39; press briefings, and some pr*.doc speech transcripts),
+#   briefings (1), pdf (35; mixed — ministerial-meeting and head-of-state PDFs alongside
+#   biographies and travel lists; kept per RULE 1, the cleaner sorts them).
+# The listing pages (/exec/inf_discursostitulo{N}.cfm) link to these files; the Archive holds
+# the files themselves, so the recipe harvests them directly from CDX.
+# Coverage: all of /download/ except agenda_trabalho (147 daily schedules), aviso_credenciamento
+# (press-accreditation notices) and one .zip — ~155 of 309 file captures (probe harvest 158
+# before the accreditation notices were dropped). Probe 2026-09-18 --spread 12: text 12/12
+# (speeches 10-30k chars), title 12/12 (document first line), date 0/12 by design (see below). Small, but it is Planalto's own
+# Lula I–II material; the larger Lula I–II set is the Biblioteca (bra_biblioteca_wayback).
+#
+# DATES: the file names carry no date and a binary document has no DOM, so `date` stays
+# empty here. The dateline is the document's first lines ("Petrolina-PE, 21 de fevereiro de
+# 2006"); the cleaner's model reads it, and the capture date is the last-resort fallback.
+# LEGACY .doc needs antiword/catdoc; the engine finds the copy bundled with Git for Windows
+# even when a PowerShell session doesn't have it on PATH (msword._find_doc_tool, 2026-09-18).
+source_id: bra_planalto_info_wayback
+country: Brazil
+source_language: Portuguese
+content_type: pdf    # the binary-document path: dispatches PDF / .docx / .doc by magic bytes
+
+start_urls:
+  - www.info.planalto.gov.br/download/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?info\.planalto\.gov\.br(?::\d+)?/download/(?![Aa]genda_trabalho/|aviso_credenciamento/)[^/]+/[^/?#]+\.(?:[Dd][Oo][Cc]|[Pp][Dd][Ff])$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:application/(msword|pdf)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+# No DOM: text from the document body; title falls back to its first line.
+title: {}
+text: {}
+date: {}
+
+position: president
+speaker_default: Lula da Silva   # the host's whole span (2004-2011) is Lula's
+date_languages: ["pt"]
+
+notes: >
+  Word/PDF-over-Wayback, www.info.planalto.gov.br/download/ (Lula I-II, 2004-2011): speeches,
+  interviews, notes, press briefings and radio transcripts. ~162 files. Dates are not in the
+  URL (prNNNN.doc) - the cleaner reads the dateline from the text. Legacy .doc extraction via
+  antiword (Git-for-Windows copy found automatically).

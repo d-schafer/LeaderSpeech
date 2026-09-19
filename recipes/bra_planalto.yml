@@ -3,6 +3,17 @@
 # curl (even with a browser UA) gets only the JS-challenge shell (window["bobcmn"] /
 # TSPD cookie), so renderer: js is required to execute the challenge and reach content.
 # Plone paginates with ?b_start:int=N (page size 20). Portuguese; president is Lula.
+#
+# STATUS 2026-09-18 — NOT SCRAPABLE, probably temporarily. The folder, its year/month
+# sub-folders AND every individual speech page now answer (even to a real headless browser,
+# which does clear the F5 challenge) with "Conteúdo Restrito — É necessário autenticar para
+# visualizar essa página" or a 302 to acl_users/.../require_login. Archive captures carry full
+# text through June 2026 and the login redirect from August 2026, which matches the
+# pre-election restriction on institutional publicity (election 2026-10-04). Re-probe after
+# the election; until then everything up to 2026-07 is covered by bra_planalto_wayback.
+# If it reopens: the listing is the Svelte/collective.cover page, so prefer the
+# {YYYY}/{MM} month folders as start_urls (pagination: none) over the b_start pager, and
+# widen to the same sections as bra_planalto_wayback (RULE 1).
 source_id: bra_planalto
 country: Brazil
 source_language: Portuguese
@@ -37,4 +48,5 @@ notes: >
   curl returns only the bobcmn challenge shell). Listing under
   /acompanhe-o-planalto/discursos-e-pronunciamentos, Plone ?b_start:int pagination
   (step 20). Title h1.documentFirstHeading, body #content-core, Plone byline for date.
-  speaker_default Lula da Silva; probe to confirm the JS renderer clears the challenge.
+  speaker_default Lula da Silva. 2026-09-18: the JS renderer does clear the F5 challenge,
+  but every page is login-restricted (see header) -> blocked; re-probe after 2026-10.

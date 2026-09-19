@@ -1,0 +1,65 @@
+# Brazil — Presidência da República, the Lula I–II portal www.presidencia.gov.br — WAYBACK.
+#
+# Before www2.planalto.gov.br (2011) the Presidency's portal was www.presidencia.gov.br. It is
+# gone (the host now redirects), and the Archive holds 12,255 HTML captures of it for
+# 2002–2011 outside the legislation tree (ccivil_03) and the ministries' sub-sites. The
+# speech-bearing sections, enumerated 2026-09-18:
+#   noticias/ultimas_noticias   873 captures (2006–2011) — the portal's news feed. It covers the
+#                               whole government, not only the President (e.g. CDES and
+#                               ministerial events), like gov.za; kept per RULE 1, the cleaner
+#                               sorts it.
+#   SecGeral/presidente/pronunciamentos   22 (2005) — static pages with Lula's major 2003–04
+#                               speeches (e.g. the 58th UN General Assembly, 16.5k chars).
+#   noticias/cafe_presidente    13 (2007) — the weekly radio programme.
+#   presidente/viagens          39 (2006–07) — trip notes (visits are in scope).
+# LEFT OUT: noticias/discursos (a listing that points at the .doc store — see
+# bra_planalto_info_wayback), secom/sinopses (press-clipping synopses of OTHER media),
+# noticias/publicacoes (publication index pages), agendas, photo galleries, and every
+# sendto_form / imprimir / folder_listing / view duplicate.
+# Coverage: ~560 unique pages of the ~590 speech-bearing captures (the rest are index pages).
+source_id: bra_presidencia_old_wayback
+country: Brazil
+source_language: Portuguese
+start_urls:
+  - www.presidencia.gov.br/noticias/ultimas_noticias
+  - www.presidencia.gov.br/noticias/cafe_presidente
+  - www.presidencia.gov.br/SecGeral/presidente/pronunciamentos
+  - www.presidencia.gov.br/presidente/viagens
+renderer: static
+
+listing:
+  link_selector: "a[href]"
+  # The item itself: a slug (optionally under a /YYYY/MM/ folder, the Dec-2010 shape), with
+  # at most a trailing slash or a Plone index_html(_interna) view — never the sendto_form /
+  # imprimir / view / folder_listing duplicates.
+  link_pattern: '(?i)^https?://(?:www\.)?presidencia\.gov\.br(?::80)?/(?:noticias/(?:ultimas_noticias|cafe_presidente)|secgeral/presidente/pronunciamentos|presidente/viagens/(?:nacionais|internacionais))/(?:\d{4}/\d{2}/)?(?!folder_listing|index_html$|sendto_form|imprimir|pronunciamentos\.htm|\d+/?$)[a-z0-9%._-]{4,}(?:/(?:index_html(?:_interna)?)?)?$'
+
+pagination:
+  type: wayback
+  wayback_delay: 5.0
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  # After 2011 the host only redirects; later "200" captures are 4-5 KB shells.
+  wayback_to: "20120101"
+
+title:
+  # News/Café pages: div.titulos. The 2005 static speech pages only have a generic <title>.
+  selectors: [".titulos", "h1.documentFirstHeading", "h1", "title"]
+text:
+  # News/Café: div.stx. Trips: Plone #content. 2005 speech pages: no container, the body is
+  # the speech.
+  selectors: [".stx", "#parent-fieldname-text", "#content", "body"]
+date:
+  # The pages print no date. ultimas_noticias slugs END in YYMMDD for most 2007–08 items
+  # (lula_ambientais071130 = 2007-11-30, br_gana080418 = 2008-04-18) — scoped to that
+  # section only, because the Café slugs use DDMMYY (pan050207 = 5 Feb 2007).
+  url_regex: '/ultimas_noticias/[a-z_]*?(?P<year>0[6-9]|10)(?P<month>0[1-9]|1[0-2])(?P<day>0[1-9]|[12]\d|3[01])/?$'
+
+position: president
+speaker_default: Lula da Silva   # the portal's span (2003–2010) is Lula's; the cleaner re-checks
+date_languages: ["pt"]
+notes: >
+  Wayback over the Lula I-II portal www.presidencia.gov.br (2005-2011): news feed, Lula's
+  2003-04 major speeches, the Cafe com o Presidente radio programme, trip notes. ~560 pages.
+  Dates come from YYMMDD slugs where present; otherwise the cleaner reads them from the text
+  and the capture date is the fallback. Companion to bra_planalto_info_wayback (the same era's
+  Word/PDF store) and the Biblioteca PDFs (bra_biblioteca_wayback).

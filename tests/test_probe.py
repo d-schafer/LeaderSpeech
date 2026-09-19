@@ -391,6 +391,31 @@ def test_pdf_report_still_flags_a_date_that_resolved_to_nothing():
     assert report["fields"]["date"]["matched_selector"] is None
 
 
+def test_probe_reads_word_files_like_the_run(monkeypatch):
+    """Regression (2026-09-18, bra_planalto_info_wayback): the probe gated the binary-document
+    path on looks_like_pdf, so a .doc/.docx capture was decoded as HTML and reported with an
+    EMPTY body — while the run (gated on looks_like_document) extracted it fine."""
+    from tests.test_msword import _make_docx
+
+    recipe = Recipe(
+        source_id="bra_x", country="Brazil",
+        start_urls=["www.info.planalto.gov.br/download/"],
+        listing={"link_pattern": r"\.docx?$"},
+        pagination={"type": "wayback"},
+        content_type="pdf",
+        title={}, text={}, date={},
+    )
+    monkeypatch.setattr(wayback, "fetch_snapshot_bytes",
+                        lambda item, **kw: ("application/msword",
+                                            _make_docx(["Discurso do presidente", "Meus companheiros."])))
+    entry = {"original": "http://www.info.planalto.gov.br/download/discursos/pr1052.docx",
+             "timestamp": "20060227071306"}
+    [page] = probe._diagnose_pages([entry], recipe, is_wayback=True)
+
+    assert page["recipe_text_len"] > 0
+    assert page["fields"]["title"]["value_preview"] == "Discurso do presidente"
+
+
 # --- issue #57: --spread must reach the OLDEST items -------------------------------------
 # Listings are newest-first, so entries[-1] is the oldest item — the one --spread exists to
 # check, and the one the old `i * (len // n)` stepping could never reach.

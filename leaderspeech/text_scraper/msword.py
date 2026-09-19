@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from pathlib import Path
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -97,12 +98,46 @@ def docx_bytes_to_text(data) -> str:
         return ""
 
 
-def doc_bytes_to_text(data) -> str:
-    """Extract text from a legacy binary .doc via an optional `antiword`/`catdoc` binary on
-    PATH. Returns "" (with a one-time warning) when neither is installed — the row then fails
-    cleanly as empty text, exactly like an image-only PDF, rather than crashing the run."""
-    global _DOC_BACKEND_WARNED
+def _find_doc_tool() -> str | None:
+    """Path to an `antiword` or `catdoc` binary, or None.
+
+    PATH first. Then Git for Windows, which ships antiword in `<git root>/mingw64/bin` — a
+    folder Git Bash puts on PATH but a PowerShell or cmd session does not, so a queue run from
+    PowerShell used to find no converter and silently fail every .doc as empty text. The Git
+    root is located from `git` itself (`<root>/cmd/git.exe`), which the Git installer does put
+    on the Windows PATH."""
     tool = shutil.which("antiword") or shutil.which("catdoc")
+    if tool:
+        return tool
+    git = shutil.which("git")
+    if git:
+        root = Path(git).resolve().parent.parent
+        for sub in ("mingw64/bin", "usr/bin"):
+            for name in ("antiword.exe", "catdoc.exe", "antiword", "catdoc"):
+                cand = root / sub / name
+                if cand.is_file():
+                    return str(cand)
+    return None
+
+
+def _doc_command(tool: str, path: str) -> list[str]:
+    """The converter command line, asking for UTF-8 output.
+
+    Without it antiword writes its default single-byte (ISO-8859-1) mapping, which the UTF-8
+    decode below turns into U+FFFD — a 2006 Lula speech came out with 368 of them
+    ("Rep�blica"). English files hid this: plain ASCII survives either way."""
+    if "catdoc" in os.path.basename(tool).lower():
+        return [tool, "-d", "utf-8", path]
+    return [tool, "-m", "UTF-8.txt", path]
+
+
+def doc_bytes_to_text(data) -> str:
+    """Extract text from a legacy binary .doc via an optional `antiword`/`catdoc` binary (on
+    PATH, or bundled with Git for Windows — see :func:`_find_doc_tool`). Returns "" (with a
+    one-time warning) when neither is installed — the row then fails cleanly as empty text,
+    exactly like an image-only PDF, rather than crashing the run."""
+    global _DOC_BACKEND_WARNED
+    tool = _find_doc_tool()
     if not tool:
         if not _DOC_BACKEND_WARNED:
             log.warning("legacy .doc files can't be extracted without a converter — install "
@@ -114,8 +149,13 @@ def doc_bytes_to_text(data) -> str:
         with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as fh:
             fh.write(bytes(data))
             tmp = fh.name
+        proc = subprocess.run(_doc_command(tool, tmp), capture_output=True, timeout=120)
+        if proc.stdout.strip():
+            return proc.stdout.decode("utf-8", "replace")
+        # A build without the UTF-8 mapping file errors out on `-m UTF-8.txt`. Fall back to
+        # the default mapping, which is ISO-8859-1 (cp1252 is its superset), not UTF-8.
         proc = subprocess.run([tool, tmp], capture_output=True, timeout=120)
-        return proc.stdout.decode("utf-8", "replace")
+        return proc.stdout.decode("cp1252", "replace")
     except Exception as e:
         log.warning("%s failed to convert a .doc: %s", os.path.basename(tool), e)
         return ""
