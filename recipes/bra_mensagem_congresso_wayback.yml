@@ -1,0 +1,76 @@
+# Brazil — MENSAGEM AO CONGRESSO NACIONAL (the president's annual message), 2003–2025 — WAYBACK.
+#
+# Every year the President sends Congress a message at the opening of the legislative session.
+# The Presidency published it as PDF: the whole document in some years, thematic chapters in
+# others. L1 (2026-09-18) left it out of the Planalto recipes as "policy-report PDFs"; the
+# researcher ruled on 2026-09-22 that it is IN (the scope ruling already lists "messages, incl.
+# the annual mensaje/informe to congress"), so it gets its own recipe rather than reopening two
+# recipes that have already run.
+#
+# FOUR BLOCKS across the three Presidency hosts (CDX, 2026-09-22, statuscode:200 +
+# application/pdf; @@download twins folded by wayback_identity_strip):
+#   presidencia.gov.br/acompanhe-o-planalto/mensagem-ao-congresso/pdfs/  — 83 captures, the
+#     Lula I–II years (2003-2010), one PDF per theme (`2004_cidadania-e-inclusao-social.pdf`).
+#   www2.planalto.gov.br/acompanhe-o-planalto/mensagem-ao-congresso/    — 23, Dilma (2011-2016),
+#     whole documents (`mensagem_web_2013.pdf`, 9 MB, 1.49M chars) and chapters (`2011_cap-iii`).
+#   www2.planalto.gov.br/especiais/mensagem-ao-congresso-2014/          — 1.
+#   gov.br/planalto/pt-br/mensagempresidencial/                          — 32, Bolsonaro
+#     (2019-2022), chapters by theme (`4-defesa-e-soberania.pdf`).
+#   gov.br/planalto/pt-br/acesso-a-informacao/acoes-e-programas/governanca/mensagem-ao-congresso-
+#     nacional/                                                         — 8, whole documents
+#     2018-2025 (`mensagemaocongresso2019.pdf`, `mcn2025digitalv1.pdf`) — the Lula III years.
+# WHAT THESE DOCUMENTS ARE: the opening pages are the President's own address to Congress; the
+# bulk is ministry-by-ministry reporting. Expect the cleaner to type most of them `other`
+# (retained, and then out of the default merge and out of translation); the value is the
+# presidential message at the front and the historical series. Some are enormous — the cleaner
+# reads only the first ~500 words, so cost is bounded.
+# NOT the same as the Biblioteca's `mensagens-ao-congresso` (bra_biblioteca_wayback), which
+# holds the ex-presidents' copies back to 1906 on a different host; where a year exists in both,
+# the duplicate is deduplicated downstream by text.
+# LEFT OUT: `ccivil_03/leis/mensagem_veto` (328 captures) — messages of VETO, legal instruments
+# in the legislation tree, not addresses.
+source_id: bra_mensagem_congresso_wayback
+country: Brazil
+source_language: Portuguese
+content_type: pdf
+
+start_urls:
+  - presidencia.gov.br/acompanhe-o-planalto/mensagem-ao-congresso
+  - www2.planalto.gov.br/acompanhe-o-planalto/mensagem-ao-congresso
+  - www2.planalto.gov.br/especiais/mensagem-ao-congresso
+  - www.gov.br/planalto/pt-br/mensagempresidencial
+  - www.gov.br/planalto/pt-br/acesso-a-informacao/acoes-e-programas/governanca/mensagem-ao-congresso-nacional
+
+listing:
+  # A PDF under one of the four blocks, on any of the three hosts, with or without its Plone
+  # @@download twin. Anchored at scheme+host.
+  link_pattern: '^https?://(?:(?:www\.)?gov\.br(?::\d+)?/planalto/pt-br|(?:www2?\.)?planalto\.gov\.br(?::\d+)?|(?:www\.)?presidencia\.gov\.br(?::\d+)?)/(?:mensagempresidencial|acesso-a-informacao/acoes-e-programas/governanca/mensagem-ao-congresso-nacional|acompanhe-o-planalto/mensagem-ao-congresso|especiais/mensagem-ao-congresso[^/]*)/[^?#]*\.pdf(?:/@@download/[^?#]*)?/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "mimetype:application/pdf"
+    - "statuscode:200"
+  wayback_delay: 5.0
+  wayback_identity_strip: ['/@@download/.*$']
+
+# No DOM: the title falls back to the PDF's first line (usually "Mensagem ao Congresso
+# Nacional <year>"). No date url_regex — the file names carry a year in half a dozen shapes
+# (`2004_…`, `mensagem_web_2013`, `mcn2025digitalv1`, `mensagemaocongresso20181`) and a bare
+# year would be completed into an exact-looking wrong date. The cleaner's date pass reads the
+# cover page, and the SOURCE URL it sees carries the year.
+title: {}
+text: {}
+date: {}
+
+position: president
+# No speaker_default: 2003-2025 spans Lula I-II, Dilma, Temer, Bolsonaro and Lula III.
+date_languages: ["pt"]
+
+notes: >
+  PDF-over-Wayback: the annual Mensagem ao Congresso Nacional, 2003-2025, across the four blocks
+  the Presidency used on presidencia.gov.br, www2.planalto.gov.br and gov.br (~147 PDF captures,
+  fewer documents after folding the @@download twins). Authored 2026-09-22 on the researcher's
+  ruling that messages to Congress are in scope. Whole documents in some years, thematic
+  chapters in others; the President's own address opens each. Veto messages (ccivil_03) are
+  excluded. Overlaps bra_biblioteca_wayback's ex-president copies for some years.
