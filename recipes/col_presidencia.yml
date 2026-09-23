@@ -1,40 +1,79 @@
-# Colombia — Presidencia de la República, presidential speeches (discursos).
-# The discursos listing is a SharePoint "search web-part" behind a WAF that returns
-# only empty page-chrome to the default bot User-Agent (0 links — issue #7). A browser
-# user_agent clears the WAF; the results then render client-side (SharePoint CSOM
-# ProcessQuery), so renderer: js is required too.
+# Colombia — Presidencia de la República, the SITTING government (www.presidencia.gov.co).
+#
+# Colombia resets this host at every change of government and freezes the outgoing one on
+# its own subdomain, so www holds the CURRENT administration only: Abelardo De La Espriella,
+# sworn in 2026-08-07 (confirmed from the site's own titles, 2026-09-22). Its predecessors
+# have their own recipes — col_presidencia_petro (2022–26), col_presidencia_duque
+# (2020–22), col_historico (Uribe 2002–10).
+#
+# WAS: a `click` recipe driving the SharePoint CSWP next-arrow, which yielded 14 rows —
+# the pager died after 10–12 pages ("element not visible" / "not attached to the DOM"),
+# every 2026 URL failed empty_text, and one row was dated 1948-04-09 from a historical date
+# caught in the body. All three are fixed here: the listing comes from the SharePoint REST
+# API instead of the pager, the body comes from the API too, and the body date regex is now
+# `regex_required` behind a `url_regex` that reads the unambiguous `-YYMMDD` filename.
+#
+# ACCESS: F5/BIG-IP WAF — zero bytes to the honest bot UA, and a ~7 KB JavaScript challenge
+# stub to any plain HTTP client on queried `_api` calls. Harvested through headless
+# Chromium (`api.via_browser`); see col_presidencia_petro.yml for the full write-up.
+#
+# RULE 1: one library holds every press item, tagged by `notaCategoria` — measured over all
+# 283 documents (2026-09-22): Noticia 241, Discurso 34, Catalogo 4, NA 3, untagged 1. The
+# recipe takes the whole library; the cleaning step's document_type gate sorts it out.
+# This source GROWS — it is the sitting government — so re-run it to extend coverage.
 source_id: col_presidencia
 country: Colombia
 source_language: Spanish
-start_urls:
-  - https://www.presidencia.gov.co/prensa/Paginas/discursos.aspx
 renderer: js
-user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+start_urls:
+  - "https://www.presidencia.gov.co/prensa/_api/web/GetFolderByServerRelativeUrl('/prensa/Paginas')/Files?$expand=ListItemAllFields&$select=ServerRelativeUrl,ListItemAllFields/Title,ListItemAllFields/ArticleStartDate,ListItemAllFields/PublishingPageContent&$top=1000"
 
 listing:
-  link_selector: ".itemPrensa a"
-  link_pattern: '/prensa/Paginas/(?!default\.aspx).+\.aspx$'
+  link_pattern: '^https?://www\.presidencia\.gov\.co/prensa/Paginas/.+\.aspx$'
 
 pagination:
-  # SharePoint CSWP "promlink" pager: a JS next-arrow that re-runs the search in place
-  # (no URL change). Click it until it goes disabled on the last page.
-  type: click
-  next_selector: "a.ms-promlink-button-enabled[title*='siguiente']"
-  max_pages: 400
+  type: api
+  param: "$skip"
+  start: 0
+  step: 1000
+  max_pages: 40          # 1 page today; headroom for a full four-year term
+  api:
+    via_browser: true
+    warmup_url: "https://www.presidencia.gov.co/prensa/discursos"
+    headers:
+      Accept: "application/json;odata=nometadata"
+    results_path: "value"
+    url_field: "ServerRelativeUrl"
+    title_field: "ListItemAllFields.Title"
+    date_field: "ListItemAllFields.ArticleStartDate"
+    text_field: "ListItemAllFields.PublishingPageContent"
+    text_is_html: true
+    delay: 1.0
 
+# Fallbacks only — the JSON carries the body, so no article page is fetched.
 title:
   selectors: ["h1.titulo-noticia", "h1", "title"]
 text:
   selectors: ["#ZonaNoticia", ".boletinContenido", ".ms-rtestate-field", "article", "main"]
 date:
-  # No dedicated date element; the dateline ("Ciudad, DD de MES de YYYY") opens the body.
+  # The filename ends in -YYMMDD. Preferred over the body, whose dateline regex is only a
+  # fallback and is regex_required so a date quoted in the prose cannot stand in for it.
+  url_regex: '-(?P<year>\d{2})(?P<month>\d{2})(?P<day>\d{2})\.aspx$'
   selectors: ["#ZonaNoticia", ".boletinContenido"]
   regex: '\d{1,2} de \w+ de \d{4}'
+  regex_required: true
 
 position: president
 date_languages: ["es"]
+# speaker_default unset: 85% of the library is third-person news about the president
+# rather than his words, and this host changes president every four years.
 notes: >
-  SharePoint search web-part behind a WAF (issue #7): the honest bot UA gets empty
-  chrome, so a browser user_agent + renderer: js are required. The listing paginates
-  via the CSWP promlink next-arrow (click pagination). The date is the dateline in the
-  first line of the speech body, pulled by regex. Speaker is the president of the day.
+  The sitting Colombian government only (Abelardo De La Espriella from 2026-08-07);
+  earlier administrations are frozen on their own subdomains and have their own recipes.
+  Harvested from the SharePoint publishing library's Files collection with the list item
+  expanded, through headless Chromium — the host is behind an F5/BIG-IP WAF that returns a
+  JavaScript challenge stub to plain HTTP clients. The JSON carries the full body, so no
+  article page is fetched, which is also what fixes the old recipe's empty_text failures.
+  283 documents at 2026-09-22 and growing; re-run periodically.

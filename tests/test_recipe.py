@@ -172,3 +172,74 @@ def test_url_regex_on_an_item_field_raises():
                                   "item_date": {"url_regex": r"(\d{4})"}}}
     with pytest.raises(Exception, match="url_regex"):
         Recipe(**bad)
+
+
+# --- start_urls_file: thousands of LISTING pages, one per line (2026-09-22) ------------
+# The sibling of pagination.url_list_file, for a frozen news archive whose only index is a
+# page per DAY (col_historico: ~2,900 of them). These stay LISTING pages, so
+# listing.link_pattern still applies — that is what distinguishes the two.
+
+def _with_start_urls_file(tmp_path, body, inline=None):
+    f = tmp_path / "days.txt"
+    f.write_text(body, encoding="utf-8")
+    data = dict(MINIMAL, start_urls_file=str(f))
+    if inline is not None:
+        data["start_urls"] = inline
+    else:
+        data.pop("start_urls")
+    return Recipe(**data)
+
+
+def test_start_urls_file_is_read_and_skips_blanks_and_comments(tmp_path):
+    r = _with_start_urls_file(tmp_path, (
+        "# derived from the daily archive calendar\n"
+        "https://ex.gov/2010/julio/31/archivo.html\n"
+        "\n"
+        "   https://ex.gov/2010/julio/30/archivo.html   \n"
+    ))
+    assert r.start_urls == ["https://ex.gov/2010/julio/31/archivo.html",
+                            "https://ex.gov/2010/julio/30/archivo.html"]
+
+
+def test_start_urls_file_combines_with_inline_start_urls_and_dedupes(tmp_path):
+    r = _with_start_urls_file(
+        tmp_path,
+        "https://ex.gov/a\nhttps://ex.gov/b\n",
+        inline=["https://ex.gov/a"],
+    )
+    assert r.start_urls == ["https://ex.gov/a", "https://ex.gov/b"]  # inline first, once
+
+
+def test_start_urls_file_missing_raises_rather_than_crawling_nothing(tmp_path):
+    with pytest.raises(ValueError, match="start_urls_file"):
+        Recipe(**dict(MINIMAL, start_urls_file=str(tmp_path / "nope.txt")))
+
+
+def test_a_recipe_with_neither_start_urls_nor_a_file_is_rejected():
+    data = dict(MINIMAL)
+    data.pop("start_urls")
+    with pytest.raises(ValueError, match="start_urls"):
+        Recipe(**data)
+
+
+def test_an_empty_start_urls_file_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="start_urls"):
+        _with_start_urls_file(tmp_path, "# only a comment\n\n")
+
+
+def test_load_recipe_resolves_start_urls_file_against_the_recipe_directory(tmp_path):
+    import yaml
+    (tmp_path / "days.txt").write_text("https://ex.gov/2010/julio/31/archivo.html\n",
+                                       encoding="utf-8")
+    spec = dict(MINIMAL, start_urls_file="days.txt")   # relative, as a committed recipe writes it
+    spec.pop("start_urls")
+    p = tmp_path / "r.yml"
+    p.write_text(yaml.safe_dump(spec), encoding="utf-8")
+    import os
+    cwd = os.getcwd()
+    os.chdir(tmp_path.parent)          # run from ANOTHER directory: the path must still resolve
+    try:
+        r = load_recipe(p)
+    finally:
+        os.chdir(cwd)
+    assert r.start_urls == ["https://ex.gov/2010/julio/31/archivo.html"]

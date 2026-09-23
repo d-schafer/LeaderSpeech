@@ -424,7 +424,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
             # api/feed harvest their own entries (carrying metadata); probe samples the
             # URLs and runs the usual per-page selector diagnostics on the speech pages.
             module = api if recipe.pagination.type == PaginationType.api else feed
-            items = module.harvest_entries(recipe)
+            items = module.harvest_entries(recipe, fetcher=fetcher)
             links = [it["url"] for it in items]
             # The probe used to DISCARD this, so an api source whose date comes from the
             # JSON reported ✗ date while a real run dated every row (run.py has always

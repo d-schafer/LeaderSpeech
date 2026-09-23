@@ -847,7 +847,7 @@ def scrape_recipe(
         elif ptype in (PaginationType.api, PaginationType.feed):
             entries = []
             module = api if ptype == PaginationType.api else feed
-            items = module.harvest_entries(recipe, max_links=max_links)
+            items = module.harvest_entries(recipe, max_links=max_links, fetcher=fetcher)
             links = [it["url"] for it in items]
             meta_by_url = {it["url"]: it for it in items}
         else:

@@ -452,6 +452,85 @@ date_languages: ["ru"]
 > if the API's date is localized `DD.MM.YYYY`, prefer taking the date off the fetched
 > page (with `date_languages`) and treat the api `date_field` as a fallback.
 
+### Carrying the BODY in the JSON (`api.text_is_html`)
+
+When the API already returns the full article body, `api.text_field` carries it onto the
+row and the engine **skips the page fetch entirely** — which on a WAF'd site is not just a
+speed-up, it is the only way in. But `clean_text` only normalizes whitespace, so a body
+that arrives as an **HTML fragment** would otherwise store its tags verbatim. That is why a
+dozen WordPress recipes leave `text_field` unset with a comment saying so, and pay for one
+page fetch per document instead.
+
+**`api.text_is_html: true`** flattens the fragment the way the page extractor would (block
+elements separated, `<script>`/`<style>` dropped, zero-width editor residue stripped):
+
+```yaml
+    text_field: content.rendered        # WordPress
+    text_is_html: true
+```
+
+It applies to SharePoint's `PublishingPageContent` the same way. Default `false`, so every
+existing recipe is unchanged.
+
+### Reading the API through the browser (`api.via_browser`)
+
+Some WAFs — F5/BIG-IP TSPD is the one this was built for — answer a plain HTTP client with
+a **JavaScript challenge stub**: HTTP 200, ~7 KB, no JSON. Worse, they *escalate*: the
+first handful of calls succeed and then every later one is stubbed, so an httpx harvest
+dies a few pages in and `harvest_entries` reads the bad page as the end of the results —
+a silently truncated harvest, not an error.
+
+A real browser solves the challenge once and is then served normally. Set:
+
+```yaml
+  api:
+    via_browser: true
+    warmup_url: "https://petro.presidencia.gov.co/prensa/discursos"   # any HTML page on the host
+```
+
+Measured on `petro.presidencia.gov.co`: httpx died after 4 pages; the browser path read all
+13 without a single challenge (12,061 rows).
+
+Notes:
+- `warmup_url` defaults to the API host's root. The engine navigates it before the first
+  JSON request purely so the browser earns the WAF cookie. **Do not judge the warm-up by
+  what the navigation returns** — against TSPD the rendered page stays the challenge stub
+  every time, while `context.request` calls made afterwards are served normally.
+- It **borrows** the Fetcher `probe`/`run` already built when the recipe's `renderer` is
+  `js` (Playwright's sync API allows one driver per thread). With `renderer: static` it
+  owns its own browser — which is the right combination when the JSON carries the body, as
+  no article page is ever fetched.
+- A reply that comes back as HTML instead of JSON triggers a re-warm and up to 3 retries.
+
+### Paging a list that ignores `$skip` (`api.param_template`)
+
+`pagination.param` writes a bare number. Some endpoints need the paging value *shaped* —
+the case that forced this is a SharePoint **list** endpoint, which silently **ignores
+`$skip`** (every page comes back identical to page 1, so the harvest looks successful and
+is not) and answers `$skiptoken=Paged=TRUE&p_ID=N` with an HTML error page. The only thing
+that walks it is OData keyset paging:
+
+```yaml
+pagination:
+  param: "$filter"
+  start: 0
+  step: 500
+  api:
+    param_template: "Id gt {n}"     # -> $filter=Id gt 0, Id gt 500, Id gt 1000, ...
+```
+
+`{n}` is the usual `start + page_idx * step`. Keyset paging is safe across id gaps: each
+page starts immediately after the previous cut-off, so nothing is skipped, and the small
+overlaps de-duplicate by URL. Worked example: `recipes/col_presidencia_duque_early.yml`.
+
+> **SharePoint: `/items` vs `Files`.** The two collections behave differently and neither
+> is always available. `GetFolderByServerRelativeUrl('<lib>')/Files` supports `$skip` but
+> is **per-folder**; `lists/getbytitle('<lib>')/items` is **recursive** but needs the
+> keyset paging above. A WAF may also stub one and not the other — on
+> `petro.presidencia.gov.co` every `/items?` call is challenged while `Files` is served, and
+> on `id.presidencia.gov.co` it is the other way round. Try both before concluding a host
+> is closed, and expand the list fields with `$expand=ListItemAllFields`.
+
 ### WordPress REST (`results_path: "."`)
 
 WordPress powers a lot of government sites, and its REST API is usually open even when the
@@ -762,6 +841,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `source_language` | no | Default `English`. Non-English text routes to the `*_originlanguage` columns. |
 | `dataset` | no | Default `LeaderSpeech`. Leave as-is for newly scraped data. |
 | `start_urls` | yes | One or more listing-page URLs (or CDX prefixes for `wayback` recipes). |
+| `start_urls_file` | no | A newline-delimited file of additional `start_urls`, for a source whose only index is a page per DAY and so numbers in the thousands. Same contract as `pagination.url_list_file`: `#` comments and blanks skipped, a relative path resolves against the recipe file's directory, a missing file raises, entries append to any inline `start_urls` and de-duplicate. These stay LISTING pages (`listing.link_pattern` still applies) — that is what distinguishes it from `url_list_file`. Worked example: `recipes/col_historico.yml` (2,627 daily archive pages). |
 | `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). |
@@ -808,6 +888,10 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `pagination.api.method` | no | `GET` (default) or `POST`. Use `POST` for endpoints whose listing is a POST JSON call (SPA/SharePoint CSOM). |
 | `pagination.api.body` | for POST | The JSON body sent on each POST request (capture it from DevTools). Never mutated across pages. |
 | `pagination.api.body_page_field` | no | Dotted path into `body` where the per-page offset (`start + page_idx*step`) is written each POST request (e.g. `pageRequest.page`). Omit to page a POST by query `param` instead (or for a single request). |
+| `pagination.api.text_is_html` | no | Default `false`. `true` flattens an HTML fragment carried in `text_field` to prose (WordPress `content.rendered`, SharePoint `PublishingPageContent`) instead of storing its tags. See "Carrying the BODY in the JSON". |
+| `pagination.api.via_browser` | no | Default `false`. `true` issues the API requests from a headless-Chromium context, for a JS-challenge WAF (F5/BIG-IP TSPD) that stubs plain HTTP clients. See "Reading the API through the browser". |
+| `pagination.api.warmup_url` | no | `via_browser` only. HTML page on the API's host to navigate before the first JSON request, so the browser earns the WAF cookie. Defaults to the API host's root. |
+| `pagination.api.param_template` | no | Shape the paging param's VALUE instead of writing the bare offset; `{n}` is `start + page_idx*step`. For OData keyset paging (`param: "$filter"`, `param_template: "Id gt {n}"`). See "Paging a list that ignores `$skip`". |
 | `pagination.api.url_base` | no | Base URL that row URLs are `urljoin`ed against (defaults to `start_urls[0]`). Set it when the JSON host ≠ the site host, so relative row URLs (e.g. `/en/pages/<slug>`) resolve to the site, not the API host. |
 | `pagination.api.cells_path` | no | SharePoint cells mode: dotted path within a row to its `{Key, Value}` cell array (e.g. `Cells.results`). When set, the `*_field` names match cell **keys** instead of being row paths. |
 | `pagination.api.cell_key` / `cell_value` | no | Attribute names in a cell dict (defaults `Key` / `Value`). |

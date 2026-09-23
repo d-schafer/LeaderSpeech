@@ -208,6 +208,13 @@ class ApiConfig(BaseModel):
     cell_value: str = "Value"               # attribute naming a cell's field value
     headers: dict[str, str] = Field(default_factory=dict)  # per-request header overrides
     delay: float = 0.0                      # courtesy pause between API page requests
+    # Shape the paging param's VALUE instead of writing the bare offset. `{n}` is the
+    # usual `start + page_idx * step`. For OData keyset paging —
+    # `param: "$filter"`, `param_template: "Id gt {n}"` — which is the only way to page a
+    # SharePoint LIST: `/items` silently IGNORES `$skip` and returns page 1 forever, and
+    # `$skiptoken` answers with an HTML error (measured on id.presidencia.gov.co). Leave
+    # unset for the normal numeric-offset case.
+    param_template: Optional[str] = None
     # HTTP method. Default GET (today's behavior). Set POST for endpoints whose listing
     # is a POST JSON call (SPA/SharePoint CSOM, e.g. president.kg /api/v1/news/search).
     method: str = "GET"                     # "GET" (default) | "POST"
@@ -221,6 +228,22 @@ class ApiConfig(BaseModel):
     # when the JSON host != the site host, so relative row links (e.g. /en/pages/<slug>)
     # resolve to the site — not the API endpoint's host (gov.il is the exemplar).
     url_base: Optional[str] = None
+    # The carried `text_field` holds an HTML fragment, not prose. `clean_text` only
+    # normalizes whitespace, so without this every tag would land in the corpus — which is
+    # why a dozen WordPress recipes leave `text_field` unset and pay for a page fetch per
+    # document instead. Set true to run the fragment through the same HTML-to-text pass the
+    # page extractor uses (WP's `content.rendered`, SharePoint's `PublishingPageContent`).
+    text_is_html: bool = False
+    # Route the API requests through the recipe's headless-Chromium context instead of
+    # httpx. Needed only for a JS-challenge WAF (F5/BIG-IP TSPD) that escalates against a
+    # plain HTTP client until every queried `_api` call returns the challenge stub, while a
+    # real browser — which solves the challenge once — is served normally
+    # (presidencia.gov.co is the exemplar). Off by default: httpx is cheaper and enough.
+    via_browser: bool = False
+    # An HTML page on the API's own host to navigate to first, so the browser solves the
+    # challenge and seeds its cookies before any JSON request. Defaults to the recipe's
+    # site root. Only used when `via_browser` is set.
+    warmup_url: Optional[str] = None
 
 
 class FeedConfig(BaseModel):
@@ -354,7 +377,15 @@ class Recipe(BaseModel):
     dataset: str = "LeaderSpeech"           # provenance tag for newly scraped rows
 
     # where + how to crawl
-    start_urls: list[str]
+    start_urls: list[str] = Field(default_factory=list)
+    # A newline-delimited file of start_urls, for a source whose listing pages are one per
+    # DAY (or per month) and so number in the thousands — too many to inline. Same contract
+    # as `pagination.url_list_file`: `#` comments and blank lines are skipped, a relative
+    # path resolves against the recipe file's own directory, a missing file raises rather
+    # than crawling nothing, and the entries are appended to any inline `start_urls`
+    # (inline first) and de-duplicated. These are LISTING pages — `listing.link_pattern`
+    # still applies — which is what distinguishes it from `url_list_file`.
+    start_urls_file: Optional[str] = None
     renderer: Renderer = Renderer.static
     # HTML (default) or PDF speech pages. `auto` treats a page as HTML unless the URL/
     # response says PDF; `pdf` forces the PDF text-extractor for every harvested URL.
@@ -444,6 +475,26 @@ class Recipe(BaseModel):
 
     @model_validator(mode="after")
     def _checks(self):
+        # Fold `start_urls_file` into start_urls before anything validates them, so every
+        # downstream check and every crawler sees one merged list. A missing file raises:
+        # a silent empty harvest is indistinguishable from a source that has gone dead.
+        if self.start_urls_file:
+            path = Path(self.start_urls_file)
+            if not path.exists():
+                raise ValueError(f"start_urls_file not found: {self.start_urls_file}")
+            merged = list(self.start_urls)
+            for line in path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    merged.append(line)
+            seen, deduped = set(), []
+            for u in merged:
+                if u not in seen:
+                    seen.add(u)
+                    deduped.append(u)
+            self.start_urls = deduped
+        if not self.start_urls:
+            raise ValueError("recipe needs 'start_urls' (or a non-empty 'start_urls_file')")
         # A field is satisfied by a selector chain OR a url_regex. PDF recipes have no DOM,
         # so the body `text` always comes from the PDF itself (no selector required); a PDF
         # source may still pull title/date off the URL via url_regex, but need not.
@@ -503,4 +554,9 @@ def load_recipe(path: str | Path) -> Recipe:
         f = Path(pg["url_list_file"])
         if not f.is_absolute():
             pg["url_list_file"] = str((Path(path).parent / f).resolve())
+    # ...and the same for a top-level start_urls_file.
+    if data.get("start_urls_file"):
+        f = Path(data["start_urls_file"])
+        if not f.is_absolute():
+            data["start_urls_file"] = str((Path(path).parent / f).resolve())
     return Recipe(**data)

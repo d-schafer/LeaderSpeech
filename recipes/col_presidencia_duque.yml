@@ -1,0 +1,82 @@
+# Colombia — Presidencia de la República, Iván Duque's administration, frozen site.
+#
+# Duque governed Aug 2018 – Aug 2026-08-07 is Petro's handover; Duque's own term ran
+# Aug 2018 – Aug 2022. When it ended the site was frozen at idm.presidencia.gov.co
+# ("Iván Duque Márquez").
+#
+# COVERAGE — MEASURED 2026-09-22, and it is NOT the whole term: the library holds 8,000
+# documents dated Aug 2020 – Aug 2022 (by FechaNoticia: 2019 1, 2020 2,230, 2021 3,964,
+# 2022 1,804; the `-YYMMDD` filename suffix agrees). Duque's FIRST TWO YEARS
+# (Aug 2018 – mid-2020) are not on this host. Verified it is not a paging artifact: walking
+# the collection in reverse name order turned up 0 documents the forward walk had missed,
+# and the library reports 8,020 items = 8,000 files + the Forms folder. So 2018–2020 lives
+# somewhere else and is the job of a Wayback recipe — see the outbox note for this source.
+#
+# ACCESS: same F5/BIG-IP WAF as the rest of presidencia.gov.co — a zero-byte body to the
+# honest bot UA, and a ~7 KB JavaScript challenge stub to any plain HTTP client on queried
+# `_api` calls. Harvested through headless Chromium (`api.via_browser`); see
+# col_presidencia_petro.yml for the full write-up.
+#
+# RULE 1: one library holds every press item, tagged by `Categoria`. Measured over all
+# 8,000: Noticia 6,720, Discurso 1,104, Sin categoria 124, Columna de Opinión 50,
+# Catálogo 1. Scoping to Discurso would take 13.8% and drop the president's own opinion
+# columns. The recipe takes all of it; the cleaning step sorts it out.
+#
+# Field names differ from Petro's site (same product, different content type): the date is
+# `FechaNoticia` — `ArticleStartDate` exists but is empty on all 8,000 rows — and the
+# category is `Categoria`, not `notaCategoria`.
+source_id: col_presidencia_duque
+country: Colombia
+source_language: Spanish
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+start_urls:
+  - "https://idm.presidencia.gov.co/prensa/_api/web/GetFolderByServerRelativeUrl('/prensa/Paginas')/Files?$expand=ListItemAllFields&$select=ServerRelativeUrl,ListItemAllFields/Title,ListItemAllFields/FechaNoticia,ListItemAllFields/PublishingPageContent&$top=1000"
+
+listing:
+  link_pattern: '^https?://idm\.presidencia\.gov\.co/prensa/Paginas/.+\.aspx$'
+
+pagination:
+  type: api
+  param: "$skip"
+  start: 0
+  step: 1000
+  max_pages: 20          # 8 pages at 1,000/page; the site is frozen, so this cannot grow
+  api:
+    via_browser: true
+    warmup_url: "https://idm.presidencia.gov.co/prensa/discursos"
+    headers:
+      Accept: "application/json;odata=nometadata"
+    results_path: "value"
+    url_field: "ServerRelativeUrl"
+    title_field: "ListItemAllFields.Title"
+    date_field: "ListItemAllFields.FechaNoticia"
+    text_field: "ListItemAllFields.PublishingPageContent"
+    text_is_html: true
+    delay: 1.0
+
+# Fallbacks only — the JSON carries the body, so no article page is fetched.
+title:
+  selectors: ["h1.titulo-noticia", "h1", "title"]
+text:
+  selectors: ["#ZonaNoticia", ".boletinContenido", ".ms-rtestate-field", "article", "main"]
+date:
+  # The filename ends in -YYMMDD, which is unambiguous; preferred over any body date.
+  url_regex: '-(?P<year>\d{2})(?P<month>\d{2})(?P<day>\d{2})\.aspx$'
+  selectors: ["#ZonaNoticia", ".boletinContenido"]
+  regex: '\d{1,2} de \w+ de \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+# speaker_default unset: 84% of the library is third-person news about the president
+# rather than his words. The cleaning step assigns the speaker.
+notes: >
+  Iván Duque's frozen administration site, harvested from the SharePoint publishing
+  library's Files collection with the list item expanded, through headless Chromium (the
+  host is behind an F5/BIG-IP WAF that returns a JavaScript challenge stub to plain HTTP
+  clients). 8,000 documents; the library holds every press item in one list, so the recipe
+  takes all of it per RULE 1 (Discurso alone is 1,104). The JSON carries the full body, so
+  no article page is fetched. COVERAGE GAP: measured Aug 2020 – Aug 2022 only — Duque's
+  first two years are not on this host and need a Wayback recipe.

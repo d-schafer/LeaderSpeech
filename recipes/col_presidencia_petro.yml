@@ -1,0 +1,88 @@
+# Colombia — Presidencia de la República, Gustavo Petro's administration (Aug 2022 – Aug 2026).
+#
+# When a Colombian government ends, its presidencia.gov.co site is frozen and moved to a
+# per-president subdomain; the main host is reset for the incoming government. Petro's
+# four years live at petro.presidencia.gov.co, which still serves its full SharePoint
+# publishing library.
+#
+# ACCESS: the site is fronted by an F5/BIG-IP WAF. It answers the honest bot User-Agent
+# with a zero-byte body, and answers ANY plain HTTP client with a ~7 KB JavaScript
+# challenge stub (HTTP 200, no JSON) on every queried `_api` call — escalating until even
+# calls that worked a minute earlier are stubbed. A real browser solves the challenge once
+# and is then served normally, so this recipe harvests through the engine's headless
+# Chromium (`api.via_browser`). Measured 2026-09-22: httpx died after 4 pages; the browser
+# path read all 13 without a single challenge.
+#
+# RULE 1: the library is ONE list holding every press item, tagged by `notaCategoria`.
+# Measured over all 12,061 documents: Noticia 11,055, Discurso 901, Comunicado 33, NA 51,
+# Catalogo 12, Video 1, untagged 8. Scoping this recipe to `notaCategoria eq 'Discurso'`
+# would take 7.5% of the material and drop every comunicado, every statement and every
+# news item reporting what the president said. So the recipe takes the whole library and
+# lets the cleaning step's document_type gate do the sorting.
+#
+# Coverage ratio: 12,061 of 12,070 items the list reports (99.9%) — the 9 missing are
+# folder/system entries the Files collection does not return.
+#
+# The JSON carries the full body in `PublishingPageContent`, so no speech page is fetched
+# at all: 12,061 documents for ~13 requests, and the article pages' WAF never comes into
+# play. `text_is_html` flattens the fragment (it is stored HTML, not prose).
+source_id: col_presidencia_petro
+country: Colombia
+source_language: Spanish
+renderer: js
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+# The SharePoint Files collection of the publishing library, with each file's list item
+# expanded. `/items?` is the natural endpoint but the WAF stubs it unconditionally, even
+# from a browser; `Files` with an expand returns the same fields and is served normally.
+start_urls:
+  - "https://petro.presidencia.gov.co/prensa/_api/web/GetFolderByServerRelativeUrl('/prensa/Paginas')/Files?$expand=ListItemAllFields&$select=ServerRelativeUrl,ListItemAllFields/Title,ListItemAllFields/ArticleStartDate,ListItemAllFields/PublishingPageContent&$top=1000"
+
+listing:
+  link_pattern: '^https?://petro\.presidencia\.gov\.co/prensa/Paginas/.+\.aspx$'
+
+pagination:
+  type: api
+  param: "$skip"
+  start: 0
+  step: 1000
+  max_pages: 40          # 13 pages at 1,000/page today; headroom for growth
+  api:
+    via_browser: true    # F5 TSPD — see ACCESS above
+    warmup_url: "https://petro.presidencia.gov.co/prensa/discursos"
+    headers:
+      Accept: "application/json;odata=nometadata"
+    results_path: "value"
+    url_field: "ServerRelativeUrl"
+    title_field: "ListItemAllFields.Title"
+    date_field: "ListItemAllFields.ArticleStartDate"
+    text_field: "ListItemAllFields.PublishingPageContent"
+    text_is_html: true   # stored HTML, not prose
+    delay: 1.0
+
+# No page is fetched (the JSON carries the body), so these selectors are the fallback for
+# any row whose PublishingPageContent is empty.
+title:
+  selectors: ["h1.titulo-noticia", "h1", "title"]
+text:
+  selectors: ["#ZonaNoticia", ".boletinContenido", ".ms-rtestate-field", "article", "main"]
+date:
+  # "Bogotá, 14 de noviembre de 2024" opens the body. regex_required so a historical date
+  # in the prose cannot be mistaken for the dateline (col_presidencia once wrote a 2025
+  # speech as 1948-04-09 that way).
+  selectors: ["#ZonaNoticia", ".boletinContenido"]
+  regex: '\d{1,2} de \w+ de \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+# speaker_default deliberately unset: 92% of the library is third-person news in which the
+# president is the subject, not the speaker. The cleaning step assigns the speaker.
+notes: >
+  Petro's frozen administration site (Aug 2022 – Aug 2026), harvested from the SharePoint
+  publishing library's Files collection with the list item expanded. The library holds every
+  press item in one list — news, speeches, comunicados — so the recipe takes all of it per
+  RULE 1 (Discurso alone is 901 of 12,061). The host is behind an F5/BIG-IP WAF that returns
+  a JavaScript challenge stub to plain HTTP clients, so the API is read through headless
+  Chromium (api.via_browser); a browser is served normally. The JSON carries the full body,
+  so no article page is fetched. Dates come from the list's own ArticleStartDate field.

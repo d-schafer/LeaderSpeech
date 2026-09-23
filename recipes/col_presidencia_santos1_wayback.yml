@@ -1,0 +1,92 @@
+# Colombia — Juan Manuel Santos, FIRST term (Aug 2010 – Aug 2014), from the Archive.
+#
+# Santos's first-term Presidency site was wsp.presidencia.gov.co ("web sitio presidencia"),
+# a SharePoint 2010 publishing site. It no longer resolves — every request from here ends
+# in a read error, on http and https alike (checked 2026-09-22) — so the only route is the
+# Internet Archive. Its successor es.presidencia.gov.co covers 2016–2018 and has its own
+# recipe (col_presidencia_santos2_wayback); 2015 falls between the two and is a measured
+# gap, recorded in the outbox.
+#
+# SCOPE — MEASURED 2026-09-22. The host holds 60,000+ captures; the main press tree
+# `/Prensa/{YYYY}/{Mes}/Paginas/{YYYYMMDD}[_NN][-slug].aspx` accounts for 13,076
+# article-shaped captures (2010: 2,509, 2011: 7,849, 2012: 5,264, 2013: 3,686, 2014: 1,532)
+# out of 20,866 under /Prensa/ — 63%, the rest being `_vti_bin`/`_layouts` SharePoint
+# plumbing (7,551) and month index pages, none of which carry article text. Adding the
+# thematic press rooms below, **this recipe harvests 16,027 URLs** (probe, 2026-09-22).
+#
+# The capture window is left open to 2026 on purpose: it bounds the CAPTURE date, not the
+# article date, and the article date here comes from the filename — so a 2017 capture of a
+# 2011 page is still a 2011 page, and for many URLs it is the only capture there is.
+#
+# RULE 1: speeches are NOT in a separate tree. `/Discursos/` holds only 52 non-plumbing
+# captures and they are all month INDEX pages; the speeches themselves sit in the same
+# press stream as the news, under slugs like
+# `/Prensa/2013/Julio/Paginas/20130723_07-Palabras-del-Presidente-Juan-Manuel-Santos-...`.
+# So one pattern takes news, speeches, comunicados and statements together. The thematic
+# presidential press rooms are included by the same pattern: `cepri/prensa` (3,366 —
+# the Centro de Prensa), `ColombiaHumanitaria/prensa` (497), `Ambiental/Prensa` (351),
+# `afrocolombianos/prensa` (22), `bogota/prensa` (17).
+#
+# Expect a share of URLs to fail as `archived_block_page`: presidencia.gov.co sits behind
+# an F5/BIG-IP WAF whose challenge pages the Archive stored as ordinary HTTP 200 captures.
+# The engine refuses those and retries the URL's largest other capture — that is the WAF's
+# content, not a recipe fault.
+source_id: col_presidencia_santos1_wayback
+country: Colombia
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - wsp.presidencia.gov.co
+
+pagination:
+  type: wayback
+  wayback_match_type: host
+  wayback_from: "20100807"     # Santos's inauguration
+  wayback_to: "20260101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+listing:
+  # Anchored at scheme+host, with an optional port: CDX hands back `host:80/` forms, and a
+  # pattern anchored at a bare `host/` silently matches none of them.
+  # `(?:[A-Za-z]+/)?` admits the thematic press rooms (cepri, ColombiaHumanitaria, …).
+  # The `\d{8}` is what separates an article from a month index page (`.../diciembre.aspx`).
+  link_pattern: '^https?://wsp\.presidencia\.gov\.co(?::\d+)?/(?:[A-Za-z]+/)?[Pp]rensa/\d{4}/[A-Za-zÁ-úñÑ]+/Paginas/\d{8}[^/]*$'
+
+title:
+  # `<title>` ONLY, and `h1` is deliberately absent. On this host's 2010–2011 skin the h1
+  # is the site banner — literally "Presidencia República de Colombia" on every page — so
+  # an h1-first chain probes green while writing that string into thousands of rows. The
+  # archived <title> is the real headline on every skin (checked on five captures across
+  # 2010, 2011, 2012 and 2014: "Ecopetrol inauguró planta para producir combustibles
+  # limpios", "Comunicado del Ministerio de Relaciones Exteriores", …).
+  selectors: ["title"]
+text:
+  # Two SharePoint skins. 2012–2014 uses `div.s4-ba`; 2010–2011 predates it and keeps the
+  # body in `#MSO_ContentTable`, which on that skin is a <table>, not a <div> — so the
+  # selector is element-agnostic on purpose (a `div#MSO_ContentTable` misses every
+  # 2010–2011 page, which is how the first draft lost 6 of 10 sampled bodies).
+  selectors: ["div.s4-ba", "section#layout-3-conten-i-info", "#MSO_ContentTable",
+              "div.mainContent", "div#layout-3-conten"]
+date:
+  # From the filename's YYYYMMDD, assembled from named groups so there is no DD/MM
+  # ambiguity. No body-date fallback: these pages carry no reliable dateline.
+  url_regex: '/Paginas/(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})'
+
+position: president
+date_languages: ["es"]
+# speaker_default unset: the press stream is mostly third-person news in which the
+# president is the subject. The cleaning step assigns the speaker; the tenure key confirms
+# Santos held the office across this whole window.
+notes: >
+  Juan Manuel Santos's first term (2010–2014) on the Presidency's SharePoint site
+  wsp.presidencia.gov.co, which no longer resolves — Archive only. 16,027 URLs harvested
+  (13,076 of them in the main /Prensa/ tree, measured by CDX), taken as one stream because
+  speeches share the press tree with news and comunicados (the /Discursos/ tree is month
+  index pages only). Thematic
+  presidential press rooms (cepri, ColombiaHumanitaria, Ambiental, afrocolombianos,
+  bogota) are included by the same pattern. Date from the filename's YYYYMMDD. Some URLs
+  will fail as archived_block_page: the host's F5 WAF challenge pages were captured as
+  HTTP 200. 2015 is a gap between this recipe and col_presidencia_santos2_wayback.

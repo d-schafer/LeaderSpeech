@@ -1,0 +1,87 @@
+# Colombia — Juan Manuel Santos, SECOND term (the es.presidencia.gov.co site), from the
+# Archive.
+#
+# The Presidency moved to es.presidencia.gov.co in December 2015 and used it until the
+# Duque handover in August 2018. Like its predecessor it no longer resolves from here
+# (read error on http and https, checked 2026-09-22), so this is an Archive recipe. Santos's
+# first term is col_presidencia_santos1_wayback; 2015 falls between the two hosts and is a
+# measured gap recorded in the outbox.
+#
+# SCOPE — MEASURED 2026-09-22 by CDX. The host has 50,707 captures, but **77% of them are
+# not content**: 22,383 are `/TSPD/<hex>` — the F5/BIG-IP WAF's own endpoint, which the
+# Archive stored as ordinary HTTP 200 text/html captures — plus `PageNotFoundError.aspx`
+# redirect stubs and SharePoint `_layouts` plumbing. Of the 11,586 that remain, the
+# article-shaped ones are `/noticia/{YYMMDD}-{slug}` **2,970** and
+# `/discursos/{YYMMDD}-{slug}` **460**: 3,430 documents, almost all 2016–2018.
+#
+# The link_pattern therefore requires the dated slug AND at least 20 further characters.
+# That is not cosmetic: the Archive holds dozens of TRUNCATED captures of the same article
+# (`/discursos/160324-`, `/discursos/160324-Declaracion-del-`,
+# `/discursos/160324-Declaracion-del-Presidente-`, …), each a distinct URL that would be
+# fetched as its own document and yield a 404 or a fragment.
+#
+# RULE 1: both sections are taken — `noticia` is the news/statement stream and carries most
+# of the material, `discursos` the speeches. `/columnas/` and `/saladeprensa/` were checked
+# and hold NO dated article slugs (their captures are all `_layouts` plumbing), so there is
+# nothing there to take. `/normativa/` (1,328) is the decree register: not sampled in, per
+# the decree rule — it needs its own recipe if it is ever wanted.
+source_id: col_presidencia_santos2_wayback
+country: Colombia
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - es.presidencia.gov.co
+
+pagination:
+  type: wayback
+  wayback_match_type: host
+  wayback_from: "20151201"     # the host's first captures
+  # The window bounds the CAPTURE date, not the article date — and the article date here
+  # comes from the URL slug, so a late capture of a 2016 speech is still a 2016 speech.
+  # Closing this at the 2018 handover looked tidy and cost more than half the corpus: the
+  # Archive re-crawled this host heavily in 2022–2024, and for many articles that late
+  # capture is the ONLY one. Measured: `20180808` harvests 1,152 URLs, `20260101` harvests
+  # 3,427 (the full CDX count). The later captures are likelier to be WAF shells — a
+  # 10-page sample lost 3 to `archived_block_page` — but ~70% of 3,427 still beats 1,152.
+  wayback_to: "20260101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+
+listing:
+  # Anchored at scheme+host with an optional port (CDX hands back `host:80/` forms).
+  # The {20,} tail is the truncated-capture guard described above.
+  link_pattern: '^https?://es\.presidencia\.gov\.co(?::\d+)?/(?:noticia|discursos)/\d{6}-[A-Za-z0-9%-]{20,}$'
+
+title:
+  # h1 is the real headline here, matching <title> ("Palabras del Presidente Juan Manuel
+  # Santos en la inauguración sistema de transporte masivo Transcaribe") — checked on three
+  # captures rather than assumed, because an h1 is so often the site banner.
+  selectors: ["h1", "title"]
+text:
+  # div.article is the clean article container; it opens with the dateline
+  # ("Cartagena, martes, 29 de marzo de 2016"). Its parents (#contentBox, .twoArticle)
+  # additionally swallow "Contenido de la página / Noticias" chrome, so they are fallbacks
+  # only. The SharePoint `div.ExternalClass<32-hex>` that holds the prose has a DIFFERENT
+  # random class on every page, so it cannot be selected.
+  selectors: ["div.article", "div#contentBox", "div.twoArticle", "div#DeltaPlaceHolderMain"]
+date:
+  # From the slug's YYMMDD. Named groups assemble it unambiguously, and the engine widens
+  # the 2-digit year (00–68 -> 20xx), so 160329 is 2016-03-29.
+  #
+  # No body-date fallback: the body's "Última actualización: 16/03/2016" is the page's last
+  # EDIT, not the speech date, and a numeric DD/MM would be ambiguous anyway.
+  url_regex: '/(?:noticia|discursos)/(?P<year>\d{2})(?P<month>\d{2})(?P<day>\d{2})-'
+
+position: president
+date_languages: ["es"]
+# speaker_default unset: /noticia/ is third-person news about the president, not his words.
+notes: >
+  Juan Manuel Santos's second term (Dec 2015 – Aug 2018) on es.presidencia.gov.co, which no
+  longer resolves — Archive only. 3,430 article-shaped captures (noticia 2,970, discursos
+  460) out of 50,707 on the host: 77% of the host's captures are the F5 WAF's own /TSPD/
+  endpoint and SharePoint plumbing, archived as HTTP 200. The link_pattern requires 20+
+  characters of slug to reject the Archive's many truncated captures of the same article.
+  Date from the slug's YYMMDD. 2015 is a gap between this recipe and
+  col_presidencia_santos1_wayback.

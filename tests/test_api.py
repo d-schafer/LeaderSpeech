@@ -274,3 +274,134 @@ def test_dotted_results_path_still_works():
     client = FakeClient([_sp_page([_sp_row("http://x/prensa/1", "T", "2024-01-02T00:00:00Z")]),
                          _sp_page([])])
     assert [e["url"] for e in api.harvest_entries(r, client=client)] == ["http://x/prensa/1"]
+
+
+# --- api.text_is_html: carried HTML bodies (2026-09-22) -------------------------------
+# A dozen WordPress recipes leave `text_field` unset and pay for a page fetch per document
+# purely because `clean_text` does not strip tags. `text_is_html` flattens the fragment
+# instead — the Colombian SharePoint recipes carry `PublishingPageContent` this way.
+
+def _html_recipe(text_is_html):
+    return _recipe({"results_path": ".", "url_field": "link", "title_field": "title",
+                    "text_field": "body", "text_is_html": text_is_html})
+
+
+def test_text_is_html_flattens_a_carried_fragment():
+    page = [{"link": "http://x/prensa/1", "title": "T",
+             "body": "<p><strong>Bogot\u00e1</strong></p><p>Buenos d\u00edas.</p>"
+                     "<script>var a=1;</script>"}]
+    entries = api.harvest_entries(_html_recipe(True), client=FakeClient([page, []]))
+    assert entries[0]["text"] == "Bogot\u00e1\nBuenos d\u00edas."   # tags gone, blocks split
+    assert "var a" not in entries[0]["text"]                        # script dropped
+
+
+def test_text_is_html_defaults_off_so_existing_recipes_are_unchanged():
+    page = [{"link": "http://x/prensa/1", "title": "T", "body": "<p>Hola</p>"}]
+    entries = api.harvest_entries(_html_recipe(False), client=FakeClient([page, []]))
+    assert entries[0]["text"] == "<p>Hola</p>"
+
+
+def test_text_is_html_on_empty_text_stays_empty():
+    page = [{"link": "http://x/prensa/1", "title": "T", "body": None}]
+    entries = api.harvest_entries(_html_recipe(True), client=FakeClient([page, []]))
+    assert entries[0]["text"] == ""
+
+
+# --- api.via_browser: which client create_client hands back ---------------------------
+
+def test_create_client_is_httpx_unless_via_browser_is_set():
+    import httpx
+    r = _recipe({"results_path": ".", "url_field": "link"})
+    client = api.create_client(r)
+    try:
+        assert isinstance(client, httpx.Client)
+    finally:
+        client.close()
+
+
+def test_via_browser_selects_the_browser_client(monkeypatch):
+    """No browser is launched here — only the dispatch in create_client is asserted."""
+    built = {}
+
+    class _Stub:
+        def __init__(self, recipe, timeout=120.0, fetcher=None):
+            built["recipe"] = recipe
+            built["timeout"] = timeout
+            built["fetcher"] = fetcher
+
+    monkeypatch.setattr(api, "BrowserApiClient", _Stub)
+    r = _recipe({"results_path": ".", "url_field": "link", "via_browser": True})
+    sentinel = object()
+    client = api.create_client(r, timeout=30.0, fetcher=sentinel)
+    assert isinstance(client, _Stub)
+    assert built["recipe"] is r
+    assert built["timeout"] == 120.0   # floored: a browser round-trip needs longer than 30s
+    # probe/run hand over the Fetcher they already built — Playwright's sync API allows
+    # only one driver per thread, so a second browser here would raise.
+    assert built["fetcher"] is sentinel
+
+
+def test_borrowed_browser_is_not_closed_by_the_api_client():
+    """A borrowed Fetcher belongs to probe/run; closing it would kill their page fetches."""
+    class _Ctx:
+        pass
+
+    class _Fetcher:
+        def __init__(self):
+            self._context = _Ctx()
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    r = _recipe({"results_path": ".", "url_field": "link", "via_browser": True})
+    borrowed = _Fetcher()
+    client = api.BrowserApiClient.__new__(api.BrowserApiClient)
+    client._owns_fetcher = False
+    client._fetcher = borrowed
+    client.close()
+    assert borrowed.closed is False
+
+
+def test_site_root_defaults_to_the_api_host():
+    r = _recipe({"results_path": ".", "url_field": "link", "via_browser": True})
+    assert api._site_root(r) == "http://x/"
+
+
+def test_text_is_html_drops_zero_width_editor_residue():
+    """SharePoint opens nearly every body with an empty zero-width paragraph; it is not
+    whitespace, so without stripping it every document would start with a stray glyph."""
+    page = [{"link": "http://x/prensa/1", "title": "T",
+             "body": "<p>​</p><p>Bogotá, 14 de noviembre de 2024</p>"}]
+    entries = api.harvest_entries(_html_recipe(True), client=FakeClient([page, []]))
+    assert entries[0]["text"] == "Bogotá, 14 de noviembre de 2024"
+
+
+# --- api.param_template: OData keyset paging (2026-09-22) -----------------------------
+# A SharePoint LIST endpoint ignores $skip and returns page 1 forever, so the only way to
+# walk it is `$filter=Id gt <last>`. That needs the paging param's VALUE shaped, not just
+# the offset written.
+
+def test_param_template_shapes_the_paging_value():
+    pages = [{"items": [{"link": "http://x/prensa/a"}]},
+             {"items": [{"link": "http://x/prensa/b"}]},
+             {"items": []}]
+    client = FakeClient(pages)
+    r = _recipe({"results_path": "items", "url_field": "link",
+                 "param_template": "Id gt {n}"},
+                param="$filter", start=0, step=500, max_pages=5)
+    entries = api.harvest_entries(r, client=client)
+    assert [e["url"] for e in entries] == ["http://x/prensa/a", "http://x/prensa/b"]
+    from urllib.parse import parse_qs, urlparse
+    sent = [parse_qs(urlparse(u).query)["$filter"][0] for u in client.calls]
+    assert sent[:3] == ["Id gt 0", "Id gt 500", "Id gt 1000"]
+
+
+def test_without_param_template_the_bare_offset_is_still_written():
+    """Backward compatibility: every existing api recipe pages by a plain number."""
+    client = FakeClient([{"items": [{"link": "http://x/prensa/a"}]}, {"items": []}])
+    r = _recipe({"results_path": "items", "url_field": "link"},
+                param="startRow", start=0, step=50, max_pages=3)
+    api.harvest_entries(r, client=client)
+    assert "startRow=0" in client.calls[0]
+    assert "startRow=50" in client.calls[1]

@@ -1,0 +1,94 @@
+# Colombia — Iván Duque's FIRST two years (Aug 2018 – mid 2020), on the site that held
+# them: id.presidencia.gov.co ("Iván Duque").
+#
+# Colombia renamed this host to idm.presidencia.gov.co ("Iván Duque Márquez") around
+# August 2020, and the two hold DIFFERENT halves of the same presidency: idm starts at
+# 2020-08-08 (col_presidencia_duque), this one runs 2018-08-08 to 2020. Neither is a
+# superset of the other, so both are needed to cover the term. That gap is what sent this
+# session looking for a second host — see col_presidencia_duque's COVERAGE note.
+#
+# It is LIVE, not an Archive recipe: the host still serves its pages and its SharePoint
+# REST API. It is behind the same F5/BIG-IP WAF as the rest of the domain, and it escalates
+# the same way — it answered roughly a dozen plain-httpx calls cleanly (including two 1.7 MB
+# ones) and then began returning the ~6 KB JavaScript challenge stub to every further one.
+# So the harvest goes through headless Chromium (`api.via_browser`), as its siblings do.
+#
+# This host also differs in exposing the LIST endpoint (`/items`), which the others stub
+# unconditionally. That matters here because the articles live in per-year SUBFOLDERS
+# (/Paginas/prensa/2018|2019|2020) and `/items` returns the library recursively, so one
+# paged harvest covers all three years — whereas the Files-collection idiom the sibling
+# recipes use is per-folder and would need a recipe each.
+#
+# RULE 1: one library, tagged by `Categoria`. Measured over the first 5,000 items:
+# Noticia 2,126, **En las Regiones 1,788**, Discurso 720, Construyendo Pais 190,
+# Sin categoria 132, Columna 19, Construyendo Futuro 10. Scoping to Discurso would take
+# 14% and throw away "En las Regiones" — the president's regional-tour coverage, the
+# second-largest block on the site. All of it is taken.
+source_id: col_presidencia_duque_early
+country: Colombia
+source_language: Spanish
+renderer: static
+# The WAF returns an empty body to the honest bot UA; the browser UA is what gets served.
+# renderer stays `static` because no article page is ever fetched (the JSON carries the
+# body) — the browser is used only for the API calls, via api.via_browser.
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+start_urls:
+  - "https://id.presidencia.gov.co/_api/web/lists/getbytitle('Paginas')/items?$select=Id,Title,FileRef,FechaNoticia,PublishingPageContent&$orderby=Id&$top=500"
+
+listing:
+  link_pattern: '^https?://id\.presidencia\.gov\.co/Paginas/prensa/\d{4}/.+\.aspx$'
+
+pagination:
+  type: api
+  # KEYSET paging, not an offset. This host's list endpoint silently IGNORES `$skip` —
+  # every page comes back identical to page 1, which is how a first draft harvested 970 of
+  # 8,642 and looked successful — and `$skiptoken=Paged=TRUE&p_ID=N` answers with an HTML
+  # error page. `$filter=Id gt <n>` with `$orderby=Id` is what actually walks the list.
+  # Ids run 1..8,759 for 8,642 items, so stepping by the page size never leaves a hole:
+  # each page starts immediately after the previous cut-off, and the ~117 id gaps only
+  # cause a little overlap, which the engine de-duplicates by URL.
+  param: "$filter"
+  start: 0
+  step: 500
+  max_pages: 30          # 8,759 ids / 500 = 18 pages; headroom
+  api:
+    param_template: "Id gt {n}"
+    via_browser: true
+    warmup_url: "https://id.presidencia.gov.co/Paginas/prensa/2019/"
+    # The JSON host IS the site host here, but FileRef is a server-relative path and the
+    # start_url is an /_api/ URL, so joining against the site root is what makes the row
+    # URLs come out as /Paginas/prensa/... rather than /_api/web/.../Paginas/prensa/...
+    url_base: "https://id.presidencia.gov.co/"
+    headers:
+      Accept: "application/json;odata=nometadata"
+    results_path: "value"
+    url_field: "FileRef"
+    title_field: "Title"
+    date_field: "FechaNoticia"
+    text_field: "PublishingPageContent"
+    text_is_html: true
+    delay: 1.0
+
+# Fallbacks only — the JSON carries the body, so no article page is fetched.
+title:
+  selectors: ["h1.titulo-noticia", "h1", "title"]
+text:
+  selectors: ["#ZonaNoticia", ".boletinContenido", ".ms-rtestate-field", "article", "main"]
+date:
+  # The filename opens with YYMMDD on most of these; the list's own FechaNoticia is the
+  # primary source and this is the fallback.
+  url_regex: '/Paginas/prensa/\d{4}/(?P<year>\d{2})(?P<month>\d{2})(?P<day>\d{2})-'
+
+position: president
+date_languages: ["es"]
+# speaker_default unset: most of the library is third-person news about the president.
+notes: >
+  Iván Duque's first two years (Aug 2018 – 2020) on id.presidencia.gov.co, the host the
+  Presidency used before renaming it idm.presidencia.gov.co; the two cover different halves
+  of the term and col_presidencia_duque covers the later one. Live, behind the same
+  F5/BIG-IP WAF as the rest of the domain, so the API is read through headless Chromium.
+  Unusually for this domain its SharePoint LIST endpoint is open, and that endpoint is
+  recursive, so one paged harvest covers the per-year subfolders. 8,642 library items. The
+  JSON carries the full body, so no article page is fetched. RULE 1: all categories taken
+  (Discurso is only 14%; "En las Regiones" is the second-largest block).

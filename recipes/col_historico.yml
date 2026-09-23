@@ -1,0 +1,122 @@
+# Colombia — historico.presidencia.gov.co: Álvaro Uribe's two terms (2002–2010), LIVE.
+#
+# The Presidency kept its pre-2010 site online as a frozen static archive on IIS. It is a
+# live recipe, not a Wayback one: every page below is served by the origin today. The host
+# root times out, but every article and daily-archive path answers HTTP 200 over plain
+# http:// to the honest bot UA — no WAF, unlike the rest of presidencia.gov.co.
+#
+# STRUCTURE: one LISTING page per day, holding that day's speeches, news, comunicados and
+# agenda notes together. There is no per-section index that covers the whole term, so the
+# recipe walks the days: `start_urls_file` carries the 2,627 daily pages that exist
+# (derived 2026-09-22 by requesting all 2,923 days of the presidency; the header of that
+# file records how, and why the other 296 are omitted). They link **42,921 distinct
+# articles** — 2002: 2,514, 2003: 5,510, 2004: 5,714, 2005: 4,911, 2006: 5,272,
+# 2007: 4,755, 2008: 5,451, 2009: 5,321, 2010: 3,518.
+#
+# RULE 1: the daily page mixes "Palabras del Presidente Álvaro Uribe Vélez en …" with
+# comunicados, third-person news and the day's agenda ("9:00 a.m. Visita del Presidente a
+# la Fuerza de Tarea Conjunta"). All of it is taken; the cleaning step's document_type gate
+# is what separates speech from agenda note. The host's other sections — /discursos/,
+# /comunicados/, /columnas/, /entrevistas/ — are all reachable from these daily pages under
+# the same `/sp/` and `/prensa_new/sne/` article paths, so they need no separate entry.
+# Deliberately OUT: /fotos/ and /prensa_new/fotos/ (2,338 photo pages), /videos/ and
+# /videos_sptv/ (499), /asiescolombia/ (country-information pages), /especial/ (event
+# landing pages), /narino/ (a palace tour) and /banco/ (an image bank) — none carry speech
+# text. /english/ (118 pages) is left out too: it is English *translations* of speeches
+# this recipe already takes in Spanish, so including it would double-count them.
+#
+# Coverage ratio: the daily pages reach 42,921 articles, against 13,000-odd article
+# captures the Internet Archive holds for this host — the live crawl is the fuller source
+# by a wide margin, which is why this is not a wayback recipe.
+source_id: col_historico
+country: Colombia
+source_language: Spanish
+renderer: static
+
+# The root (https and http alike) times out; the article tree does not. Keep http://.
+start_urls: []
+start_urls_file: data/col_historico_days.txt
+
+listing:
+  # The link_pattern is anchored at the host and admits only the two article shapes, never
+  # the archivo/index/foto pages, so a bare `a` is the right selector.
+  link_selector: "a"
+  link_pattern: '^https?://historico\.presidencia\.gov\.co/(?:sp|prensa_new/sne)/\d{4}/[a-z]+/\d{2}/(?!archivo|index|foto)[^/]+\.html?$'
+  # 2002–2006 article pages carry NO headline element (see `title` below), so the headline
+  # is carried across from the anchor text here. `td` resolves to the anchor's NEAREST
+  # table cell, which holds exactly one article link — not the calendar cell.
+  #
+  # The anchor class changed almost every year, and listing ONE of them is how the first
+  # draft titled only 20,154 of 42,895 links: 2002 `azul1`/`gris`, 2003 `tit_banner` +
+  # `parrafos`, 2004–2007 `tituloscentro`/`titulos`, 2007–2010 `titulo3`, and a handful of
+  # 2007 items whose anchor has no class at all.
+  #
+  # `a.tit_banner` (2003) is deliberately NOT here: its text is the numeric FILE ID, not a
+  # headline — literally "15082003". An earlier draft had it ahead of `a.parrafos` and
+  # probed green while writing IDs into every 2003 title. Checked against the article each
+  # anchor points at; `a.parrafos` is the real 2003 headline.
+  #
+  # A bare `a` closes the chain, which covers the classless 2007 anchors and 2002's
+  # `azul1`/`gris`. It is safe because item_selector scopes it to the single table cell
+  # that owns this one article link. Verified end to end, all four eras, title matched
+  # against the target article's body: 42,895 of 42,895 links titled.
+  #
+  # KNOWN COSMETIC ISSUE, 2002 only (2,514 articles, 5.9%): those anchors prefix the
+  # headline with a 6-digit id — "010702\nCLAVES DEL REFERENDO". The headline itself is
+  # intact and correctly associated (the 2002 listings repeat some hrefs, but the FIRST
+  # occurrence, which is the one the engine keeps, is the right one). It is left in rather
+  # than stripped because a FieldSpec regex returns its whole match, not a capture group,
+  # so removing the prefix needs a lookbehind that would silently truncate any title
+  # containing a 6-digit run. The cleaning step sees the whole headline either way.
+  item_selector: "td"
+  item_title:
+    selectors: ["a.titulo3", "a.tituloscentro", "a.titulos", "a.parrafos", "a"]
+
+pagination:
+  type: none          # each start_url is its own complete daily listing
+
+title:
+  # `td.titulo4` is the real headline, and ONLY the 2007–2010 pages have it (verified as a
+  # single element, 72–114 chars). Earlier pages have no headline of their own, and their
+  # title arrives from the listing's `item_title`.
+  #
+  # `<title>` is deliberately NOT in this chain. It is the site banner — literally
+  # ".:: SNE ::." on every 2002–2006 page and "::SP NOTICIAS - Presidencia de la República
+  # de Colombia::" on every later one. With it here the recipe reported a green title on
+  # every page while writing chrome into 22,741 rows.
+  selectors: ["td.titulo4"]
+text:
+  # Three generations, three containers: 2007–2010 `td.parrafo`; 2004–2006 `p.parrafos`
+  # (preferred over its `td.parrafos` parent, which also swallows the headline banner);
+  # 2002–2003 `div.parrafos`. first_match takes the first selector that matches anything,
+  # so the generations cannot interfere — but the order still matters, because the 2004–06
+  # pages have BOTH `p.parrafos` and `td.parrafos`.
+  selectors: ["td.parrafo", "div.parrafos", "p.parrafos", "td.parrafos"]
+date:
+  # ONLY from the URL path, which carries /{YYYY}/{month-name}/{DD}/ — verified correct on
+  # 6 of 6 sampled URLs across both generations.
+  #
+  # There is deliberately NO body-date selector. The dateline that opens every article is
+  # "Montería, 31 jul (SP)." — a day and an abbreviated month with NO YEAR, which dateparser
+  # completes from TODAY: it reads that line as 2026-07-31. A confidently wrong year is
+  # worse than a blank date, because the resolved date is what picks the tenure roster and
+  # so drives speaker attribution.
+  url_regex: '/(\d{4}/(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/\d{2})/'
+
+position: president
+date_languages: ["es"]
+# speaker_default unset even though Uribe held the office for the whole 2002–2010 window:
+# most of these pages are third-person news and ministerial comunicados, not the
+# president's words. The cleaning step assigns the speaker; the tenure key confirms Uribe.
+politeness:
+  delay_range: [0.2, 0.6]
+notes: >
+  Álvaro Uribe's presidency (2002-08-07 – 2010-08-07) on the Presidency's own frozen
+  static archive, served live over http. Crawled as 2,627 daily listing pages (one per day
+  the site published) via start_urls_file, which link 42,921 distinct articles — speeches,
+  comunicados, news and agenda notes together, taken whole per RULE 1. Two URL generations
+  (prensa_new/sne through 2007-07, sp from 2007-08) with different body classes, both in
+  the text selector chain. The date comes from the URL path only: the body dateline carries
+  no year and dateparser completes it from the current year. Titles are carried from the
+  listing anchors, the article pages having no headline element. Known gap: 2007-08-01 to
+  2007-08-15, where neither generation's daily page exists.
