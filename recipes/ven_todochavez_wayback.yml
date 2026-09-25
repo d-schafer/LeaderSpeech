@@ -1,0 +1,71 @@
+# Venezuela — "Todo Chávez en la Web" (todochavez.gob.ve / todochavezenlaweb.gob.ve), via the
+# Internet Archive.
+#
+# The Venezuelan state's collected-works archive of Hugo Chávez (1999–2012), run by a government
+# institute: full transcripts of speeches, "Aló Presidente" episodes, interviews, press
+# conferences, phone-ins, cabinet meetings, plus his writings. One article template throughout:
+#     <host>/todochavez/<id>-<slug>
+# Both host names serve the SAME articles under the SAME ids (todochavezenlaweb is the older
+# name). The live host did not answer from here on 2026-09-18 or 2026-09-24; the Archive's
+# crawler still received 200s in 2026.
+#
+# COVERAGE (measured 2026-09-24): the site's own listing endpoint, captured in 2019
+# (/ajax/articulos.php), reports found_rows = 6,118 published articles, 1,526 of them in
+# "Discursos y Alocuciones". The Archive holds 903 distinct article ids across both hosts
+# (820 on todochavez.gob.ve, 201 on todochavezenlaweb.gob.ve, 83 only on the latter), i.e.
+# ~15% of the site. Every capture is from 2016 or later. That is the Archive's reach, not a
+# pattern limit: the pattern below takes every article URL on either host.
+#
+# IDENTITY: the Archive also recorded TRUNCATED copies of many URLs (`/3661-v-foro-social-mundial-`,
+# `/2880-`), each a distinct URL for one article. The id is the identity, so the slug and the
+# `enlaweb` host alias are both stripped before dedupe — one fetch per article.
+#
+# Selectors verified on captures from both hosts, 2018–2026:
+#   title  h3 (one per page — the article heading)
+#   text   div.contenido (the transcript; div.texto/div.articulo add the category + place header)
+#   date   .fecha — "24/08/2008." (DD/MM/YYYY)
+#   context .ubicacion — the place line ("Salón Ayacucho del Palacio de Miraflores, Caracas")
+source_id: ven_todochavez_wayback
+country: Venezuela
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - todochavez.gob.ve/todochavez/
+  - todochavezenlaweb.gob.ve/todochavez/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?todochavez(?:enlaweb)?\.gob\.ve(?::\d+)?/todochavez/\d+-[a-z0-9-]*$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - 'enlaweb(?=\.gob\.ve)'
+    - '(?<=\d)-[^/]*$'      # /todochavez/3661-v-foro-… and /3661- both -> /todochavez/3661
+
+title:
+  selectors: ["h3", "title"]
+text:
+  selectors: ["div.contenido", "div.texto"]
+date:
+  selectors: [".fecha"]
+  regex: '\d{1,2}/\d{1,2}/\d{4}'
+  regex_required: true
+context:
+  selectors: [".ubicacion"]
+
+speaker_default: Hugo Chávez
+position: president
+date_languages: ["es"]
+
+notes: >
+  Todo Chavez en la Web, the Venezuelan state's archive of Hugo Chavez's speeches, Alo Presidente
+  transcripts, interviews and writings (1999-2012), recovered from the Internet Archive across
+  its two host names. The site lists 6,118 articles; the Archive holds 903 distinct ids (~15%),
+  all captured 2016 or later. Full transcripts (often 20k-200k chars), dated DD/MM/YYYY on the
+  page. Chavez-only by construction, so speaker_default is safe.

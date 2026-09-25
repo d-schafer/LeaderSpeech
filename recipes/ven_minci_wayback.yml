@@ -1,0 +1,84 @@
+# Venezuela — MINCI, the Ministerio del Poder Popular para la Comunicación e Información
+# (minci.gob.ve), Chávez-era numbered CMS 2005–2012, via the Internet Archive.
+#
+# Why a ministry: the presidency's own site holds almost nothing before 2008 (see
+# ven_presidencia_wayback), and MINCI hosted the President's press office — "Noticias Prensa
+# Presidencial", "Alocuciones", "Giras Presidenciales", "Las Líneas de Chávez" — for
+# the second Chávez decade. Government-owned (decision 1).
+#
+# WHOLE-HOST ENUMERATION (cdxbatch, 2026-09-24): 332,924 unique URLs, of which the numbered CMS
+#     /<section>/<category>/<id>/[<slug>.html]
+# holds 19,691 distinct article ids. As on alopresidente.gob.ve (same CMS vendor) one article id
+# is served under several ALIAS section names, so the section + category are stripped before
+# dedupe. By category (distinct ids): 1 noticias 10,549 · 28 Prensa Presidencial 4,279 ·
+# 2 reportajes 1,216 · 4 alocuciones 573 · 7 opinión 546 · 3 entrevistas 532 · 26 medios 250 ·
+# 16 Aló Presidente 181 · 24 giras presidenciales 141 · 6 libros/publicaciones 121 ·
+# 22 especiales 107 · 82 Las Líneas de Chávez 101 · … RULE 1: all of them are taken — the
+# presidential categories are ~5,900 of the 19,691; the cleaner removes the ministry news that
+# does not carry the President's words.
+#
+# LEFT OUT, sampled: photo/video/audio (fotogaleria, fotoreportajes, afiches, audiovisuales,
+# radio + boletines_radiales mp3 players — 83,000 captures), infographics, the community-media
+# directory, print views (*.prnt), send-to-a-friend (/includes/enviar_email.php, 40,873).
+# NOT IN THIS RECIPE: MINCI's WordPress generation 2012–2018 (/YYYY/MM/<slug>/, ~52,000 posts,
+# ~8,800 naming the President in the slug) — it overlaps ven_presidencia_wayback's Maduro years
+# and is recorded as a candidate (ven_minci_wp_wayback) pending the researcher's call.
+#
+# TEMPLATE (verified on 2007, 2008 and 2010 captures): title .titulo · lead .sumario + body
+# .contenido · date .fechaArticulo ("5 de marzo de 2008"). The 2006–07 skin ALSO renders the
+# whole article a second time inside a hidden print block, div#imprimir (display:none) — without
+# the :not(#imprimir *) guard the engine joins both copies and every body is written twice.
+# The 2009–2010 skin renames every class with an `_si` suffix (.titulo_si, .sumario_si,
+# .contenido_si, .fechaArticulo_si) — the second link of each chain. On BOTH skins the header's
+# .fecha ("Caracas, 19 de diciembre de 2009") is the SITE CLOCK, the capture day — never used.
+# PROBE 2026-09-24 (--spread 14): harvest 18,699 (the engine's one-shot CDX over both bare hosts
+# returns the whole set); title/text/date 14/14, dated 2005-01-15 … 2011-11-24.
+# ALOCUCIONES are thin: the 2008 captures sampled (5) are 0.5–2.8k chars — a title, a date and
+# often an empty .contenido; the speech itself was not on the page. They are kept (title + date
+# are still a record of the speech) and the cleaner judges them.
+source_id: ven_minci_wayback
+country: Venezuela
+source_language: Spanish
+renderer: static
+
+start_urls:
+  # Bare hosts on purpose — two dozen alias sections; link_pattern does the narrowing.
+  - minci.gob.ve
+  - minci2.minci.gob.ve
+
+listing:
+  link_pattern: '^https?://(?:www\.|minci2\.)?minci\.gob\.ve(?::\d+)?/(?!\d{4}/|(?:boletines_radiales|radio|includes|galeria|multimedia|fotogaleria|fotoreportajes_minci|fotoreportaje|afiches|audiovisuales|directorio_medios_comunitarios|infografias|infografias_minci)/)[A-Za-z0-9_-]+/\d+/\d+/(?:[^/?#]+\.html)?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - 'minci2\.(?=minci\.gob\.ve)'
+    # /noticias-prensa-presidencial/28/9980/x.html, /noticias_-_prensa/28/9980/, … -> /9980
+    - '/[A-Za-z0-9_-]+/\d+(?=/\d+/(?:[^/]+\.html)?$)'
+    - '(?<=\d)/[^/]+\.html$'
+
+title:
+  selectors: [".titulo:not(#imprimir *)", ".titulo_si", "title"]
+text:
+  selectors: [".sumario:not(#imprimir *), .contenido:not(#imprimir *)", ".sumario_si, .contenido_si"]
+date:
+  selectors: [".fechaArticulo:not(#imprimir *)", ".fechaArticulo_si"]
+  regex: '\d{1,2} de [a-záéíóú]+ de \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  MINCI (Ministerio del Poder Popular para la Comunicacion e Informacion), the Chavez-era numbered
+  CMS 2005-2012 from the Internet Archive: the President's press office (Noticias Prensa
+  Presidencial 4,279 ids), his addresses (Alocuciones 573 - thin pages), interviews, Alo
+  Presidente, presidential tours, Las Lineas de Chavez, and the ministry's general news - 18,699
+  documents (19,691 article ids before the gallery/media exclusions) across two dozen alias
+  sections, folded by id. Probe 14/14. The 2012-2018 WordPress
+  generation is not included (candidate, researcher's call).

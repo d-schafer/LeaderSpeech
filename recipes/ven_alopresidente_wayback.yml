@@ -1,0 +1,89 @@
+# Venezuela — alopresidente.gob.ve, the government site of Hugo Chávez's weekly broadcast
+# "Aló Presidente" (1999–2012), HTML pages, via the Internet Archive.
+#
+# What the site held: news on each Sunday programme and the announcements made in it
+# (noticias), features (reportajes), interviews (entrevistas), testimonials, public works
+# (obras), the programme's "Territorio Aló" and "Poder Popular" features, and one page per
+# EPISODE ("Programa Aló Presidente 325": place, date, summary). The transcripts are PDFs and
+# live in ven_alopresidente_transcripts_wayback. The host no longer resolves (Sept 2026).
+#
+# TWO SITE GENERATIONS, both taken (whole-host CDX enumeration 2026-09-24, year-sliced —
+# 49,066 unique URLs, 30,768 of them status-200 HTML):
+#   1. Joomla, 2006–2009 captures:  /<section>/<slug>.html
+#        noticias 317 · noticia 300 · reportajes 130 · territorio-alo 83 · entrevistas 52 ·
+#        obras 50 · testimonios 28 · poder-popular(-populacho) 32 · ritmos-del-pueblo 15 ·
+#        ideas-fundamentales 10                                          ≈ 1,017 pages
+#      title td.contentheading · body table.contentpaneopen (NOT the sidebar copy inside
+#      .moduletableIdeasFun) · date "> 04.06.06" (DD.MM.YY) in .contentpaneopenhead — on the
+#      2006–07 skin only. The 2008–09 skin leaves that cell EMPTY and shows no article date at
+#      all: its one date, div.fech ("Caracas, 11 de Septiembre de 2009"), is the SITE CLOCK and
+#      is deliberately not used. Those rows stay undated for the cleaner (probe: 4 of 5).
+#   2. Custom CMS, 2010–2017 captures:  /<section>/<cat>/<id>/<slug>.html
+#        one numeric article id, served under several ALIAS sections: /informacion/2/1000/…,
+#        /noticias/2/1000/…, /info/2/1000/…, /nformacion/…, /lb/…, /ry/…, /libros-folletos/…,
+#        /0n/7/… (episode pages), /84/5/… — ~1,500 distinct ids. The section and category are
+#        stripped before dedupe so each id is fetched once.
+#      title .titulo · body .contenido · date .fechaArticulo ("28 de enero de 2007").
+#      ⚠ .fecha_principal on the same page is the SITE CLOCK (the capture day) — never used.
+#
+# DUPLICATES ACROSS GENERATIONS, expected: the 2010 CMS imported the Joomla articles under new
+# ids (e.g. "presidente-chavez-reactiva-planta-trituradora…" is also /informacion/5/493/), and
+# there is no URL key that links the two. Both generations are taken (the Archive holds some
+# articles only under one of them); `clean_structure_metadata.duplicates` finds the
+# same-text pairs afterwards.
+#
+# COVERAGE (year-sliced CDX, 2026-09-24): every article-shaped status-200 capture on the host —
+# 4,450 captures -> 2,361 distinct documents (the probe's own harvest finds the same 2,361). The
+# other ~26,300 status-200 HTML captures are the excluded families below.
+#
+# Left out, sampled: photo galleries (/multimedia/23, /galeria/23, /foto-galeria), video
+# (/transmisiones_anteriores, .flv/.swf), per-episode LISTING pages (/programas/29/<id>/ and every
+# /p--N/tp--N/ pager), print views (*.prnt, index2.php?…pop=1), send-to-a-friend
+# (/includes/enviar_email.php — 5,774 captures), the docman file store (/component/…com_docman —
+# its transcripts are the same PDFs as the materia_alo set; its other files are books and video
+# links), a Twitter-embed shell (/app, /i, /dm …).
+source_id: ven_alopresidente_wayback
+country: Venezuela
+source_language: Spanish
+renderer: static
+
+start_urls:
+  # Bare host on purpose: two generations, a dozen alias sections. link_pattern does the
+  # narrowing; the harvest is one CDX prefix query over the host.
+  - alopresidente.gob.ve
+
+listing:
+  link_pattern: '^https?://(?:www\.)?alopresidente\.gob\.ve(?::\d+)?/(?:(?![Mm]ultimedia/|[Gg]aleria/|foto-galeria/|[Pp]rogramas/|[Mm]ateria_?[Aa]l|[Tt]ransmisiones_anteriores/|imagenes/|img/)[A-Za-z0-9_-]+/\d+/\d+/(?:[^/?#]+\.html)?|(?:noticias|noticia|reportajes|territorio-alo|entrevistas|obras|testimonios|poder-populacho|poder-popular|ritmos-del-pueblo|ideas-fundamentales)/(?!page_\d)[^/?#]+\.html)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # /informacion/2/1000/x.html, /noticias/2/1000/x.html, /lb/2/1000/y.html, /noticias/2/1000/
+    #   ->  /1000   (the slugless form serves the same article — checked on /noticias/2/1757/)
+    - '/[A-Za-z0-9_-]+/\d+(?=/\d+/(?:[^/]+\.html)?$)'
+    - '(?<=\d)/[^/]+\.html$'
+
+title:
+  selectors: [".titulo", "td.contentheading", ".contentheading", "title"]
+text:
+  selectors: [".contenido", "table.contentpaneopen:not(.moduletableIdeasFun table)"]
+date:
+  selectors: [".fechaArticulo", ".contentpaneopenhead td[valign=top]"]
+  regex: '\d{1,2} de [a-záéíóú]+ de \d{4}|\d{2}\.\d{2}\.\d{2,4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  alopresidente.gob.ve, the Venezuelan government's site for Hugo Chavez's weekly broadcast
+  Alo Presidente, recovered from the Internet Archive: news on each programme and its
+  announcements, features, interviews, public works and one summary page per episode, across
+  two site generations (Joomla slugs 2006-2009; numbered articles under alias sections
+  2010-2017), 2,361 documents. Mostly reported speech about the President; the cleaner keeps
+  what carries his words. Transcripts are ven_alopresidente_transcripts_wayback.

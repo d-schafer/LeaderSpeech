@@ -1,0 +1,99 @@
+# Venezuela — presidencia.gob.ve, the Ministerio del Poder Popular del Despacho de la
+# Presidencia (Maduro era, 2013–2025, plus Chávez-era articles back to 2008), via the Internet
+# Archive.
+#
+# The live host did not answer from here on 2026-09-18 or 2026-09-24 (connect timeout). The
+# Archive holds 118,484 unique URLs on the host (year-sliced whole-host CDX, 2026-09-24).
+#
+# ONE ARTICLE TEMPLATE, several script names, ONE id space:
+#     /Site/Web/Principal/paginas/classMostrarEvento<N>.php?id_evento=<id>
+#   N = 1 (2014 captures, 9,103 ids), 3 (2016–2026 captures, 29,603 ids), 2 (15),
+#   and classMostrarEvento_entrevista.php (1,440 ids) — the SAME article under another script:
+#   8,732 ids are shared by 1 and 3, 1,434 of the 1,440 "_entrevista" ids are also 3 ids, and
+#   the pages are identical. So the script name is stripped before dedupe and the id is the
+#   identity: 29,974 distinct articles, ids 1 – ~30,500. A 2025 crawl captured ~96% of every
+#   5,000-id block, so this is close to the whole site, not a sample of it.
+#   Also taken: /paz_vida/ (the presidency's Fundación Movimiento por la Paz y la Vida — its
+#   own id space, 362 ids, kept apart by the directory) and classMostrarEvento_libro.php
+#   (33 book pages). Ids of 6+ digits (6 captures, e.g. id_evento=14334129) are crawler noise.
+#
+# SPAN: the LOW ids are Chávez-era articles the 2014 site carried over from its predecessor
+# (id_evento=1000 is "Sarkozy urge a Chávez hallar camino para liberar rehenes de las FARC",
+# 2008), so the recipe reaches ~2008–2025. The site kept publishing in 2026 under the acting
+# president (ids reach 32,930 by Sept 2026), but the Archive's dense 2025 crawl stops near id
+# 30,500: the ~2,400 articles after it are only sparsely captured. Probe 2026-09-24 (--spread 15):
+# harvest 30,426; title 15/15, text 15/15, date 9/15 — dated 2018-10 … 2024-12 from the dateline;
+# the misses are 2008–2014 articles with no dateline (left to the cleaner) and a column PDF.
+#
+# RULE 1: there is no category in the URL; every article on the host is taken. Most are
+# ministry press notes about the President's activity; the cleaner keeps his words.
+#
+# ENCODING — the reason for `encoding: "utf-8,windows-1252"`: the host declares no charset in
+# the header or a <meta>. Its template is UTF-8, but on the 2014–2022 captures the ARTICLE text
+# comes out of the database as Latin-1 (one 2022 page: 14 valid UTF-8 characters, 54 stray
+# Latin-1 bytes), while the 2025 captures are clean UTF-8 under a UTF-8 header. The codec pair
+# reads each byte run in whichever codec it is valid in (fetch.decode_mixed).
+#
+# Two skins, both covered by the chains:
+#   2014        title .Titulo_Noti · body .Descripcion_Noti + .Texto_Noti
+#   2016–2025   title .Cont_Noti_Princ h4 · body .post_Noti_Princ
+# DATE: there is no date element. The only date is the lead's dateline —
+#   "(Prensa MPPDPSGG/17.10.14).-", "Prensa MPP- Despacho (Nélida Niño / 05.02.2020).-",
+#   "(Caracas, Prensa FMPV, 16.01.19 Emily González).-" — so the regex demands a DD.MM.YY(YY)
+#   that is followed, within the same parentheses, by the ")" + ".-" that closes a dateline.
+#
+# ALSO TAKEN: "Las Líneas de Chávez", Hugo Chávez's weekly newspaper column, as PDFs
+# (/doc|images/publicaciones/lineas_de_chavez/, 2009–2010 captures) — his own writing, taken on
+# the precedent of Dilma Rousseff's weekly column in bra_planalto_old_wayback.
+#
+# LEFT OUT, measured: the 2008–2013 news generation /action/noticia/view_ver_mas?id_noticia_web=N
+# (147 status-200 captures): the Archive's replay of every capture tried (3 of 3) breaks off
+# mid-body ("incomplete chunked read"), and its classless table markup offers no selector.
+# "Reflexiones de Fidel" PDFs (Fidel Castro's writing, not a Venezuelan leader's). Listing pages
+# (classListaEvento*.php — 6,800 captures), the JQuery image carousel, the webmail host.
+source_id: ven_presidencia_wayback
+country: Venezuela
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  # No article path equals a start_url path, so the engine's listing-page rule is harmless.
+  - presidencia.gob.ve/Site/Web/Principal/
+  - presidencia.gob.ve/doc/publicaciones/lineas_de_chavez/
+  - presidencia.gob.ve/images/publicaciones/lineas_de_chavez/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.ve(?::\d+)?/(?:Site/Web/Principal/(?:paginas|paz_vida)/classMostrarEvento(?:\d|_entrevista|_libro)?\.php\?id[_-](?:evento|libro)=\d{1,5}|(?:doc|images)/publicaciones/lineas_de_chavez/[^/?#]+\.pdf)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:(text/html|application/pdf)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # classMostrarEvento1/2/3/_entrevista.php?id_evento=N are one article -> classMostrarEvento.php?idevento=N
+    - 'classMostrarEvento(?:\d|_entrevista)(?=\.php\?id[_-]evento=)'
+    - '(?<=\?id)[-_](?=evento=)'
+
+title:
+  selectors: [".Cont_Noti_Princ h4", ".Titulo_Noti", "title"]
+text:
+  selectors: [".post_Noti_Princ", ".Descripcion_Noti, .Texto_Noti"]
+date:
+  selectors: [".post_Noti_Princ", ".Texto_Noti"]
+  regex: '\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})(?=[^()]{0,60}\)\s*\.?\s*-)'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gob.ve (Ministerio del Poder Popular del Despacho de la Presidencia), the Maduro-era
+  presidency site, from the Internet Archive: 30,426 documents - ~30,000 distinct articles (ids
+  1-~30,500, ~96% of the id range captured in 2025; the low ids are Chavez-era articles from
+  2008 on) plus the paz_vida foundation's news, book pages and Chavez's weekly column PDFs. Mixed-encoding host (UTF-8 template, Latin-1 article text on older
+  captures) read with the utf-8,windows-1252 codec pair. Dates from each article's dateline.
+  No speaker_default: the site spans Maduro and, from January 2026, the acting presidency.

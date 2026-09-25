@@ -298,6 +298,41 @@ def test_decode_html_unknown_encoding_override_falls_through():
     assert decode_html(resp, "not-a-real-charset") == "hello"
 
 
+# --- a codec PAIR for mixed-encoding pages (2026-09-24) -------------------------------------
+
+def test_decode_html_codec_pair_reads_utf8_chrome_and_latin1_article_together():
+    """The presidencia.gob.ve case: no charset anywhere, a UTF-8 template around Latin-1
+    article text. A single codec garbles one half or the other; the pair reads both."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    raw = ("<div>Biografía</div>".encode("utf-8")
+           + "<h4>Campaña Libertadora, Simón Bolívar</h4>".encode("latin-1"))
+    resp = httpx.Response(200, content=raw, headers={"content-type": "text/html"},
+                          request=httpx.Request("GET", "http://www.presidencia.gob.ve/x"))
+    assert "�" in decode_html(resp)                          # without it: U+FFFD
+    assert "BiografÃ­a" in decode_html(resp, "windows-1252")      # one codec: chrome breaks
+    out = decode_html(resp, "utf-8,windows-1252")
+    assert "Biografía" in out and "Campaña Libertadora, Simón Bolívar" in out
+    assert "�" not in out
+
+
+def test_decode_html_codec_pair_leaves_clean_utf8_untouched():
+    """The same site's 2025 captures are genuine UTF-8 (with a UTF-8 header): the pair must
+    decode them exactly as UTF-8 does, including characters windows-1252 would read as two."""
+    from leaderspeech.text_scraper.fetch import decode_html
+    text = "Nélida Niño — “Gran Misión” 5€"
+    resp = httpx.Response(200, content=text.encode("utf-8"),
+                          headers={"content-type": "text/html; charset=utf-8"},
+                          request=httpx.Request("GET", "https://www.presidencia.gob.ve/y"))
+    assert decode_html(resp, "utf-8,windows-1252") == text
+
+
+def test_decode_mixed_unknown_codec_in_the_pair_falls_through():
+    from leaderspeech.text_scraper.fetch import decode_html
+    resp = httpx.Response(200, content=b"hello", headers={"content-type": "text/html; charset=utf-8"},
+                          request=httpx.Request("GET", "http://example.org/"))
+    assert decode_html(resp, "utf-8,not-a-real-charset") == "hello"
+
+
 def test_recipe_encoding_field_defaults_to_none_and_round_trips():
     from leaderspeech.text_scraper.recipe import Recipe
     base = dict(source_id="x", country="C", start_urls=["http://e/"],

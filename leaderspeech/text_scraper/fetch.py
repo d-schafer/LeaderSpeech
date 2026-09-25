@@ -9,6 +9,7 @@ retries with exponential backoff.
 
 from __future__ import annotations
 
+import codecs
 import os
 import random
 import re
@@ -25,6 +26,23 @@ from .block import BlockPageError, looks_like_block_page
 #   <meta charset="windows-1250">
 #   <meta http-equiv="Content-Type" content="text/html; charset=windows-1250">
 _META_CHARSET = re.compile(rb"""charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]+)""", re.I)
+
+
+def decode_mixed(raw: bytes, primary: str = "utf-8", fallback: str = "windows-1252") -> str:
+    """Decode `raw` as `primary`, handing each byte run `primary` rejects to `fallback`.
+
+    For pages that are UTF-8 and Latin-1 at once (see `decode_html`). Valid `primary` text is
+    untouched, so a page that turns out to be clean UTF-8 decodes exactly as before. Raises
+    LookupError for an unknown codec name, like `bytes.decode`."""
+    fallback = codecs.lookup(fallback).name          # LookupError on an unknown name
+    handler = f"leaderspeech-fallback-{fallback}"
+    try:
+        codecs.lookup_error(handler)
+    except LookupError:
+        # One pass: the codec calls this for each rejected run and resumes after it.
+        codecs.register_error(handler, lambda exc: (
+            exc.object[exc.start:exc.end].decode(fallback, errors="replace"), exc.end))
+    return raw.decode(primary, errors=handler)
 
 
 def decode_html(resp: httpx.Response, encoding: Optional[str] = None) -> str:
@@ -51,11 +69,23 @@ def decode_html(resp: httpx.Response, encoding: Optional[str] = None) -> str:
     `Content-Type: text/html` with an EMPTY <head> and windows-1250 bytes, so both branches below
     fall through to httpx's UTF-8 default and every Croatian diacritic becomes U+FFFD
     ('Franjo Tu�man'). There is no signal to sniff — only the recipe author knows.
+
+    A comma-separated PAIR (`"utf-8,windows-1252"`) is for a MIXED-encoding page: the first codec
+    wherever the bytes are valid in it, the second for each run it rejects (`decode_mixed`).
+    Worked example (2026-09-24): presidencia.gob.ve (Venezuela, 2014-2025) declares no charset
+    anywhere; its template is UTF-8 but the article text comes out of the database as Latin-1 —
+    one 2022 page held 14 valid UTF-8 characters and 54 stray Latin-1 bytes — while its 2025
+    captures are clean UTF-8 under a UTF-8 header. No single codec reads every capture; the pair
+    does. Opt-in only: on an undeclared Central-European page it would turn a visible U+FFFD
+    into a plausible wrong letter, so it is never a default.
     """
     if encoding:
         raw = getattr(resp, "content", b"")
         if isinstance(raw, (bytes, bytearray)):
             try:
+                if "," in encoding:
+                    primary, fallback = (p.strip() for p in encoding.split(",", 1))
+                    return decode_mixed(bytes(raw), primary, fallback)
                 return raw.decode(encoding, errors="replace")
             except LookupError:          # a charset Python does not know; fall through
                 pass

@@ -1,0 +1,79 @@
+# Venezuela — "Aló Presidente" TRANSCRIPTS (PDF), alopresidente.gob.ve, via the Internet Archive.
+#
+# Aló Presidente was Hugo Chávez's Sunday broadcast (1999–2012, 378 episodes, often 4–8 hours).
+# The programme's own site published a verbatim transcript of each episode as a PDF under
+# "Material Aló → Transcripciones del Aló Presidente":
+#     alopresidente.gob.ve/materia_alo/25/<id>/?desc=<file>.pdf     (download)
+#     alopresidente.gob.ve/materia_alo/25/<id>/?visual=<file>.pdf   (inline view — same bytes)
+# The host no longer resolves (Sept 2026); the Archive holds 762 unique URLs under
+# /materia_alo, captured 2010–2016, of which 316 distinct transcript ids have a status-200
+# capture served as `application/download` (NOT application/pdf — the filter below takes both).
+#
+# QUERY-ADDRESSED: every copy of a document differs only in `?desc=` vs `?visual=`, so both are
+# declared noise params and fold to one identity per <id>. The start_url is the category
+# folder; no article path equals it, so the engine's "drop the listing page" rule is harmless.
+#
+# ALSO TAKEN — the Joomla-era (2006–2009) file store, /component/option,com_docman/…/task,
+# doc_view|doc_download/gid,<N>/: 215 gids with a PDF capture. Most of its transcripts are the
+# same documents as materia_alo, but 12 EPISODES EXIST ONLY HERE (45, 46, 232, 233, 236, 237,
+# 239–243, 309 — measured 2026-09-24 against the doc_details pages), so it is taken whole. It
+# also holds books and pamphlets (El Carupanazo, Misión Cultura, a French constitution) and a
+# collection of Chávez quotations; the cleaner sorts those out. Some ~50 transcripts will
+# therefore be DUPLICATES of materia_alo copies (different URL, same text).
+#
+# EXPECTED MISSES: 8 of the 316 materia_alo ids have only a ~9 KB capture — an HTML page the site
+# itself served under `application/download` (checked on id 1311), not the PDF. Those fall to the
+# generic extractor and come out as ~5k chars of site chrome for the cleaner to reject.
+# Probe 2026-09-24 (--spread 12): 531 documents; 10/12 extracted (98k–296k chars per transcript),
+# the 2 misses are two of those 8.
+#
+# Left out on purpose (sampled 2026-09-24):
+#   * /material_alo/12/<id>/ — the "Biblioteca Virtual": reference documents (the constitution,
+#     Bolívar's Carta de Jamaica) and administrative lists (pensioners, "petrobonos"), ~77 ids.
+#   * `/materia_alo/25/p--N/tp--N/` — listing pagination.
+#   * `…pdf/p--N/tp--N/` — the listing's pager appended to a PDF URL (a crawler artefact).
+#
+# Filenames follow a dozen conventions (alo_presidente_171.pdf, 295_alopresidente_complejo_p.pdf,
+# nro__287_al%C3%83…_22-julio-2007…pdf), so neither title nor date is taken from the URL: the
+# title falls back to the PDF's first line and the cleaner reads the date off the cover page.
+# Companion recipes: ven_alopresidente_wayback (the site's news/HTML pages) and
+# ven_todochavez_wayback (a second, HTML transcript archive that covers other episodes).
+source_id: ven_alopresidente_transcripts_wayback
+country: Venezuela
+source_language: Spanish
+content_type: pdf
+
+start_urls:
+  - alopresidente.gob.ve/materia_alo/25/
+  - alopresidente.gob.ve/component/option,com_docman/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?alopresidente\.gob\.ve(?::\d+)?/(?:[Mm]ateria_[Aa]lo/25/\d+/?\?(?:desc|visual)=[^/&]+\.[Pp][Dd][Ff]|component/option,com_docman/Itemid,\d+/task,doc_(?:view|download)/gid,\d+/?)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:application/(download|pdf|octet-stream|x-pdf)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_noise_params: [desc, visual]
+  # docman: task,doc_view and task,doc_download of one gid are the same file, under any Itemid
+  wayback_identity_strip: ['Itemid,\d+/', 'task,doc_(?:view|download)/']
+
+title: {}
+text: {}
+date: {}
+
+speaker_default: Hugo Chávez
+position: president
+date_languages: ["es"]
+
+notes: >
+  Verbatim transcripts of Hugo Chavez's weekly broadcast "Alo Presidente" (1999-2012) as
+  published by the programme's own government site, alopresidente.gob.ve, recovered from the
+  Internet Archive: 316 distinct transcript documents with a status-200 capture (2010-2016
+  captures), plus the 2006-2009 Joomla file store (215 PDFs: transcripts - 12 episodes found
+  nowhere else - books and pamphlets). The host no longer resolves. Titles come from the PDF's first line; dates are left
+  to the cleaner (the filenames follow no single convention). Single speaker by construction
+  (the programme ran only under Chavez), so speaker_default is safe here.
