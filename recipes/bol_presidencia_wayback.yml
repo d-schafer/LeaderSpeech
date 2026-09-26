@@ -1,0 +1,95 @@
+# Bolivia — the presidency's own site before the November 2025 wipe, presidencia.gob.bo and its
+# subdomains, via the Internet Archive: Evo Morales (2006–2019), Jeanine Áñez (2019–20) and
+# Luis Arce (2020–2025). The live site (bol_presidencia) now holds only Rodrigo Paz's government.
+#
+# The Archive holds 63,723 distinct status-200 URLs on the domain (CDX 2026-09-24). FIVE news
+# generations, each taken from its own path prefix:
+#   1. /noticia2.php?cod=N — 2009–2012, Morales, 161 ids. Title span.identifica, body
+#      td.identifica1.
+#   2. /fuente/noticia.php?cod=N — 2012–2018, Morales, 1,495 ids (a 2 KB fragment page).
+#      Title p.subtitulo_A, body div.columna3.
+#   3. comunicacion.presidencia.gob.bo/noticias/noticias.php?id=N — 2012–2018, the Ministry of
+#      the Presidency's own news, 153 ids. Title .tit_noticia, body .texto_j.
+#   4. /index.php/prensa/noticias/N-slug — Joomla 2018–2023: Morales, Áñez, Arce; 1,520 ids.
+#      Title = the article's h2 (the page's first h2 is the section name "Noticias"), body
+#      div[itemprop=articleBody].
+#   5. vc.presidencia.gob.bo — Arce 2024–2025 (the Viceministerio de Comunicación site):
+#      /index.php/prensa/<N-month>/N-slug (482) and /index.php/multimedia/publicaciones/N-slug
+#      (244). Title article h1, body div[itemprop=articleBody], date dd.published.
+# ≈ 4,080 documents.
+#
+# DATES: only generation 5 has a date element. Generation 4's bodies open with a dateline that
+# carries the year ("Entre Ríos, 5 de mayo de 2019.-") — read anchored at the start of the
+# body. Generations 1–2 open with a YEAR-LESS dateline ("La Paz, 18 sep (Prensa Palacio).-"),
+# which dateparser would complete with today's year, so no date selector reaches them; the
+# cleaner reads the text or falls back to the capture date.
+#
+# PROBE 2026-09-24 (--spread 16): harvest 4,125; title 16/16, text 16/16; dated 7/16 — every
+# generation-4 page (2019-06 … 2021-10) and generation 5 (e.g. "03 Febrero 2025" on an article
+# whose dateline reads "1 de febrero"); generations 1–2 blank by design. The first probe dated a
+# 2019 article 2026-03-02: the dateline "Oruro, 2 de marzo de \n2019" spans two text nodes, and
+# the date parser, given the line break, found only "2 de marzo" and supplied today's year.
+# Fixed in the engine the same day (parse_date collapses whitespace; a selector regex may name a
+# (?P<value>…) group, used below so the place name anchors the match without being returned).
+#
+# LEFT OUT, measured: audio galleries (galeria-de-audios2 play pages and their MP3/OGG
+# downloads, phocadownloadpap MP3s) and photo galleries; vc.presidencia.gob.bo/?q=YYYYMMDD/N
+# (169 captures — old Drupal addresses that now serve the home page); the comunicacion
+# subdomain's /documentos/pdf/ (219 PDFs: procurement calls, annual operating plans, executive
+# summaries) and its agenda/directory pages; /transparencia2 audit downloads; the
+# va.presidencia.gob.bo template demo pages; opensearch and mailto endpoints.
+source_id: bol_presidencia_wayback
+country: Bolivia
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gob.bo/noticia
+  - presidencia.gob.bo/fuente/noticia
+  - comunicacion.presidencia.gob.bo/noticias/noticias
+  - presidencia.gob.bo/index.php/prensa/noticias/
+  - vc.presidencia.gob.bo/index.php/prensa/
+  - vc.presidencia.gob.bo/index.php/multimedia/publicaciones/
+
+listing:
+  link_pattern: '^https?://(?:www\.|vc\.|comunicacion\.)?presidencia\.gob\.bo(?::\d+)?/(?:noticia2?\.php\?cod=\d+|fuente/noticia\.php\?cod=\d+|noticias/noticias\.php\?id=\d+|index\.php/prensa/noticias/\d+-[^/?#]+|index\.php/prensa/(?:\d+-[^/?#]+/)?\d+-[^/?#]+|index\.php/multimedia/publicaciones/\d+-[^/?#]+)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors:
+    - "article.item-page h1"          # 5
+    - "article.item-page h2"          # 4
+    - "span.identifica"               # 1
+    - "p.subtitulo_A"                 # 2
+    - ".tit_noticia"                  # 3
+text:
+  selectors:
+    - "div[itemprop='articleBody']"   # 4, 5
+    - "td.identifica1"                # 1
+    - "div.columna3"                  # 2
+    - ".texto_j"                      # 3
+date:
+  selectors:
+    - "dd.published"                                  # 5: "15 Abril 2024"
+    - "article.item-page div[itemprop='articleBody']" # 4: opening dateline, year included
+  # (?P<value>…): the engine returns only the named group, so the anchoring place name
+  # ("Oruro, ") is required but never parsed; (?i) for "15 Abril 2024".
+  regex: '(?i)^\W{0,3}(?:[^,.()]{2,60},\s*)?(?P<value>\d{1,2}\s+(?:de\s+)?[a-záéíóú]+\s+(?:de\s+|del\s+)?\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gob.bo before the Nov 2025 wipe, from the Internet Archive: five news generations
+  2009-2025 (Morales, Anez, Arce) plus the Ministry of the Presidency's 2012-2018 news,
+  ~4,080 documents. Dated where the page carries a year (2018-2025); the Morales-era 2009-2018
+  pages have year-less datelines and are left to the cleaner. No speaker_default.

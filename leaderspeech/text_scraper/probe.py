@@ -84,8 +84,9 @@ def _field_sources(recipe, name: str, spec: FieldSpec | None, soup, url: str):
     if name == "text":                       # text has no url_regex arm (see extract_record)
         return [(sel, clean_text(raw))]
     if name == "date":                       # selector text must PARSE, else the URL wins
-        return [(sel, parse_date(raw, recipe.date_languages)),
-                (url_label, date_from_url(spec, url, recipe.date_languages))]
+        return [(sel, parse_date(raw, recipe.date_languages, min_year=recipe.date_min_year)),
+                (url_label, date_from_url(spec, url, recipe.date_languages,
+                                          min_year=recipe.date_min_year))]
 
     cands = [(sel, clean_text(raw or "")), (url_label, clean_text(match_url(spec, url) or ""))]
     if name == "speaker" and recipe.speaker_default:
@@ -157,7 +158,8 @@ def _pdf_page_report(recipe, url: str, rec: dict) -> dict:
             # while match_url returns the raw first group ("12"). Comparing those never
             # matches, which reported a resolved date as ✗ NO MATCH — the very thing #54 is
             # about, in the PDF path.
-            from_url = (date_from_url(spec, url, recipe.date_languages) if name == "date"
+            from_url = (date_from_url(spec, url, recipe.date_languages,
+                                      min_year=recipe.date_min_year) if name == "date"
                         else clean_text(match_url(spec, url) or ""))
             matched = None
             if not rec.get(name):
@@ -456,7 +458,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
         else:
             first = recipe.start_urls[0]
             links = extract_links(fetcher.get(first), first, recipe.listing,
-                                  meta_by_url, recipe.date_languages)
+                                  meta_by_url, recipe.date_languages, recipe.date_min_year)
             sample = links[:n]
             report["listing"] = {"url": first, "links_found": len(links), "sample": links[:3]}
 

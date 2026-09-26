@@ -1,0 +1,58 @@
+# Bolivia — Ministerio de Comunicación (comunicacion.gob.bo), its "Discursos" section: Evo
+# Morales's speech TRANSCRIPTS as PDFs (2013–2017), via the Internet Archive.
+#
+# The host no longer resolves (DNS fails, 2026-09-26). The section's listing
+# (/?q=discursos&page=N, 10 per page, at least 124 pages in 2016 — so ~1,240+ transcripts) links
+# each speech as a PDF under /sites/default/files/media/discursos/. The Archive captured only a
+# few of those PDFs: 58 status-200 captures (CDX 2026-09-26; 21 more are 404s). So this is a
+# small window on a large lost collection — ~5% of it.
+#
+# The rest of the ministry's site (16,997 dated /?q=YYYYMMDD/slug articles 2011–2024 + 5,404 on
+# enlace.comunicacion.gob.bo) is government NEWS — the President's activities, ministers'
+# statements — not transcripts, and it is root-addressed, which the engine cannot harvest over
+# Wayback; recorded as bol_comunicacion_wayback (candidate), not taken.
+#
+# DATES: the file names are day-first (the listing dates "Discurso Presidencial 22-05-16.pdf"
+# to 30-05-2016; "…31-08-15.pdf" can only be day-first), but the free-text names are not always
+# reliable ("… 188 ANIVERSARIO DE LA FUNDACIÓN DE LA PATRIA … 08.05.13.pdf" is an August speech).
+# So only the two regular series are dated from the name — "Discurso Presidencial DD-MM-YY" and
+# "Discurso presidencial D M YYYY"; the rest are left to the cleaner, which reads the transcript's
+# opening lines. Two transcripts are of Vice-President Álvaro García Linera as acting president.
+source_id: bol_comunicacion_discursos_wayback
+country: Bolivia
+source_language: Spanish
+renderer: static
+content_type: pdf
+
+start_urls:
+  - comunicacion.gob.bo/sites/default/files/media/discursos/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?comunicacion\.gob\.bo(?::\d+)?/sites/default/files/media/discursos/[^/?#]+\.pdf$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:application/pdf"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # the Archive holds some files twice, once double-encoded ("Discurso%2520presidencial…");
+    # "%25" before two hex digits is an encoded "%", so cut it and both spellings fold
+    - '(?<=%)25(?=[0-9A-Fa-f]{2})'
+
+title: {}
+text: {}
+date:
+  # Separators may be a space, "%20" or — on the "D M YYYY" series, captured double-encoded —
+  # "%2520"; a trailing note ("… 09-06-15 PI Alvaro Garcia Linera.pdf") is allowed.
+  url_regex: '(?i)/discurso(?:%(?:25)?20|\s|\+|_)+presidencial(?:%(?:25)?20|\s|\+|_)+(?P<day>\d{1,2})(?:%(?:25)?20|\s|\+|-)+(?P<month>\d{1,2})(?:%(?:25)?20|\s|\+|-)+(?P<year>\d{4}|\d{2})(?!\d)[^/]*\.pdf$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Bolivia's Ministry of Communication "Discursos" section: Evo Morales's speech transcripts as
+  PDFs, 2013-2017 - the 58 the Archive kept of ~1,240+ listed (the host is gone). Dated from the
+  file name for the two regular naming series only.

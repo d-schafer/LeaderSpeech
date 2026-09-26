@@ -1,0 +1,52 @@
+# Bolivia — Ministerio de Relaciones Exteriores (cancilleria.gob.bo/mre), "Discursos
+# Presidente": Luis Arce's international speeches 2021–2024 (UN General Assembly, G20, BRICS,
+# CELAC, Mercosur), filed by the Foreign Ministry.
+#
+# Why a ministry: the presidency's own site was wiped at the November 2025 handover
+# (bol_presidencia holds only Paz's government), so this is the only live official copy of
+# Arce's addresses. The Foreign Ministry's other sections are about the minister, not the
+# President, and are left out.
+#
+# LISTING: /mre/discursos-presidente/ + /page/N/, 8 per page, 21 speeches on pages 1–3
+# (2026-09-24); the pager stops when a page adds nothing new. The WordPress REST API answers 401.
+# ARTICLE: /mre/YYYY/MM/DD/<post-id>/ — the date comes from the URL (the site's header shows
+# today's date — a site clock, never a date selector). Title h1.entry-title. The body is an
+# Elementor tab pair: tab 1 = ESPAÑOL (the speech), tab 2 = ENGLISH (a translation, empty on
+# about half the posts) — only the Spanish tab is taken, or the engine would join both.
+# PAGER: `start: 1` — the path pager fetches start_url + "page/{n}/" for n = start, … and never
+# the bare start_url itself, so starting at 2 silently skipped the three newest speeches (18 of
+# 21 found). WordPress serves page/1/ as page 1.
+# PROBE 2026-09-24 (--spread 8): harvest 21; title/text/date 8/8 (2021-09 … 2024-11).
+# Site error, noted: post 19352 (titled the 2021 UN General Assembly address) carries the 2024
+# G20 speech as its body, duplicating post 18834.
+source_id: bol_cancilleria
+country: Bolivia
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://cancilleria.gob.bo/mre/discursos-presidente/
+
+listing:
+  link_pattern: '^https://cancilleria\.gob\.bo/mre/20\d{2}/\d{2}/\d{2}/\d+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+
+title:
+  selectors: ["h1.entry-title"]
+text:
+  selectors: [".elementor-tab-content[data-tab='1']", ".entry-content"]
+date:
+  url_regex: '/mre/(?P<year>20\d{2})/(?P<month>\d{2})/(?P<day>\d{2})/'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Bolivia's Foreign Ministry page of presidential speeches: 21 of Luis Arce's international
+  addresses 2021-2024 (Spanish tab of each post), dated from the URL. The presidency site was
+  wiped in Nov 2025, so this is the live official copy.

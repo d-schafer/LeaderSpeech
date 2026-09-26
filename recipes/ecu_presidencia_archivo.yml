@@ -1,0 +1,56 @@
+# Ecuador — Presidencia de la República: the speech-file store
+# /wp-content/uploads/downloads/<YYYY>/<MM>/ — Rafael Correa (2007–2017), Lenín Moreno
+# (2017–2021), Guillermo Lasso (2021–2023) and Daniel Noboa (2023–2025) as PDF / .doc / .docx.
+#
+# The files are LIVE on the presidency's server (20 of 20 sampled answer 200 to the bot UA,
+# 2026-09-24), but nothing on the site lists them any more: the 1,792 WordPress posts that
+# linked them were blanked in a 2018 edit and the /discursos/ page lists only 2023–2026. So the
+# URL list is the Internet Archive's CDX enumeration of the folder, filtered — see the header of
+# recipes/data/ecu_presidencia_archivo_urls.txt for how it was derived (5,612 status-200 files →
+# 2,271 after dropping the Transparency-Law and administrative families, then 1,956 after folding
+# the store's own duplicates — the 2007–10 speeches exist under two naming schemes and many files
+# were re-uploaded to a second folder or as a Word copy; see the list header).
+#
+# RULE 1: every file that is not transparency/admin paperwork is taken — speeches, the annual
+# Informe a la Nación and rendición de cuentas, conferences, interviews ("Conversatorio con
+# medios"), event remarks named only by place ("PUERTO-PESQUERO", "ARRIBO-A-BOLIVIA"), letters,
+# and ~20 executive decrees. The cleaner types them.
+#
+# DATES: 1,571 of 1,956 file names start with a YEAR-FIRST date (2012-05-17-…, 2020.06.02-…,
+# 021-2017.07.24-…) — read with url_regex. The others are left blank on purpose: the 2007–2010
+# names use two-digit day and month in BOTH orders ("01-05-07-Discurso_Dia_Trabajo" is 1 May,
+# day first; "05-24-09-Discurso-Batalla-Tarqui" is 24 May, month first), and a wrong date is
+# worse than none. Each speech's first lines carry its dateline ("Quito, 15 de enero de 2007"),
+# which the cleaner reads.
+#
+# Queue AFTER ecu_presidencia_discursos: the 2024–2025 files are also on that page, and the
+# per-country state file then skips them here.
+source_id: ecu_presidencia_archivo
+country: Ecuador
+source_language: Spanish
+renderer: static
+content_type: pdf
+
+start_urls:
+  - https://www.presidencia.gob.ec/discursos/
+
+listing:
+  link_pattern: '^https://www\.presidencia\.gob\.ec/wp-content/uploads/downloads/\d{4}/\d{2}/[^/?#]+\.(?:pdf|docx?)$'
+
+pagination:
+  type: url_list
+  url_list_file: data/ecu_presidencia_archivo_urls.txt
+
+title: {}
+text: {}
+date:
+  url_regex: '/(?:\d{1,3}-)?(?P<year>(?:19|20)\d{2})[-_.](?P<month>\d{2})[-_.](?P<day>\d{2})[^/]*$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Ecuador's presidency speech-file store 2007-2025 (Correa, Moreno, Lasso, Noboa): 1,956 live
+  PDF/Word files whose URLs come from the Archive's CDX (the site no longer lists them).
+  Dated from year-first file names (1,571); the rest left for the cleaner. Queue after
+  ecu_presidencia_discursos.

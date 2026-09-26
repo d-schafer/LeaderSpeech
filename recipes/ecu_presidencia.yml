@@ -1,0 +1,69 @@
+# Ecuador — Presidencia de la República (presidencia.gob.ec), the WordPress POST stream:
+# press bulletins and news 2012–2022 (Correa, Moreno, Lasso) and the site's other posts.
+#
+# RULE 1, measured with the REST API (2026-09-24): 9,819 posts in 34 categories.
+#   noticias 3,064 (full-text "Boletín de Prensa" bulletins, median ~2,200 chars; destacadas
+#   890 is a subset), sin-categoria 1,540, discursos 518 + per-year discursos categories,
+#   agenda 4,670, and a handful of institutional ones.
+#   * TAKEN: every post except the two families below — 4,631 posts.
+#   * agenda (id 47, 4,670) is LEFT OUT: each post is a schedule entry whose body is only the
+#     place ("Palacio de Gobierno", median 21 chars) — the Brazil/Romania agenda precedent.
+#   * the discursos categories (50, 119, 123, 124, 129, 130) are LEFT OUT here because their
+#     posts are EMPTY shells titled "YYYY-MM-DD <event>" — the speech itself is a PDF. The
+#     PDFs are taken by ecu_presidencia_discursos (2023–2026, the /discursos/ page) and
+#     ecu_presidencia_archivo (the /wp-content/uploads/downloads/ store, 2007–2025).
+#   * sin-categoria holds ~1,150 more such empty speech shells (2007–2020, content blanked in
+#     a 2018 edit) next to ~385 real posts; the shells come back with no text and fail as
+#     empty_text — cheap live fetches, not worth a finer filter.
+#
+# Body: carried in the JSON (content.rendered, api.text_is_html) — no page fetch per post.
+# When a post's JSON body is empty the engine fetches the page, whose article is
+# section#postcontent.
+source_id: ecu_presidencia
+country: Ecuador
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://www.presidencia.gob.ec/wp-json/wp/v2/posts?per_page=100&categories_exclude=47,50,119,123,124,129,130
+
+listing:
+  link_pattern: '^https://www\.presidencia\.gob\.ec/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+# The empty speech shells: their JSON body is empty, so the engine fetches the page — whose
+# article is empty too, and the GENERIC extractor would then write the sidebar and menu
+# (~2,100 chars) as the "speech". keep_if drops a fetched page whose article holds no words.
+# Rows whose body came in the JSON have no DOM to test and are kept (extract.should_keep).
+keep_if:
+  selectors: ["section#postcontent"]
+  pattern: '\w{3}'
+
+title:
+  selectors: ["section#postcontent h1", "h1"]
+text:
+  selectors: ["section#postcontent"]
+date:
+  selectors: ["section#postcontent time"]
+  attr: datetime
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Ecuador's presidency WordPress posts (REST API): ~4,630 of 9,819 - the press bulletins
+  2012-2022 and the site's other posts, minus the 4,670 agenda stubs and the empty speech
+  shells whose PDFs are in ecu_presidencia_discursos / ecu_presidencia_archivo. No
+  speaker_default (Correa, Moreno, Lasso, Noboa).

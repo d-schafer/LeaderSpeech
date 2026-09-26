@@ -61,6 +61,74 @@ def test_regex_required_makes_a_miss_skip_to_the_next_selector():
     assert first_match(soup, nothing) is None
 
 
+def test_date_min_year_lets_a_recipe_keep_pre_1900_dates():
+    """Default floor 1900 unchanged; a recipe may lower it for a genuinely old source."""
+    assert parse_date("22 de junio de 1823", ["es"]) is None
+    assert parse_date("22 de junio de 1823", ["es"], min_year=1800) == "1823-06-22"
+    # the lowered floor still rejects dateparser's year-0001 inventions
+    assert parse_date("0001-11-30", ["en"], min_year=1800) is None
+
+
+def test_date_min_year_reaches_page_url_and_listing_dates():
+    from bs4 import BeautifulSoup
+
+    from leaderspeech.text_scraper.extract import (date_from_url, extract_record,
+                                                   listing_meta)
+    from leaderspeech.text_scraper.recipe import Recipe
+
+    base = dict(source_id="t", country="Peru", start_urls=["https://x.example/"],
+                listing={"link_pattern": "/m"},
+                title={"selectors": ["h1"]}, text={"selectors": ["p"]},
+                date={"selectors": ["h1"], "regex": r"\d{1,2} de \w+ de \d{4}",
+                      "url_regex": r"/(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"},
+                date_languages=["es"])
+    html = "<h1>MENSAJE … EL 22 DE JUNIO DE 1823</h1><p>Texto</p>"
+    old = Recipe(**base)
+    new = Recipe(**base, date_min_year=1800)
+    assert extract_record(html, "https://x.example/m", old)["date"] is None
+    assert extract_record(html, "https://x.example/m", new)["date"] == "1823-06-22"
+    # url_regex named groups honour the floor too
+    assert date_from_url(new.date, "https://x.example/1851-03-20.pdf", ["es"],
+                         min_year=1800) == "1851-03-20"
+    assert date_from_url(old.date, "https://x.example/1851-03-20.pdf", ["es"]) is None
+    # and a listing item date
+    item = BeautifulSoup("<div><h3>Mensaje (28 de julio de 1895)</h3></div>", "lxml").div
+    listing = Listing(link_pattern="/m", item_selector="div",
+                      item_date=FieldSpec(selectors=["h3"]))
+    assert listing_meta(item, listing, ["es"], min_year=1800)["date"] == "1895-07-28"
+    assert "date" not in listing_meta(item, listing, ["es"])
+
+
+def test_parse_date_ignores_line_breaks_inside_the_date():
+    """A date split across text nodes ("de \\n2019") must keep its year. Without whitespace
+    collapsing, search_dates found only "2 de marzo" and completed it with today's year."""
+    assert parse_date("\n\nOruro, 2 de marzo de \n2019", ["es"]) == "2019-03-02"
+    assert parse_date("10 de febrero\nde 2017", ["es"]) == "2017-02-10"
+
+
+def test_regex_named_value_group_returns_only_that_group():
+    """An anchored regex can require context (the dateline's place name) without returning
+    it: a `(?P<value>…)` group is what the field gets."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup("<div class='b'>Oruro, 2 de marzo de 2019.- El presidente …</div>",
+                         "lxml")
+    spec = FieldSpec(selectors=["div.b"],
+                     regex=r"^\W{0,3}(?:[^,.()]{2,60},\s*)?(?P<value>\d{1,2} de \w+ de \d{4})",
+                     regex_required=True)
+    assert first_match(soup, spec) == "2 de marzo de 2019"
+
+
+def test_regex_plain_groups_still_return_the_whole_match():
+    """Backward compatibility: an unnamed group used for alternation doesn't change the
+    returned value (existing recipes rely on group(0))."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup("<p>Dated 10 May 2001 here</p>", "lxml")
+    spec = FieldSpec(selectors=["p"], regex=r"\d{1,2} (May|June) \d{4}")
+    assert first_match(soup, spec) == "10 May 2001"
+
+
 def test_first_match_reads_attribute():
     from bs4 import BeautifulSoup
 

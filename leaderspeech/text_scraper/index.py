@@ -66,14 +66,15 @@ def _first(series) -> str:
     return ""
 
 
-def _coverage(df: pd.DataFrame) -> tuple[str, str, int]:
-    """Plausible date span + a count of bad/missing dates (year outside 1900..now+1
-    or unparseable), as a quality signal. A bad min like 0001-11-30 won't skew it."""
+def _coverage(df: pd.DataFrame, min_year: int = 1900) -> tuple[str, str, int]:
+    """Plausible date span + a count of bad/missing dates (year outside min_year..now+1
+    or unparseable), as a quality signal. A bad min like 0001-11-30 won't skew it.
+    `min_year` is the source recipe's `date_min_year` (1900 unless a recipe lowers it)."""
     if "date" not in df.columns or df.empty:
         return "", "", len(df)
     parsed = pd.to_datetime(df["date"], errors="coerce")
     max_year = datetime.now().year + 1
-    plausible = parsed[(parsed.dt.year >= 1900) & (parsed.dt.year <= max_year)]
+    plausible = parsed[(parsed.dt.year >= min_year) & (parsed.dt.year <= max_year)]
     bad = len(df) - len(plausible)
     if plausible.empty:
         return "", "", bad
@@ -151,7 +152,7 @@ def _link_columns(universe, n_scraped: int, audio: bool = False) -> tuple:
 
 
 def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optional[Path]) -> dict:
-    date_min, date_max, n_bad = _coverage(df)
+    date_min, date_max, n_bad = _coverage(df, recipe.date_min_year if recipe else 1900)
     doc_ids = sorted((str(x) for x in df.get("doc_id", pd.Series(dtype=str)).dropna()
                       if str(x).strip()), key=docid_sort_key)
     doc_first = doc_ids[0] if doc_ids else ""

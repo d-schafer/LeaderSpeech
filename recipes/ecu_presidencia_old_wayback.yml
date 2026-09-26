@@ -1,0 +1,85 @@
+# Ecuador — the presidency's site on its OLD domain, presidencia.gov.ec (before the move to
+# presidencia.gob.ec), via the Internet Archive: Gustavo Noboa (2000–03), Lucio Gutiérrez
+# (2003–05), Alfredo Palacio (2005–07) and Rafael Correa's first years (2007–2011).
+#
+# The Archive holds 29,182 distinct status-200 URLs on the domain, 2002–2011 (CDX 2026-09-24).
+# TWO news generations:
+#   A. ASP 2002–2008: /noticias.asp?noid=N and its print view /imprimir_noticia.asp?noid=N —
+#      7,718 distinct noids (246 … 16,892), 148 of them captured only as the print view; the
+#      two are folded by noid. Latin-1 with no declared charset (hence the codec pair).
+#      Title .linknoticiacompleta, body td.texto, section name .tituloseccion → context.
+#      DATE TRAP: the page has TWO td.copyright date cells — the first is the site's clock (the
+#      capture day: "Miércoles, 6 de junio de 2007" on a page captured 2007-06-07), the second,
+#      in the row after the body, is the article's date ("Sábado, 2 de junio de 2007"). The
+#      selector takes only the second, checked on news and print pages 2002–2007.
+#   B. Joomla 2010–2011: one article under up to four addresses —
+#      index.php?option=com_content&view=article&id=N:slug&catid=…&Itemid=… (818 ids),
+#      component/content/article/<cat>/N-slug (107), noticias/N-slug (103) and the
+#      &tmpl=component&print=1 print view — folded to the id N (910 distinct ids, of which ~315 are
+#      the monthly AGENDA categories — "catid=42:2010-09" — and are left out: 595 news articles).
+#      Print views carry no date (the cleaner reads the text).
+#      Title h2.contentheading, body div.article-content, date span.createdate.
+# PROBE 2026-09-24 (--spread 14): harvest 8,291 (7,696 ASP + 595 Joomla; offline fold check on
+# the saved CDX list gave the same); title/text 14/14; the ASP pages dated 12/12 (2004-03 …
+# 2008-09) through the second date cell; Joomla print views undated.
+#
+# LEFT OUT, measured: the 2009–2010 articulo*.php generation (537 ids) — daily agendas (380,
+# ca_codigo=109), Enlace Ciudadano AUDIO pages (65), cabinet biographies (45); /discursos/*.pdf
+# (88 Correa speeches 2007–2010) — the same speeches ecu_presidencia_archivo takes from the
+# presidency's current store under its later names; the remository download manager (LOTAIP
+# transparency files, Enlace Ciudadano audio), /mp3, /agenda, /transparencia, /descargas.
+source_id: ecu_presidencia_old_wayback
+country: Ecuador
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  # a bare-host prefix: the ASP pages sit at the root and the Joomla ones under /index.php
+  # (only the home page has the path "/").
+  - presidencia.gov.ec/
+
+listing:
+  # The leading look-ahead drops the Joomla AGENDA: monthly categories named by year-month
+  # ("catid=42:2010-09", "/article/53--2011-04-abril-/") hold daily schedule entries.
+  link_pattern: '^(?!.*(?:catid=\d+(?:%3A|:)-?20\d\d-|/content/article/\d+--?20\d\d-))https?://(?:www\.)?presidencia\.gov\.ec(?::\d+)?/(?:(?:noticias|imprimir_noticia)\.asp\?(?:hl=\w+&)?noid=\d+(?:&hl=\w+)?|index\.php\?(?=[^#]*\bview=article\b)(?![^#]*\bformat=pdf)[^#]*(?<=[?&])id=\d+[^#]*|component/content/article/[^/?#]+/\d+-[^/?#]+(?:\?[^#]*)?|noticias/\d+-[^/?#]+(?:\?(?![^#]*format=pdf)[^#]*)?)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20120101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_noise_params: [hl]
+  wayback_identity_strip:
+    # Applied in order; each only CUTS text, so the id itself is what remains.
+    # A: the print view is the same noid (/noticias.asp?noid=N and /imprimir_noticia.asp?noid=N
+    #    → /.asp?noid=N)
+    - '(?<=/)(?:imprimir_noticia|noticias)(?=\.asp\?)'
+    # B: every Joomla address → /N. Query form: cut "index.php?…&id=" (the lookbehind skips
+    #    "catid=");
+    - 'index\.php\?[^#]*?(?<=[?&])id=(?=\d)'
+    #    path forms: cut the section;
+    - '(?:component/content/article/[^/]+|noticias)/(?=\d+-)'
+    #    then everything after the id's digits — ":slug&catid…", "-slug?tmpl=…", "&Itemid=…"
+    #    (and an ASP "&hl=true").
+    - '(?<=\d)(?::|%3A|&|-)[^/]*$'
+
+title:
+  selectors: ["h2.contentheading", ".linknoticiacompleta"]
+text:
+  selectors: ["div.article-content", "td.texto"]
+date:
+  selectors: ["span.createdate", "tr:has(> td.texto) + tr > td.copyright"]
+context:
+  selectors: [".tituloseccion"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gov.ec (Ecuador's presidency on its old domain) from the Internet Archive: the
+  ASP news 2002-2008 (7,718 items - Gustavo Noboa, Gutierrez, Palacio, early Correa) and the
+  Joomla news 2010-2011 (595), with the ASP site-clock date trap avoided. No speaker_default.

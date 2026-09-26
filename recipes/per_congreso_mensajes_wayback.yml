@@ -1,0 +1,73 @@
+# Peru — Congreso de la República, Museo del Congreso: "Mensajes Presidenciales", the
+# presidents' messages to Congress from independence onward (1820s – 2015), via the Internet
+# Archive. The museum section of congreso.gob.pe went away when the site moved to WordPress:
+# both the pages and their PDFs answer 404 live (checked 2026-09-24).
+#
+# Each message is an HTML page under /participacion/museo/congreso/mensajes/<slug> whose
+# title block names the president and the date ("MENSAJE DEL PRESIDENTE DEL PERÚ, AUGUSTO
+# BERNARDINO LEGUÍA SALCEDO, ANTE EL CONGRESO NACIONAL, EL 28 DE JULIO DE 1923") and whose
+# body is an <iframe> onto a PDF under /Docs/participacion/museo/congreso/files/mensajes/
+# <period>/files/<name>.pdf. The recipe takes the PAGE (for the title and the full date) and
+# follows the iframe to the PDF (pdf_link: the engine fetches the PDF's largest archived
+# capture). The PDF file names carry only a year ("mensaje_1923.pdf"), which is why the pages
+# and not the bare PDFs are harvested.
+#
+# The Archive holds ~496 status-200 page captures (~490 distinct messages after trailing-slash
+# twins fold) and 461 status-200 PDFs, spread evenly across two centuries: 51 from the
+# 1820s, 28 from the 1840s, 17 from the 1900s, 23 from the 2000s. Decision 4 of the LatAm push
+# (messages to Congress are IN). The collection also holds the documents of each transfer of
+# power the museum filed with the messages — a manifesto, the decree calling a president to
+# office, the law declaring a mandate ended — each with its own title, date and Spanish text,
+# so they pass the RULE 1 test and are taken; the cleaner types them.
+#
+# PROBE 2026-09-24 (--spread 14): harvest 534 pages (1820s 55 … 2010s 20; a few are slug
+# twins such as "_1" suffixes); title 13/14, body 13/14 (from the PDF, 870–160,621 chars);
+# the miss is a 2025 capture of a mistyped alias (…_18_julio_1963115) with no content.
+# PRE-1900 DATES: 271 of the 534 pages are 19th-century. The engine rejects any year before
+# a recipe's `date_min_year` (default 1900 — a guard against dateparser inventing year 0001),
+# so this recipe sets `date_min_year: 1800` (researcher, 2026-09-26; the collection starts
+# 1821). Before that option existed (2026-09-24 probe) those rows came out blank.
+#
+# Speaker: two centuries of presidents, so no speaker_default; the tenure key starts Peru at
+# 2001, so the cleaner reads the president from the title/text for the older ones.
+source_id: per_congreso_mensajes_wayback
+country: Peru
+source_language: Spanish
+renderer: static
+
+start_urls:
+  # trailing slash: keeps the sibling /mensajes-presidenciales/ index out of the prefix
+  - congreso.gob.pe/participacion/museo/congreso/mensajes/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?congreso\.gob\.pe(?::\d+)?/participacion/museo/congreso/mensajes/[^/?#]{6,}/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["#objThemeTitle"]
+text:
+  # used only when a page carries its text inline instead of the PDF iframe
+  selectors: ["div.modHTM"]
+date:
+  selectors: ["#objThemeTitle"]
+  regex: '(?i)\d{1,2}\s+de\s+[a-záéíóú]+\s+(?:de|del)\s+\d{4}'
+  regex_required: true
+pdf_link:
+  selectors: ["div.modHTM iframe[src*='.pdf']"]
+  attr: src
+
+date_languages: ["es"]
+date_min_year: 1800        # the messages reach back to 1821
+
+notes: >
+  Peru's Congress museum collection of presidential messages to Congress (and the decrees,
+  laws and manifestos of each transfer of power), 1820s-2015, from the Internet Archive: ~490
+  pages, each titled and dated, body from the linked PDF. The live section is gone (404).
+  No speaker_default.

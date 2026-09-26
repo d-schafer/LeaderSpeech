@@ -1,0 +1,60 @@
+# Bolivia — presidencia.gob.bo, the Ministerio de la Presidencia's site (WordPress): the press
+# notes ("nota_prensa") of Rodrigo Paz's government.
+#
+# The site was WIPED at the November 2025 handover: the oldest press note is 2025-11-12. Small
+# but current. Earlier governments come from the Archive (bol_comunicacion_wayback,
+# bol_abi_wayback) and the Foreign Ministry (bol_cancilleria).
+#
+# RULE 1 — the WordPress sitemap lists 27 content types (2026-09-24). Only nota_prensa (54)
+# carries text on its page. Measured and LEFT OUT:
+#   * post (58, /index.php/YYYY/MM/DD/<slug>): the page renders a headline and a photo, no
+#     article (the generic extractor would write 316 chars of menu); 6 of 58 have any text even
+#     in the JSON.
+#   * comunicados (5), boletin (3), rendicion_cuenta (12): no article container and no PDF link
+#     on the page.
+#   * galeria, 122 institutional pages, trámites, PEI/PAC/POA, audits, calls, regulations, pay
+#     scales, manuals.
+#
+# The REST API gives each note's date (the page has none, and only some bodies open with a
+# "(14 de septiembre de 2026, Ministerio de la Presidencia)" dateline); the JSON body is empty,
+# so the page is fetched for #contenido-nota-prensa. The page's h1 is the MINISTRY BANNER
+# ("Ministerio de la Presidencia") — the title comes from the JSON, and the page chain is
+# scoped to the article's h2 so it can never pick up the banner.
+source_id: bol_presidencia
+country: Bolivia
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://presidencia.gob.bo/wp-json/wp/v2/nota_prensa?per_page=100
+
+listing:
+  link_pattern: '^https://presidencia\.gob\.bo/index\.php/nota_prensa/[^/?#]+/?$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+
+title:
+  selectors: ["div.detalle-nota h2"]
+text:
+  selectors: ["#contenido-nota-prensa"]
+date:
+  selectors: ["#contenido-nota-prensa"]
+  regex: '(?i)^\W{0,3}(?P<value>\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Bolivia's Ministerio de la Presidencia site, press notes of Rodrigo Paz's government
+  (2025-11 on; the site was wiped at the handover): 54 notes via the REST API, dated from the
+  JSON, bodies from the page. Posts, communiques and reports carry no text on their pages.

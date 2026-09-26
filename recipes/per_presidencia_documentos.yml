@@ -1,0 +1,71 @@
+# Peru — Presidencia de la República on gob.pe: the DOCUMENT collections, beside the news stream
+# (per_presidencia). Two start pages:
+#
+# 1. gob.pe/mensajepresidencial — "Mensajes a la Nación": ONE page listing every televised
+#    Message to the Nation since Kuczynski as a video plus a transcript PDF
+#    ("Descargar transcripción del video"). 63 transcripts, 2016-07-28 … 2026-07-28: the
+#    28 July inaugural and Fiestas Patrias addresses, the COVID emergency announcements,
+#    Sagasti's and Castillo's pronouncements, Boluarte's, and Keiko Fujimori's inaugural
+#    (2026-07-28). Decision 4 of the LatAm push (messages are IN). The PDFs are linked
+#    directly, so the listing link IS the document; every block's h3 ends in the date —
+#    "(28 de julio de 2026)" on all 63 — and item_selector carries it onto the PDF row.
+#
+# 2. /institucion/presidencia/informes-publicaciones — 391 items ("391 resultados",
+#    2026-09-24): each an HTML page with a short description and a linked file. Mostly
+#    institutional (the Constitution, TUPA, cabinet-meeting minutes per government, plans),
+#    but it also holds Castillo's UN and OAS addresses, his 100-days and CADE speeches, his
+#    message to Congress, the Memoria de Gobierno 2016-2017 and the 2026 accountability
+#    reports. RULE 1: all 391 are taken; the cleaner keeps the speeches. On these pages the
+#    h1 is the SITE BANNER ("Presidencia de la República del Perú") — the title is the
+#    document header's h2 — and the body is the linked PDF (pdf_link, the first "Descargar").
+#
+# The news stream is per_presidencia. The presidency's normas-legales (2,910 decrees and
+# resolutions) are flagged, not scraped (RULE 1 legal-register test).
+source_id: per_presidencia_documentos
+country: Peru
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://www.gob.pe/mensajepresidencial
+  - https://www.gob.pe/institucion/presidencia/informes-publicaciones
+
+listing:
+  # The informes LISTING also links every item's file directly ("Descargar"), which would
+  # take each document twice (once undated). So a direct cdn PDF is taken only from inside a
+  # Mensajes block; informes documents are reached through their item page (pdf_link).
+  link_selector: "div.institution-nation-messages div.border-b-nation a[href*='uploads/document/file'], a[href*='/institucion/presidencia/informes-publicaciones/']"
+  link_pattern: '^https://(?:www\.gob\.pe/institucion/presidencia/informes-publicaciones/\d+-[^/?#]+|cdn\.www\.gob\.pe/uploads/document/file/\d+/[^?#]+\.pdf(?:\?v=\d+)?)$'
+  # The Mensajes page: each message is one block with the h3 heading and the transcript link.
+  item_selector: "div.institution-nation-messages div.border-b-nation"
+  item_title: { selectors: ["h3"] }
+  item_date:
+    selectors: ["h3"]
+    regex: '\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4}'
+
+pagination:
+  type: query_param
+  param: sheet
+  start: 1
+  step: 1
+
+title:
+  selectors: [".institution-document__header h2"]
+text:
+  selectors: ["div.description.report-content"]
+date:
+  selectors: [".institution-document__header p"]
+  regex: '\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4}'
+  regex_required: true
+pdf_link:
+  selectors: [".institution-document__files a[href*='uploads/document/file']"]
+  attr: href
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Peru's presidency on gob.pe, document collections: the Mensajes a la Nacion transcript PDFs
+  (63, 2016-2026, dated from the listing) and the informes-publicaciones collection (391
+  documents, bodies from the linked PDF - mostly institutional, a handful of speeches and
+  messages to Congress). No speaker_default (nine presidents).

@@ -1,0 +1,62 @@
+# Ecuador — Secretaría General de Comunicación de la Presidencia (comunicacion.gob.ec): the
+# Presidency's communication secretariat, its news and "Boletín" stream 2012–2026.
+#
+# Why it is in: the presidency's own site (ecu_presidencia) stops publishing news posts in 2022
+# — from 2023 it posts only speech PDFs — while this secretariat carries the daily bulletins on
+# the President through 2026 ("Boletín 430 … La jornada de hoy del presidente de la República,
+# Daniel Noboa …"). It is part of the Presidency, so it is a presidency source, not a ministry.
+#
+# RULE 1, measured with the REST API (2026-09-24): 6,502 posts (noticias 5,433, comunicamos
+# 4,386, destacadas 4,002, boletines 3,813 — overlapping categories — agenda 977, sin-categoria
+# 114, and a few institutional). By year: 2012 155 … 2018 1,203 … 2026 216. Titles naming the
+# President (presidente/mandatario/Correa/Moreno/Lasso/Noboa): 2,450 of 6,502 (38%); 2023–2026:
+# 830 of 1,387. ALL posts are taken, agenda included: its posts are mostly short schedules
+# (median 152 chars) but ~11% are full bulletins, and the JSON carries every body, so a stub costs
+# no fetch — the cleaner drops them.
+#
+# Body from the JSON (content.rendered, api.text_is_html). A post whose JSON body is empty is
+# fetched as a page; keep_if then drops it unless its article (section#postcontent) has words,
+# so the generic extractor never writes the sidebar as a row. Same theme as presidencia.gob.ec.
+source_id: ecu_comunicacion
+country: Ecuador
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://www.comunicacion.gob.ec/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: '^https://www\.comunicacion\.gob\.ec/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+keep_if:
+  selectors: ["section#postcontent"]
+  pattern: '\w{3}'
+
+title:
+  selectors: ["section#postcontent h1", "h1"]
+text:
+  selectors: ["section#postcontent"]
+date:
+  selectors: ["section#postcontent time"]
+  attr: datetime
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Ecuador's Secretaria General de Comunicacion de la Presidencia (comunicacion.gob.ec) news and
+  bulletins 2012-2026, 6,502 WordPress posts via the REST API (38% of titles name the
+  President). Fills the 2023-2026 news gap of presidencia.gob.ec. No speaker_default.

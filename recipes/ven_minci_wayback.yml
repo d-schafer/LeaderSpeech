@@ -21,8 +21,8 @@
 # radio + boletines_radiales mp3 players — 83,000 captures), infographics, the community-media
 # directory, print views (*.prnt), send-to-a-friend (/includes/enviar_email.php, 40,873).
 # NOT IN THIS RECIPE: MINCI's WordPress generation 2012–2018 (/YYYY/MM/<slug>/, ~52,000 posts,
-# ~8,800 naming the President in the slug) — it overlaps ven_presidencia_wayback's Maduro years
-# and is recorded as a candidate (ven_minci_wp_wayback) pending the researcher's call.
+# ~8,800 naming the President in the slug) — it overlaps ven_presidencia_wayback's Maduro years.
+# Decision 2026-09-24: not needed; measured and kept on record only.
 #
 # TEMPLATE (verified on 2007, 2008 and 2010 captures): title .titulo · lead .sumario + body
 # .contenido · date .fechaArticulo ("5 de marzo de 2008"). The 2006–07 skin ALSO renders the
@@ -81,4 +81,4 @@ notes: >
   Presidente, presidential tours, Las Lineas de Chavez, and the ministry's general news - 18,699
   documents (19,691 article ids before the gallery/media exclusions) across two dozen alias
   sections, folded by id. Probe 14/14. The 2012-2018 WordPress
-  generation is not included (candidate, researcher's call).
+  generation is not included (not needed - 2026-09-24).

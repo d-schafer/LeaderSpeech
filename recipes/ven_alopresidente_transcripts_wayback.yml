@@ -27,6 +27,10 @@
 # Probe 2026-09-24 (--spread 12): 531 documents; 10/12 extracted (98k–296k chars per transcript),
 # the 2 misses are two of those 8.
 #
+# COVERAGE OF THE 378 EPISODES (measured 2026-09-24, with ven_todochavez_wayback): 308 have a
+# transcript somewhere; 70 — mostly 1999–2003 — have none, and could only come from audio. The
+# episode list is in queues/latam/latam_venezuela.txt.
+#
 # Left out on purpose (sampled 2026-09-24):
 #   * /material_alo/12/<id>/ — the "Biblioteca Virtual": reference documents (the constitution,
 #     Bolívar's Carta de Jamaica) and administrative lists (pensioners, "petrobonos"), ~77 ids.

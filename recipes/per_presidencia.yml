@@ -1,0 +1,62 @@
+# Peru — Presidencia de la República del Perú on gob.pe (the state's single web platform):
+# the presidency's press-note stream, Kuczynski (July 2016) to the sitting president.
+#
+# gob.pe replaced the presidency's own site (presidencia.gob.pe) around 2019–2020 and the
+# presidency's news was carried over: the listing reaches back to 2016-08 (Kuczynski), and its
+# 2016–17 items have ids 8,700–9,500 in REVERSE date order, i.e. a bulk import. It has NOT
+# been wiped at later handovers — Vizcarra, Merino, Sagasti, Castillo, Boluarte, Jerí and
+# the government sworn in on 2026-07-28 (Keiko Fujimori) are all in it.
+#
+# LISTING: /institucion/presidencia/noticias?sheet=N, server-rendered, 24 items per sheet;
+# "3991 resultados" on 2026-09-24, the last populated sheet is ~161 (2016-08). Every sheet
+# also repeats four pinned "featured" items, so a sheet past the end still shows 4 links —
+# none of them new, which is what stops the pager.
+#
+# RULE 1: the presidency's gob.pe NEWS collection is one stream (there is no speeches
+# category on gob.pe); every item is taken. Its other collections are handled elsewhere:
+#   * Mensajes a la Nación (gob.pe/mensajepresidencial, 63 transcript PDFs 2016–2026) and
+#     informes-publicaciones (391 documents, a few of them speeches) -> per_presidencia_documentos
+#   * normas-legales (2,910 decrees, resolutions and laws of the Despacho Presidencial —
+#     appointment and administrative orders, each a PDF) — flagged, not scraped (the RULE 1
+#     legal-register test); campañas (1 item); agenda — left out.
+#
+# PAGE: title h1 (on noticias the h1 IS the headline — on informes pages it is the site
+# banner, which is why the chain is scoped to the document header); body
+# div.description.feed-content; date = the header's "10 de febrero de 2017 - 12:00 a. m.".
+# PROBE 2026-09-24 (--spread 12): harvest 3,990 of the 3,991 listed; title/text/date 12/12,
+# dated 2016-07-28 … 2026-09-10 (Kuczynski, Vizcarra, Castillo, Boluarte, Jerí, K. Fujimori).
+source_id: per_presidencia
+country: Peru
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://www.gob.pe/institucion/presidencia/noticias
+
+listing:
+  link_pattern: '^https://www\.gob\.pe/institucion/presidencia/noticias/\d+-[^/?#]+$'
+
+pagination:
+  type: query_param
+  param: sheet
+  start: 1
+  step: 1
+
+title:
+  selectors: [".institution-document__header h1", "h1"]
+text:
+  selectors: ["div.description.feed-content"]
+date:
+  selectors: [".institution-document__header p"]
+  regex: '\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Peru's presidency on gob.pe: the press-note stream (~3,990 items, 2016-08 to present, kept
+  across every handover since Kuczynski). No speaker_default: the stream spans nine presidents
+  (Kuczynski ... Keiko Fujimori, sworn in 2026-07-28). Earlier governments are on the Archive's
+  copies of presidencia.gob.pe (per_presidencia_old_wayback); the Mensajes a la Nación PDFs and
+  the informes-publicaciones collection are per_presidencia_documentos.

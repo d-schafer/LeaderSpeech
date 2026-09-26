@@ -457,6 +457,12 @@ class Recipe(BaseModel):
     speaker_default: Optional[str] = None
 
     date_languages: list[str] = Field(default_factory=list)  # hints for dateparser
+    # Earliest plausible year for a parsed date. Dates before it are rejected as blank, which
+    # guards against dateparser inventing year 0001 from a fragment. Lower it only for a source
+    # that genuinely reaches back further (per_congreso_mensajes_wayback: Peru's
+    # presidential messages to Congress from 1821). Applies to page selectors, url_regex, PDF
+    # records and listing item dates; api/feed dates are machine-formatted and keep 1900.
+    date_min_year: int = Field(default=1900, ge=1000, le=1900)
     politeness: Politeness = Field(default_factory=Politeness)
     notes: Optional[str] = None
 

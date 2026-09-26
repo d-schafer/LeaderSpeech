@@ -68,7 +68,8 @@ def _owning_item(anchor, index: dict):
 
 def extract_links(html: str, base_url: str, listing: Listing,
                   meta: dict | None = None,
-                  date_languages: list[str] | None = None) -> list[str]:
+                  date_languages: list[str] | None = None,
+                  min_year: int = 1900) -> list[str]:
     """Pull qualifying speech links off one listing page, order-preserving.
 
     `meta` is an optional caller-supplied dict, mutated in place — the same out-param shape
@@ -103,7 +104,7 @@ def extract_links(html: str, base_url: str, listing: Listing,
         if items and full not in meta:   # first occurrence wins; don't re-read a dupe
             item = _owning_item(a, items)
             if item is not None:
-                found = listing_meta(item, listing, date_languages)
+                found = listing_meta(item, listing, date_languages, min_year)
                 if found:
                     meta[full] = found
         if full not in seen:
@@ -258,7 +259,7 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
         if pg.type == PaginationType.none:
             try:
                 add(extract_links(fetcher.get(start_url), start_url, recipe.listing,
-                                  meta, recipe.date_languages))
+                                  meta, recipe.date_languages, recipe.date_min_year))
                 _note(stats, "single_page")
             except Exception as e:
                 log.warning("listing fetch failed: %s :: %s", start_url, e)
@@ -294,7 +295,7 @@ def harvest_links(recipe: Recipe, fetcher, max_pages=None, max_links=None,
                 _note(stats, "listing_fetch_failed", early=True)
                 break
             page_links = extract_links(html, page_url, recipe.listing,
-                                       meta, recipe.date_languages)
+                                       meta, recipe.date_languages, recipe.date_min_year)
             add(page_links)
             # Judge the stop against THIS listing's own history, not the global `seen`.
             # The guard asks "is this pager advancing?", which is a property of the listing
@@ -457,7 +458,8 @@ def _harvest_next_link(recipe: Recipe, fetcher, max_pages, max_links, stats=None
                 log.warning("listing page failed, stopping pagination here: %s :: %s", url, e)
                 _note(stats, "listing_fetch_failed", early=True)
                 break
-            for link in extract_links(html, url, recipe.listing, meta, recipe.date_languages):
+            for link in extract_links(html, url, recipe.listing, meta, recipe.date_languages,
+                                      recipe.date_min_year):
                 if link not in seen:
                     seen.add(link)
                     collected.append(link)
@@ -504,7 +506,7 @@ def _harvest_click(recipe: Recipe, fetcher, max_pages, max_links, stats=None,
         page.goto(start_url, wait_until="networkidle")
         for page_idx in range(hard_cap):
             for link in extract_links(page.content(), page.url, recipe.listing,
-                                      meta, recipe.date_languages):
+                                      meta, recipe.date_languages, recipe.date_min_year):
                 if link not in seen:
                     seen.add(link)
                     collected.append(link)

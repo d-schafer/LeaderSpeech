@@ -1,0 +1,107 @@
+# Peru — the presidency's own site before gob.pe, presidencia.gob.pe, via the Internet Archive:
+# Toledo (2001–06), García (2006–11), Humala (2011–16). The live host now redirects to gob.pe.
+#
+# The Archive holds 58,710 distinct URLs on the host (status 200, all types; CDX 2026-09-24).
+# THREE CMS generations, one recipe:
+#
+#  A. ASP, 2003–2011 captures (Toledo, García) — query-addressed print pages:
+#       Imprimir.asp / imprimir.asp / imprimir_pd.asp ?CodigoPubs=N   (231 ids: speeches, press
+#       notes; `_pd` = the First Lady's office), contenido1.asp?codigopubs=N (García's messages,
+#       some with &idioma=i English twins), anexos/<event>/nota.asp?codigopubs=N (the APEC 2008,
+#       Teletón, Brazil-summit mini-sites). Thin: the Archive kept ~340 of what were ~20,000
+#       publication ids. Not folded across scripts — imprimir_pd.asp and Imprimir.asp reuse
+#       low ids for different documents.
+#       These pages declare no charset and are Latin-1, while B and C are UTF-8, hence the
+#       codec pair (fetch.decode_mixed): García's "INFORME AL PAÍS" decodes clean with it.
+#  B. Joomla, 2011–2015 (Humala): articles at the ROOT, /<slug>, each also captured as
+#       /<slug>/imprimir and /<slug>/pdf — 3,936 distinct slugs, folded to one per article
+#       (wayback_identity_strip; the bare slug sorts first, so the HTML page wins). Includes
+#       the Spanish news stream (/ollanta/blog), discursos-del-presidente (~650 "discurso-del-…"
+#       slugs), and the English news (/ollanta-en-ingles, "president-humala-…"). The pages
+#       carry NO date anywhere (not in the article, the print view or the PDF view); the
+#       cleaner reads it from the text or falls back to the capture date.
+#  C. Drupal, Sept 2015 – 2019: /node/N ≡ /noticias/N ≡ /print/N (folded to N). Node ids
+#       below ~4,100 are the Joomla articles IMPORTED into Drupal (sampled: 4 of 4 real
+#       articles are also captured as a B slug), so they are left out as duplicates. Ids from
+#       ~5,100 (Kuczynski, Aug 2016 onward) are also left out: gob.pe imported that news and
+#       per_presidencia carries it — 7 of 7 sampled real Drupal articles 2017-04 … 2018-09 are
+#       on gob.pe. What remains, ids 4,100–5,099, is Humala's last months (Sept 2015 – July
+#       2016) + Kuczynski's first days: 456 ids, 442 as HTML. Dated (span.date-display-single).
+#       The Drupal /noticia/<slug> aliases are left out: 14 of 14 sampled resolve to a node
+#       id that is captured.
+#
+# PROBE 2026-09-24 (--spread 16): harvest 4,618; title 16/16, text 15/16 (the miss is a 2017
+# Drupal info page, "100-dias-gobierno"), date 2/16 — only the Drupal-rendered pages carry
+# one, as designed. Some B slugs were kept by Drupal as path aliases, so their later captures
+# render the dated Drupal node (a 2014 Humala speech at Pisac came back 2014-07-04). The
+# chains were also checked by hand on contenido1.asp, nota.asp, imprimir_pd.asp, /print/N
+# and an English 2014 /noticias/<slug>.html page.
+#
+# COVERAGE: A ~340 of ~390 status-200 ASP captures (sonido.asp = audio player, foto.asp,
+# Transparencial.asp, agenda print views left out); B 3,936 of 4,026 root slugs (job ads
+# concurso-publico-*/convocatoria-*, section pages and listings left out); C 456 of the 2,454
+# captured node ids (the rest duplicate B or per_presidencia — measured above).
+# LEFT OUT, measured: /anexos/NNNNpa.pdf (45 captures) are single-page image scans with no text
+# layer (0 chars); /anexos/NNNNpa.mp3 audio; /portal(gob)/convocatoria* job postings and
+# their PDFs (2017–2025); /normas and /transparencia PDFs (resolutions); /docs/mensajes PDFs
+# (the same Mensajes a la Nación per_presidencia_documentos takes from gob.pe).
+source_id: per_presidencia_old_wayback
+country: Peru
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  # A bare-host prefix: the Joomla articles live at the root. Only the homepage path is "/".
+  - presidencia.gob.pe/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.pe(?::\d+)?/(?:[Ii]mprimir(?:_pd)?\.asp\?[Cc]odigo[Pp]ubs=\d+|contenido1\.asp\?codigopubs=\d+(?:&;?idioma=[a-z]*)?|anexos/[^/?#]+/nota\.asp\?codigopubs=\d+|(?!(?:concurso-|convocatori|lista-|directorio|agenda-|acceso-|atencion-|escribele|galeria|transparencia|dj-intereses|vision-mision|discursos-del-presidente(?:/|$)|ollanta-en-ingles(?:/|$)))[a-z0-9][a-z0-9-]{15,}(?:/(?:imprimir|pdf))?|noticias/[a-z0-9-]{15,}\.html|(?:node|noticias|print)/(?:4[1-9]\d\d|50\d\d))$'
+
+pagination:
+  type: wayback
+  wayback_to: "20200101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:(text/html|application/pdf)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # Joomla: /<slug>/imprimir and /<slug>/pdf are the article's print and PDF views
+    - '/(?:imprimir|pdf)$'
+    # Drupal: /node/N, /noticias/N (a view of the node) and /print/N are one node
+    - '(?<=/)(?:node|noticias|print)/(?=\d+$)'
+
+title:
+  selectors:
+    - "h2.contentheading"                      # B Joomla
+    - "div.noticia_titulo h1"                  # C Drupal news
+    - "h1.page-header"                         # C Drupal speech/other nodes
+    - "h1.title1"
+    - ".textograndebold"                       # A Imprimir.asp
+    - "td.textochico1 > div > b > font"        # A contenido1.asp / nota.asp
+    - "title"                                  # C /print/N (its <title> IS the headline)
+text:
+  selectors:
+    - "div.entry-body"                         # B
+    - "div.noticia_contenido"                  # C news
+    - "div.field-name-body"                    # C speech/other nodes
+    - "td.textomedio"                          # A Imprimir.asp
+    - "td.textochico1 font[color='#555555']"   # A contenido1.asp / nota.asp
+date:
+  # Only the Drupal generation carries a date element; A and B have none (the cleaner reads
+  # the dateline). Scoped to the article's own date field — the sidebar has other dates.
+  selectors:
+    - "div.noticia_lugar_fecha span.date-display-single"
+    - "div.field-name-field-fecha-de-la-noticia span.date-display-single"
+    - "div.field-name-field-fecha-del-discurso span.date-display-single"
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gob.pe before gob.pe, from the Internet Archive: Toledo/Garcia ASP print pages
+  (thin, ~340), Humala's Joomla site 2011-2015 (3,936 articles incl. ~650 speeches and the
+  English news; undated pages) and the Drupal site's Sept 2015 - Aug 2016 nodes (456, dated).
+  Later Drupal nodes duplicate gob.pe (per_presidencia) and earlier ones duplicate the Joomla
+  slugs - both measured and left out. No speaker_default (three presidents + first ladies).

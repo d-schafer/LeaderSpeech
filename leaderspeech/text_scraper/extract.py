@@ -55,7 +55,13 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
             if spec.regex:
                 m = re.search(spec.regex, value)
                 if m:
-                    value = m.group(0)
+                    # The whole match, unless the pattern names a `value` group: then only
+                    # that group. This lets a regex ANCHOR on context it must not return —
+                    # "^\W*(?:[^,]+,\s*)?(?P<value>\d+ de \w+ de \d{4})" takes a dateline's
+                    # date but not its place name. Opt-in by name, so a recipe whose regex
+                    # happens to use a plain (…) group for alternation keeps group(0).
+                    value = (m.group("value") if "value" in m.re.groupindex
+                             else m.group(0))
                 elif spec.regex_required:
                     # An explicit "the regex IS the field" contract: a miss means this
                     # selector didn't really match, so keep walking the chain rather than
@@ -80,7 +86,8 @@ META_FIELDS = ("text", "title", "date", "speaker")
 
 
 def listing_meta(item, listing: Listing,
-                 languages: Optional[list[str]] = None) -> dict:
+                 languages: Optional[list[str]] = None,
+                 min_year: int = 1900) -> dict:
     """Metadata read out of ONE listing block, for the speech link that block contains.
 
     `item` is a bs4 Tag, so `first_match`'s `.select` is scoped to that block — and the
@@ -101,7 +108,7 @@ def listing_meta(item, listing: Listing,
         meta["title"] = title
         origin["title"] = f"listing: {matched_selector(item, listing.item_title)}"
     raw = first_match(item, listing.item_date)
-    date = parse_date(raw, languages)
+    date = parse_date(raw, languages, min_year=min_year)
     if date:
         meta["date"] = date
         meta["date_raw"] = clean_text(raw)
@@ -194,7 +201,7 @@ def _expand_two_digit_year(raw: str) -> str:
     return ("19" if int(raw) >= 69 else "20") + raw
 
 
-def _iso_from_named_groups(m: re.Match) -> Optional[str]:
+def _iso_from_named_groups(m: re.Match, min_year: int = 1900) -> Optional[str]:
     """If a date url_regex captured named year/month/day groups, assemble an ISO date
     directly — this sidesteps dateparser's DD/MM ambiguity for numeric archive paths like
     `/2003/18-06-...`. A 2-digit year group is widened (see _expand_two_digit_year), which
@@ -210,13 +217,14 @@ def _iso_from_named_groups(m: re.Match) -> Optional[str]:
         dt = datetime(int(year), int(gd["month"]), int(gd["day"]))
     except (ValueError, TypeError):
         return None
-    if dt.year < 1900 or dt.year > datetime.now().year + 1:
+    if dt.year < min_year or dt.year > datetime.now().year + 1:
         return None
     return dt.date().isoformat()
 
 
 def date_from_url(spec: Optional[FieldSpec], url: Optional[str],
-                  languages: Optional[list[str]] = None) -> Optional[str]:
+                  languages: Optional[list[str]] = None,
+                  min_year: int = 1900) -> Optional[str]:
     """Parse a date out of the page URL via `spec.url_regex`. Prefers named
     year/month/day groups (assembled unambiguously as ISO); otherwise parses the matched
     substring with `parse_date`. None if there's no url_regex or no usable date."""
@@ -232,18 +240,24 @@ def date_from_url(spec: Optional[FieldSpec], url: Optional[str],
         # be handed group(1) (a bare day or year) and let dateparser fill the rest of the
         # date from TODAY. A blank date beats a plausible wrong one: the resolved date
         # picks the tenure roster, so a wrong year corrupts speaker attribution too.
-        return _iso_from_named_groups(m)
+        return _iso_from_named_groups(m, min_year)
     raw = m.group(1) if m.groups() else m.group(0)
-    return parse_date(raw, languages)
+    return parse_date(raw, languages, min_year=min_year)
 
 
-def parse_date(raw: Optional[str], languages: Optional[list[str]] = None) -> Optional[str]:
+def parse_date(raw: Optional[str], languages: Optional[list[str]] = None,
+               min_year: int = 1900) -> Optional[str]:
     """Parse a date in the source's language. First try the whole string; if that
     fails (e.g. the date is wrapped in noise like 'Buenos Aires, 25 de mayo de
     2024' or 'Publié le 14 juillet 2023'), search for a date inside it."""
     if not raw:
         return None
-    text = raw.strip()
+    # Collapse all whitespace first. Selector values are joined with get_text("\n"), so a
+    # date split across two text nodes arrives as "2 de marzo de \n2019" — and dateparser's
+    # search_dates treats the line break as a boundary, finds only "2 de marzo", and
+    # completes the missing year from TODAY (presidencia.gob.bo, 2026-09-24: a 2019 article
+    # came out 2026-03-02). A date never needs a line break.
+    text = " ".join(raw.split())
     dt = None
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
@@ -265,7 +279,7 @@ def parse_date(raw: Optional[str], languages: Optional[list[str]] = None) -> Opt
     # Reject implausible parses (e.g. dateparser returning year 0001 from a date
     # fragment with no real year). A blank date is honest; a wrong one corrupts any
     # time-series. The leader-tenure key / cleanup step can fill these later.
-    if dt.year < 1900 or dt.year > datetime.now().year + 1:
+    if dt.year < min_year or dt.year > datetime.now().year + 1:
         return None
     return dt.date().isoformat()
 
@@ -284,9 +298,10 @@ def extract_record(html: str, url: str, recipe: Recipe) -> dict:
         speaker = recipe.speaker_default
 
     date_raw = first_match(soup, recipe.date)
-    date = parse_date(date_raw, recipe.date_languages)
+    date = parse_date(date_raw, recipe.date_languages, min_year=recipe.date_min_year)
     if date is None:
-        date = date_from_url(recipe.date, url, recipe.date_languages)
+        date = date_from_url(recipe.date, url, recipe.date_languages,
+                             min_year=recipe.date_min_year)
     return {
         "title": clean_text(field(recipe.title)),
         "text": clean_text(first_match(soup, recipe.text)),
@@ -337,7 +352,8 @@ def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
     text = clean_text(document_to_text(data, recipe))
 
     title = clean_text(match_url(recipe.title, url)) or _first_line(text)
-    date = date_from_url(recipe.date, url, recipe.date_languages)
+    date = date_from_url(recipe.date, url, recipe.date_languages,
+                         min_year=recipe.date_min_year)
     speaker = clean_text(match_url(recipe.speaker, url)) if recipe.speaker else ""
     if not speaker and recipe.speaker_default:
         speaker = recipe.speaker_default
