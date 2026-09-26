@@ -7,6 +7,10 @@ loop while keeping the key 100% accurate: it finds speakers the key doesn't know
 the genuine national leaders among them, and **proposes** them to an outbox the researcher
 approves by hand. Only a separate, gated `merge --apply` step writes the key.
 
+**Known structural gaps** — countries the key doesn't cover, years it stops at, hand-written
+additions waiting to be folded in — are tracked in `data/sources/TENURE_TODO.md`. This tool
+finds leaders from the speeches; that list records what is already known to be missing.
+
 ## Why a propose-then-approve loop
 
 The key is used to validate every speech, so a wrong row contaminates the dataset. So the
