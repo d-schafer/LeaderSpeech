@@ -1,5 +1,7 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: >-
+  If you use LeaderSpeech, please cite the article below. If you use the speech
+  data, please also cite the LeaderSpeech dataset (doi:10.7910/DVN/OHGRC3).
 title: "LeaderSpeech: Tools for scraping, transcribing, cleaning, and structuring speeches by national leaders"
 abstract: >-
   A config-driven toolkit for building a comprehensive, wide-coverage dataset of national
@@ -12,7 +14,8 @@ authors:
     given-names: Dean
     orcid: "https://orcid.org/0000-0001-6774-3755"
 version: 0.1.0
-date-released: 2026-07-14   # date of the v0.1.0 release/tag (adjust if the tag date differs)
+date-released: 2026-07-14
+doi: 10.5281/zenodo.21364293
 license: GPL-3.0-or-later
 url: "https://github.com/d-schafer/LeaderSpeech"
 repository-code: "https://github.com/d-schafer/LeaderSpeech"
@@ -22,23 +25,36 @@ keywords:
   - nlp
   - comparative-politics
 
-identifiers:
-  - type: doi
-    value: "10.5281/zenodo.21364293"
-    description: "Concept DOI — always resolves to the latest version"
-  - type: doi
-    value: "10.5281/zenodo.21364294"
-    description: "Version DOI — v0.1.0"
+preferred-citation:
+  type: article
+  title: "Listening to Leaders: Illiberal Speech as a Symptom of Democratic Decline"
+  authors:
+    - family-names: Maerz
+      given-names: Seraphine F.
+    - family-names: Schafer
+      given-names: Dean
+      orcid: "https://orcid.org/0000-0001-6774-3755"
+    - family-names: Schneider
+      given-names: Carsten Q.
+  journal: "Comparative Political Studies"
+  year: 2026
+  doi: 10.1177/00104140261487983
 
-# TODO (optional): if a journal article should be the *preferred* citation for the project,
-# add it here. GitHub then surfaces the article as the primary "Cite this repository" entry
-# and keeps the software citation as a secondary reference:
-# preferred-citation:
-#   type: article
-#   title: "..."
-#   authors:
-#     - family-names: Schafer
-#       given-names: Dean
-#   year: 2026
-#   journal: "..."
-#   doi: "..."
+references:
+  - type: data
+    title: "LeaderSpeech: A speech corpus covering 322 political leaders from 108 countries (1992 to 2024)"
+    authors:
+      - family-names: Schafer
+        given-names: Dean
+      - family-names: Maerz
+        given-names: Seraphine F.
+      - family-names: Schneider
+        given-names: Carsten Q.
+      - family-names: Wagner
+        given-names: Franziska
+      - family-names: Yavuz
+        given-names: Mehmet
+    publisher:
+      name: "Harvard Dataverse"
+    year: 2026
+    doi: 10.7910/DVN/OHGRC3
