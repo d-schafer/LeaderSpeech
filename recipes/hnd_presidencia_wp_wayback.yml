@@ -1,0 +1,60 @@
+# Honduras — presidencia.gob.hn under Juan Orlando Hernández's first term (Jan 2014 – mid-2016),
+# a WordPress addressed at the ROOT (/?p=<id>), via the Internet Archive. The live host answers
+# with Cloudflare error 1000 (misconfigured DNS; 2026-09-27).
+#
+# CDX 2026-09-27: 2,091 status-200 /?p=N captures, first captured 2014 581, 2015 1,318, 2016 180
+# (+ 10 from 2009/2012 and 2 later, outside the window). Every article's PATH is the start_url's
+# own ("/"), which the engine normally drops as the listing index — hence
+# `wayback_keep_listing_paths: true` (NEW 2026-09-27) and a link_pattern that admits ONLY
+# /?p=<digits>: /?cat=, /?tag=, /?m= listings, feeds and the home page stay out.
+#
+# Selectors (checked on a 2014 and a 2015 capture): title h1.entry-title; body .entry-content
+# (the page also carries a WP-sitemap modal of 85–130 KB — never selected); date span.onDate,
+# written in ENGLISH in 2014 ("April 3, 2014") and Spanish in 2015 ("enero 8, 2015"). With
+# date_languages ["es"] alone the engine reads "April 3, 2014" as 2014-03-28; ["es", "en"]
+# reads all of them right (month-first words, no numeric DD/MM for "en" to flip).
+# ?p=1 is WordPress's default "Welcome to WordPress!" post — excluded.
+#
+# PROBE 2026-09-27 (--spread 12): 2,099 snapshots; title/text/date 12/12 (incl. the default post
+# before it was excluded), 2014-04 … 2015-12. COVERAGE: ~2,080 of the 2,091 /?p=N captures
+# (the rest predate 2014 or follow 2016).
+source_id: hnd_presidencia_wp_wayback
+country: Honduras
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.hn/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.hn(?::\d+)?/\?p=(?!1$)\d+$'
+
+pagination:
+  type: wayback
+  wayback_from: "20140101"
+  wayback_to: "20161231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+
+keep_if:
+  selectors: [".entry-content"]
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h1.entry-title"]
+text:
+  selectors: [".entry-content"]
+date:
+  selectors: ["span.onDate"]
+
+position: president
+date_languages: ["es", "en"]
+
+notes: >
+  Honduras presidencia.gob.hn WordPress under Juan Orlando Hernandez's first term (2014-2016),
+  root-addressed /?p=N posts from the Internet Archive (~2,080). Uses the new
+  wayback_keep_listing_paths option. Dated. No speaker_default.

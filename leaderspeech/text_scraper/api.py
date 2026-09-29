@@ -340,7 +340,6 @@ def harvest_entries(
     cfg = recipe.pagination.api
     pg = recipe.pagination
     pattern = re.compile(recipe.listing.link_pattern) if recipe.listing.link_pattern else None
-    base = recipe.start_urls[0]
     max_pages = pg.max_pages or 200
     method = (cfg.method or "GET").upper()
     # A POST that pages by writing the offset into its body still advances even without a
@@ -351,66 +350,71 @@ def harvest_entries(
     client = client or create_client(recipe, fetcher=fetcher)
     collected, seen = [], set()
     try:
-        for page_idx in range(max_pages):
-            value = pg.start + page_idx * pg.step
-            # api.param_template shapes the query value (OData keyset paging: "Id gt {n}").
-            # The body offset stays numeric — a JSON body field is not a query expression.
-            param_value = cfg.param_template.format(n=value) if cfg.param_template else value
-            url, body = base, None
-            if method == "POST":
-                body = copy.deepcopy(cfg.body) if cfg.body is not None else {}
-                if cfg.body_page_field:
-                    _set_dig(body, cfg.body_page_field, value)  # offset into the body
-                elif pg.param:
-                    url = _with_query_param(base, pg.param, param_value)  # POST paged by query
-            elif pg.param:  # GET (today's path)
-                url = _with_query_param(base, pg.param, param_value)
-            try:
-                resp = client.post(url, json=body) if method == "POST" else client.get(url)
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as e:
-                # one bad page shouldn't kill the whole harvest
-                log.warning("api page failed, stopping pagination here: %s :: %s", url, e)
-                break
-            rows = _rows_of(data, cfg.results_path)
-            if not rows:
-                break  # past the last page of results
-            gained = 0
-            for row in rows:
-                item = _extract_item(row, cfg)
-                link = _as_str(item.get("url"))
-                if not link:
-                    continue
-                link = urljoin(cfg.url_base or base, link.strip())
-                if pattern and not pattern.search(link):
-                    continue
-                if link in seen:
-                    continue
-                seen.add(link)
-                collected.append({
-                    "url": link,
-                    "title": clean_text(_as_str(item.get("title"))),
-                    # JSON dates are standardized (ISO/RFC), not free text — let
-                    # dateparser autodetect; the recipe's date_languages hint is for
-                    # localized prose on the HTML page and would mis-order ISO dates.
-                    "date": parse_date(_as_str(item.get("date"))),
-                    "text": (_html_to_text(_as_str(item.get("text")))
-                             if cfg.text_is_html
-                             else clean_text(_as_str(item.get("text")))),
-                    "speaker": clean_text(_as_str(item.get("speaker"))),
-                })
-                gained += 1
-                if max_links and len(collected) >= max_links:
-                    return collected
-            if (page_idx + 1) % 25 == 0:  # so a long harvest isn't a silent gap
-                log.info("api harvesting... %d pages, %d items so far", page_idx + 1, len(collected))
-            if not paginates:
-                break  # no paging param / body offset -> single request
-            if gained == 0:
-                break  # rows present but none new/qualifying — stop
-            if cfg.delay:
-                time.sleep(cfg.delay)
+        # Every start_url is its own paged query (a category, a search term …), harvested
+        # in order into one de-duplicated list. Historically only start_urls[0] was read.
+        for base in recipe.start_urls:
+            for page_idx in range(max_pages):
+                value = pg.start + page_idx * pg.step
+                # api.param_template shapes the query value (OData keyset paging: "Id gt {n}").
+                # The body offset stays numeric — a JSON body field is not a query expression.
+                param_value = cfg.param_template.format(n=value) if cfg.param_template else value
+                url, body = base, None
+                if method == "POST":
+                    body = copy.deepcopy(cfg.body) if cfg.body is not None else {}
+                    if cfg.body_page_field:
+                        _set_dig(body, cfg.body_page_field, value)  # offset into the body
+                    elif pg.param:
+                        url = _with_query_param(base, pg.param, param_value)  # POST paged by query
+                elif pg.param:  # GET (today's path)
+                    url = _with_query_param(base, pg.param, param_value)
+                try:
+                    resp = client.post(url, json=body) if method == "POST" else client.get(url)
+                    resp.raise_for_status()
+                    data = resp.json()
+                except Exception as e:
+                    # one bad page shouldn't kill the whole harvest
+                    log.warning("api page failed, stopping pagination here: %s :: %s", url, e)
+                    break
+                rows = _rows_of(data, cfg.results_path)
+                if not rows:
+                    break  # past the last page of results
+                gained = 0
+                for row in rows:
+                    item = _extract_item(row, cfg)
+                    link = _as_str(item.get("url"))
+                    if not link:
+                        continue
+                    link = urljoin(cfg.url_base or base, link.strip())
+                    if pattern and not pattern.search(link):
+                        continue
+                    if link in seen:
+                        continue
+                    seen.add(link)
+                    text = (_html_to_text(_as_str(item.get("text"))) if cfg.text_is_html
+                            else clean_text(_as_str(item.get("text"))))
+                    if cfg.text_min_chars and len(text) < cfg.text_min_chars:
+                        text = ""   # a stub (embed/shortcode) -> fetch the page instead
+                    collected.append({
+                        "url": link,
+                        "title": clean_text(_as_str(item.get("title"))),
+                        # JSON dates are standardized (ISO/RFC), not free text — let
+                        # dateparser autodetect; the recipe's date_languages hint is for
+                        # localized prose on the HTML page and would mis-order ISO dates.
+                        "date": parse_date(_as_str(item.get("date"))),
+                        "text": text,
+                        "speaker": clean_text(_as_str(item.get("speaker"))),
+                    })
+                    gained += 1
+                    if max_links and len(collected) >= max_links:
+                        return collected
+                if (page_idx + 1) % 25 == 0:  # so a long harvest isn't a silent gap
+                    log.info("api harvesting... %d pages, %d items so far", page_idx + 1, len(collected))
+                if not paginates:
+                    break  # no paging param / body offset -> single request
+                if gained == 0:
+                    break  # rows present but none new/qualifying — stop
+                if cfg.delay:
+                    time.sleep(cfg.delay)
     finally:
         if close_client:
             client.close()

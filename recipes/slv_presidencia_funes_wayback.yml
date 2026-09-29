@@ -1,0 +1,104 @@
+# El Salvador — the Presidency's Joomla/K2 site under Mauricio Funes (2010–2014), via the
+# Internet Archive. The live host has been WordPress since June 2014 (Sánchez Cerén, then
+# Bukele: slv_presidencia_2014_wayback, slv_presidencia).
+#
+# One K2 install on www.presidencia.gob.sv plus the presidential secretariats' own installs:
+# /inclusionsocial/ (Secretaría de Inclusión Social), /tecnica/ (Secretaría Técnica), /cultura/
+# (Secretaría de Cultura), and the subdomains cultura., asuntosestrategicos., inclusionsocial.,
+# tecnica.presidencia.gob.sv. Each K2 item is served under many ALIAS paths — /index.php/
+# novedades/noticias/item/<id>-<slug>(.html), /novedades/discursos/{discursos,declaraciones,
+# visitas-internacionales}/item/…, /component/k2/item/…, /agenda/item/…, /ministerios/item/…,
+# /cierre-de-calles-durante-visita/item/… — so the recipe takes every /item/<id> URL and folds
+# them to ONE per (install, id) with wayback_identity_strip (the slug and the alias path are
+# cut; the install is kept, because each numbers its items separately — and a secretariat
+# served both as a subdomain and as a path counts as one install).
+#
+# RULE 1: news (noticias), speeches (discursos/discursos), declarations (discursos/
+# declaraciones — incl. the weekly radio "Conversando con el Presidente"), international
+# visits, agenda and ministry items — all taken. Distinct items with a status-200 capture
+# (CDX 2026-09-27): main install 2,963 (ids 57–4,765, captured 2010–2013), inclusionsocial 399
+# + 40 on its subdomain, tecnica 206 + 19, cultura 42 + 59, asuntosestrategicos 49 + 3 — 3,695
+# once the 63 subdomain/path twins are folded (offline filter over the saved CDX, 2026-09-27).
+# The Archive's crawl thins out after mid-2013: Funes's last year (mid-2013 → May 2014) is
+# barely captured (16 new items).
+#
+# ~80 captures are near-empty (a 387-byte record for a 16 KB page); when such an alias sorts
+# first it would win the fold and lose the item, so `length:[0-9]{4,}` drops every capture
+# under 1,000 bytes at the CDX (K2 pages are 13–50 KB). wayback_to: the WordPress launch.
+#
+# Selectors: standard K2 (h2.itemTitle, div.itemIntroText + div.itemFullText, span.
+# itemDateCreated "Sábado 15 de octubre de 2011 12:43"), checked on five items 2010–2013 across
+# the main and inclusionsocial installs. keep_if drops a capture with no K2 body (a Joomla
+# error page) instead of letting the generic extractor write the sidebar.
+#
+# LEFT OUT: ?tmpl=component&print=1 print views (duplicates), itemlist/category listings,
+# mailto forms, /tag/ pages. prensa.presidencia.gob.sv (the 2014–16 press WordPress, 128
+# root-addressed /?p=N pages) cannot be reached over wayback by the engine (the L5 root-path
+# limitation) — recorded in the outbox, not authored.
+source_id: slv_presidencia_funes_wayback
+country: El Salvador
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.sv/index.php/
+  - presidencia.gob.sv/novedades/
+  - presidencia.gob.sv/inclusionsocial/
+  - presidencia.gob.sv/tecnica/
+  - presidencia.gob.sv/cultura/
+  - cultura.presidencia.gob.sv/
+  - asuntosestrategicos.presidencia.gob.sv/
+  - inclusionsocial.presidencia.gob.sv/
+  - tecnica.presidencia.gob.sv/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:(?:cultura|asuntosestrategicos|inclusionsocial|tecnica)\.)?presidencia\.gob\.sv(?::\d+)?/(?:(?:inclusionsocial|tecnica|cultura|asuntosestrategicos)/)?(?:index\.php/)?(?:[a-z0-9-]+/){1,3}item/\d+(?:[-.][^?#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_to: "20140601"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:[0-9]{4,}"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # Applied IN ORDER, so every alias of an item reduces to <install>/item/<id>:
+    #   www.presidencia.gob.sv/index.php/novedades/noticias/item/700-slug.html -> presidencia.gob.sv/item/700
+    #   www.presidencia.gob.sv/tecnica/component/k2/item/200-slug               -> tecnica/item/200
+    #   tecnica.presidencia.gob.sv:80/novedades/noticias/item/200-slug          -> tecnica/item/200
+    # (a secretariat's site is served both as a subdomain and as a path — 66 items overlap).
+    # 1. the slug (and a bare .html) after the id; agenda slugs contain a literal "/"
+    #    ("2149-29-febrero-/-aniversario-…"), so the cut runs to the end of the URL
+    - '(?<=\d)[-.][^?#]*$'
+    - '/index\.php(?=/)'
+    # 2. a secretariat PATH install becomes a bare install "host"
+    - '(?:www\.)?presidencia\.gob\.sv(?::\d+)?/(?=(?:inclusionsocial|tecnica|cultura|asuntosestrategicos)/)'
+    # 3. the main host without www / port
+    - '(?<=://)www\.(?=presidencia\.gob\.sv)'
+    - '(?<=presidencia\.gob\.sv):\d+'
+    # 4. a secretariat SUBDOMAIN becomes the same bare install "host"
+    - '(?<=[a-z])\.presidencia\.gob\.sv(?::\d+)?'
+    # 5. every alias path between the host and /item/
+    - '(?<=[^/]/)(?:[a-z0-9-]+/)+(?=item/\d)'
+
+keep_if:
+  selectors: ["div.itemBody", "div.itemFullText", "div.itemIntroText"]
+  pattern: '\w{3}'
+
+title:
+  selectors: ["h2.itemTitle", "title"]
+text:
+  selectors: ["div.itemIntroText, div.itemFullText", "div.itemBody"]
+date:
+  selectors: ["span.itemDateCreated"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  El Salvador's presidency site under Funes (Joomla/K2, 2010-2014) from the Internet Archive:
+  news, speeches, declarations, visits, agenda, plus the presidential secretariats' own K2 sites
+  (Inclusion Social, Tecnica, Cultura, Asuntos Estrategicos). 3,695 items after folding each
+  item's alias URLs to one. Dated (K2 created date). No speaker_default.

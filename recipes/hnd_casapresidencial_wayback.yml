@@ -1,0 +1,71 @@
+# Honduras — Casa Presidencial (casapresidencial.hn) under Ricardo Maduro, 2002–2006, via the
+# Internet Archive. The domain no longer answers; its 2025–26 captures are junk from a re-used
+# domain (recursive /005/11/imagenes/… paths and .html copies), so wayback_to 2007.
+#
+# CDX 2026-09-27, status 200 HTML captured before 2007: ~2,600 pages — the daily news tree
+# /YYYY/MM/DD_N.php (~3,366 rows over all years), speeches /discurso/DDMMYY[_N].php, and the
+# sector desks /agricultura/, /gobernacion/, /turismo/, /cooperacion/, /noticias_varias/,
+# /huracan/ … (DDMMYY[_N].php). RULE 1: every .php/.html page on the host, minus galleries and
+# image folders; the few navigation pages are left to the cleaner. A page captured both as .php
+# and .html is folded (wayback_identity_strip drops the extension).
+#
+# Selectors (checked on a 2003 speech, a 2003 Gobernación page, a 2004 daily page): no classes,
+# no <title> text; the article is the page's <p>s (the related-headlines box table#lin_noticia
+# is excluded). DATE: every page opens with a bold dateline ("Lunes 03 de mayo de 2004",
+# "2 de octubre de 2003") — read from p strong, ANCHORED at the start and regex_required, so a
+# page that opens with its headline instead (the speeches) gets no date from the body; the
+# daily pages fall back to their /YYYY/MM/DD_ URL. Section file names are DDMMYY
+# (gobernacion/021003_1.php = 2 Oct 2003, matching its dateline) and are NOT parsed — two-digit
+# day-first names are too easy to misread.
+#
+# PROBE 2026-09-27 (--spread 14): 2,498 snapshots (offline 2,497); text 14/14, date 10/14 (all
+# daily pages, 2003-02 … 2005-10; the undated four are sector/ministry pages). COVERAGE: 2,497 of
+# 2,606 status-200 HTML captures before 2007 (the rest: galleries, image folders, index pages).
+source_id: hnd_casapresidencial_wayback
+country: Honduras
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - casapresidencial.hn/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?casapresidencial\.hn(?::\d+)?/(?!(?:[^/?#]+/)*(?:galeria|imagenes|fotos)[^/?#]*(?:/|$))(?:[^/?#]+/)*(?!index\.)[^/?#]+\.(?:php|html?)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20070101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '\.(?:php|html?)$'
+
+keep_if:
+  selectors: ["p"]
+  pattern: '\w{4}'
+
+title:
+  # <title> is the site name on most pages ("Presidencia de la República de Honduras") — kept
+  # only when it is something else; otherwise blank.
+  selectors: ["title"]
+  regex: '^\s*(?!Presidencia de la Rep)\S.{10,}$'
+  regex_required: true
+text:
+  selectors: ["p:not(table#lin_noticia p)"]
+date:
+  selectors: ["p strong"]
+  regex: '^\W*(?:[A-Za-zÁÉÍÓÚáéíóú]+,?\s+)?(?P<value>\d{1,2}\s+de\s+[A-Za-záéíóú]+\s+(?:de|del)\s+\d{4})'
+  regex_required: true
+  url_regex: '/(?P<year>(?:19|20)\d\d)/(?P<month>[01]\d)/(?P<day>[0-3]\d)_\d+\.(?:php|html?)$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Honduras Casa Presidencial (casapresidencial.hn) under Ricardo Maduro, 2002-2006, from the
+  Internet Archive: daily news, speeches, sector-desk news. Dated from the page's opening
+  dateline or the daily URL. No speaker_default.

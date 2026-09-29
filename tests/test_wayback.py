@@ -189,6 +189,26 @@ def test_filter_entries_drops_index_from_start_urls_even_with_loose_pattern():
     assert [e["original"] for e in filtered] == ["https://x.gov/discursos/5"]
 
 
+def test_root_addressed_articles_are_dropped_by_default():
+    # presidencia.gob.hn 2014–16: WordPress addressed at the ROOT (/?p=N) under a bare-host
+    # start_url. Every article's path is "" — the start_url's own — so the default listing
+    # drop removes them all. That is the historical behaviour and stays the default.
+    entries = [{"original": "http://www.presidencia.gob.hn/?p=1520"},
+               {"original": "http://www.presidencia.gob.hn/?cat=109&paged=10"}]
+    assert wayback.filter_entries_for_recipe(
+        entries, r"/\?p=\d+$", start_urls=["presidencia.gob.hn/"]) == []
+
+
+def test_keep_listing_paths_lets_link_pattern_decide():
+    entries = [{"original": "http://www.presidencia.gob.hn/?p=1520"},
+               {"original": "http://www.presidencia.gob.hn:80/?p=1520"},       # same page
+               {"original": "http://www.presidencia.gob.hn/?cat=109&paged=10"},  # a listing
+               {"original": "http://www.presidencia.gob.hn/"}]                   # the home page
+    kept = wayback.filter_entries_for_recipe(
+        entries, r"/\?p=\d+$", start_urls=["presidencia.gob.hn/"], keep_listing_paths=True)
+    assert [e["original"] for e in kept] == ["http://www.presidencia.gob.hn/?p=1520"]
+
+
 def test_fetch_snapshot_retries_transient_connect_error(monkeypatch):
     entry = {
         "timestamp": "20080101",

@@ -472,6 +472,20 @@ elements separated, `<script>`/`<style>` dropped, zero-width editor residue stri
 It applies to SharePoint's `PublishingPageContent` the same way. Default `false`, so every
 existing recipe is unchanged.
 
+**When some bodies are stubs (`api.text_min_chars`).** A CMS can hold a post whose whole body
+is an embed or a shortcode pointing at the real document — presidencia.gob.sv's speech posts
+are just `[gview file=»https://…/speech.pdf»]` (~100 chars). Carried, that stub would BE the
+row. **`api.text_min_chars: N`** drops a carried body shorter than N characters (measured
+after `text_is_html` flattening), so that item's page is fetched as if `text_field` were
+unset — and the page selectors and `pdf_link` take over. Every longer body is still carried
+at no fetch cost. Default `0` (any non-empty body is used).
+
+```yaml
+    text_field: content.rendered
+    text_is_html: true
+    text_min_chars: 400      # ~90 of 6,637 posts get a page fetch; the rest come from JSON
+```
+
 ### Reading the API through the browser (`api.via_browser`)
 
 Some WAFs — F5/BIG-IP TSPD is the one this was built for — answer a plain HTTP client with
@@ -679,6 +693,19 @@ pdf_link:
 Notes and caveats:
 - Make the selector **specific** (a path fragment unique to the speech-PDF store), so it can't latch
   onto an unrelated sidebar/download PDF on a page that already has a real HTML body.
+- **A PDF named in TEXT, not in an `href`** (`attr` + `regex` together). Some pages name the PDF
+  only in a CMS shortcode the site no longer renders — `[gview file=»https://…/x.pdf»]` sits in the
+  body as plain text. When `pdf_link` sets BOTH `attr` and `regex` and no element yields the
+  attribute, the engine makes a second pass over the same selector chain reading each element's
+  TEXT through the `regex` (a miss there is a miss — prose never becomes a "URL"). So one spec
+  catches both forms, scoped to the article so a sidebar PDF can't win:
+  ```yaml
+  pdf_link:
+    selectors: [".post-content a[href$='.pdf']", ".post-content"]
+    attr: href
+    regex: 'https?://[^\s»«"''<>\[\]]+?\.pdf'
+  ```
+  A spec with `attr` and no `regex` behaves exactly as before.
 - A relative href is resolved against the page URL. In wayback mode the engine first queries the CDX
   for the **PDF URL's own captures** and fetches the most complete `statuscode:200` one (largest
   `length`) — this avoids an Archive-side **truncated** capture (large files are sometimes stored
@@ -844,7 +871,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `start_urls_file` | no | A newline-delimited file of additional `start_urls`, for a source whose only index is a page per DAY and so numbers in the thousands. Same contract as `pagination.url_list_file`: `#` comments and blanks skipped, a relative path resolves against the recipe file's directory, a missing file raises, entries append to any inline `start_urls` and de-duplicate. These stay LISTING pages (`listing.link_pattern` still applies) — that is what distinguishes it from `url_list_file`. Worked example: `recipes/col_historico.yml` (2,627 daily archive pages). |
 | `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
-| `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). |
+| `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). With both `attr` and `regex`, an element lacking the attribute is read as TEXT through the regex (a shortcode-named PDF). |
 | `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs that extract 0 chars (for `pdf_link` or `content_type: pdf`). Needs `pip install 'leaderspeech[pdf-ocr]'` **and** system Tesseract + Ghostscript. |
 | `pdf_ocr_language` | no | Tesseract language spec for `pdf_ocr` (default `eng`; `+`-joined for non-Latin, e.g. `fas+pus+eng` for Dari/Pashto — each needs its language-data pack). |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
@@ -888,7 +915,9 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `pagination.api.method` | no | `GET` (default) or `POST`. Use `POST` for endpoints whose listing is a POST JSON call (SPA/SharePoint CSOM). |
 | `pagination.api.body` | for POST | The JSON body sent on each POST request (capture it from DevTools). Never mutated across pages. |
 | `pagination.api.body_page_field` | no | Dotted path into `body` where the per-page offset (`start + page_idx*step`) is written each POST request (e.g. `pageRequest.page`). Omit to page a POST by query `param` instead (or for a single request). |
+| `pagination.wayback_keep_listing_paths` | no | Default `false`. The Wayback harvest drops every capture whose PATH equals a `start_url`'s path (the listing index and its `?page=` variants). A site whose ARTICLES are addressed at that same path — WordPress/Drupal at the ROOT (`/?p=N`, `/?q=YYYYMMDD/slug`) under a bare-host `start_url` — loses every article to that rule. `true` skips the drop and lets `link_pattern` alone decide, so the pattern must exclude the listing forms itself (`/\?p=\d+$` admits posts but not `/?cat=`, `/?tag=`, `/?m=` or the home page). Exemplar: `hnd_presidencia_wp_wayback`. |
 | `pagination.api.text_is_html` | no | Default `false`. `true` flattens an HTML fragment carried in `text_field` to prose (WordPress `content.rendered`, SharePoint `PublishingPageContent`) instead of storing its tags. See "Carrying the BODY in the JSON". |
+| `pagination.api.text_min_chars` | no | Default `0`. A carried `text_field` body shorter than this (after `text_is_html`) is dropped, so the page is fetched and the page selectors / `pdf_link` apply — for posts whose body is only an embed or shortcode. See "Carrying the BODY in the JSON". |
 | `pagination.api.via_browser` | no | Default `false`. `true` issues the API requests from a headless-Chromium context, for a JS-challenge WAF (F5/BIG-IP TSPD) that stubs plain HTTP clients. See "Reading the API through the browser". |
 | `pagination.api.warmup_url` | no | `via_browser` only. HTML page on the API's host to navigate before the first JSON request, so the browser earns the WAF cookie. Defaults to the API host's root. |
 | `pagination.api.param_template` | no | Shape the paging param's VALUE instead of writing the bare offset; `{n}` is `start + page_idx*step`. For OData keyset paging (`param: "$filter"`, `param_template: "Id gt {n}"`). See "Paging a list that ignores `$skip`". |
@@ -907,6 +936,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `<field>.url_regex` | no | Extract the field from the page **URL** when no selector matches (or when there's no DOM — PDFs). Uses `group(1)` if it captures, else the whole match. For `date`, named `(?P<year>)(?P<month>)(?P<day>)` groups assemble an unambiguous ISO date; a **2-digit year** is widened with the POSIX pivot (`69`–`99` → 19xx, `00`–`68` → 20xx), which is what makes DDMMYY filenames like `/sp010108.html` usable. When those three named groups are present but don't form a real date, the field is a **miss** (no fallback to `parse_date`, which would be handed a bare day or year and complete it from today). |
 | `position` | no | Fixed office when the source is single-office (`president`, `prime minister`). |
 | `speaker_default` | no | Fixed speaker when the source is single-leader. |
+| `html_parser` | no | Default `lxml`. `html.parser` switches the speech-page parser to Python's own. Use it only for a site whose template breaks lxml: lxml stops at the first `</html>`, so a page whose `<head>` closes `</body></html>` early (guatemala.gob.gt's 2008 `discurso.php`) parses to a few dozen characters and every selector misses, while `html.parser` reads the whole body. The two parsers can build slightly different trees (e.g. implied `<tbody>`), so re-check selectors after switching. |
 | `date_languages` | no | Language hints for `dateparser` (e.g. `["es"]`, `["fr"]`). |
 | `date_min_year` | no | Default `1900`. The earliest year a parsed date may have; anything older comes out blank (the guard against dateparser inventing year 0001 from a fragment). Lower it ONLY for a source that genuinely predates 1900 — `per_congreso_mensajes_wayback` sets `1800` for Peru's presidential messages from 1821. Applies to page selectors, `url_regex`, PDF records, listing `item_date`s and the index's date span; api/feed dates keep 1900. Range 1000–1900. |
 | `politeness.delay_range` / `pause_every` / `pause_seconds` / `retries` / `backoff` | no | Pacing. Defaults: no per-request delay (`[0, 0]`), a `5`s breather every `50` requests, `3` retries, `5`s backoff. Raise these for a server that pushes back. |

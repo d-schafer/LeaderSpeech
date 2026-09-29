@@ -1,0 +1,111 @@
+# El Salvador — the Presidency's static-HTML sites 1994–2010, via the Internet Archive:
+# Calderón Sol (a 1998 capture of his inaugural), Flores (1999–2004), Saca (2004–09) and the
+# first year of Funes (2009–10). Two domains: casapres.gob.sv (the older one) and
+# www.presidencia.gob.sv, which re-published Saca's tree under the same paths from 2006.
+#
+# Generations (CDX 2026-09-27, status 200 HTML; casapres 20,273 distinct URLs, www 312k rows):
+#  A. Flores, casapres.gob.sv 1999–2004:
+#       /noticias/boletines/YYYY/MM/<slug>.htm and /Noticias/{Discursos,Conferencias,Mensajes,
+#       viajes,Boletines}/YYYY/MM/*.htm (1999–2001);
+#       then a FLAT site of ~2,300 root-level pages under ~670 name families (2002–04):
+#       bol* (bulletins by month), dis*/disc*/discu* (speeches), conf*/cof*/conv* (press
+#       conferences), mesje* (weekly radio messages), vis* (visits), tomapose.htm (the
+#       inaugural + the four annual informes), cadena.htm (a national broadcast) … Taken
+#       whole, minus a denylist of navigation / institutional / gallery / ministry pages.
+#       Some are month listings (discuma.htm, bolma.htm) — the cleaner drops those.
+#  B. Saca's first year, casapres.gob.sv 2004–05: /{discursos,boletines,conferencias,
+#       vboletines}/<x>YYYYMM/<x>YY[MM]DD[_n].htm.
+#  C. Saca 2005–09, BOTH hosts: /presidente/{discursos,boletines,declaraciones}/YYYY/MM/
+#       <x>DDnn.htm(l) and /vicepresidenta/{boletines,discursos}/… — casapres holds more of
+#       it (2,033 speech URLs across both hosts, 2,303 bulletins, 1,385 declarations).
+#  D. The 2009 handover + early Funes, www only: /traspaso/{discurso,boletines,
+#       declaraciones}/…, /discurso|boletines|declaraciones/YYYY/MM/<x>DDnn.(html|php),
+#       /vicepresidente/boletines/… (Vice-President Sánchez Cerén).
+#  E. /especiales/<event>/*.htm(l) mini-sites (state visits, summits, the 2005 anniversary
+#       speech, Condoleezza Rice's visit with its press conference) — casapres, 2004–09.
+# Funes's Joomla site (2010–14) and Sánchez Cerén's WordPress (2014–19) are separate recipes.
+#
+# The same Saca page captured under both hosts is folded (wayback_identity_strip drops the
+# host name before identity; casapres is listed first, so its capture wins).
+#
+# Dates come from the URL only (url_regex): C/D name files <x>DDnn under /YYYY/MM/ (disc0801 =
+# the 8th; b2005040101 and dec20050401 carry the full date), B names them YY[MM]DD under
+# /<x>YYYYMM/ (disp040621_1 = 2004-06-21; bolv0412 in 200407 = 12 July, as the page itself
+# says). Verified on 14 name variants. A (and the Noticias/ tree, which has no day) is left
+# undated: its pages print a dateline the cleaner reads.
+# Titles: <title> is a site-wide string on most of these pages ("Casa Presidencial - …",
+# "Noticias", "acuer", "Transmisión del Mando …"), so it is taken only when it is not one of
+# those; otherwise blank.
+# Text: #contenido (2009–10 skin), .content (2008–09 skin), else body — the 1999–2007 skins
+# have image-only menus, so body is the page (plus a one-line "Acuerdos de Paz … Inicio"
+# header on the flat site). Latin-1 pages with Windows-1252 quotes: the codec pair.
+#
+# casapres is taken WHOLE except a folder denylist and a filename denylist (below), because its
+# 1997–2004 content sits in ~700 ad-hoc name families nobody could enumerate: the Calderón Sol
+# era /noticias/ tree (b970915.htm, boletines/9811/…, 1997–98), /visitas/<trip>/ (e.g. Lee
+# Teng-hui's 1997 visit), the Vice-President's v* folders, /mensajes/, /gestion/, /reuniones/.
+#
+# PROBE 2026-09-27 (--spread 16): 8,549 snapshots (the offline filter over the saved CDX gave
+# 8,548 — no port/prefix trap); text 15/16 (the miss, 1.htm "Pagina nueva 1", is an image
+# page), dates 8/8 on the dated shapes, 2005-02 … 2010-08. Hand-checked 1997–2000 pages
+# (/noticias/b970915.htm, boletines/9811/b981101.htm, Noticias/Mensajes/2000/02/20.htm,
+# visitas/roc97/): text + real <title>s. One known empty capture: Flores's 1999 inaugural under
+# Noticias/Discursos/ is 0 bytes in the Archive (the same speech is on tomapose.htm).
+# COVERAGE: ~8,550 of ~8,750 non-gallery, non-institutional status-200 HTML captures across
+# both hosts (the ~200 left are the navigation denylist) — ~97%.
+#
+# LEFT OUT: galleries (presidente/galeria 12,956, vicepresidenta/galeria 4,169, traspaso/
+# galerias, /fotos/), videos, /descargas/ (audio + photo directory listings), section index
+# pages, /gobernantes/ + /Historia/ + /presidentes/ (bios of past rulers), /nacion/,
+# /patria/, /Simbolos_Patrios/, /acuerdos/ (the peace-accord texts), /ministerios/,
+# /turismo/. (Month listings like disp04sep.htm and discuma.htm ARE taken — the cleaner drops
+# them.)
+source_id: slv_presidencia_old_wayback
+country: El Salvador
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - casapres.gob.sv/
+  - presidencia.gob.sv/presidente/
+  - presidencia.gob.sv/vicepresidenta/
+  - presidencia.gob.sv/vicepresidente/
+  - presidencia.gob.sv/traspaso/
+  - presidencia.gob.sv/discurso/
+  - presidencia.gob.sv/boletines/
+  - presidencia.gob.sv/declaraciones/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:presidencia\.gob\.sv(?::\d+)?/(?:presidente/(?:discursos|boletines|declaraciones)|vicepresident[ae]/(?:boletines|discursos)|traspaso/(?:discurso|boletines|declaraciones)|discurso|boletines|declaraciones)/(?:19|20)\d\d/[01]\d/[A-Za-z]*\d+(?:_\d+)?\.(?:html?|php)|casapres\.gob\.sv(?::\d+)?/(?!(?:presidente/galeria|presidente/videos|vicepresidenta/galeria|vicepresidenta/videos|traspaso/galerias|fotos|descargas|gobernantes|[Hh]istoria|presidentes|nacion|patria|Simbolos_Patrios|acuerdos|ministerios|turismo|guia|presidencia|especiales/Videos)/)(?:[^?#]*/)?(?!(?:index|welcome|home|inicio|menu|logo|toc|map|mapa|search|s|sc|f|blanco|feedback|suscripcion|sitios|guia|news|new|videos|momentos|gal\w*|\w*fotos|simbolos\w*|leysimbolos|himno|bandera|bande|escudo|flor|ave|arbol|orabandera|actaindep|proceresES|datosES|desc_general|historia|histo|hcapres|casa\w*|capres|accapres|salon\w*|salhonor|bio\w*|\w*biogra\w*|perfil\w*|gabinete\w*|ministerios|entidades|insti\w*|instruc\w*|Instructivo_prensa|program\w*|acred|agregar_saludo|reglamento|indicadores|mtps|mspas|mop|mined|minec|mh|mag|mam|rree|cepa|cel|anda|bcr|bfa|fisdl|faa|enade|fondos|fuerza|medios|familia|dama|primeradama|presidentes|gober|vice|vicepres|vicepdte|vicepresidente|pres|presi|presiden|presidente)\d*\.)[A-Za-z0-9@][^/?#]*?\.html?)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # the same Saca page on casapres.gob.sv and www.presidencia.gob.sv
+    - '(?<=://)(?:www\.)?(?:casapres|presidencia)\.gob\.sv'
+
+title:
+  selectors: ["title"]
+  regex: '^\s*(?!(?:Casa Presidencial|Presidencia de la Rep|Discursos\b|Noticias\b|Actualidad\b|Boletin|Declaraciones\b|acuer\b|Vicepresidencia\b|Transmisi|Portada\b))\S.{10,}$'
+  regex_required: true
+text:
+  selectors: ["#contenido", ".content", "body"]
+date:
+  selectors: []
+  url_regex: '(?:/(?P<sl>)|(?<=[a-z]))(?P<year>(?:19|20)\d\d)/?(?P<month>[01]\d)/[A-Za-z]*(?(sl)(?:\d{6}(?=\d{2}(?:\d{2})?\.))?|\d{2}(?:\d{2})?)(?P<day>[0-3]\d)(?:\d{2})?(?:_\d+)?\.'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  El Salvador's presidency sites before 2010 from the Internet Archive: casapres.gob.sv (Flores
+  1999-2004 incl. a flat site of ~2,300 pages, Saca 2004-09) and www.presidencia.gob.sv's copy of
+  Saca's tree plus the 2009 handover and Funes's first year (static pages). Speeches, bulletins,
+  declarations, press conferences, weekly messages, Vice-President pages. Dated from the URL
+  where it carries a day. No speaker_default.

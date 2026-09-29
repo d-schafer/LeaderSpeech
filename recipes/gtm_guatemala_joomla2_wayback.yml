@@ -1,0 +1,59 @@
+# Guatemala — guatemala.gob.gt, SECOND Joomla/K2 install, mid-2015 – 2017 (Maldonado, Jimmy
+# Morales), via the Internet Archive: /index.php/noticias/item/<id>-<slug> (+ /comunicados/).
+# The first install (2012 – Oct 2015) is gtm_guatemala_joomla_wayback; the two reuse item
+# numbers, so each folds its own ids. WordPress replaced this in 2018 (gtm_guatemala_wp_wayback).
+#
+# CDX 2026-09-27: /noticias/ captured 2015 87, 2016 797, 2017 204 rows. The same install also
+# carried the Alerta Alba-Keneth missing-child alerts (/alerta-alba-keneth/, "activada-<name>")
+# — excluded — and the Joomla template's demo categories (/en/, /world-sport/, /welcome/,
+# /theme-showcase/, /k2-component/) — not taken.
+#
+# Selectors (checked on a Jan 2016 capture): title h1; body .itemIntroText + .itemFullText; date
+# a <time> written in ENGLISH ("January 24, 2016") — hence date_languages ["es", "en"]: with
+# "es" alone the engine parses that string as 2016-09-24. No numeric dates are read here, so
+# "en" cannot flip a DD/MM.
+#
+# PROBE 2026-09-27 (--spread 10): 983 snapshots; title/text/date 9/9 kept, 1 empty item
+# filtered; 2015-10-31 (Maldonado's speech on the October Revolution anniversary) … 2017-05.
+source_id: gtm_guatemala_joomla2_wayback
+country: Guatemala
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - guatemala.gob.gt/index.php/noticias/
+  - guatemala.gob.gt/index.php/comunicados/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?guatemala\.gob\.gt(?::\d+)?/index\.php/(?:noticias|comunicados)/(?:[^/?#]+/)?item/\d+-(?!(?:des)?activ(?:i?ad[ao]?|dad))[^/?#]+$'
+
+pagination:
+  type: wayback
+  wayback_from: "20150601"
+  wayback_to: "20180601"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=\d)-[^?#]*$'
+
+keep_if:
+  selectors: [".itemIntroText", ".itemFullText"]
+  pattern: '\w{5}'
+
+title:
+  selectors: ["h1", "h2.itemTitle"]
+text:
+  selectors: [".itemIntroText, .itemFullText", "div.itemBody"]
+date:
+  selectors: ["time"]
+
+position: president
+date_languages: ["es", "en"]
+
+notes: >
+  guatemala.gob.gt second Joomla/K2 install (/index.php/noticias/), mid-2015 - 2017, from the
+  Internet Archive: Maldonado and Jimmy Morales governments' news. Missing-child alerts and
+  template demo content excluded. No speaker_default.

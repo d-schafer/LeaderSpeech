@@ -1,0 +1,79 @@
+# Guatemala — guatemala.gob.gt, the government portal of the Secretaría de Comunicación Social de
+# la Presidencia (SCSP), WordPress generation 2018–2026 (Jimmy Morales, Giammattei, Arévalo), via
+# the Internet Archive.
+#
+# The live host answers every client — plain HTTP, a browser UA, headless Chromium — with a
+# Cloudflare interactive challenge ("Just a moment…", HTTP 403; 2026-09-27), so it is taken
+# from the Archive, which crawls it steadily: root post slugs first captured 2018 18, 2019 366,
+# 2020 507, 2021 1,513, 2022 951, 2023 905, 2024 2,100, 2025 3,738, 2026 1,167 (CDX 2026-09-27,
+# status 200 HTML) — so this is also the best route to Arévalo's government (2024–).
+# Earlier generations of the same host are separate recipes (gtm_guatemala_old_wayback 2004–11,
+# gtm_guatemala_joomla_wayback 2012–17).
+#
+# RULE 1: every root post slug — news of the President, ministries and secretariats; posts
+# named /<id>-2/ ("9182-2") are ordinary posts too. Left out: /tag/ (2,397), /page/, /author/,
+# /category/, attachment pages (/<post>/<attachment>/), /amp/ twins, feeds, the site's own WAF
+# pages captured as posts (banned-*, blocked-request, proxy-detected, verificacion-de-acceso,
+# prohibido), Elementor/home/template pages, trashed drafts.
+#
+# Two themes:
+#  * 2018–20 "Newspaper": h1.entry-title, header.td-post-title time.entry-date ("21 agosto,
+#    2019"), article .td-post-content.
+#  * 2021–26 "JNews": h1.jeg_post_title, .entry-header .jeg_meta_date ("29 de agosto de 2025"),
+#    body .jeg_post_subtitle (the lead) + .content-inner. NOT div.jeg_top_date — that is the
+#    header CLOCK (the capture day: "viernes, mayo 20, 2022" on an 11 March 2022 post).
+# Checked on captures from 2019, 2022 and 2025.
+#
+# JUNK THE ARCHIVE KEPT, handled: (1) spam posts planted on the site in 2023–24 (Romanian and
+# French porn, 5; Arabic, 2) — excluded by URL (porno/erotic/masturb/site-uri words, non-Latin
+# slugs; "pornografico" in police news is Spanish and stays); (2) 56 English theme-demo posts
+# from the Dec 2020 – Jan 2021 JNews import — dropped by keep_if (English-word clusters).
+#
+# PROBE 2026-09-27 (--spread 14): 11,745 snapshots (offline, first capture per URL since 2018:
+# 11,721 — not truncated); title/text/date green on all 13 kept, 1 image-only post filtered;
+# 2019-05 … 2026-02. COVERAGE: ~11,720 of ~11,790 root post slugs (the rest: navigation, WAF
+# pages, spam) — ~99%.
+source_id: gtm_guatemala_wp_wayback
+country: Guatemala
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - guatemala.gob.gt/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?guatemala\.gob\.gt(?::\d+)?/(?![^/?#]*(?:porno(?!gr)|erotic|masturb|site-uri|%[dD][0-9a-fA-F]))(?!(?:tag|tags|page|author|category|categoria|feed|amp|temas|search|home(?:-\d+)?|inicio(?:-\d+)?|pruebainicio|directorio|consulados|compartido|banned[a-z-]*|blocked-request[a-z0-9-]*|proxy-detected[a-z0-9-]*|verificacion-de-acceso|prohibido|__trashed[a-z0-9-]*|elementor-\d+|wp-[a-z-]+|guatv-transmision-en-vivo|guatemala-tv|canal-de-gobierno|unete-a-nuestros-equipos)/?$)[^/?#.]+/?$'
+
+pagination:
+  type: wayback
+  wayback_from: "20180101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+keep_if:
+  # Keep a post whose article has words UNLESS they are English. Drops (a) empty bodies (so the
+  # generic extractor never writes the sidebar) and (b) the 56 ENGLISH theme-demo posts the JNews
+  # import left on the site in Dec 2020 - Jan 2021 ("12 things you didn't see during the 2017
+  # Golden Globes", Dota 2, MotoGP…): "the/and/with" three times within ~400 chars never happens
+  # in this site's Spanish news. The lead (.jeg_post_subtitle) is in scope because some posts
+  # are an image + lead with a body of tags only. Tested on 3 demo posts, a spam post, 3 real.
+  selectors: ["article .td-post-content", ".jeg_post_subtitle", ".content-inner"]
+  pattern: '(?i)^(?![\s\S]*?\b(?:the|and|with)\b[\s\S]{0,200}?\b(?:the|and|with)\b[\s\S]{0,200}?\b(?:the|and|with)\b)[\s\S]*?\w{3}'
+
+title:
+  selectors: ["h1.jeg_post_title", "h1.entry-title"]
+text:
+  selectors: [".jeg_post_subtitle, .content-inner", "article .td-post-content"]
+date:
+  selectors: [".entry-header .jeg_meta_date", "header.td-post-title time.entry-date"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  guatemala.gob.gt (the Presidency's Social Communication Secretariat portal), WordPress 2018-2026
+  from the Internet Archive: Morales, Giammattei and Arevalo governments. The live host is behind
+  a Cloudflare interactive challenge. All root posts; two themes. No speaker_default.

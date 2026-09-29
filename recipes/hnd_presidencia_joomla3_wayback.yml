@@ -1,0 +1,72 @@
+# Honduras — presidencia.gob.hn under Juan Orlando Hernández's second term (2016 – Jan 2022),
+# Joomla 3 (T3) articles, plus the 2021–22 Drupal "press" blog, via the Internet Archive. The live
+# host answers with Cloudflare error 1000 (misconfigured DNS; 2026-09-27).
+#
+# Joomla 3: every article is /index.php/<category path>/<id>-<slug> — sala-de-prensa, gob/el-
+# presidente (+ primera-dama), seguridad, inversion, transparencia, blocks/comunicados, sites/
+# <programme> (vida-mejor, con-chamba-vivis-mejor, recreovias, …), date-stamped aliases — ONE id
+# space (ids to 9,571), so all are taken and folded to one per id. CDX 2026-09-27: ~6,900
+# distinct article ids with a status-200 capture since 2015.
+# Category LISTING pages have the same <id>-<slug> shape as a last segment ("…/111-marca-pais")
+# and 16 of their ids equal article ids, so the 52 category segments seen in the URLs (and the
+# date-stamp category aliases) are excluded as a last segment rather than folded.
+# Drupal "press" blog (2021–22): /press/blog-node/<slug> (~500). /press/node/<N> twins left out.
+#
+# Selectors (checked on 2016, 2017 and 2021 articles and a 2021 press post):
+#  * Joomla 3: title h1.article-title; body [itemprop=articleBody]; date — the ISO datetime
+#    attribute of time[itemprop=datePublished] ("2016-07-15T21:51:24+00:00"). The visible text
+#    is ENGLISH ("15 July 2016"), which a Spanish date hint misreads, so only the attribute is
+#    used.
+#  * Drupal press: title .node h3.less-mar1; body .node .field-name-body (the node also holds
+#    a related-posts view). No date on the page (the dateline is year-less, "Siguatepeque, 2 de
+#    septiembre") — the capture date + the cleaner.
+# Hernández's first term (2014–16) was a WordPress addressed at the ROOT (/?p=N):
+# hnd_presidencia_wp_wayback.
+#
+# PROBE 2026-09-27 (--spread 14): 7,405 snapshots (offline, first capture per URL since
+# mid-2015: 7,373); text 13/14 (1 empty page filtered), dates 12/14 (the press posts are undated
+# by design), 2016-01 … 2021-01. COVERAGE: ~6,900 of ~6,905 article ids + the press blog.
+source_id: hnd_presidencia_joomla3_wayback
+country: Honduras
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.hn/index.php/
+  - presidencia.gob.hn/press/blog-node/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.hn(?::\d+)?/(?:index\.php/(?!component/)(?:[^/?#]+/)*(?!(?:93-pages|100-dias|101-all-categories|102-all-categories|103-all-categories|104-all-categories|105-all-categories|106-all-categories|107-all-categories|110-noticias|111-marca-pais|112-visita-sorpresa|115-honduras-canta|116-comunicaciones-y-estrategia|120-noticias|122-parques-vida-mejor|123-giras-presidenciales|124-navidad-catracha|125-francia|126-israel|128-taiwan|131-comunicados-oficiales|134-honduras-aprende|135-marca-honduras|136-noticias|149-gobierno|150-becas|152-presidencial|154-empleo|157-admin|159-noticias|159-emergencia-zika|160-noticias|160-mexico|161-noticias|161-estados-unidos|162-noticias|163-noticias|164-noticias|164-dinamarca|165-noticias|165-cuba|166-noticias|166-cumbresicahn|167-sica|168-noticias|168-cumbre-iberoamericana|170-plan-abs|171-plan-maestro-abs|173-centro-logistico|181-noticias|183-mas-seguridad|184-100-dias)/?$)(?!\d{4}-\d\d-\d\d-)\d+-[^/?#]+/?|press/blog-node/[^/?#]+/?)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20150601"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # IN ORDER: the category path between index.php/ and the id, then the slug after the id
+    - '(?<=index\.php/)(?:[^/?#]+/)+(?=\d+-)'
+    - '(?<=\d)-[^?#]*$'
+
+keep_if:
+  selectors: ["[itemprop=articleBody]", ".node .field-name-body"]
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h1.article-title", ".node h3.less-mar1"]
+text:
+  selectors: ["[itemprop=articleBody]", ".node .field-name-body"]
+date:
+  selectors: ["time[itemprop=datePublished]"]
+  attr: datetime
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Honduras presidencia.gob.hn under Juan Orlando Hernandez's second term (2016 - Jan 2022) from
+  the Internet Archive: ~6,900 Joomla 3 articles folded by id across category aliases, plus the
+  2021-22 Drupal press blog. Dated from the ISO datetime attribute. No speaker_default.

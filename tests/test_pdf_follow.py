@@ -58,6 +58,64 @@ def test_no_matching_href_is_noop():
     assert rec["text"] == "keep me"
 
 
+# --- attr + regex: an element without the attribute is read as TEXT (2026-09-27) --------
+# presidencia.gob.sv links some speech PDFs as <a href> and names others only in a dead
+# "[gview file=»…pdf»]" shortcode, both inside .post-content, next to a sidebar of
+# unrelated PDF links. One spec must catch both forms and never the sidebar.
+
+SV_PAGE = "https://www.presidencia.gob.sv/discurso-toma-de-posesion/"
+SV_RX = r"https?://[^\s»«\"'<>\[\]]+?\.pdf"
+SV_SIDEBAR = '<aside><a href="https://www.presidencia.gob.sv/wp-content/uploads/memoria.pdf">M</a></aside>'
+
+
+def _sv_recipe(**kw):
+    spec = dict(selectors=[".post-content a[href$='.pdf']", ".post-content"],
+                attr="href", regex=SV_RX)
+    spec.update(kw)
+    return _recipe(pdf_link=FieldSpec(**spec))
+
+
+def _sv_follow(html, recipe, monkeypatch):
+    monkeypatch.setattr(run, "looks_like_pdf", lambda d: True)
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "SPEECH")
+    f = FakeFetcher()
+    ok = run._follow_pdf_body({"text": "stub"}, html, SV_PAGE, recipe, is_wayback=False, fetcher=f)
+    return ok, f.calls
+
+
+def test_attr_regex_reads_a_shortcode_named_pdf_from_text(monkeypatch):
+    html = ('<div class="post-content"><p>[gview file=»https://www.presidencia.gob.sv/'
+            'wp-content/uploads/2020/09/Toma-de-posesión-01-06-2019-1.pdf»]</p></div>'
+            + SV_SIDEBAR)
+    ok, calls = _sv_follow(html, _sv_recipe(), monkeypatch)
+    assert ok is True
+    assert calls == ["https://www.presidencia.gob.sv/wp-content/uploads/2020/09/"
+                     "Toma-de-posesión-01-06-2019-1.pdf"]
+
+
+def test_attr_regex_still_prefers_the_href(monkeypatch):
+    html = ('<div class="post-content"><p><a href="/wp-content/uploads/2026/09/DISCURSO.pdf">'
+            'Discurso</a></p></div>' + SV_SIDEBAR)
+    ok, calls = _sv_follow(html, _sv_recipe(), monkeypatch)
+    assert ok is True
+    assert calls == ["https://www.presidencia.gob.sv/wp-content/uploads/2026/09/DISCURSO.pdf"]
+
+
+def test_attr_regex_text_pass_never_returns_unmatched_text(monkeypatch):
+    # an ordinary article body with no PDF named: the text pass must miss, not hand the
+    # prose to the fetcher as a "URL" — and the sidebar PDF is out of scope.
+    html = '<div class="post-content"><p>El Presidente inauguró la obra.</p></div>' + SV_SIDEBAR
+    ok, calls = _sv_follow(html, _sv_recipe(), monkeypatch)
+    assert ok is False and calls == []
+
+
+def test_attr_without_regex_keeps_the_old_behaviour(monkeypatch):
+    # no regex -> no text pass: the shortcode form is simply not followed (pre-2026-09-27)
+    html = ('<div class="post-content">[gview file=»https://x/a.pdf»]</div>')
+    ok, calls = _sv_follow(html, _sv_recipe(regex=None), monkeypatch)
+    assert ok is False and calls == []
+
+
 def test_fetch_failure_falls_back_to_html_body():
     class BoomFetcher:
         def get_bytes(self, url):

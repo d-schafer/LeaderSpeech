@@ -1,0 +1,71 @@
+# Nicaragua — Radio Nicaragua (radionicaragua.com.ni), the STATE radio, live WordPress: its
+# speech category and the President's addresses, June 2022 – 2026.
+#
+# Why a broadcaster: presidencia.gob.ni no longer resolves and its Archive copy stops in 2016
+# (nic_presidencia_wayback); since then the government publishes its leaders' texts through the
+# state media. Government-owned → in scope under decision 1 (official_gov). Party outlets
+# (el19digital, Canal 4, Cuadernos Sandinistas) are recorded as candidates, not authored.
+#
+# REST API, measured 2026-09-27 (answers the default bot UA): 50,224 posts since 2015-01-07 in 16
+# categories — nacionales 32,595, internacionales 8,981, principales 8,450, … discurso 1,025.
+# TAKEN (two start_urls, one de-duplicated harvest — the api harvester reads every start_url
+# since 2026-09-27):
+#  1. category `discurso` (id 6), 1,025 posts 2022-06-08 → 2026: 952 are Rosario Murillo's daily
+#     "Multinoticias" addresses (she is co-president since the 2025 constitutional reform), the
+#     rest the President's acts (e.g. "Acto de Entrega de Unidades de Transporte …"). Full
+#     transcripts in the JSON: body quartiles 8.4k / 9.9k / 12.6k chars.
+#  2. search "Palabras del Comandante" (492, outside the category mostly): Ortega's
+#     "Encuentro con el Pueblo Presidente …" consultation meetings, interviews with officials,
+#     press notes — mixed, cheap (the JSON carries every body), the cleaner sorts them.
+# NOT taken, recorded in the outbox as POTENTIAL (a researcher call, like Peru's Andina): the
+# rest of the 50k-post news archive. A site-wide "discurso" search (486) is mostly
+# international news about foreign leaders' speeches — not taken.
+#
+# Bodies from the JSON (content.rendered, text_is_html); no page fetch.
+#
+# PROBE 2026-09-27 (--spread 10): 1,417 api entries (1,025 + 492, 100 in both); title/text/date
+# 10/10, 2022-06 … 2026-09 (Multinoticias 4.7k–20.8k chars).
+source_id: nic_radionicaragua
+country: Nicaragua
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://radionicaragua.com.ni/wp-json/wp/v2/posts?categories=6&per_page=100
+  - https://radionicaragua.com.ni/wp-json/wp/v2/posts?search=Palabras%20del%20Comandante&per_page=100
+
+listing:
+  link_pattern: '^https://radionicaragua\.com\.ni/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+keep_if:
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h1.entry-title", "h1"]
+text:
+  selectors: [".entry-content"]
+date:
+  selectors: ["time.entry-date"]
+  attr: datetime
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Radio Nicaragua (state radio) WordPress: the 'discurso' category 2022-2026 (1,025 posts, 952 of
+  them Rosario Murillo's daily Multinoticias addresses, full transcripts) plus the 'Palabras del
+  Comandante' search (492; Ortega's consultation meetings, interviews). Bodies from the JSON.
+  The rest of the 50k-post archive is a researcher call. No speaker_default.

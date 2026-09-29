@@ -1,0 +1,107 @@
+# Guatemala — guatemala.gob.gt, the Secretaría de Comunicación Social de la Presidencia portal,
+# PHP generation 2004–2012 (Óscar Berger, Álvaro Colom), via the Internet Archive. Later
+# generations: gtm_guatemala_joomla_wayback (2012–15), gtm_guatemala_joomla2_wayback (2015–17),
+# gtm_guatemala_wp_wayback (2018–). The live host is behind a Cloudflare interactive challenge.
+#
+# Query-addressed scripts, CDX 2026-09-27 (status 200 HTML, distinct ids):
+#   news — ONE table (`codigo`) under several viewers, folded to one row per codigo:
+#     noticia4.php?codigo=N&titulo2=|&tipo=   9,598 codigos, 2009–2012 (Colom)
+#     noticia_busqueda.php?codigo=N            5,602 (5,599 of them also noticia4)
+#     noticia.php?codigo=N&tipo=               2,864, 2006–2009 (Berger, Colom)
+#     nota.php?codigo=N                          314, 2009 (291 also news)
+#   discurso.php?codigo=N&tipo=3             1,138 speeches/speech-day notes, 2008 (a SEPARATE
+#                                            table: discurso 967 ≠ noticia 967)
+#   noticias.php?cod=N&id=N                    ~800 rows: articles of ACCIÓN, the government's
+#                                            weekly e-newsletter, 2004–2006 (also on the
+#                                            accion. subdomain; cod can be "26A"; parameter order
+#                                            varies)
+# => 11,952 documents (offline filter over the saved CDX, 2026-09-27).
+#
+# ORDER MATTERS. The fold keeps the first-harvested twin, and noticia.php URLs first captured
+# after the late-2009 switch to noticia4.php return an EMPTY template ("NOTICIA Guatemala , de
+# de") — so noticia4.php is queried FIRST, and keep_if drops the empty template when a codigo
+# has no other viewer. The start_urls are the TRUNCATED-PREFIX idiom ("noticia.ph"), because the
+# engine drops captures whose path equals a start_url path.
+#
+# LEFT OUT, measured:
+#  * /index.php/cms/…/noticia.php?codigo=N (42,775 rows, 2006–07): crawler-trap echoes that
+#    serve the HOME page, not article N (sampled: codigo=106 shows ten teasers, its own story
+#    among them). 268 of their 270 codigos exist as real noticia.php pages anyway.
+#  * notadespacho.php (252), notadespachov.php (159), vernotadpa.php (120): the "Despacho
+#    Presidencial" radio programme — a title, a date and an audio download, no text. Recorded
+#    in the outbox as an AUDIO candidate, not scraped here.
+#  * listings (noticias.php?anyo&dia&mes&tipo 13,490, depp.php, index5.php, *lista.php),
+#    search (busqueda*.php), photos/video/audio (foto*.php, playvid, video_play, sonido2),
+#    detalle.php (file downloads), entidades.php (directory), ACCIÓN edition covers
+#    (index.php?cod=N — a list of that week's headlines).
+#
+# PARSER: html_parser "html.parser" (NEW 2026-09-27). The 2008 discurso.php template closes
+# </body></html> inside <head>; lxml stops there (45 chars of an 18 KB speech page), Python's
+# parser reads on.
+# SELECTORS: the skins vary by script and year. Precise where verified — title div.titulo2
+# (2006–08 and the speech skin) / span.titulo_nota (2009–12) / span.separador10 span.style30
+# (late 2008); body table.content-noticia-in div.content2 (2006–08, speeches) — and the engine's
+# generic article extractor for the rest (checked on noticia.php 2006/07/08/09 and noticia4.php
+# 2009: clean article text; for Archive captures the run never takes its date guess). Dates:
+# none on the page in a reliable element (the datelines are in the body — "Guatemala , 01 de
+# Octubre de 2010", "Malacatán, San Marcos, 16 de agosto del 2006") — the capture date + the
+# cleaner's dateline reading.
+#
+# PROBE 2026-09-27 (--spread 16): 11,952 snapshots (= offline); 16/16 kept with text — 1 via the
+# recipe selector (a 2008 discurso.php, 1,907 chars), 15 via the generic extractor (274–15,245
+# chars, incl. Colom's "Discurso de Cierre … Todos" 6,947 and "El Presidente y la Juventud"
+# 15,245); titles 14/16. EXPECT a high "generic" count in the run log — that is by design here.
+source_id: gtm_guatemala_old_wayback
+country: Guatemala
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+html_parser: "html.parser"
+
+start_urls:
+  - guatemala.gob.gt/noticia4.ph
+  - guatemala.gob.gt/noticia_busqueda.ph
+  - guatemala.gob.gt/noticia.ph
+  - guatemala.gob.gt/nota.ph
+  - guatemala.gob.gt/discurso.ph
+  - guatemala.gob.gt/noticias.ph
+  - accion.guatemala.gob.gt/noticias.ph
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:accion\.)?guatemala\.gob\.gt(?::\d+)?/(?:(?:noticia4|noticia_busqueda|noticia|nota|discurso)\.php\?codigo=\d+(?:&[^#]*)?|noticias\.php\?(?=[^#]*\bcod=\w)(?=[^#]*\bid=\d)[^#]*)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20121001"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # every viewer of the one news table folds to its codigo; discurso.php keeps its own path
+  wayback_identity_strip:
+    - '(?<=\.gt)(?::\d+)?/(?:noticia4|noticia_busqueda|noticia|nota)\.php(?=\?)'
+    # ACCIÓN also lived on its own subdomain (2005): fold it onto the main host
+    - '(?<=://)(?:www\.)?accion\.'
+  wayback_noise_params: [tipo, titulo2, img, timg, foto]
+
+keep_if:
+  # whole page: drop the empty post-2009 noticia.php template ("NOTICIA Guatemala , de de")
+  pattern: 'Guatemala\s*,\s*de\s+de\b'
+  negate: true
+
+title:
+  selectors: ["div.titulo2", "span.titulo_nota", "span.separador10 span.style30"]
+text:
+  selectors: ["table.content-noticia-in div.content2"]
+date:
+  selectors: ["span.fecha_nota"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  guatemala.gob.gt (the Presidency's Social Communication Secretariat) PHP generation 2004-2012
+  from the Internet Archive: Berger and Colom governments' news (one codigo table under four
+  viewers, folded), 2008 speech pages, and the ACCION e-newsletter 2004-06. ~11,950 documents.
+  html_parser html.parser for a broken template. Undated on the page. No speaker_default.

@@ -305,3 +305,35 @@ def test_entry_source_prefers_the_recorded_selector():
     # api/feed entries carry no _from -> a generic label
     assert entry_source({"date": "2023-10-06"}, "date") == "carried entry metadata"
     assert entry_source(None, "date") == "carried entry metadata"
+
+
+def test_html_parser_option_recovers_a_page_whose_head_closes_html():
+    # guatemala.gob.gt's 2008 discurso.php: a broken Dreamweaver template closes
+    # </body></html> INSIDE <head>. lxml stops there and every selector misses (the whole
+    # 18 KB speech parsed to 45 chars); Python's html.parser keeps reading.
+    from leaderspeech.text_scraper.extract import extract_record
+    from leaderspeech.text_scraper.recipe import Recipe
+
+    html = ("<html><head><title>Gobierno de Guatemala</title></head></body></html>"
+            "<style>td{}</style></head><body><table><tr><td class='style12'>"
+            "Discurso del Presidente Álvaro Colom en La Unión, Zacapa. "
+            "El Presidente se solidarizó con los afectados.</td></tr></table></body></html>")
+    base = dict(source_id="t", country="Guatemala", start_urls=["https://x.example/"],
+                listing={"link_pattern": "discurso"}, title={"selectors": ["title"]},
+                text={"selectors": ["td.style12"]}, date={"selectors": ["time"]})
+    default = Recipe(**base)
+    assert default.html_parser == "lxml"                       # unchanged default
+    assert extract_record(html, "https://x.example/discurso.php", default)["text"] == ""
+    fixed = Recipe(**base, html_parser="html.parser")
+    rec = extract_record(html, "https://x.example/discurso.php", fixed)
+    assert rec["text"].startswith("Discurso del Presidente Álvaro Colom")
+
+
+def test_html_parser_rejects_unknown_values():
+    import pytest
+    from pydantic import ValidationError
+    from leaderspeech.text_scraper.recipe import Recipe
+    with pytest.raises(ValidationError):
+        Recipe(source_id="t", country="Guatemala", start_urls=["https://x.example/"],
+               listing={"link_pattern": "x"}, title={"selectors": ["h1"]},
+               text={"selectors": ["p"]}, date={"selectors": ["time"]}, html_parser="html5lib")

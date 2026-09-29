@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -234,6 +234,13 @@ class ApiConfig(BaseModel):
     # document instead. Set true to run the fragment through the same HTML-to-text pass the
     # page extractor uses (WP's `content.rendered`, SharePoint's `PublishingPageContent`).
     text_is_html: bool = False
+    # A carried body SHORTER than this many characters (after `text_is_html` flattening) is
+    # not carried: the item's page is fetched instead, exactly as if `text_field` were unset,
+    # so the page selectors and `pdf_link` can reach the real document. For a CMS whose posts
+    # sometimes hold only an embed or a shortcode pointing at a PDF — presidencia.gob.sv's
+    # speech posts carry "[gview file=»…pdf»]" (~100 chars) as their whole body. Default 0:
+    # any non-empty carried text is used, as before.
+    text_min_chars: int = 0
     # Route the API requests through the recipe's headless-Chromium context instead of
     # httpx. Needed only for a JS-challenge WAF (F5/BIG-IP TSPD) that escalates against a
     # plain HTTP client until every queried `_api` call returns the challenge stub, while a
@@ -313,6 +320,13 @@ class Pagination(BaseModel):
     # but never both is `wayback_identity_strip: ['/@@download/.*$']`. Anchor the pattern to
     # the end of the URL; it must never strip a part that tells documents apart.
     wayback_identity_strip: Optional[list[str]] = None
+    # The harvest normally DROPS every capture whose path equals a start_url's path — those are
+    # the listing index and its ?page= variants. A site whose ARTICLES live at that path too —
+    # WordPress/Drupal addressed at the ROOT (/?p=N, /?q=YYYYMMDD/slug) under a bare-host
+    # start_url — then loses every article. Set true to keep them and let `link_pattern` alone
+    # decide (it must then exclude the listing forms itself, e.g. require `\?p=\d+$`).
+    # presidencia.gob.hn 2014–16 (~1,900 posts at /?p=N) is the exemplar.
+    wayback_keep_listing_paths: bool = False
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 
@@ -398,6 +412,12 @@ class Recipe(BaseModel):
     # charset NOWHERE, where there is no signal to sniff and the UTF-8 fallback silently turns
     # every non-ASCII byte into U+FFFD. Set it only when you have LOOKED at the raw bytes.
     encoding: Optional[str] = None
+    # Which HTML parser reads a speech PAGE: "lxml" (default, fast) or "html.parser" (Python's
+    # own). lxml stops at the first </html>, so a page whose broken template closes </body></html>
+    # inside <head> — guatemala.gob.gt's 2008 discurso.php, 18 KB of speech — parses to 45 chars
+    # and every selector misses; html.parser keeps reading and recovers the whole body. Set it
+    # only for such a source: the two parsers can build slightly different trees.
+    html_parser: Literal["lxml", "html.parser"] = "lxml"
     # WAF/block-page guard (issue #65): a Cloudflare/WAF block or challenge page served with
     # HTTP 200 is treated as a fetch FAILURE (retried, logged in _errors.csv, retryable via
     # --retry-failed) instead of being written as a junk "speech". On by default. Set

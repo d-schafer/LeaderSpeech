@@ -489,7 +489,15 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
     if recipe.pdf_link is None or not html:
         return False
     try:
-        href = first_match(BeautifulSoup(html, "html.parser"), recipe.pdf_link)
+        soup = BeautifulSoup(html, "html.parser")
+        href = first_match(soup, recipe.pdf_link)
+        if not href and recipe.pdf_link.attr and recipe.pdf_link.regex:
+            # The element may lack `attr` yet NAME the PDF in its text: a CMS shortcode the
+            # site no longer renders ("[gview file=»https://…/x.pdf»]" on presidencia.gob.sv).
+            # With both `attr` and `regex` set, a second pass reads the chain's TEXT through
+            # the regex; a miss there is a miss (regex_required), so chrome never becomes a URL.
+            href = first_match(soup, recipe.pdf_link.model_copy(
+                update={"attr": None, "regex_required": True}))
         if not href:
             return False
         pdf_url = urljoin(page_url, href.strip())
@@ -554,6 +562,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
         identity_strip=recipe.pagination.wayback_identity_strip or (),
+        keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
     )
 
 

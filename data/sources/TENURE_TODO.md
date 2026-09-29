@@ -22,9 +22,13 @@ How gaps get closed:
 | `tenure_additions/latam_per.csv` | 16 | 2018–2026 | [ ] pending (Vizcarra … Keiko Fujimori) |
 | `tenure_additions/latam_ecu.csv` | 7 | 2021–2026 | [ ] pending (Lasso, D. Noboa) |
 | `tenure_additions/latam_bol.csv` | 10 | 2019–2026 | [ ] pending (Áñez, Arce, Rodrigo Paz) |
+| `tenure_additions/latam_slv.csv` | 14 | 1994–2026 | [ ] pending (Calderón Sol 1994–99 — casapres.gob.sv reaches 1997; Bukele 2019–26) |
+| `tenure_additions/latam_gtm.csv` | 10 | 2015–2026 | [ ] pending (Maldonado 2015–16, Giammattei 2020–24, Arévalo 2024–26) |
+| `tenure_additions/latam_hnd.csv` | 14 | 2002–2026 | [ ] pending (Maduro 2002–06 — a HOLE in the key, not just a tail; Zelaya + Micheletti 2009; Hernández 2022; Castro 2022–26; Asfura 2026 ⚠ see F) |
+| `tenure_additions/latam_nic.csv` | 5 | 2022–2026 | [ ] pending (Ortega 2022–26) |
 | `tenure_additions/afg_islamic_emirate*.csv` | 28 | 2021–2026 | [x] already in the key |
 
-Coming: the LatAm push's L6–L7 will add `latam_slv/gtm/hnd/nic/pan/dom/pry.csv`.
+Coming: the LatAm push's L7 will add `latam_pan/dom/pry.csv`.
 
 ## B. Countries the cleaner cannot join to the key at all
 
@@ -91,6 +95,10 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
   Precedent: Brazil 1902–1998 was written by hand (`latam_bra.csv`).
 - [ ] **Brazil 1902–1998** — written (see A), not yet folded.
 - [ ] **Ecuador 2000–2006** — covered; nothing needed (the old `.gov.ec` recipe starts 2002).
+- [ ] **Nicaragua 1991–2001** — the key has Ortega 1979–90 then jumps to Bolaños 2002
+  (Chamorro 1990–97, Alemán 1997–2002 missing). No L6 source reaches before 2002, so not needed yet.
+- [ ] **El Salvador 1994–1998** — `slv_presidencia_old_wayback` has a 1998 capture of Calderón
+  Sol's pages and a 1997–98 /noticias/ tree; rows written (see A).
 
 ## F. Judgement calls about WHO counts (researcher)
 
@@ -101,5 +109,17 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
 - [ ] **Short tenures:** Peru's Manuel Merino (5 days, Nov 2020) is in `latam_per.csv` —
   keep, or leave to the cleaner?
 - [ ] **Nicaragua:** Rosario Murillo's co-presidency since the 2025 constitutional reform (L6).
+  The state radio already calls her "Copresidenta" in 2022 (informal before the reform); 952 of
+  `nic_radionicaragua`'s 1,025 speech-category posts are her daily addresses. Not in
+  `latam_nic.csv` until you decide.
+- [ ] **Honduras 2009:** both Manuel Zelaya (Jan–Jun) and Roberto Micheletti (de facto, Jun 2009 –
+  Jan 2010) are in `latam_hnd.csv` — keep the de facto president? The key's existing Zelaya rows
+  (2006–08) also have NA `stateabb`/`ccode` — fill them (HON / 91).
+- [ ] **Honduras 2026: Nasry Asfura is NOT confirmed from a government site** (L6):
+  presidencia.gob.hn is down (Cloudflare 1000, DNS) and its last Archive capture (2026-01-17) is
+  Castro-era; the Asfura row in `latam_hnd.csv` rests on the planning brief's web search.
+- [ ] **El Salvador Dec 2023 – May 2024:** Bukele took leave to run again; a presidential
+  designate exercised the office (the site's posts stop naming Bukele Dec 2023 → Jun 2024 but
+  never name the designate). `latam_slv.csv` keeps Bukele for 2023–24 — right?
 - [ ] **Ceremonial heads of state:** the "executive" corpus estimate excludes ceremonial heads
   and stays an upper bound until `is_ceremonial` is filled for every country.

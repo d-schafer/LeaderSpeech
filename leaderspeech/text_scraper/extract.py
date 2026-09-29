@@ -286,7 +286,7 @@ def parse_date(raw: Optional[str], languages: Optional[list[str]] = None,
 
 def extract_record(html: str, url: str, recipe: Recipe) -> dict:
     """Return the raw per-speech fields (doc_id is assigned later, by run.py)."""
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, recipe.html_parser)
 
     # Each field: try the selector chain first, then fall back to the URL (url_regex) —
     # purely additive, since existing recipes set no url_regex.

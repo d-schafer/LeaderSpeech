@@ -1,0 +1,71 @@
+# Honduras — presidencia.gob.hn under Porfirio "Pepe" Lobo (Jan 2010 – Jan 2014), via the
+# Internet Archive. The live host answers with Cloudflare error 1000 ("DNS points to prohibited
+# IP", 2026-09-27) — misconfigured DNS, down for every client.
+#
+# Two generations (CDX 2026-09-27, status 200 HTML):
+#  A. 2010, Joomla with SEF URLs: /sala-de-prensa/<section>/<slug> (557) and /noticias/<slug>
+#     (381); each also has a ?format=pdf twin (left out).
+#  B. 2011 – Jan 2014, Joomla 1.5 WITHOUT SEF: index.php?option=com_content&view=article&
+#     id=<N>:<slug>&catid=…&Itemid=… — and the Archive's crawler fell into path traps
+#     (/index.php/templates/jv_news_ii/components/…/index.php?…, /~paabiaco/index.php?…,
+#     /index.php/plugins/system/…/index.php?…). Joomla ignores the path, so every trap URL serves
+#     the real article (4 sampled 2012–13: headline = the id's slug); all are taken and folded to
+#     one per article id (wayback_identity_strip + noise params). print/pdf/tmpl views and
+#     contact pages are left out, and so is /transparencia/index.php (the transparency portal —
+#     a SEPARATE Joomla install whose ids would collide in the fold).
+# Later generations: 2014–16 WordPress at the ROOT (/?p=N, ~1,900 posts —
+# hnd_presidencia_wp_wayback), 2016–22 Joomla 3 (hnd_presidencia_joomla3_wayback).
+#
+# Selectors (checked on 2010 /sala-de-prensa/ and /noticias/ pages and 2011–13 articles), three
+# skins: title h2.contentheading, or <title> on the 2011 skin; date .createdate (a span, or a td
+# in 2011: "Jueves, 30 de Mayo de 2013 16:57"); body div.article-content (2010) / every direct
+# child of the 2012–13 article except the headline, the byline, the comment form and scripts —
+# some 2013 bodies are <div>s, not <p>s — / div#p-contenido (2011).
+#
+# PROBE 2026-09-27 (--spread 14): 3,078 snapshots before the transparency exclusion (offline
+# after it: 3,049); title/text/date 14/14, 2010-02 … 2013-10. COVERAGE: the 2010 SEF pages whole
+# (~1,100) + ~1,900 article ids 2011–13 of ids reaching ~1,930 — near-complete for what was
+# captured; articles never captured are the loss.
+source_id: hnd_presidencia_lobo_wayback
+country: Honduras
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.hn/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.hn(?::\d+)?/(?:(?:sala-de-prensa/[a-z0-9-]+|noticias)/[a-z0-9%-]+/?|(?!transparencia/)(?:[^?#]*/)?index\.php\?(?=[^#]*\boption=com_content)(?=[^#]*\bview=article)(?=[^#]*\bid=\d+)(?![^#]*\b(?:format|print|tmpl)=)[^#]*)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20140201"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # the path before index.php? (the crawler traps), then the ":slug" after an id value
+    - '(?<=\.hn)(?::\d+)?/(?:[^?#]*/)?(?=index\.php\?)'
+    - '(?<=\d)(?:%3A|%3a|:)[^&#]*'
+  wayback_noise_params: [option, view, catid, Itemid, lang, limitstart]
+
+keep_if:
+  selectors: ["div.article-content", "#jv-component div#page > :not(h2, p.articleinfo, #jc, script, style, form)", "div#p-contenido"]
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h2.contentheading", "title"]
+text:
+  selectors: ["div.article-content", "#jv-component div#page > :not(h2, p.articleinfo, #jc, script, style, form)", "div#p-contenido"]
+date:
+  selectors: [".createdate"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Honduras presidencia.gob.hn under Porfirio Lobo, 2010 - Jan 2014, from the Internet Archive:
+  2010 Joomla news and 2011-13 query-addressed Joomla 1.5 articles (crawler-trap aliases folded
+  by article id). Dated. No speaker_default.

@@ -307,6 +307,31 @@ def test_text_is_html_on_empty_text_stays_empty():
     assert entries[0]["text"] == ""
 
 
+# --- api.text_min_chars: a stub body is not carried (2026-09-27) ----------------------
+# presidencia.gob.sv's speech posts hold only "[gview file=»…pdf»]" as their body. Carried,
+# that stub would be the row; dropped, the page is fetched and `pdf_link` reads the PDF.
+
+def _min_recipe(n):
+    return _recipe({"results_path": ".", "url_field": "link", "title_field": "title",
+                    "text_field": "body", "text_is_html": True, "text_min_chars": n})
+
+
+def test_text_min_chars_drops_a_short_carried_body():
+    page = [{"link": "http://x/prensa/1", "title": "T",
+             "body": "<p>[gview file=»http://x/wp-content/uploads/a.pdf»]</p>"},
+            {"link": "http://x/prensa/2", "title": "T2", "body": "<p>" + "palabra " * 60 + "</p>"}]
+    entries = api.harvest_entries(_min_recipe(200), client=FakeClient([page, []]))
+    assert entries[0]["text"] == ""                  # stub -> the run fetches the page
+    assert entries[1]["text"].startswith("palabra")  # a real body is still carried
+    assert entries[0]["title"] == "T"                # the rest of the metadata is kept
+
+
+def test_text_min_chars_defaults_off():
+    page = [{"link": "http://x/prensa/1", "title": "T", "body": "<p>short</p>"}]
+    entries = api.harvest_entries(_min_recipe(0), client=FakeClient([page, []]))
+    assert entries[0]["text"] == "short"
+
+
 # --- api.via_browser: which client create_client hands back ---------------------------
 
 def test_create_client_is_httpx_unless_via_browser_is_set():
@@ -405,3 +430,32 @@ def test_without_param_template_the_bare_offset_is_still_written():
     api.harvest_entries(r, client=client)
     assert "startRow=0" in client.calls[0]
     assert "startRow=50" in client.calls[1]
+
+
+# --- several start_urls: each is its own paged query (2026-09-27) --------------------
+# radionicaragua.com.ni: the `discurso` CATEGORY plus a site-wide SEARCH, in one recipe.
+# Only start_urls[0] used to be read.
+
+def test_every_start_url_is_harvested_and_deduplicated():
+    r = _recipe({"results_path": ".", "url_field": "link", "title_field": "t"},
+                param="page", start=1, step=1, max_pages=5)
+    r.start_urls = ["http://x/wp-json/wp/v2/posts?categories=6",
+                    "http://x/wp-json/wp/v2/posts?search=discurso"]
+    client = FakeClient([
+        [{"link": "http://x/prensa/1", "t": "A"}, {"link": "http://x/prensa/2", "t": "B"}],
+        [],                                                  # end of the category
+        [{"link": "http://x/prensa/2", "t": "B"}, {"link": "http://x/prensa/3", "t": "C"}],
+        [],                                                  # end of the search
+    ])
+    entries = api.harvest_entries(r, client=client)
+    assert [e["url"] for e in entries] == ["http://x/prensa/1", "http://x/prensa/2",
+                                           "http://x/prensa/3"]
+    assert "categories=6" in client.calls[0] and "page=1" in client.calls[0]
+    assert "search=discurso" in client.calls[2] and "page=1" in client.calls[2]
+
+
+def test_a_single_start_url_behaves_as_before():
+    r = _recipe({"results_path": ".", "url_field": "link"}, param="page", start=1, step=1)
+    client = FakeClient([[{"link": "http://x/prensa/1"}], []])
+    assert [e["url"] for e in api.harvest_entries(r, client=client)] == ["http://x/prensa/1"]
+    assert len(client.calls) == 2

@@ -1,0 +1,84 @@
+# Nicaragua — Presidencia de la República (presidencia.gob.ni) under Enrique Bolaños (2002 – Jan
+# 2007) and Daniel Ortega's first year (2007–08), via the Internet Archive. The host no longer
+# resolves (2026-09-27).
+#
+# CDX 2026-09-27 (status 200), speech-bearing sections, case variants of Files_index/files_index
+# and Secretaria/secretaria both taken:
+#   Presidencia/Files_index/Secretaria/Notas de Prensa/{Presidente,PrimeraDama}/YYYY/<mes>/…htm
+#                                                         ~2,180 press notes, 2002–06
+#   Presidencia/Files_index/presidente/Discursos/YYYY/<mes>/…htm   ~670 speeches (Word HTML)
+#   Presidencia/Files_index/Secretaria/{Comunicados,boletines}/…    communiqués, e-bulletins
+#   Presidencia/Files_index/Primera Dama/…                          First Lady projects
+#   OLDPAGE/{Secretaria/Notas de Prensa,Presidente/discursos}/…htm  the 2002–05 predecessor tree
+#   secretaria/notas_prensa/…htm                                    2001–02 press notes
+#   docs/[<Mes>/|YYYY/<Mes>/]DDMMYY_<Title>.{doc,pdf}              ~286 press notes of Ortega's
+#                                                         first year, 2007–08, each as .doc and
+#                                                         often .pdf — folded to one
+# LEFT OUT, flagged not scraped (RULE 1 revision — legal registers): the official gazette
+# (Presidencia/Files_index/Gaceta ~3,800 issue PDFs, laGaceta/docs ~1,770 .doc) and
+# buscador_gaceta/BD/{ACUERDOS,DECRETOS,LEYES} (~2,480 PDFs — appointment orders, decrees, laws,
+# titled only by file name). Also galleries/photos, videos, intranet.
+# Ortega's 2008–16 Joomla site is nic_presidencia_wayback.
+#
+# Extraction: the speeches are Word-exported HTML (div.Section1/2/…); the press notes are bare
+# p.MsoNormal paragraphs in a table layout — no container — so everything else goes through the
+# engine's generic extractor (checked on 7 pages 2002–05: clean text, a few "| |" layout
+# remnants). <title> is the site name on most pages ("Presidencia de la Republica-Notas de
+# Prensa") — kept only when it is something else. DATE: each page opens with a weekday dateline
+# ("Viernes, 16 de Agosto de 2002", "Miércoles , 13 de Abril de 2002"), read from the body with a
+# weekday-anchored pattern, regex_required (no weekday date → no date); the /docs/ files carry
+# DDMMYY in the name (040607_ = 4 June 2007).
+#
+# PROBE 2026-09-27 (--spread 16): 3,729 snapshots (offline 3,664 after folding); text 14/14
+# fetched (mostly via the generic extractor; a 2005 speech 22,649 chars via div.Section*, a
+# 2007 .doc 31,181), dates 7/14 (the rest print no weekday dateline, or split the year across
+# markup — "200 3"). 2 of 16 failed: file names holding a raw mis-encoded "Ñ" ("BOLAÃOS",
+# 86 such URLs in the CDX) that the Archive answers 404 — a small accepted loss.
+source_id: nic_presidencia_old_wayback
+country: Nicaragua
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gob.ni/Presidencia/
+  - presidencia.gob.ni/OLDPAGE/
+  - presidencia.gob.ni/secretaria/
+  - presidencia.gob.ni/docs/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?presidencia\.gob\.ni(?::\d+)?/(?:presidencia/files_index/(?:secretaria|presidente|primera(?:%20| )dama)/(?![^?#]*(?:/fotos/|galer|/imagenes/))[^?#]+\.html?|oldpage/(?:secretaria|presidente)/(?![^?#]*/fotos/)[^?#]+\.html?|secretaria/notas_prensa/[^?#]+\.html?|docs/(?:[a-z0-9]+/){0,2}\d{6}_[^/?#]+\.(?:doc|pdf))$'
+
+pagination:
+  type: wayback
+  wayback_to: "20090101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:(text/html|application/msword|application/pdf)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?i)\.(?:doc|pdf)$'
+    # the OLDPAGE speeches folder is captured under two encodings of "Bolaños"
+    - '(?i)(?<=%20bola)(?:%c3%b1|%f1)'
+
+title:
+  selectors: ["title"]
+  regex: '^\s*(?!Presidencia de la Rep)\S.{10,}$'
+  regex_required: true
+text:
+  selectors: ["div.Section1, div.Section2, div.Section3", "div.WordSection1"]
+date:
+  selectors: ["body"]
+  regex: '(?:Lunes|Martes|Mi[eé]rcoles|Jueves|Viernes|S[aá]bado|Domingo)\s*,?\s*(?P<value>\d{1,2}\s+de\s+[A-Za-záéíóú]+\s+del?\s+\d{4})'
+  regex_required: true
+  url_regex: '/(?P<day>[0-3]\d)(?P<month>[01]\d)(?P<year>\d\d)_[^/]+\.(?:doc|pdf)$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Nicaragua presidencia.gob.ni under Enrique Bolanos (2002-2007) and Daniel Ortega's first year
+  (2007-08 press notes as .doc/.pdf) from the Internet Archive: ~2,180 press notes, ~670 speeches,
+  communiques, bulletins. Official gazette + decree/law registers flagged, not scraped. Mostly
+  via the generic extractor. No speaker_default.

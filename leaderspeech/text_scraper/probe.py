@@ -308,7 +308,7 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
             _note_meta(page["fields"], entry, filled)
             pages.append(page)
             continue
-        soup = BeautifulSoup(phtml, "lxml")
+        soup = BeautifulSoup(phtml, recipe.html_parser)
         rec = extract_record(phtml, url, recipe)              # what the recipe yields
         filled = apply_entry_meta(rec, entry)
         gen = extract_generic(phtml, url)                     # what generic would yield
@@ -409,6 +409,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
                 extra_noise_params=recipe.pagination.wayback_noise_params or (),
                 identity_strip=recipe.pagination.wayback_identity_strip or (),
+                keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
             )
             # NB the spread here is across the CDX listing, which comes back in urlkey
             # (alphabetical) order, not chronological — so unlike the live-listing branches

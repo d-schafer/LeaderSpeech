@@ -373,6 +373,7 @@ def filter_entries_for_recipe(
     dedupe_noise_params: bool = True,
     extra_noise_params: Iterable[str] = (),
     identity_strip: Iterable[str] = (),
+    keep_listing_paths: bool = False,
 ) -> list[dict]:
     """Filter CDX captures down to speech pages — country-agnostic.
 
@@ -392,11 +393,14 @@ def filter_entries_for_recipe(
       * `identity_strip` (the recipe's `pagination.wayback_identity_strip`) — regexes cut
         from the URL before the identity is taken, for PATH-level twins of one document
         (Plone's `…/x.pdf` and `…/x.pdf/@@download/file/x.pdf`). The first captured wins.
+      * `keep_listing_paths` (the recipe's `pagination.wayback_keep_listing_paths`) skips the
+        listing-path drop, for a site whose articles are addressed at the start_url's own path
+        (root-addressed /?p=N); `link_pattern` must then exclude the listing forms.
     """
     extra_noise_params = tuple(extra_noise_params or ())
     strips = [re.compile(p) for p in (identity_strip or ())]
     pattern = re.compile(link_pattern) if link_pattern else None
-    listing_paths = {_url_path(u) for u in start_urls}
+    listing_paths = set() if keep_listing_paths else {_url_path(u) for u in start_urls}
     out: list[dict] = []
     seen: set[str] = set()
     deduped = 0
@@ -484,6 +488,7 @@ def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
         dedupe_noise_params=recipe.pagination.wayback_dedupe_noise_params,
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
         identity_strip=recipe.pagination.wayback_identity_strip or (),
+        keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
     )
 
 

@@ -1,0 +1,69 @@
+# Nicaragua — Presidencia de la República (presidencia.gob.ni) under Daniel Ortega, Joomla site
+# 2008–2016, via the Internet Archive. The host no longer resolves (2026-09-27); the Bolaños era
+# and Ortega's 2007–08 press-note documents are nic_presidencia_old_wayback.
+#
+# Query-addressed Joomla: index.php?option=com_content&view=article&id=<N>:<slug>&catid=…
+# (and the 2008 Joomla 1.0 form task=view&id=<N>). CDX 2026-09-27: 413 distinct article ids
+# (1–580) first captured 2008 119, 2009 26, 2010 38, 2011 33, 2012 76, 2013 40, 2014 17, 2015 10,
+# 2016 54 — speeches and "comparecencias" of the President, Rosario Murillo's messages ("Rosario
+# en Multinoticias"), news. Small, because the government published mostly elsewhere
+# (candidates recorded in the outbox: el19digital, Canal 4, the state broadcasters).
+# Folded to one per article id (the ":slug", a stray "%20" before the id, and option/view/task/
+# catid/Itemid/showall are identity noise). task=blogcategory/section views share the `id`
+# parameter but address CATEGORIES — excluded by the pattern. Long items are paginated
+# ("Página 1 de 2"; limitstart= pages are left out); a showall=1 capture holds the whole text and
+# sorts first in the Archive's order, so it wins the fold where it exists (42 do).
+#
+# Selectors (checked on 2008, 2012 and 2016 captures): title h2.contentheading; body div#page
+# (2008 bodies are bare text between <br>s, so no child selector reaches them; the page adds the
+# headline and a "Página 1 de 2 / Prev - Próximo" pager); DATE p.articleinfo, only when it holds
+# a real date ("24 de junio del 2008") — from 2012 it prints the literal "DATE_FORMAT". NOT
+# p.lecsfecha: that is the site CLOCK ("Jueves 25 de Agosto de 2016:" on a 2013 message).
+#
+# PROBE 2026-09-27 (--spread 12): 395 snapshots; title/text 12/12 (4.7k–42.8k chars), dates 3/12
+# (2008–09 as designed; later pages print "DATE_FORMAT" — titles of the Murillo messages carry
+# the date). COVERAGE: ~395 of 413 captured ids (the rest are only category/print captures).
+source_id: nic_presidencia_wayback
+country: Nicaragua
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.ni/index.ph
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.ni(?::\d+)?/index\.php\?(?=[^#]*\boption=com_content)(?=[^#]*\b(?:view=article|task=view)(?:&|$))(?=[^#]*\bid=(?:%20|\+)*\d)(?![^#]*\b(?:format|print|tmpl|limitstart|pop)=)[^#]*$'
+
+pagination:
+  type: wayback
+  wayback_from: "20080101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=[?&]id=)(?:%20|\+)+'
+    - '(?<=\d)(?:%3A|%3a|:)[^&#]*'
+  wayback_noise_params: [option, view, task, catid, Itemid, showall, lang]
+
+keep_if:
+  selectors: ["div#page"]
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h2.contentheading"]
+text:
+  selectors: ["div#page"]
+date:
+  selectors: ["p.articleinfo"]
+  regex: '(?P<value>\d{1,2}\s+de\s+[A-Za-záéíóú]+\s+del?\s+\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Nicaragua presidencia.gob.ni Joomla site under Daniel Ortega, 2008-2016, from the Internet
+  Archive: ~410 articles (speeches, comparecencias, Rosario Murillo's messages, news) folded by
+  article id. Dated only where the page prints a real date (2008-11). No speaker_default.

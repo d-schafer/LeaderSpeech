@@ -1,0 +1,91 @@
+# El Salvador — Presidencia de la República (presidencia.gob.sv): every WordPress post, June 2019
+# (Bukele's inauguration) to 2026.
+#
+# RULE 1, measured with the REST API (2026-09-27): 6,637 posts in 83 categories — salud 988,
+# seguridad 828, vicepresidencia 653, sin-categoria 557, covid 519, economia 382, presidente 238,
+# noticias 97, primera-dama 75, oficial 66 (communiqués), discursos-del-presidente 29 … — plus 21
+# pages and 7,325 media items. There is no custom post type. ALL posts are taken, not the
+# "discursos" category (29 posts, 0.4%): the cleaner removes the ministry news. By year: 2019 26,
+# 2020 1,259, 2021 1,976, 2022 2,846, 2023 375, 2024 60, 2025 50, 2026 45 — the site has
+# published little since 2023; the earlier governments were wiped in 2019 (see
+# slv_presidencia_wayback).
+#
+# Speeches are PDFs. The "Palabras del Presidente …" posts (inauguration, UN General Assembly,
+# addresses to the Assembly, Independence Day) and the 2020 COMUNICADO OFICIAL posts hold only a
+# shortcode the site no longer renders — the whole body is the literal text
+# "[gview file=»https://www.presidencia.gob.sv/wp-content/uploads/…pdf»]" — and a few 2024–26
+# posts link the PDF with an ordinary <a>. 101 posts use the shortcode, 4 an <a>.
+#   * api.text_min_chars: 400 — a carried body shorter than that is not used, so the post's page
+#     is fetched (~90 pages); every other post (~6,500) comes straight from the JSON.
+#   * pdf_link takes the PDF named inside .post-content, by href or, failing that, by the regex
+#     over the text. It is scoped to .post-content because EVERY page's sidebar links four
+#     unrelated PDFs (the Vice-Presidency's annual reports).
+# Dates: the JSON's ISO date for carried posts; a fetched page's "1 junio, 2019"
+# (div.post-meta.date.published) for the rest.
+#
+# keep_if: a fetched page whose .post-content has no words (4 posts, 2020–21, image-only) is
+# dropped instead of letting the generic extractor write the sidebar as a row. Posts whose URL is
+# off-site (one post IS a Google Drive link) are outside link_pattern.
+#
+# Coverage: 6,636 of 6,637 posts (the Drive link). No speaker_default — the site carries the
+# President, the Vice-President and the First Lady.
+source_id: slv_presidencia
+country: El Salvador
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://www.presidencia.gob.sv/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: '^https://www\.presidencia\.gob\.sv/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+    text_min_chars: 400
+
+keep_if:
+  selectors: [".post-content"]
+  pattern: '\w{3}'
+
+title:
+  selectors: ["article h1.post-title", "article h1"]
+text:
+  selectors: [".post-content"]
+date:
+  selectors: ["article .post-meta.published"]
+
+pdf_link:
+  selectors: [".post-content a[href$='.pdf']", ".post-content"]
+  attr: href
+  regex: 'https?://[^\s»«"''<>\[\]]+?\.pdf'
+
+# 27 speech PDFs, measured 2026-09-27: 15 extract normally (3.5k–31k chars); 12 — the Oct–Dec
+# 2021 speeches, re-uploaded together in 2022/04 — were exported from Adobe Illustrator with the
+# text as vector outlines and extract 0 chars. OCR reads them, accents included (Volaris 2021:
+# 11,553 chars; the 2021 Discurso a la Nación: 22,109). It needs ocrmypdf + Tesseract WITH the
+# Spanish pack (spa.traineddata) on the running machine — the home desktop has all three since
+# 2026-09-27; elsewhere those 12 rows fail cleanly (empty_text) and a later --retry-failed on a
+# machine that has them recovers them.
+pdf_ocr: true
+pdf_ocr_language: spa
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  El Salvador's Presidency site (presidencia.gob.sv), all 6,636 on-site WordPress posts June 2019
+  - 2026 via the REST API (0.4% are in the speeches category; the rest is government news, the
+  Vice-Presidency and the First Lady). Presidential speeches 2019-2026 are PDFs named in the post
+  (a dead gview shortcode or a link), followed with pdf_link. Earlier governments: see
+  slv_presidencia_wayback. No speaker_default.

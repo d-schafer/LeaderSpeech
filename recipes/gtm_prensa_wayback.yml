@@ -1,0 +1,68 @@
+# Guatemala — prensa.gob.gt, "Recursos para Prensa", the Presidency's Drupal press-resources site
+# under Alejandro Giammattei (2021 – early 2024), via the Internet Archive.
+#
+# The live host answers every client (plain HTTP, a browser UA, headless Chromium) with a
+# Cloudflare interactive challenge (HTTP 403, "Just a moment…"; 2026-09-27). The Archive's
+# captures start 2021 and thin out after the January 2024 handover (first captures 2021 915,
+# 2022 4,436, 2023 2,805, 2024 501 for /comunicado/ alone; CDX 2026-09-27).
+#
+# RULE 1: every content type the site uses, in every combination Drupal generated for the path
+# (a node filed under two types gets a combined prefix): comunicado 8,799, agenda 220,
+# comunicado-video-informativo 105, video-informativo 83, campana 58, comunicado-discurso 50,
+# comunicado-conferencia-de-prensa 47, campana-comunicado 46, discurso 18,
+# conferencia-de-prensa 17, … — ~9,450 status-200 pages. Speeches include the President's
+# 14 January 2022 Informe General to Congress (24,937 chars). Ministries' communiqués are here
+# too; the cleaner sorts them.
+# LEFT OUT: root-level slugs (taxonomy/institution term pages that only list teasers — e.g.
+# /76-periodo-de-sesiones), /calendar-field_…/day/ calendars, /sites/default/files, search,
+# user, and the /node/N/printable/print views: 703 status-200 captures, and 12 of 14 sampled
+# are the print twin of a captured slug page, so they would mostly duplicate (~100 unique ones
+# are the measured cost).
+#
+# Selectors (checked on a 2021 communiqué, a 2022 speech, an agenda item and a video item):
+# title h1.page-title; date — the node's OWN field, .field--name-field-fecha-de-publicacion time
+# ("14 Enero, 2022"); the other <time>s on the page belong to the related-content lists. Body
+# div.node .field--name-body — the bare .field--name-body also matches two footer blocks
+# (address, licence) that the engine would join onto every row.
+#
+# PROBE 2026-09-27 (--spread 12): 9,508 snapshots (offline 9,459); title + text 12/12, date
+# 11/12 (agenda items carry no date field), 2021-08 … 2023-02. COVERAGE: ~9,460 of ~9,500
+# status-200 content-type pages (~99%); with the print views counted, ~9,460 of ~10,200 (93%).
+source_id: gtm_prensa_wayback
+country: Guatemala
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - prensa.gob.gt/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?prensa\.gob\.gt(?::\d+)?/(?:(?:comunicado|discurso|conferencia-de-prensa|campana|video-informativo)(?:-(?:comunicado|discurso|conferencia-de-prensa|video-informativo))*|agenda)/[a-z0-9%][^/?#]*(?:\?(?:fbclid|utm_[a-z]+|ftag)=[^#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+keep_if:
+  selectors: ["div.node .field--name-body", "h1.page-title"]
+  pattern: '\w{3}'
+
+title:
+  selectors: ["h1.page-title"]
+text:
+  selectors: ["div.node .field--name-body"]
+date:
+  selectors: [".field--name-field-fecha-de-publicacion time"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  prensa.gob.gt (the Guatemalan Presidency's Drupal press-resources site) under Giammattei,
+  2021 - early 2024, from the Internet Archive: communiques, speeches, press conferences,
+  campaigns, agenda. The live host is behind a Cloudflare interactive challenge. No
+  speaker_default.
