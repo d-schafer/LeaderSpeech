@@ -323,7 +323,9 @@ def test_html_parser_option_recovers_a_page_whose_head_closes_html():
                 text={"selectors": ["td.style12"]}, date={"selectors": ["time"]})
     default = Recipe(**base)
     assert default.html_parser == "lxml"                       # unchanged default
-    assert extract_record(html, "https://x.example/discurso.php", default)["text"] == ""
+    # Not asserted: that lxml LOSES the text. That depends on the libxml2 bundled in the
+    # lxml wheel — the Windows wheel (libxml2 2.11.9) drops it, the Linux CI wheel recovers
+    # it — so it is a platform fact, not a property of our code.
     fixed = Recipe(**base, html_parser="html.parser")
     rec = extract_record(html, "https://x.example/discurso.php", fixed)
     assert rec["text"].startswith("Discurso del Presidente Álvaro Colom")
