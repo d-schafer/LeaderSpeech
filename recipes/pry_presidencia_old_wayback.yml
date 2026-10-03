@@ -1,0 +1,72 @@
+# Paraguay — presidencia.gov.py 2001 – mid 2013: Luis González Macchi (to Aug 2003), Nicanor Duarte
+# Frutos (2003–08), Fernando Lugo (2008–12) and Federico Franco (2012–13), via the Internet Archive.
+# Cartes onward is pry_presidencia_wayback.
+#
+# CDX 2026-09-30 (whole domain, first capture per URL), the content families:
+#   [Pp]residencia/Boletin/<YYYY>/<Mes>/<yy><mes><NN>.htm   2001–2003 (~380)  the Secretaría de
+#        Comunicación Social's daily bulletins (Word-exported pages; body p.MsoNormal; the date
+#        is in the text — "23 de Noviembre de 2001")
+#   muestra_noticias.asp?codigo=N        2004–05 (473)   news: title span.style9.style12, body
+#        td.style1.style7, date span.style11 ("12/06/2004", day first)
+#   muestra_actividad.asp / muestra_actividad2.asp / print_pag.asp ?codigo=N   2004–06
+#        the President's ACTIVITY notes — one id space (72–2,664) under three templates, folded;
+#        title p.style1, date span.pageheader.style4 ("27/06/2005 - Asunción"), body generic
+#   vista.asp / vistax.asp ?codigo=N     2007–08 news, one id space (99 ids under both), folded:
+#        title h3, body td.contentmain (its first DD/MM/YYYY is the article date)
+#   detalle.asp?codigo=N                 2008–09 (58): title span.titulo_principal, body
+#        div.leftcol (its first DD/MM/YYYY is the date)
+#   v1/?p=N                              2010–12 (~1,020) Lugo's WordPress: news, communiqués
+#        AND decree posts in one stream (the cleaner rejects the decrees); title in the post's
+#        h2, date "Agosto 30, 2011", body div.single.post
+# LEFT OUT: ver.asp (photo pop-ups — an image and a Close button; it shares the activity ids),
+# the decree listings (muestra_decretos*, lista_decretos*), galleries (th_fotos, vergaleria),
+# act_anteriores / archivo_prensa (listings).
+# Latin-1 throughout (some pages undeclared) — the codec pair.
+#
+# OFFLINE fold check: 2,555 documents (first captured 2001 70, 2002 171, 2003 52, 2004 341, 2005
+# 549, 2006 80, 2007 184, 2008 116, 2009 24, 2010 30, 2011 934, 2012 4).
+# PROBE 2026-09-30 (--spread 14): 2,555 snapshots (= offline); title/text 13/14 by selector + the
+# activity pages' bodies via the generic extractor (by design: 1.0k–4.9k chars); dates 13/14
+# (2004-05 … 2011-10; the 2001 bulletin is undated — its date is in the text). Lugo-era v1 posts
+# are short notices (333–2,000 chars; the generic extractor finds no more).
+source_id: pry_presidencia_old_wayback
+country: Paraguay
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gov.py/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?presidencia\.gov\.py(?::\d+)?/(?:presidencia/boletin/\d{4}/[a-z]+/[^/?#]+\.html?|(?:muestra_noticias|muestra_actividad2?|print_pag|vista|vistax|detalle)\.asp\?codigo=\d+(?:&[^#]*)?|v1/\?p=\d+)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20130815"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?i)(?:muestra_actividad2?|print_pag)(?=\.asp\?codigo=)'
+    - '(?i)vistax?(?=\.asp\?codigo=)'
+  wayback_noise_params: [relacion, fecha, t_actividad, ID, akst_action]
+
+title:
+  selectors: ["span.style9.style12", "p.style1", "td.contentmain h3", "span.titulo_principal", "div.single.post h2"]
+text:
+  selectors: ["td.style1.style7", "td.contentmain", "div.leftcol", "div.single.post", "p.MsoNormal"]
+date:
+  selectors: ["span.style11", "span.pageheader.style4", "td.contentmain", "div.leftcol", "div.single.post"]
+  regex: '\b\d{2}/\d{2}/\d{4}\b|[A-Za-zÁÉÍÓÚáéíóú]+\s+\d{1,2},\s*\d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Paraguay presidency site 2001-2013 (Gonzalez Macchi's bulletins, Duarte Frutos, Lugo, Franco)
+  from the Internet Archive: bulletins, news, the President's activity notes, Lugo's WordPress
+  stream. No speaker_default.

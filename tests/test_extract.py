@@ -37,6 +37,31 @@ def test_first_match_uses_fallback_chain():
     assert "Title here" in first_match(soup, spec)
 
 
+def test_selector_attr_suffix_mixes_attribute_and_text_in_one_chain():
+    """2026-09-30: one site generation carries an ISO date in an attribute, another only as
+    text — a whole-chain `attr` could not read both."""
+    from bs4 import BeautifulSoup
+    from leaderspeech.text_scraper.extract import split_selector
+
+    spec = FieldSpec(selectors=["span[property~='dc:date']@content", ".node-created"],
+                     regex=r"(?P<value>\d{4}-\d{2}-\d{2})|\d{1,2} de \w+ de \d{4}",
+                     regex_required=True)
+    gen_2013 = BeautifulSoup("<span property='dc:date dc:created' content='2013-04-26T19:15:50-04:00'>"
+                             "Vie, 04/26/2013 - 19:15</span>", "lxml")
+    gen_2014 = BeautifulSoup("<div class='node-created'>Lunes, 11 de Agosto de 2014</div>", "lxml")
+    assert first_match(gen_2013, spec) == "2013-04-26"      # the attribute, not the MM/DD text
+    assert first_match(gen_2014, spec) == "11 de Agosto de 2014"
+    # an element WITHOUT the attribute is a miss for that selector: the chain moves on
+    no_attr = BeautifulSoup("<span property='dc:date'>x</span><div class='node-created'>"
+                            "1 de Mayo de 2015</div>", "lxml")
+    assert first_match(no_attr, spec) == "1 de Mayo de 2015"
+    # "@" inside brackets or parentheses is part of the CSS, not a suffix
+    assert split_selector("a[href*='@']") == ("a[href*='@']", None)
+    assert split_selector("meta[name='x']@content") == ("meta[name='x']", "content")
+    assert split_selector("time @ datetime") == ("time", "datetime")
+    assert split_selector("h1") == ("h1", None)
+
+
 def test_regex_miss_returns_the_whole_value_by_default():
     """Historical behaviour, unchanged: `regex` is a best-effort trim."""
     from bs4 import BeautifulSoup

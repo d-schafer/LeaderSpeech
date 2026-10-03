@@ -808,16 +808,17 @@ def test_pdf_static_recipe_extracts_body_and_url_date(tmp_path, monkeypatch):
     assert "Lula da Silva" in csv                       # speaker_default
 
 
-def _pdf_wb_run(tmp_path, monkeypatch, entries, by_ts, alt):
+def _pdf_wb_run(tmp_path, monkeypatch, entries, by_ts, alt, extractor=None):
     """Run PDF_WAYBACK_RECIPE_YAML over `entries`; fetch_snapshot_bytes serves by_ts[timestamp];
-    alternate_capture returns `alt`. The PDF extractor echoes the payload's first line."""
+    alternate_capture returns `alt`. The default PDF extractor reads text only from a complete
+    file (one with %%EOF); `extractor` replaces it."""
     monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: [dict(e) for e in entries])
     monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes",
                         lambda entry, **kw: ("application/pdf", by_ts[entry["timestamp"]]))
     monkeypatch.setattr(run.wayback, "alternate_capture", lambda *a, **k: alt)
-    monkeypatch.setattr(pdf, "pdf_bytes_to_text",
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text", extractor or (
                         lambda data, ocr=False, ocr_language="eng":
-                            "" if b"%%EOF" not in data else "Mensagem ao Congresso Nacional, 1907.")
+                            "" if b"%%EOF" not in data else "Mensagem ao Congresso Nacional, 1907."))
     p = tmp_path / "test_pdf_wb.yml"
     p.write_text(PDF_WAYBACK_RECIPE_YAML, encoding="utf-8")
     out = tmp_path / "scraped"
@@ -1353,3 +1354,123 @@ def test_select_unscraped_honours_recipe_noise_params():
     # without the recipe hint it is a distinct URL and is kept
     kept2, already2, _ = run.select_unscraped(links, lambda u: u, seen)
     assert kept2 == links and already2 == 0
+
+
+# --- truncated archived PDFs are kept and flagged; /pdf views route by mimetype (2026-10-02) ---
+
+def _surviving_pages(data, ocr=False, ocr_language="eng"):
+    """The real pdf.pdf_bytes_to_text rebuilds a cut file and reads its surviving pages; here
+    every PDF, cut or not, reads as some text."""
+    return "Primeira pagina do discurso."
+
+
+def test_truncated_pdf_keeps_the_surviving_pages_and_flags_the_row(tmp_path, monkeypatch):
+    import pandas as pd
+    from leaderspeech.text_scraper.wayback import SnapshotBytes
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    cut = SnapshotBytes(b"%PDF-1.4 " + b"x" * 64, real_size=30462354)
+    res, out = _pdf_wb_run(tmp_path, monkeypatch,
+                           entries=[{"timestamp": "20231204121334", "original": url}],
+                           by_ts={"20231204121334": cut}, alt=None,
+                           extractor=_surviving_pages)
+    assert res["scraped_this_run"] == 1 and res["documents_truncated"] == 1
+    df = pd.read_csv(out / "Brazil" / "test_pdf_wb.csv", dtype=str).fillna("")
+    assert list(df.columns)[-1] == "document_truncated"        # appended LAST (migration by position)
+    assert df.loc[0, "document_truncated"] == "73 of 30462354 bytes stored"
+    assert df.loc[0, "text_originlanguage"] == "Primeira pagina do discurso."
+
+
+def test_a_complete_pdf_row_is_not_flagged(tmp_path, monkeypatch):
+    import pandas as pd
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    res, out = _pdf_wb_run(tmp_path, monkeypatch,
+                           entries=[{"timestamp": "20231204121334", "original": url}],
+                           by_ts={"20231204121334": b"%PDF-1.4 whole\n%%EOF"}, alt=None)
+    assert res["documents_truncated"] == 0
+    df = pd.read_csv(out / "Brazil" / "test_pdf_wb.csv", dtype=str).fillna("")
+    assert df.loc[0, "document_truncated"] == ""
+
+
+def test_when_every_capture_is_cut_the_longer_prefix_is_used(tmp_path, monkeypatch):
+    import pandas as pd
+    url = "http://x/discursos/1o-mandato/2003/18-06-2003-a.pdf"
+    res, out = _pdf_wb_run(
+        tmp_path, monkeypatch,
+        entries=[{"timestamp": "20240222070818", "original": url}],
+        by_ts={"20240222070818": b"%PDF-1.4 " + b"x" * 20,
+               "20250403131832": b"%PDF-1.4 " + b"x" * 90},
+        alt={"timestamp": "20250403131832", "original": url, "length": "1205444"},
+        extractor=_surviving_pages)
+    df = pd.read_csv(out / "Brazil" / "test_pdf_wb.csv", dtype=str).fillna("")
+    assert df.loc[0, "document_truncated"].startswith("99 bytes stored")
+    assert df.loc[0, "wayback_capture"] == "2025-04-03"          # stamped with the capture used
+    assert res["archived_block_recovered"] == 0                   # not a recovery: still cut
+
+
+JOOMLA_WB_RECIPE_YAML = r"""
+source_id: test_joomla_wb
+country: Peru
+source_language: Spanish
+start_urls: ["presidencia.gob.pe/"]
+listing: { link_pattern: 'presidencia\.gob\.pe/[a-z-]+(/pdf)?$' }
+pagination: { type: wayback }
+title: { selectors: ["h1"] }
+text: { selectors: [".body"] }
+date: { selectors: ["time"] }
+date_languages: ["es"]
+"""
+
+
+def _joomla_run(tmp_path, monkeypatch, entries, html=None):
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: [dict(e) for e in entries])
+    monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes",
+                        lambda entry, **kw: ("application/pdf", b"%PDF-1.5 speech\n%%EOF"))
+    monkeypatch.setattr(run.wayback, "fetch_snapshot",
+                        lambda entry, **kw: html if html is not None else pytest_fail_html())
+    monkeypatch.setattr(pdf, "pdf_bytes_to_text",
+                        lambda data, ocr=False, ocr_language="eng": "Discurso del Presidente Humala.")
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    p = tmp_path / "test_joomla_wb.yml"
+    p.write_text(JOOMLA_WB_RECIPE_YAML, encoding="utf-8")
+    out = tmp_path / "scraped"
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(tmp_path / "state"))
+    return res, out
+
+
+def pytest_fail_html():
+    raise AssertionError("a capture the CDX says is a PDF must not be fetched as HTML")
+
+
+def test_cdx_mimetype_routes_a_joomla_pdf_view_to_the_document_path(tmp_path, monkeypatch):
+    """per_presidencia_old_wayback: `.../pdf` has no `.pdf` in its URL. Routed as HTML, the
+    generic extractor wrote the raw PDF bytes as a speech (14 rows). The CDX mimetype is on
+    every wayback entry and routes it correctly."""
+    res, out = _joomla_run(tmp_path, monkeypatch, entries=[{
+        "timestamp": "20140708173021", "mimetype": "application/pdf",
+        "original": "http://www.presidencia.gob.pe/alianza-del-pacifico/pdf"}])
+    assert res["scraped_this_run"] == 1
+    csv_text = (out / "Peru" / "test_joomla_wb.csv").read_text(encoding="utf-8")
+    assert "Discurso del Presidente Humala." in csv_text and "%PDF" not in csv_text
+
+
+def test_pdf_bytes_on_the_html_path_fail_instead_of_becoming_a_speech(tmp_path, monkeypatch):
+    res, out = _joomla_run(tmp_path, monkeypatch, entries=[{
+        "timestamp": "20140708173021",          # no mimetype -> routed by URL -> HTML path
+        "original": "http://www.presidencia.gob.pe/alianza-del-pacifico/pdf"}],
+        html="%PDF-1.5\n3 0 obj\n<>\nstream\nxœ¥WKoÛF binary")
+    assert res["scraped_this_run"] == 0 and res["failed_this_run"] == 1
+    assert not (out / "Peru" / "test_joomla_wb.csv").exists() or \
+        "%PDF" not in (out / "Peru" / "test_joomla_wb.csv").read_text(encoding="utf-8")
+    assert "binary_document_as_html" in (out / "Peru" / "test_joomla_wb_errors.csv").read_text(encoding="utf-8")
+
+
+def test_wants_pdf_reads_the_cdx_mimetype():
+    from leaderspeech.text_scraper.recipe import Recipe
+    r = Recipe(source_id="t", country="Peru", source_language="Spanish", start_urls=["http://x/"],
+               listing={"link_selector": "a"}, title={"selectors": ["h1"]}, text={"selectors": ["p"]},
+               date={"selectors": ["time"]})
+    assert run.wants_pdf(r, "http://x/discurso/pdf") is False
+    assert run.wants_pdf(r, "http://x/discurso/pdf", "application/pdf") is True
+    assert run.wants_pdf(r, "http://x/discurso", "text/html") is False
+    pinned = r.model_copy(update={"content_type": "html"})
+    assert run.wants_pdf(pinned, "http://x/a.pdf", "application/pdf") is False   # html pins HTML

@@ -22,6 +22,14 @@
 # PROBE 2026-09-24 (--spread 14): harvest 8,291 (7,696 ASP + 595 Joomla; offline fold check on
 # the saved CDX list gave the same); title/text 14/14; the ASP pages dated 12/12 (2004-03 …
 # 2008-09) through the second date cell; Joomla print views undated.
+# FIRST RUN 2026-09-29 ABORTED at 4,148 scraped: 25 consecutive Archive 404s in block B. Many
+# Joomla captures from the 2011-08-04 crawl are listed by CDX (status 200) with length "-" and
+# do not replay — every address of the article, and its format=pdf copy, answers 404 at `id_`.
+# Measured on the saved listing 2026-09-30: of the 595 articles, 173 were folded onto such a
+# capture; 50 have a twin with a known length (the engine's fold now prefers it), 123 have
+# none and are LOST (ids 441–976; no format=pdf twin with a known length either). The
+# `length:[0-9]+` filter below keeps the harvest to replayable captures — without it 52
+# unreplayable entries arrive back to back and trip the breaker again. Harvest after: ~8,168.
 #
 # LEFT OUT, measured: the 2009–2010 articulo*.php generation (537 ids) — daily agendas (380,
 # ca_codigo=109), Enlace Ciudadano AUDIO pages (65), cabinet biographies (45); /discursos/*.pdf
@@ -50,6 +58,8 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    # unknown-length ("-") captures here do not replay (see the header, 2026-09-30)
+    - "length:[0-9]+"
   wayback_collapse: urlkey
   wayback_delay: 5.0
   wayback_noise_params: [hl]

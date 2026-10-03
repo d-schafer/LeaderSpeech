@@ -1,0 +1,58 @@
+# Panama — Presidencia de la República (presidencia.gob.pa), live: the `documentos` category —
+# the annual Informe a la Nación to the National Assembly (decision 4: messages to the
+# legislature are IN) and the other documents the Presidency publishes as attachments.
+#
+# Each /publicacion/<slug> page here is a title, a date and "Documentos Adjuntos": the text is
+# the attached PDF (/storage/documentos/<id>/<name>.pdf) — so this category is its own recipe
+# with pdf_link; on pan_presidencia (news) a pdf_link would replace an article's own text with
+# any PDF it attaches. 8 items on 2026-09-30: Informe a la Nación 2024–25 and 2025–26, "Primer
+# año de gobierno", Memoria del Ministerio de la Presidencia 2024, the 2025–2029 strategic plan
+# (Resolución de Gabinete 124), and three legal texts (budget law 454, the CSS reform bill and its
+# consolidated text) — kept: the category is tiny and the cleaner sorts them.
+# Access as pan_presidencia: Imperva, so renderer js, paced 3-5 s.
+# PROBE 2026-09-30 (--spread 8): 8 links; every body from its PDF (8.4k – 1.85M chars: the two
+# Informes a la Nación are the full annual government reports, ~1.7–1.8M chars each); dates 8/8
+# (2024-11 … 2026-07). The HTML text selector shows ✗ by design — the PDF replaces it.
+source_id: pan_presidencia_documentos
+country: Panama
+source_language: Spanish
+renderer: js
+# OCR (2026-09-30): a PDF with no text layer is OCR'd where Tesseract is installed (language
+# from source_language; docs/ocr_setup.md). Elsewhere it fails cleanly as empty_text and a
+# later `run --retry-failed` on an OCR machine recovers it.
+pdf_ocr: true
+
+start_urls:
+  - https://www.presidencia.gob.pa/categoria/documentos
+
+listing:
+  link_selector: "div.col-md-8.col-lg-9 a[href*='/publicacion/']"
+  link_pattern: '^https://www\.presidencia\.gob\.pa/publicacion/[^/?#]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 10
+
+politeness:
+  delay_range: [3, 5]
+
+title:
+  selectors: ["h1.mb-3"]
+text:
+  selectors: ["h1.mb-3 ~ p"]
+date:
+  selectors: ["i.fa-calendar-days + small"]
+
+pdf_link:
+  selectors: ["div.col-md-8.col-lg-9 a[href*='/storage/documentos/'][href$='.pdf']"]
+  attr: href
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Panama presidency, live: the documents category (Informe a la Nacion 2024-25 and 2025-26 and
+  other attached PDFs); body from the attached PDF. Mulino.

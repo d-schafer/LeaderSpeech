@@ -36,7 +36,9 @@ from .fallback_generic import extract_generic
 from .fetch import Fetcher, egress_ip
 from .msword import is_doc_url, is_docx_url
 from .paginate import harvest_links
-from .pdf import is_pdf_url, looks_like_pdf, pdf_bytes_to_text
+from .ocr import ocr_language_for
+from .pdf import (is_pdf_url, looks_like_pdf, pdf_bytes_to_text, take_empty_reason,
+                  truncation_note)
 from .recipe import ContentType, PaginationType, Recipe, WaybackExtend, load_recipe
 from . import api, feed, index, wayback
 
@@ -76,6 +78,12 @@ SCHEMA_COLUMNS = [
     # or correct. On a live recipe whose date selector DID match, a mismatch between the two is a
     # drift signal — it is how a DD.MM-vs-MM.DD selector misparse becomes visible without a re-scrape.
     "date_regex_recovered",
+    # Non-empty when the body came from a TRUNCATED document: an Archive capture that holds only
+    # a prefix of the PDF (stored cut at 1/5 MiB, or a replay that hung up), read over the pages
+    # that survive (pdf.repair_truncated_pdf). E.g. "1048576 of 30462354 bytes stored". The text
+    # is real but partial — kept, and flagged so cleaning/analysis can decide (2026-10-02).
+    # Must stay LAST: _ensure_csv_schema migrates older CSVs by position.
+    "document_truncated",
 ]
 ERROR_COLUMNS = ["timestamp", "url", "error"]
 
@@ -118,7 +126,7 @@ def _log_identity_dupes(already: int, within: int) -> None:
 
 
 def select_unscraped(candidates: list, url_of, skip: set, noise_params=(),
-                     identity_strip=()) -> tuple[list, int, int]:
+                     identity_strip=(), fold_slugs: bool = False) -> tuple[list, int, int]:
     """Drop candidates we already hold, comparing by DOCUMENT IDENTITY, not URL string.
 
     `skip` is the state file's seen/failed/filtered URLs. Testing membership with `in skip`
@@ -152,7 +160,7 @@ def select_unscraped(candidates: list, url_of, skip: set, noise_params=(),
     def _pid(u: str) -> str:
         for rx in strips:
             u = rx.sub("", u)
-        return wayback.page_identity(u, noise_params)
+        return wayback.page_identity(u, noise_params, fold_slugs=fold_slugs)
 
     state_ids = {_pid(u) for u in skip}
     batch_ids: set[str] = set()
@@ -254,6 +262,7 @@ def map_to_schema(rec: dict, recipe: Recipe, doc_id: str) -> dict:
         row["date_regex_recovered"] = regex_date or ""
     except Exception:
         row["date_regex_recovered"] = ""
+    row["document_truncated"] = rec.get("document_truncated") or ""
     return row
 
 
@@ -395,7 +404,12 @@ def _fetch_archived_document(entry: dict, recipe: Recipe, *, client=None, delay:
     earliest capture and as the 1.9 MB PDF from a later one (2026-09-19).
 
     Returns (data, entry_used, recovered). If nothing better exists the original bytes are
-    returned unchanged — the caller then extracts what it can, or refuses a block page."""
+    returned unchanged — the caller then extracts what it can, or refuses a block page.
+
+    When NEITHER capture is complete (the Archive holds only a prefix of the PDF — cut at 1/5 MiB,
+    or a hung-up replay), the LONGER prefix is returned (more surviving pages; `recovered` stays
+    False, and `entry_used` says which capture it was): pdf.py rebuilds and reads it, and the row
+    is flagged `document_truncated`. A failure fetching the alternate keeps the bytes in hand."""
     _, data = wayback.fetch_snapshot_bytes(entry, delay=delay, client=client, pacer=pacer)
     if _complete_document(data):
         return data, entry, False
@@ -403,10 +417,17 @@ def _fetch_archived_document(entry: dict, recipe: Recipe, *, client=None, delay:
                                     to_date=recipe.pagination.wayback_to,
                                     filters=recipe.pagination.wayback_filter)
     if alt is not None:
-        _, alt_data = wayback.fetch_snapshot_bytes(alt, delay=delay, client=client, pacer=pacer)
+        try:
+            _, alt_data = wayback.fetch_snapshot_bytes(alt, delay=delay, client=client, pacer=pacer)
+        except Exception as e:
+            log.info("alternate capture of %s failed (%s); keeping the capture in hand",
+                     entry.get("original"), type(e).__name__)
+            return data, entry, False
         if _complete_document(alt_data) or (not looks_like_document(data)
                                             and looks_like_document(alt_data)):
             return alt_data, alt, True
+        if looks_like_pdf(data) and looks_like_pdf(alt_data) and len(alt_data) > len(data):
+            return alt_data, alt, False     # both cut: the longer prefix keeps more pages
     return data, entry, False
 
 
@@ -418,14 +439,32 @@ def _is_block_payload(data, recipe: Recipe) -> bool:
     return looks_like_block_page(html, recipe.block_page_patterns)
 
 
-def wants_pdf(recipe: Recipe, url: str) -> bool:
+# CDX mimetypes that mean "this capture is a binary document", whatever its URL looks like.
+DOCUMENT_MIMETYPES = frozenset({
+    "application/pdf", "application/x-pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+})
+
+
+class BinaryDocumentAsHtml(ValueError):
+    """A capture/page routed as HTML turned out to be PDF bytes."""
+
+
+def wants_pdf(recipe: Recipe, url: str, mimetype: str | None = None) -> bool:
     """Should `url` be fetched+parsed as a binary document (PDF or Word)? Forced by
     `content_type: pdf` (which now covers PDF/.docx/.doc, dispatched by file type at extraction);
-    in `auto` mode, inferred from the URL (.pdf / @@download / .docx / .doc). `html` pins HTML."""
+    in `auto` mode, inferred from the URL (.pdf / @@download / .docx / .doc) — or, for a wayback
+    entry, from its CDX `mimetype`. A Joomla `…/pdf` view has no `.pdf` in its URL; routed as
+    HTML it was decoded to text and trafilatura wrote the raw PDF bytes as a speech
+    (per_presidencia_old_wayback, 14 rows, found 2026-10-02). `html` pins HTML."""
     ct = recipe.content_type
     if ct == ContentType.pdf:
         return True
-    return ct == ContentType.auto and (is_pdf_url(url) or is_docx_url(url) or is_doc_url(url))
+    if ct != ContentType.auto:
+        return False
+    if (mimetype or "").split(";")[0].strip().lower() in DOCUMENT_MIMETYPES:
+        return True
+    return is_pdf_url(url) or is_docx_url(url) or is_doc_url(url)
 
 
 def _fetch_payload(fetcher, recipe: Recipe, url: str) -> tuple[str, object]:
@@ -450,6 +489,12 @@ def _extract_payload(kind: str, payload, url: str, recipe: Recipe,
         return extract_pdf_record(payload, url, recipe), False
 
     html = payload if isinstance(payload, str) else bytes(payload).decode("utf-8", "replace")
+    if html.lstrip()[:5] == "%PDF-":
+        # Never hand PDF bytes to the HTML extractors: the generic fallback returns them as a
+        # "speech". Fail the row; content_type: pdf (or a CDX mimetype) routes it correctly.
+        raise BinaryDocumentAsHtml(
+            "binary_document_as_html: this page is a PDF but was routed as HTML (its URL has no "
+            ".pdf); set content_type: pdf in the recipe")
     rec = extract_record(html, url, recipe)
     via_generic = False
     # Recipes are tuned to a site's CURRENT layout; older/archived pages often used a
@@ -512,13 +557,14 @@ def _follow_pdf_body(rec: dict, html: str, page_url: str, recipe: Recipe, *,
             _, data = fetcher.get_bytes(pdf_url)
         if not looks_like_pdf(data):
             return False                    # not actually a PDF (e.g. an HTML error page) -> keep chrome
-        text = pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language)
+        text = pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=ocr_language_for(recipe))
         if not (text and text.strip()):
             rec["text"] = ""                # a real PDF with no extractable text -> fail cleanly, not chrome
             return False
         rec["text"] = text.strip()
         if not rec.get("title"):            # a chrome-only page often has no real title; use the PDF's
             rec["title"] = _first_line(text)
+        rec["document_truncated"] = truncation_note(data)   # '' unless only a prefix was archived
         return True
     except Exception as e:
         log.info("pdf-follow skipped for %s: %s", page_url, e)
@@ -563,6 +609,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
         identity_strip=recipe.pagination.wayback_identity_strip or (),
         keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
+        fold_slugs=recipe.pagination.wayback_identity_fold,
     )
 
 
@@ -587,8 +634,15 @@ def scrape_recipe(
     egress_check: bool = False,
     max_consecutive_failures: int = 25,
     save_every: int = 25,
+    # OCR image-only PDFs for THIS run even when the recipe doesn't set pdf_ocr. With
+    # retry_failed it is the recovery command for a source's empty_text scans.
+    ocr: bool = False,
 ) -> dict:
     recipe = load_recipe(recipe_path)
+    if ocr and not recipe.pdf_ocr:
+        # A copy, not a mutation: every later derivation (extend_recipe, phase recipes) starts
+        # from `recipe`, so they all inherit it.
+        recipe = recipe.model_copy(update={"pdf_ocr": True})
     alpha3 = alpha3_for(recipe.country)
     out_dir = Path(out_root) / recipe.country
     out_path = out_dir / f"{recipe.source_id}.csv"
@@ -597,9 +651,11 @@ def scrape_recipe(
 
     log_path, log_handler = _add_log_file(out_dir, recipe.source_id)
     log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s rescrape=%s "
-             "respect_robots=%s",
+             "respect_robots=%s%s",
              recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
-             rescrape, respect_robots)
+             rescrape, respect_robots,
+             f" pdf_ocr=on ({ocr_language_for(recipe)}{', --ocr' if ocr else ''})"
+             if recipe.pdf_ocr else "")
 
     # Which public IP is this run going out from? The Internet Archive throttles per IP, so when a
     # long campaign is split across several machines to keep each stream polite, this line is the
@@ -668,7 +724,7 @@ def scrape_recipe(
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
     stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0,
-             "archived_block": 0, "archived_block_recovered": 0}
+             "archived_block": 0, "archived_block_recovered": 0, "doc_no_text": 0, "truncated": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -701,6 +757,7 @@ def scrape_recipe(
         consecutive_fail = 0
         n = len(todo)
         for i, todo_item in enumerate(todo, 1):
+            take_empty_reason()   # forget the previous item's PDF verdict
             try:
                 via_generic = False
                 entry: dict = {}
@@ -711,12 +768,13 @@ def scrape_recipe(
                     # Archived captures may be HTML pages or (content_type: pdf) PDF bytes.
                     # fill_date=False: don't let the generic extractor invent a template date
                     # on an archived page — wayback_capture is the honest date fallback.
-                    if wants_pdf(phase_recipe, url):
+                    if wants_pdf(phase_recipe, url, todo_item.get("mimetype")):
                         data, used, recovered = _fetch_archived_document(
                             todo_item, phase_recipe, client=wayback_client,
                             delay=wayback_delay, pacer=pacer)
-                        if recovered:
+                        if used is not todo_item:     # the bytes came from another capture
                             wb_capture = _wayback_capture_iso(used.get("timestamp"))
+                        if recovered:
                             stats["archived_block_recovered"] += 1
                             log.info("archived document incomplete/blocked; recovered from "
                                      "another capture (%s): %s", wb_capture, url)
@@ -796,18 +854,32 @@ def scrape_recipe(
                     stats["filtered"] += 1
                     log.info("filtered out by keep_if: %s", url)
                 elif not rec["text"]:
+                    # A PDF that came back empty says WHY (no text layer + OCR off / OCR
+                    # unavailable / OCR found nothing). That is the scan, not a block, so it
+                    # does not feed the circuit breaker: Brazil's Old-Republic messages or a
+                    # run of Illustrator exports can be 25 scans in a row. `--retry-failed
+                    # --ocr` on a machine with Tesseract recovers them (docs/ocr_setup.md).
+                    doc_reason = take_empty_reason()
                     errors.append({"timestamp": stamp(), "url": url,
-                                   "error": "empty_text (no recipe match; generic also empty)"})
+                                   "error": (f"empty_text ({doc_reason})" if doc_reason else
+                                             "empty_text (no recipe match; generic also empty)")})
                     failed.add(url)         # NOT seen -> retried after a recipe fix
                     stats["failed"] += 1
-                    consecutive_fail += 1
-                    log.warning("empty: %s", url)
+                    if doc_reason:
+                        stats["doc_no_text"] += 1
+                    else:
+                        consecutive_fail += 1
+                    log.warning("empty: %s%s", url, f" ({doc_reason})" if doc_reason else "")
                 else:
                     state["last_doc_num"] += 1
                     doc_id = f"{alpha3}{state['last_doc_num']:04d}"
                     row = map_to_schema(rec, phase_recipe, doc_id)
                     if wb_capture:
                         row["wayback_capture"] = wb_capture
+                    if row["document_truncated"]:
+                        stats["truncated"] += 1
+                        log.info("kept the surviving pages of a truncated document (%s): %s",
+                                 row["document_truncated"], url)
                     pending_rows.append(row)
                     seen.add(url)
                     failed.discard(url)      # in case this was a previously-failed retry
@@ -935,7 +1007,8 @@ def scrape_recipe(
         skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
         if wayback_mode:
             todo_entries, dup_state, dup_batch = select_unscraped(
-                entries, lambda e: e.get("original"), skip, noise_params, identity_strip)
+                entries, lambda e: e.get("original"), skip, noise_params, identity_strip,
+                fold_slugs=recipe.pagination.wayback_identity_fold)
             if sample:
                 todo_entries = _sample_evenly(todo_entries, sample)
             elif limit:
@@ -948,7 +1021,8 @@ def scrape_recipe(
             todo = todo_entries
         else:
             todo, dup_state, dup_batch = select_unscraped(
-                links, lambda u: u, skip, noise_params, identity_strip)
+                links, lambda u: u, skip, noise_params, identity_strip,
+                fold_slugs=recipe.pagination.wayback_identity_fold)
             if sample:
                 todo = _sample_evenly(todo, sample)
             elif limit:
@@ -1001,7 +1075,8 @@ def scrape_recipe(
                     failed -= ext_urls
                 skip = (seen | filtered) if retry_failed else (seen | failed | filtered)
                 todo2, dup_state2, dup_batch2 = select_unscraped(
-                    ext_entries, lambda e: e.get("original"), skip, noise_params, identity_strip)
+                    ext_entries, lambda e: e.get("original"), skip, noise_params, identity_strip,
+                fold_slugs=recipe.pagination.wayback_identity_fold)
                 _log_identity_dupes(dup_state2, dup_batch2)
                 if sample:
                     todo2 = _sample_evenly(todo2, sample)
@@ -1054,10 +1129,14 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" (of which {stats['archived_block']} archived WAF/CAPTCHA captures)"
                  if stats["archived_block"] else "",
+                 f" ({stats['doc_no_text']} documents with no readable text - see the errors file; "
+                 f"--retry-failed --ocr recovers scans)" if stats["doc_no_text"] else "",
+                 f" | {stats['truncated']} kept from TRUNCATED documents (only part of the file "
+                 f"is archived; flagged in document_truncated)" if stats["truncated"] else "",
                  f" | {stats['archived_block_recovered']} recovered from another capture after a "
                  f"WAF/CAPTCHA capture" if stats["archived_block_recovered"] else "",
                  f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
@@ -1095,6 +1174,10 @@ def scrape_recipe(
         "archived_block_pages": stats["archived_block"],
         # WAF/CAPTCHA captures replaced by a real capture of the same URL (and written)
         "archived_block_recovered": stats["archived_block_recovered"],
+        # documents (PDFs) with no usable text layer — scans; OCR (`--ocr`) recovers them
+        "documents_no_text": stats["doc_no_text"],
+        # rows written from the surviving pages of a truncated document (`document_truncated`)
+        "documents_truncated": stats["truncated"],
         # keep_if rejections: fetched, judged not this source's content, not written.
         # filtered_out == links_found with 0 scraped => the keep_if is wrong, not the site.
         "filtered_out_this_run": stats["filtered"],
@@ -1207,6 +1290,11 @@ def main():
                     help="skip the one-request public-IP lookup logged at run start. That line is how "
                          "you verify a multi-machine campaign really is on distinct IPs (the Internet "
                          "Archive throttles per IP); pass this to avoid the third-party ping.")
+    ap.add_argument("--ocr", action="store_true",
+                    help="OCR image-only PDFs this run, as if the recipe set `pdf_ocr: true` (language "
+                         "from the recipe's source_language unless pdf_ocr_language is set). With "
+                         "--retry-failed it recovers a source's empty_text scans. Needs Tesseract — "
+                         "check with `python -m leaderspeech.text_scraper.ocr_check`.")
     args = ap.parse_args()
 
     if args.migrate_schema:
@@ -1229,6 +1317,7 @@ def main():
         wayback_max_delay=args.wayback_max_delay,
         no_index=args.no_index,
         egress_check=not args.no_egress_check,
+        ocr=args.ocr,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

@@ -1,0 +1,67 @@
+# Paraguay — the President's annual Informe de Gestión and Mensaje to Congress (1 July), live:
+# informe.presidencia.gov.py (WordPress) and the PDFs it links on d.mitic.gov.py (the
+# government's communications ministry). Decision 4: messages to the legislature are IN.
+#
+# Measured 2026-09-30 — the whole site is one page per policy axis plus download links:
+#   d.mitic.gov.py/2026/Discurso Presidencial.pdf     the 1 July 2026 message (991 KB)
+#   d.mitic.gov.py/2025/Discurso Presidencial.pdf     the 1 July 2025 message (live; the Archive
+#                                                     also holds it at /Discurso Presidencial.pdf)
+#   d.mitic.gov.py/2026/Informe Presidencial.pdf      the third report (2026)
+#   d.mitic.gov.py/Informe Presidencial 2025.pdf      28.6 MB
+#   d.mitic.gov.py/Informe Presidencial 2024.pdf      21.5 MB
+#   informe.presidencia.gov.py/paraguay-<axis>-2026/  6 axis pages (crece, seguro, estudia, sano,
+#                                                     social, gobernanza) — web summaries of the
+#                                                     2026 report, ~3.8k chars each
+# The 2023 (first) report and the 2024 message are not linked and not at the analogous paths
+# (302); the Archive holds no older copies. The 2025 axis pages exist only in the Archive and
+# summarise the 2025 report taken here as a PDF — not taken.
+# A url_list (the site has no listing to crawl); PDFs by extension (content_type auto). Dates:
+# none in the files' URLs beyond the year — the cleaner reads "1 de julio de 2026" in the text.
+# PROBE 2026-09-30 (all 11): the two messages 52,091 and 53,399 chars; the reports 326,770 /
+# 504,677 / 596,181 chars (text layers — no OCR needed); the axis pages 2.5k–4.8k chars.
+source_id: pry_presidencia_informe
+country: Paraguay
+source_language: Spanish
+renderer: static
+# OCR (2026-09-30): a PDF with no text layer is OCR'd where Tesseract is installed (language
+# from source_language; docs/ocr_setup.md). Elsewhere it fails cleanly as empty_text and a
+# later `run --retry-failed` on an OCR machine recovers it.
+pdf_ocr: true
+
+start_urls:
+  - https://informe.presidencia.gov.py/
+
+# required by the schema; a url_list is used verbatim (link_pattern is not applied)
+listing:
+  link_pattern: '\.pdf$|/paraguay-[a-z]+-\d{4}/$'
+
+pagination:
+  type: url_list
+  url_list:
+    - https://d.mitic.gov.py/2026/Discurso%20Presidencial.pdf
+    - https://d.mitic.gov.py/2025/Discurso%20Presidencial.pdf
+    - https://d.mitic.gov.py/2026/Informe%20Presidencial.pdf
+    - https://d.mitic.gov.py/Informe%20Presidencial%202025.pdf
+    - https://d.mitic.gov.py/Informe%20Presidencial%202024.pdf
+    - https://informe.presidencia.gov.py/paraguay-crece-2026/
+    - https://informe.presidencia.gov.py/paraguay-seguro-2026/
+    - https://informe.presidencia.gov.py/paraguay-estudia-2026/
+    - https://informe.presidencia.gov.py/paraguay-sano-2026/
+    - https://informe.presidencia.gov.py/paraguay-social-2026/
+    - https://informe.presidencia.gov.py/paraguay-gobernanza-2026/
+
+title:
+  selectors: ["title"]
+text:
+  selectors: [".entry-content"]
+date:
+  # the axis pages carry no date and the PDFs no DOM: blank by design (a year-only url_regex
+  # would let the date parser invent today's month and day). Required by the schema.
+  selectors: ["time[datetime]@datetime"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Paraguay: the President's 1 July messages to Congress (2025, 2026) and the annual Informe de
+  Gestion reports (2024-2026, PDFs) plus the 2026 report's six web summaries. Santiago Pena.

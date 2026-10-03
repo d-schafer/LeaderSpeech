@@ -526,6 +526,57 @@ def test_dedupe_keeps_the_first_capture_and_can_be_disabled():
     assert len(every) == 3                                            # opt out => old behaviour
 
 
+def test_dedupe_prefers_a_twin_with_a_known_cdx_length():
+    """presidencia.gov.ec 2011: the Joomla print view sorts first in CDX order, has length
+    "-", and answers 404 at replay; the plain address of the same article is a real 5.7 KB
+    capture. The fold must hand the run the one with a known length (2026-09-30)."""
+    pv = ("http://www.presidencia.gov.ec/index.php?view=article&id=1031%3Ax"
+          "&tmpl=component&print=1&option=com_content&Itemid=98")
+    plain = "http://www.presidencia.gov.ec/index.php?option=com_content&view=article&id=1031:x"
+    strip = [r"index\.php\?[^#]*?(?<=[?&])id=(?=\d)", r"(?<=\d)(?:%3A|:)[^&#]*.*$"]
+    entries = [{**_e(pv), "length": "-"}, {**_e(plain), "length": "5680"}]
+    kept = wayback.filter_entries_for_recipe(entries, r"index\.php\?", identity_strip=strip)
+    assert [k["original"] for k in kept] == [plain]
+
+    # a known-length first capture is never displaced, and neither is an unknown one by
+    # another unknown one (first still wins)
+    kept = wayback.filter_entries_for_recipe(list(reversed(entries)), r"index\.php\?",
+                                             identity_strip=strip)
+    assert [k["original"] for k in kept] == [plain]
+    both_unknown = [{**_e(pv), "length": "-"}, {**_e(plain), "length": "-"}]
+    kept = wayback.filter_entries_for_recipe(both_unknown, r"index\.php\?", identity_strip=strip)
+    assert [k["original"] for k in kept] == [pv]
+
+    # a twin the link_pattern rejects can't take the place of the kept one
+    kept = wayback.filter_entries_for_recipe(entries, r"print=1", identity_strip=strip)
+    assert [k["original"] for k in kept] == [pv]
+
+
+def test_identity_fold_merges_reslugged_twins_only_when_asked():
+    """presidencia.gob.do moved its 2013 comunicados to /noticias/ with accent-free slugs; the
+    Archive holds both. Opt-in fold + an identity_strip of the section names = one document."""
+    a = "http://presidencia.gob.do:80/comunicados/presidente-medina-y-esposa-dan-condolencias-al-presidente-de-taiw%C3%A1n"
+    b = "http://www.presidencia.gob.do/noticias/presidente-medina-y-esposa-dan-condolencias-al-presidente-de-taiwan"
+    c = "http://presidencia.gob.do/comunicados/presidente-medina-pide-licey-retornar-%E2%80%9Ccon-la-bandera%E2%80%9D"
+    d = "https://presidencia.gob.do/noticias/presidente-medina-pide-licey-retornar-con-la-bandera"
+    strip = [r"(?<=/)(?:noticias|comunicados)/"]
+    entries = [_e(a), _e(b), _e(c), _e(d)]
+    pat = r"/(?:noticias|comunicados)/"
+    assert len(wayback.filter_entries_for_recipe(entries, pat, identity_strip=strip)) == 4
+    kept = wayback.filter_entries_for_recipe(entries, pat, identity_strip=strip, fold_slugs=True)
+    assert [k["original"] for k in kept] == [a, c]
+    # distinct documents stay distinct
+    assert (wayback.page_identity("https://x.gob/noticias/ano-2014", fold_slugs=True)
+            != wayback.page_identity("https://x.gob/noticias/ano-2015", fold_slugs=True))
+    assert wayback.fold_slug("/a/el-“cambio”--ya/") == "/a/el-cambio-ya/"
+
+    # the state-file check folds the same way, so a later run doesn't re-fetch the twin
+    from leaderspeech.text_scraper import run
+    kept, already, within = run.select_unscraped([b], lambda u: u, {a}, identity_strip=strip,
+                                                 fold_slugs=True)
+    assert kept == [] and already == 1
+
+
 def test_dedupe_never_collapses_query_ADDRESSED_pages():
     """president.ie, pmindia.nic.in and president.gov.ge put the document id IN the query.
     Dropping the whole query string would collapse 1,039 distinct speeches into one page —
@@ -713,3 +764,95 @@ def test_cdx_retry_backoff_is_capped_and_increasing():
     assert all(w <= wayback.MAX_FETCH_BACKOFF * 1.1 for w in waits)
     # rides out well over a minute of refusal — the observed blips cleared in seconds
     assert sum(waits[:-1]) > 60.0
+
+
+# --- documents the Archive holds only part of (2026-10-02) -------------------------------------
+
+def _hang_up(chunks, expected):
+    """A body that delivers `chunks`, then the replay hangs up (h11's own error text)."""
+    def gen():
+        yield from chunks
+        received = sum(len(c) for c in chunks)
+        raise httpx.RemoteProtocolError(
+            f"peer closed connection without sending complete message body "
+            f"(received {received} bytes, expected {expected})")
+    return gen()
+
+
+class _ScriptedClient:
+    """client.stream() returns the next scripted response (a _FakeResp or an exception)."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.calls = 0
+
+    def stream(self, method, url):
+        self.calls += 1
+        return _Stream(self.script.pop(0))
+
+    def close(self):
+        pass
+
+
+def _no_sleep(monkeypatch):
+    monkeypatch.setattr(wayback.time, "sleep", lambda s: None)
+    monkeypatch.setattr(wayback.random, "uniform", lambda a, b: 0.0)
+
+
+ENTRY = {"timestamp": "20250403131832",
+         "original": "http://www.biblioteca.presidencia.gov.br/x/mensagem-1968"}
+
+
+def test_document_hang_up_at_the_same_point_twice_keeps_the_partial(monkeypatch):
+    """Costa e Silva's 1968 message: the replay promises 23.7 MB and hangs up after the stored
+    1.4 MB on every attempt. Keep the prefix (its pages are readable) instead of 6 retries and a
+    failure; one retry is enough to tell a stored cut from a network blip."""
+    _no_sleep(monkeypatch)
+    resp = lambda: _FakeResp(_hang_up([b"%PDF-1.4\n", b"x" * 100], 23680765),
+                             headers={"content-type": "application/pdf"})
+    client = _ScriptedClient([resp(), resp(), resp()])
+    ctype, data = wayback.fetch_snapshot_bytes(ENTRY, delay=0.0, client=client)
+    assert client.calls == 2
+    assert bytes(data) == b"%PDF-1.4\n" + b"x" * 100
+    assert isinstance(data, wayback.SnapshotBytes)
+    assert data.hung_up is True and data.real_size == 23680765
+
+
+def test_a_hang_up_followed_by_a_full_body_is_just_a_blip(monkeypatch):
+    _no_sleep(monkeypatch)
+    client = _ScriptedClient([
+        _FakeResp(_hang_up([b"%PDF-1.4\n"], 500)),
+        _FakeResp([b"%PDF-1.4\n", b"rest of the file %%EOF"]),
+    ])
+    _, data = wayback.fetch_snapshot_bytes(ENTRY, delay=0.0, client=client)
+    assert bytes(data).endswith(b"%%EOF") and data.hung_up is False
+
+
+def test_the_longest_partial_wins(monkeypatch):
+    _no_sleep(monkeypatch)
+    client = _ScriptedClient([
+        _FakeResp(_hang_up([b"%PDF-1.4\n"], 900)),
+        _FakeResp(_hang_up([b"%PDF-1.4\n", b"more pages"], 900)),
+        _FakeResp(_hang_up([b"%PDF-1.4\n", b"more pages"], 900)),
+    ])
+    _, data = wayback.fetch_snapshot_bytes(ENTRY, delay=0.0, client=client)
+    assert bytes(data) == b"%PDF-1.4\nmore pages" and client.calls == 3
+
+
+def test_html_hang_up_still_raises(monkeypatch):
+    """Only documents keep a partial body: half an HTML page is not a speech."""
+    _no_sleep(monkeypatch)
+    client = _ScriptedClient([_FakeResp(_hang_up([b"<html>"], 900)) for _ in range(2)])
+    with pytest.raises(httpx.RemoteProtocolError):
+        wayback.fetch_snapshot(ENTRY, delay=0.0, client=client, retries=2)
+
+
+def test_crawler_header_gives_the_real_size_of_a_stored_cut(monkeypatch):
+    """Cut at exactly 1 MiB when crawled: a clean 1 MiB transfer, but the replay keeps the size
+    the crawler saw in x-archive-orig-x-crawler-content-length (FHC's 1998 message: 30.5 MB)."""
+    _no_sleep(monkeypatch)
+    client = _ScriptedClient([_FakeResp([b"%PDF-1.4\n" + b"x" * 50], headers={
+        "x-archive-orig-content-length": "1048576",
+        "x-archive-orig-x-crawler-content-length": "30462354"})])
+    _, data = wayback.fetch_snapshot_bytes(ENTRY, delay=0.0, client=client)
+    assert data.real_size == 30462354 and data.hung_up is False

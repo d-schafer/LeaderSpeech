@@ -1,0 +1,104 @@
+# Dominican Republic — presidencia.gob.do under Danilo Medina (16 Aug 2012 – 16 Aug 2020), via the
+# Internet Archive. The live site (dom_presidencia) starts at Abinader's inauguration: every
+# earlier node was removed, but the Archive kept them. (The L7 brief expected "~13 pre-2020 speech
+# URLs"; enumerating the whole host found ~16,000 content pages.)
+#
+# CDX 2026-09-30 (whole domain, first capture per URL, status 200), three generations:
+#   A. PHP site, Sept 2012 – mid 2013: noticia.php?type=release&id=N (537), detalle-discurso.php
+#      ?id=N (12 speeches) — title = the 2nd h1 in div.leftcol, date in h1.bigger span.cargo
+#      ("febrero 27, 2013"), body = the leftcol paragraphs (the right column lists ~400 other
+#      headlines with their dates: never a selector); and comunicado/<slug>/ (139, a WordPress
+#      skin; its only date is a year-less "25 Nov" — undated by design).
+#   B. Drupal 7, 2013 – ~2017, two skins: the 2013 one (comunicados/<slug>, con-los-medios/
+#      <slug>: the PHP site's leftcol layout, paragraphs directly in the node div, an ISO
+#      dc:date attribute) and the 2014+ one (noticias/<slug>: title .node-title h2, date
+#      .node-created "Lunes, 11 de Agosto de 2014", body .field-name-body; the node's sidebar
+#      repeats other items' dates in span.news-date and has its own "MÁS NOTICIAS" h2 — neither
+#      is a selector). discurso/<slug> holds the speeches incl. the 27-February rendición de
+#      cuentas (2015: 73,861 chars).
+#   C. Drupal 8, 2018 – Aug 2020, two skins: early 2018 (h1.page-header, .article-date) and
+#      later (article .field--name-title, the ISO schema:dateCreated attribute); body article
+#      .field--name-body in both (a bare .field--name-body also matches a push-notification
+#      pop-up outside the article). D8 speech pages carry no date.
+#   index.php/noticias/<slug> is the same node under index.php — folded by identity strip.
+# LEFT OUT, measured: node/N (1,364 — Drupal's raw node paths; 3 of 3 sampled are articles
+# also captured under their slug), infografia/ (386 image infographics), multimedia/ and
+# fotos.presidencia.gob.do (galleries), taxonomy/tags/tipo-de-noticias listings + RSS feeds,
+# ministerio/direccion/instituto (directories), transparencia. The ASP.NET site of the
+# Fernández era (/app/…aspx, 2007–2012) is dom_presidencia_old_wayback.
+#
+# OFFLINE fold check (recipe_tools/foldcheck.py, whole-domain listing of 348,971 rows): 16,434
+# URLs match, 14,624 documents after the folds below; first captured 2012 159, 2013 1,806, 2014
+# 1,346, 2015 1,611, 2016 1,771, 2017 1,541, 2018 1,527, 2019 4,374, 2020 489.
+# PROBE 2026-09-30 (--spread 14): 14,624 snapshots (= offline); title/text 14/14, date 13/14
+# (the 2012 WordPress comunicado is undated by design), 2013-01 … 2019-10.
+# COVERAGE: every news/communiqué/speech/press-note page of the window; ~100% of the content
+# sections (the left-out families are aliases, galleries, listings and directories).
+source_id: dom_presidencia_wayback
+country: Dominican Republic
+source_language: Spanish
+renderer: static
+
+start_urls:
+  # a bare-host prefix: generation A is query-addressed at the root (noticia.php?…)
+  - presidencia.gob.do/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.do(?::\d+)?/(?:index\.php/)?(?:(?:noticias|comunicados|discurso|con-los-medios)/(?!tags/|all/|\d+/)[^/?#]{8,}|comunicado/[^/?#]{8,}/?|(?:noticia|detalle-discurso)\.php\?(?:type=release&)?id=\d+)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20200816"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # One document, several addresses, folded to one identity (the first captured wins):
+  #  * index.php/noticias/<slug> = noticias/<slug>; noticia.php?type=release&id=N = ?id=N
+  #  * the 2014 migration moved comunicados/<slug> to noticias/<slug> AND re-slugged it without
+  #    accents or curly quotes — 1,775 of the 1,919 communiqués exist under both names. The
+  #    section strip + wayback_identity_fold (accent/punctuation-insensitive paths) folds them;
+  #    the same fold merges discurso/ (68 URLs -> 55 speeches) and con-los-medios/ (65 -> 44)
+  #    accent variants.
+  wayback_identity_strip:
+    - '(?<=/)index\.php/(?=[a-z])'
+    - '(?<=\.php\?)type=release&'
+    - '(?<=/)(?:noticias|comunicados)/(?=[^/?#]+$)'
+  wayback_identity_fold: true
+
+# No keep_if: detalle-discurso.php speeches are bare text between <br>s (no container a
+# selector can name without dragging in the share-button <script>) and go to the generic
+# extractor, which a selector-based keep_if would have filtered out.
+title:
+  # D7 2014+: .node-title h2 (the node also holds a "MÁS NOTICIAS" h2 in its sidebar);
+  # con-los-medios 2013: its single h1 in #main-content.
+  selectors: ["article .field--name-title", ".node-title h2", "h1.page-header", "div.leftcol h1:not(.bigger)", "#right-column h3", "#main-content h1"]
+text:
+  # D8 (inside <article>; the push-notification pop-up's .field--name-body is outside it),
+  # D7 2014+, D7 2013 skin (paragraphs directly in the node div), PHP noticia.php, 2012 WP.
+  selectors: ["article .field--name-body", ".field-name-body", "div[id^='node-'] > p", "div.leftcol > p", "#right-column .article-content"]
+date:
+  # D7 2013 skin: the ISO attribute — its visible text is MONTH-first ("Vie, 04/26/2013"), which
+  # a Spanish day-first parse would swap for every day <= 12. D7 2014+: "Lunes, 11 de Agosto de
+  # 2014". D8: the ISO attribute of schema:dateCreated (speech pages carry none). PHP: "febrero
+  # 27, 2013". D8 early 2018: .article-date "Ir a álbum de fotos en Flickr | Lunes, 19 de Febrero
+  # de 2018" — parsed WHOLE that reads as today's date (2026-10-01), so the regex below cuts the
+  # date out of every form and a miss leaves the field blank. Each "@attr" applies to that
+  # selector only (engine option, 2026-09-30).
+  selectors:
+    - "div[id^='node-'] [property~='dc:date']@content"
+    - ".node-created"
+    - ".head-article [property='schema:dateCreated']@content"
+    - ".article-date"
+    - "div.leftcol h1.bigger span.cargo"
+  regex: '\d{4}-\d{2}-\d{2}|\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ de \d{4}|[A-Za-záéíóú]+ \d{1,2}, \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Dominican Republic presidency site under Danilo Medina (2012-2020) from the Internet Archive:
+  news, communiques, speeches (incl. the annual rendicion de cuentas) and press notes across
+  three site generations; the live site keeps only Abinader's era. No speaker_default.

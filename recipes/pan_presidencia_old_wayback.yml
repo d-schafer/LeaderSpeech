@@ -1,0 +1,85 @@
+# Panama — presidencia.gob.pa 1998 – June 2009: Ernesto Pérez Balladares (to Aug 1999), Mireya
+# Moscoso (1999–2004) and Martín Torrijos (2004–2009), via the Internet Archive. Martinelli is
+# pan_presidencia_martinelli_wayback.
+#
+# CDX 2026-09-30 (whole domain, first capture per URL), the content families:
+#   <D>-<M>-<YY>.html              1998–99 (59)   the President's messages ("Mensaje del 12/8/98");
+#                                                 dated from the file name (day first)
+#   noti-com.asp?cod=N  (+ -print)  2001–03        Moscoso news; print views folded to the id
+#   dis-com.asp?cod=N              2001–03 (172)  Moscoso speeches
+#   noti-com.php / dis-com.php (+ -print)  2003–05 the same two streams after the move to PHP
+#   noticia.php?cod=N              2004–09 (3,464 ids)  Torrijos news; noticia2.php?cod=N (2007–
+#                                  09) is the SAME article under a second template — 896 of its
+#                                  936 ids are also noticia.php ids (id 10000 = "PRODEC es una
+#                                  brújula…" in both) — folded
+#   discurso.php?cod=N             2004–09        Torrijos speeches
+#   prensa/default.asp?codigo=N&tipo=…      2006–08 (1,413)  the "Sistema de Acciones
+#   prensa/intervencion.asp?codigo=N&seccion=… (244)          Comunicacionales": communiqués,
+#                                                            speeches
+# LEFT OUT: ley-com.asp (146 — laws, the legal register), primeradama/ (the First Lady's office,
+# ~1,850 — candidate), the sub-agency folders (dpd/, conades/, oer/, prodar/ …), listings
+# (ver_todas.php, buscador-prensa.asp), galleries.
+# The window ENDS 2009-07-01: later first-captures of these old query URLs (e.g. 222 discurso.php
+# in 2022) are what the rebuilt site answered for a dead address, not the documents.
+#
+# Templates:
+#   1998–2005 pages are class-less table layouts: no selector reaches them — the GENERIC
+#     extractor reads them, by design (expect a high "generic" count); undated except the
+#     1998–99 files (url_regex).
+#   Torrijos noticia/discurso.php: title span.titulo03, body span.texto02, date span.texto-rojo
+#     ("Martes, 20  de  junio       de   2006"; noticia2: "Lunes, 28 de julio del año 2008").
+#   prensa/*.asp: title td.titulo-principal (default.asp — its div.titulo-principal is the
+#     "COMUNICADO DE PRENSA" banner) / div.titulo-principal (intervencion.asp); body td.texto-lead
+#     + td.texto-contenido / div.texto-noticia (td.texto-noticia is the UNDP footer); date the
+#     FIRST .fecha (a sidebar repeats other items' .fecha later in the page).
+# Latin-1, mostly undeclared — the codec pair reads it.
+#
+# OFFLINE fold check: 7,258 documents (first captured 1998 27, 1999 32, 2001 53, 2002 279, 2003
+# 472, 2004 1,005, 2005 1,326, 2006 1,505, 2007 1,263, 2008 970, 2009 325).
+# PROBE 2026-09-30 (--spread 14): 7,258 snapshots (= offline); the Torrijos and prensa/ pages
+# 10/10 title/text/date (2005-02 … 2009-04); the 1998 message and three Moscoso pages via the
+# generic extractor (2.1k–4.5k chars of real article text — checked), the 1998 one dated from its
+# file name. Moscoso pages print their date in the text ("Miércoles, 19 de Febrero del año
+# 2003"); not read by a selector (no container to scope it) — the cleaner reads it.
+source_id: pan_presidencia_old_wayback
+country: Panama
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gob.pa/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.pa(?::\d+)?/(?:(?:noti-com|dis-com)(?:-print)?\.(?:asp|php)\?cod=\d+|(?:noticia2?|discurso)\.php\?cod=\d+|prensa/(?:default|intervencion)\.asp\?codigo=\d+&(?:tipo|seccion)=[A-Za-z]+|\d{1,2}-\d{1,2}-\d{2}\.html)(?:&[^#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_to: "20090701"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '-print(?=\.(?:asp|php)\?)'
+    - '(?<=/noticia)2(?=\.php\?)'
+  wayback_noise_params: [tex, amp, mar]
+
+title:
+  selectors: ["span.titulo03", "td.titulo-principal", "div.titulo-principal"]
+text:
+  selectors: ["span.texto02", "div.texto-noticia", "td.texto-lead, td.texto-contenido"]
+date:
+  selectors: ["span.texto-rojo", ".fecha"]
+  regex: '\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóú]+\s+(?:del?\s+)?(?:año\s+)?\d{4}'
+  regex_required: true
+  url_regex: '/(?P<day>\d{1,2})-(?P<month>\d{1,2})-(?P<year>\d{2})\.html$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Panama presidency site 1998-2009 (Perez Balladares' messages, Moscoso, Torrijos) from the
+  Internet Archive: news, speeches and the 2006-08 communications system, folded by id. The
+  1998-2005 table layouts are read by the generic extractor. No speaker_default.

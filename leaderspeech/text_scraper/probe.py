@@ -22,12 +22,13 @@ from bs4 import BeautifulSoup
 
 from .extract import (apply_entry_meta, clean_text, date_from_url, entry_source,
                       extract_pdf_record, extract_record, first_match, looks_like_document,
-                      match_url, parse_date)
+                      match_url, parse_date, split_selector)
 from .block import looks_like_block_page
 from .fallback_generic import extract_generic
 from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
 from .recipe import FieldSpec, PaginationType, WaybackExtend, load_recipe
+from .pdf import take_empty_reason
 from .run import (_fetch_archived_document, _follow_pdf_body, _is_block_payload,
                   _unblocked_alternate, wants_pdf)
 from . import api, feed, index, wayback
@@ -46,7 +47,7 @@ def _which_selector(soup, spec: FieldSpec | None):
         return None, 0
     for sel in spec.selectors:
         try:
-            els = soup.select(sel)
+            els = soup.select(split_selector(sel)[0])   # "css@attr" matches on the css part
         except Exception:
             continue
         if els:
@@ -256,7 +257,7 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
             # Same gate as the run (run.wants_pdf / looks_like_document): the binary-document
             # path covers .doc/.docx as well as PDF. The probe used to test for PDF only, so it
             # decoded every Word file as HTML and reported an empty body the run would fill.
-            want_pdf = wants_pdf(recipe, url)
+            want_pdf = wants_pdf(recipe, url, item.get("mimetype") if is_wayback else None)
             if is_wayback and want_pdf:
                 # Same fetch as the run: an incomplete/blocked capture falls back once to the
                 # URL's largest other capture, and a block page that remains is a failure.
@@ -300,12 +301,18 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
             continue
         entry = (meta_by_url or {}).get(url, {})
         if pdf_data is not None:
+            take_empty_reason()
             rec = extract_pdf_record(pdf_data, url, recipe)
+            reason = take_empty_reason()
             # Applied BEFORE the report is built, so parsed_date/value_preview show the
             # values a real run would write.
             filled = apply_entry_meta(rec, entry)
             page = _pdf_page_report(recipe, url, rec)
             _note_meta(page["fields"], entry, filled)
+            if reason and not rec.get("text"):
+                page["empty_reason"] = reason     # e.g. a scan with OCR off / unavailable
+            if rec.get("text") and rec.get("document_truncated"):
+                page["document_truncated"] = rec["document_truncated"]
             pages.append(page)
             continue
         soup = BeautifulSoup(phtml, recipe.html_parser)
@@ -315,11 +322,14 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         # pdf_link: if this page is just a title + a link to the speech PDF, follow it exactly as
         # the run would, so the probe reports the PDF body length the real scrape will write.
         pdf_body_len = None
+        pdf_reason = None
         if recipe.pdf_link is not None:
+            take_empty_reason()
             if _follow_pdf_body(rec, phtml, url, recipe, is_wayback=is_wayback,
                                 timestamp=(item.get("timestamp") if is_wayback else None),
                                 wayback_client=wayback_client, wayback_delay=0.0, fetcher=fetcher):
                 pdf_body_len = len(rec["text"])
+            pdf_reason = take_empty_reason()
         fields = {name: _html_field_report(recipe, name, soup, url, rec) for name in FIELDS}
         _note_meta(fields, entry, filled)
         page = {
@@ -332,6 +342,10 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         }
         if pdf_body_len is not None:
             page["pdf_body_len"] = pdf_body_len   # body recovered from a followed PDF link
+            if rec.get("document_truncated"):
+                page["document_truncated"] = rec["document_truncated"]
+        elif pdf_reason:
+            page["empty_reason"] = f"linked PDF: {pdf_reason}"
         if recovered_from:
             page["recovered_from_capture"] = recovered_from   # the first capture was a WAF shell
         pages.append(page)
@@ -375,13 +389,20 @@ def _extend_to_date(recipe, ext, out_root: str, override: str | None) -> tuple[s
 
 
 def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bool = False,
-          wayback_to: str | None = None, out_root: str = "data/scraped") -> dict:
+          wayback_to: str | None = None, out_root: str = "data/scraped",
+          ocr: bool = False) -> dict:
     recipe = load_recipe(recipe_path)
+    if ocr and not recipe.pdf_ocr:
+        recipe = recipe.model_copy(update={"pdf_ocr": True})   # as `run --ocr` does
     report: dict = {
         "recipe": recipe.source_id, "country": recipe.country,
         "renderer": recipe.renderer.value, "listing": {}, "pages": [],
     }
+    # The recipe's per-request pacing applies to the probe too: a --spread probe harvests every
+    # listing page, and on a WAF-guarded site (presidencia.gob.pa, Imperva) an unpaced burst
+    # earns the block page that a paced run never sees.
     fetcher = Fetcher(renderer=recipe.renderer.value, respect_robots=False, pause_every=0,
+                      delay_range=tuple(recipe.politeness.delay_range),
                       verify_ssl=recipe.verify_ssl, user_agent=recipe.user_agent,
                       encoding=recipe.encoding,
                       js_settle=recipe.js_settle, cdp_endpoint=recipe.cdp_endpoint,
@@ -410,6 +431,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 extra_noise_params=recipe.pagination.wayback_noise_params or (),
                 identity_strip=recipe.pagination.wayback_identity_strip or (),
                 keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
+                fold_slugs=recipe.pagination.wayback_identity_fold,
             )
             # NB the spread here is across the CDX listing, which comes back in urlkey
             # (alphabetical) order, not chronological — so unlike the live-listing branches
@@ -611,7 +633,11 @@ def _print_pages(pages: list, label: str):
             if f.get("note"):
                 print(f"              ! {f['note']}")
         print(f"        parsed_date: {page['parsed_date']}")
-        if page["recipe_text_len"] == 0 and page["generic_text_len"] > 0:
+        if page.get("empty_reason"):
+            print(f"        ! empty body: {page['empty_reason']}")
+        if page.get("document_truncated"):
+            print(f"        ~ truncated document, surviving pages kept: {page['document_truncated']}")
+        if page["recipe_text_len"] == 0 and page.get("generic_text_len", 0) > 0:
             print(f"        ! recipe got 0 chars but generic fallback would recover "
                   f"{page['generic_text_len']} — fix the `text` selector.")
 
@@ -664,10 +690,13 @@ def main():
                     help="where scraped CSVs live; read only to find the live date floor "
                          "that bounds a wayback_extend probe")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--ocr", action="store_true",
+                    help="OCR image-only PDFs in the sample, as `run --ocr` would (needs Tesseract; "
+                         "see `python -m leaderspeech.text_scraper.ocr_check`)")
     args = ap.parse_args()
     report = probe(args.recipe, n=args.n, spread=args.spread,
                    extend_wayback=args.extend_wayback, wayback_to=args.wayback_to,
-                   out_root=args.out_root)
+                   out_root=args.out_root, ocr=args.ocr)
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:

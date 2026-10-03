@@ -18,6 +18,7 @@ import logging
 import random
 import re
 import time
+import unicodedata
 from urllib.parse import parse_qsl, unquote, urlencode, urlparse
 from typing import TYPE_CHECKING, Iterable, Optional
 
@@ -83,6 +84,45 @@ class SnapshotTooLarge(SnapshotRejected):
 
 class SnapshotReadTimeout(SnapshotRejected):
     """Capture body was still arriving after `SNAPSHOT_BODY_TIMEOUT` seconds."""
+
+
+class SnapshotBytes(bytes):
+    """An archived document's bytes, plus what the Archive says about how complete they are.
+
+    The Archive holds many large PDFs only as a PREFIX. Some are stored cut at exactly 1 MiB or
+    5 MiB, others are replayed with the ORIGINAL Content-Length and the connection is dropped
+    after the stored 1.4–2.9 MB. Both cases are measured on the Biblioteca da Presidência
+    (2026-10-02). A prefix still holds its first pages, so the engine keeps it (pdf.py repairs
+    and reads it) and flags the row as truncated; it is not thrown away as a failure.
+
+    Behaves as plain `bytes` everywhere (pdfminer, pikepdf, slicing). Extra attributes:
+      * `real_size` — the original file's size when the replay says so
+        (`x-archive-orig-x-crawler-content-length`, else the length the hang-up promised), or None;
+      * `hung_up` — the replay dropped the connection before the declared length.
+    """
+
+    real_size: Optional[int]
+    hung_up: bool
+
+    def __new__(cls, data: bytes = b"", real_size: Optional[int] = None, hung_up: bool = False):
+        obj = super().__new__(cls, data)
+        obj.real_size = real_size
+        obj.hung_up = hung_up
+        return obj
+
+
+class _BodyCut(Exception):
+    """The replay hung up mid-body (`RemoteProtocolError`). Carries what did arrive."""
+
+    def __init__(self, body: bytes, expected: Optional[int]):
+        super().__init__(f"body cut after {len(body)} of {expected} bytes")
+        self.body = body
+        self.expected = expected
+
+
+_EXPECTED_RE = re.compile(r"expected (\d+)")
+# Key on Response.extensions marking a partial body; the value is the length the replay promised.
+_CUT_KEY = "leaderspeech_cut"
 
 
 def list_snapshots(
@@ -341,14 +381,32 @@ NOISE_PARAMS = frozenset({
 NOISE_PARAM_PREFIXES = ("utm_", "at_", "pk_", "piwik_", "tspd_", "__cf")
 
 
-def page_identity(url: str, extra_noise_params: Iterable[str] = ()) -> str:
+def fold_slug(path: str) -> str:
+    """An accent- and punctuation-insensitive form of a (decoded, lower-cased) URL path.
+
+    For a site that re-slugged its pages when it changed CMS: presidencia.gob.do moved its
+    2013 communiqués to /noticias/ in 2014 with accent-free slugs, and the Archive kept both —
+    `…/comunicados/…-taiw%C3%A1n` and `…/noticias/…-taiwan`, `…%E2%80%9Ccon-la-bandera…` and
+    `…-con-la-bandera…` (1,775 of 1,919 communiqués). Accents are stripped (NFKD), any other
+    character outside [a-z0-9/._-] becomes "-", and dash runs collapse."""
+    s = unicodedata.normalize("NFKD", path)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[^a-z0-9/._-]+", "-", s)
+    s = re.sub(r"-{2,}", "-", s)
+    return re.sub(r"-+(?=/|$)|(?<=/)-+", "", s)
+
+
+def page_identity(url: str, extra_noise_params: Iterable[str] = (),
+                  fold_slugs: bool = False) -> str:
     """A key that is equal for two URLs serving the SAME document.
 
     Normalizes scheme, `www.`, port and trailing slash, and drops only the query
     parameters in :data:`NOISE_PARAMS` / :data:`NOISE_PARAM_PREFIXES`, plus any names
     in `extra_noise_params` (the recipe's `pagination.wayback_noise_params`, for a CMS
     that invents its own UI toggles). Meaningful parameters are kept, so query-addressed
-    sites stay fully distinct.
+    sites stay fully distinct. `fold_slugs` (the recipe's opt-in
+    `pagination.wayback_identity_fold`) also ignores accents and punctuation in the path —
+    see :func:`fold_slug`.
     """
     extra = {p.lower() for p in extra_noise_params}
     pr = urlparse(url)
@@ -356,6 +414,8 @@ def page_identity(url: str, extra_noise_params: Iterable[str] = ()) -> str:
     if host.startswith("www."):
         host = host[4:]
     path = unquote(pr.path).rstrip("/").lower()
+    if fold_slugs:
+        path = fold_slug(path)
     # WordPress paginates a comment thread as a sub-path of the same article
     path = re.sub(r"/comment-page-\d+$", "", path)
     kept = [
@@ -374,6 +434,7 @@ def filter_entries_for_recipe(
     extra_noise_params: Iterable[str] = (),
     identity_strip: Iterable[str] = (),
     keep_listing_paths: bool = False,
+    fold_slugs: bool = False,
 ) -> list[dict]:
     """Filter CDX captures down to speech pages — country-agnostic.
 
@@ -388,6 +449,11 @@ def filter_entries_for_recipe(
       * `dedupe_noise_params` (on by default) keeps only the FIRST capture of each
         distinct page, ignoring tracking/UI query parameters — see :func:`page_identity`.
         Set it False to fetch every query variant as its own document.
+        One exception to "first wins": a kept twin whose CDX `length` is unknown ("-") is
+        replaced by a later twin with a known length. Such captures often do not replay —
+        presidencia.gov.ec's Joomla print views (2011) answer 404 at `id_` while the same
+        article's plain address holds a 5.7 KB page, and a run of them tripped the
+        25-failure breaker on `ecu_presidencia_old_wayback` (2026-09-29).
       * `extra_noise_params` (the recipe's `pagination.wayback_noise_params`) adds
         site-specific UI-toggle parameter names to that denylist.
       * `identity_strip` (the recipe's `pagination.wayback_identity_strip`) — regexes cut
@@ -402,8 +468,16 @@ def filter_entries_for_recipe(
     pattern = re.compile(link_pattern) if link_pattern else None
     listing_paths = set() if keep_listing_paths else {_url_path(u) for u in start_urls}
     out: list[dict] = []
-    seen: set[str] = set()
-    deduped = 0
+    kept_at: dict[str, int] = {}   # identity -> index in `out`
+    deduped = upgraded = 0
+
+    def _known_length(e: dict) -> bool:
+        return str(e.get("length") or "").isdigit()
+
+    def _admitted(original: str) -> bool:
+        if _url_path(original) in listing_paths:
+            return False
+        return not (pattern and not pattern.search(original))
 
     for entry in entries:
         original = entry.get("original")
@@ -412,24 +486,30 @@ def filter_entries_for_recipe(
         ident = original
         for rx in strips:
             ident = rx.sub("", ident)
-        key = (page_identity(ident, extra_noise_params)
+        key = (page_identity(ident, extra_noise_params, fold_slugs=fold_slugs)
                if dedupe_noise_params else ident)
-        if key in seen:
+        if key in kept_at:
             # A second capture of a page we already have (usually the same article with a
             # ?utm_source= / ?comment= suffix). Count it so the run log can show the saving.
             deduped += 1
+            i = kept_at[key]
+            if (not _known_length(out[i]) and _known_length(entry)
+                    and _admitted(original)):
+                out[i] = entry
+                upgraded += 1
             continue
-        if _url_path(original) in listing_paths:
+        if not _admitted(original):
             continue
-        if pattern and not pattern.search(original):
-            continue
-        seen.add(key)
+        kept_at[key] = len(out)
         out.append(entry)
 
     if deduped:
         log.info("wayback: skipped %d duplicate capture(s) of pages already harvested "
                  "(same page, different tracking/UI query string%s)", deduped,
                  " or wayback_identity_strip twin" if strips else "")
+    if upgraded:
+        log.info("wayback: %d page(s) take a twin capture with a known length instead of an "
+                 "unknown-length ('-') first capture", upgraded)
     return out
 
 
@@ -489,6 +569,7 @@ def harvest_extend_entries(recipe: "Recipe", ext: "WaybackExtend",
         extra_noise_params=recipe.pagination.wayback_noise_params or (),
         identity_strip=recipe.pagination.wayback_identity_strip or (),
         keep_listing_paths=recipe.pagination.wayback_keep_listing_paths,
+        fold_slugs=recipe.pagination.wayback_identity_fold,
     )
 
 
@@ -550,12 +631,16 @@ def _read_capped(
     url: str,
     max_bytes: int = MAX_SNAPSHOT_BYTES,
     body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
+    allow_partial: bool = False,
 ) -> bytes:
     """Stream one response body, aborting past `max_bytes` decoded or `body_timeout` seconds.
 
     The client's read timeout only bounds the wait for the NEXT chunk, so a capture the
     Archive dribbles out indefinitely never trips it. This bounds the body as a whole.
-    A `Content-Length` over the cap is refused before reading a single byte."""
+    A `Content-Length` over the cap is refused before reading a single byte.
+
+    `allow_partial` (documents only): when the replay hangs up mid-body, raise `_BodyCut`
+    carrying the bytes that did arrive instead of losing them with the `RemoteProtocolError`."""
     declared = resp.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > max_bytes:
         raise SnapshotTooLarge(
@@ -565,19 +650,26 @@ def _read_capped(
     started = time.monotonic()
     chunks: list[bytes] = []
     total = 0
-    for chunk in resp.iter_bytes():
-        chunks.append(chunk)
-        total += len(chunk)
-        if total > max_bytes:
-            raise SnapshotTooLarge(
-                f"body exceeded the {max_bytes}-byte cap after {total} bytes: {url}"
-            )
-        elapsed = time.monotonic() - started
-        if elapsed > body_timeout:
-            raise SnapshotReadTimeout(
-                f"body still arriving after {elapsed:.0f}s ({total} bytes read, "
-                f"budget {body_timeout:.0f}s): {url}"
-            )
+    try:
+        for chunk in resp.iter_bytes():
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > max_bytes:
+                raise SnapshotTooLarge(
+                    f"body exceeded the {max_bytes}-byte cap after {total} bytes: {url}"
+                )
+            elapsed = time.monotonic() - started
+            if elapsed > body_timeout:
+                raise SnapshotReadTimeout(
+                    f"body still arriving after {elapsed:.0f}s ({total} bytes read, "
+                    f"budget {body_timeout:.0f}s): {url}"
+                )
+    except httpx.RemoteProtocolError as exc:
+        if not (allow_partial and chunks):
+            raise
+        m = _EXPECTED_RE.search(str(exc))
+        expected = int(m.group(1)) if m else (int(declared) if declared.isdigit() else None)
+        raise _BodyCut(b"".join(chunks), expected) from exc
     return b"".join(chunks)
 
 
@@ -611,6 +703,7 @@ def _fetch_snapshot_resp(
     pacer: Optional[AdaptivePacer] = None,
     max_bytes: int = MAX_SNAPSHOT_BYTES,
     body_timeout: float = SNAPSHOT_BODY_TIMEOUT,
+    allow_partial: bool = False,
 ) -> httpx.Response:
     """Politely fetch one archived capture, riding out transient Archive throttling —
     connection refusals (`ConnectError`) and 429/5xx — with capped exponential backoff.
@@ -624,6 +717,12 @@ def _fetch_snapshot_resp(
     such a capture raises `SnapshotRejected`, which is NOT retried and surfaces to the
     caller as an ordinary per-URL failure.
 
+    `allow_partial` (documents only): a replay that hangs up mid-body is retried, but once two
+    attempts end at the SAME byte count the Archive simply stores no more of the file (a fixed
+    property of the capture, not a network blip), so the longest partial is returned with
+    `extensions[_CUT_KEY]` = the length the replay promised. Not counted as throttling. Without
+    it a hang-up is retried like any transport error and finally raised, as before.
+
     If a `pacer` is given, the pre-fetch pause is the pacer's current (auto-tuning) delay
     instead of the fixed `delay`, and the pacer is told whether this fetch was clean or
     throttled so it can converge on the Archive's tolerated rate."""
@@ -632,16 +731,43 @@ def _fetch_snapshot_resp(
     client = client or create_client(timeout=timeout)
     url = snapshot_url(entry)
     throttled = False  # did THIS fetch hit any retryable throttling? (drives the pacer, once)
+    best_cut: Optional[httpx.Response] = None   # longest partial body so far (allow_partial)
+
+    def _settle(out: httpx.Response) -> httpx.Response:
+        if pacer is not None:
+            pacer.on_throttle() if throttled else pacer.on_clean()
+        return out
+
     try:
         for attempt in range(retries):
             try:
+                cut: Optional[_BodyCut] = None
                 with client.stream("GET", url) as resp:
                     resp.raise_for_status()
-                    body = _read_capped(resp, url, max_bytes, body_timeout)
-                    out = _rebuild_response(resp, body)
-                if pacer is not None:
-                    pacer.on_throttle() if throttled else pacer.on_clean()
-                return out
+                    try:
+                        body = _read_capped(resp, url, max_bytes, body_timeout,
+                                            allow_partial=allow_partial)
+                    except _BodyCut as c:
+                        cut = c
+                        partial = _rebuild_response(resp, c.body)
+                        partial.extensions = {**partial.extensions, _CUT_KEY: c.expected}
+                    else:
+                        out = _rebuild_response(resp, body)
+                if cut is None:
+                    return _settle(out)
+                repeat = best_cut is not None and len(best_cut.content) == len(cut.body)
+                if best_cut is None or len(cut.body) > len(best_cut.content):
+                    best_cut = partial
+                if repeat or attempt >= retries - 1:
+                    log.info("wayback: the Archive holds only %d of %s bytes of this capture "
+                             "(hung up at the same point twice); keeping the partial: %s",
+                             len(best_cut.content), cut.expected, url)
+                    return _settle(best_cut)
+                wait = _retry_sleep(attempt, backoff)
+                log.info("wayback hung up after %d of %s bytes; retry %d/%d in %.0fs: %s",
+                         len(cut.body), cut.expected, attempt + 1, retries, wait, url)
+                time.sleep(wait)
+                continue
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                 if isinstance(exc, httpx.HTTPStatusError):
                     status = exc.response.status_code if exc.response is not None else None
@@ -649,6 +775,8 @@ def _fetch_snapshot_resp(
                         raise  # a real 404/403 etc. — not throttling, don't pace on it
                 throttled = True
                 if attempt >= retries - 1:
+                    if best_cut is not None:     # an earlier attempt got part of the file
+                        return _settle(best_cut)
                     if pacer is not None:
                         pacer.on_throttle()  # gave up after full backoff — slow down for the next
                     raise
@@ -704,10 +832,25 @@ def fetch_snapshot_bytes(
     pacer: Optional[AdaptivePacer] = None,
     max_bytes: int = MAX_SNAPSHOT_PDF_BYTES,
     body_timeout: float = SNAPSHOT_PDF_BODY_TIMEOUT,
+    allow_partial: bool = True,
 ) -> tuple[str, bytes]:
     """Fetch one archived capture as raw bytes, returning (content_type, content) — for
-    PDF captures, where the archive stored the original binary."""
+    PDF captures, where the archive stored the original binary.
+
+    `content` is a :class:`SnapshotBytes`: when the Archive holds only a prefix of the file
+    (stored cut at 1/5 MiB, or a replay that hangs up — see `allow_partial`), the prefix is
+    returned rather than lost, with `real_size` / `hung_up` saying so. pdf.py reads what
+    survives and the row is flagged `document_truncated`."""
     resp = _fetch_snapshot_resp(entry, delay, timeout, client, retries, backoff, pacer,
-                                max_bytes, body_timeout)
+                                max_bytes, body_timeout, allow_partial=allow_partial)
     ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
-    return ctype, resp.content
+    hung_up = _CUT_KEY in resp.extensions
+    real = (_int_header(resp, "x-archive-orig-x-crawler-content-length")
+            or (resp.extensions.get(_CUT_KEY) if hung_up else None)
+            or _int_header(resp, "x-archive-orig-content-length"))
+    return ctype, SnapshotBytes(resp.content, real_size=real, hung_up=hung_up)
+
+
+def _int_header(resp: httpx.Response, name: str) -> Optional[int]:
+    value = (resp.headers.get(name) or "").strip()
+    return int(value) if value.isdigit() and int(value) > 0 else None

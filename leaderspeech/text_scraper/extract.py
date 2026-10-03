@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 from dateparser.search import search_dates
 
 from . import msword, pdf
+from .ocr import ocr_language_for
 from .recipe import FieldSpec, KeepIf, Listing, Recipe
 
 _INLINE_WS = re.compile(r"[ \t\f\v]+")
@@ -30,10 +31,30 @@ def clean_text(s: Optional[str]) -> str:
     return "\n".join(line for line in lines if line)
 
 
+# A selector may END in "@<attribute>" to read that attribute for THAT selector only:
+#   date: { selectors: ["meta[property='article:published_time']@content", ".node-created"] }
+# A field's `attr` applies to its whole chain, so before this (2026-09-30) a chain could not
+# mix a machine-readable attribute on one site generation with visible text on another — and
+# a recipe spanning generations had to drop the dates of one of them (radionicaragua 2016–18,
+# presidencia.gob.do 2013). An "@" inside brackets (`a[href*='@']`) is never read as a suffix.
+_ATTR_NAME = re.compile(r"[A-Za-z_:][-\w:.]*")
+
+
+def split_selector(selector: str) -> tuple[str, Optional[str]]:
+    """("css", attr) for "css@attr"; (selector, None) when there is no attribute suffix."""
+    sel, sep, attr = selector.rpartition("@")
+    attr = attr.strip()
+    if (sep and sel.strip() and _ATTR_NAME.fullmatch(attr)
+            and sel.count("[") == sel.count("]") and sel.count("(") == sel.count(")")):
+        return sel.strip(), attr
+    return selector, None
+
+
 def _select(soup: BeautifulSoup, selector: str) -> list:
-    """soup.select, tolerating a malformed selector (treated as matching nothing)."""
+    """soup.select, tolerating a malformed selector (treated as matching nothing). An
+    "@attr" suffix (see split_selector) is ignored here — it says what to READ, not what to match."""
     try:
-        return soup.select(selector)
+        return soup.select(split_selector(selector)[0])
     except Exception:
         return []
 
@@ -46,8 +67,9 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
         elements = _select(soup, selector)
         if not elements:
             continue
-        if spec.attr:
-            value = elements[0].get(spec.attr)
+        attr = split_selector(selector)[1] or spec.attr
+        if attr:
+            value = elements[0].get(attr)
         else:
             # join all matches so multi-paragraph bodies come through whole
             value = "\n".join(el.get_text("\n") for el in elements)
@@ -60,8 +82,10 @@ def first_match(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]
                     # "^\W*(?:[^,]+,\s*)?(?P<value>\d+ de \w+ de \d{4})" takes a dateline's
                     # date but not its place name. Opt-in by name, so a recipe whose regex
                     # happens to use a plain (…) group for alternation keeps group(0).
+                    # A `value` group in one branch of an alternation that did not take part
+                    # in the match is None — then the whole match is the value.
                     value = (m.group("value") if "value" in m.re.groupindex
-                             else m.group(0))
+                             and m.group("value") is not None else m.group(0))
                 elif spec.regex_required:
                     # An explicit "the regex IS the field" contract: a miss means this
                     # selector didn't really match, so keep walking the chain rather than
@@ -341,7 +365,7 @@ def document_to_text(data: bytes, recipe: Recipe) -> str:
         return msword.docx_bytes_to_text(data)
     if msword.looks_like_doc(data):
         return msword.doc_bytes_to_text(data)
-    return pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=recipe.pdf_ocr_language)
+    return pdf.pdf_bytes_to_text(data, ocr=recipe.pdf_ocr, ocr_language=ocr_language_for(recipe))
 
 
 def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
@@ -369,4 +393,7 @@ def extract_pdf_record(data: bytes, url: str, recipe: Recipe) -> dict:
         # No DOM here: a selector-based keep_if is a no-op, a pattern-only one tests the
         # PDF's extracted text.
         "keep": should_keep(recipe.keep_if, None, text),
+        # '' unless the bytes are a PDF prefix (an Archive capture cut at 1/5 MiB or a hung-up
+        # replay) whose surviving pages were read: becomes the row's `document_truncated`.
+        "document_truncated": pdf.truncation_note(data),
     }

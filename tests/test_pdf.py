@@ -1,6 +1,8 @@
 """PDF speech-page support: URL/byte detection, text extraction, and the URL-driven
 record builder that stands in for selectors when there is no DOM."""
 
+import io
+
 import pytest
 
 from leaderspeech.text_scraper import extract, pdf
@@ -78,8 +80,9 @@ def test_pdf_ocr_fallback_used_only_when_enabled(monkeypatch):
         seen["lang"] = language
         return "OCR RECOVERED TEXT"
     monkeypatch.setattr(pdf, "_extract_ocr", fake_ocr)
-    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 scan", ocr=False) == ""          # not requested
-    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 scan", ocr=True, ocr_language="fas+pus+eng") == "OCR RECOVERED TEXT"
+    scan = b"%PDF-1.4 scan\n%%EOF"           # a COMPLETE file (a cut one is repaired first)
+    assert pdf.pdf_bytes_to_text(scan, ocr=False) == ""                      # not requested
+    assert pdf.pdf_bytes_to_text(scan, ocr=True, ocr_language="fas+pus+eng") == "OCR RECOVERED TEXT"
     assert seen["lang"] == "fas+pus+eng"                                     # language forwarded
 
 
@@ -215,3 +218,149 @@ def test_html_recipe_url_regex_satisfies_field():
         date={"url_regex": r"/(\d{4})/"},   # date via URL instead of a selector
     )
     assert r.date.url_regex == r"/(\d{4})/"
+
+
+# --- truncated PDFs: an Archive capture that holds only a prefix of the file ------------------
+
+def make_tail_tree_pdf(page_texts: list[str]) -> bytes:
+    """A multi-page PDF that writes its page objects FIRST and the page tree + catalog LAST, as
+    the Biblioteca da Presidência's do — so cutting it mid-file keeps whole pages but loses the
+    tree, exactly the shape the Archive stores at 1 MiB. The font comes first: a font object
+    past the cut leaves pdfminer without glyph widths, and it then reads one letter per line —
+    the letter-spaced layer `_layer_suspicious` sends to OCR."""
+    n_pages = len(page_texts)
+    font = 1
+    pages_obj, catalog = 2 * n_pages + 2, 2 * n_pages + 3
+    objs: dict[int, bytes] = {}
+    for i, text in enumerate(page_texts):
+        page, content = 2 * i + 2, 2 * i + 3
+        objs[page] = (b"<< /Type /Page /Parent %d 0 R /MediaBox [0 0 612 792] /Contents %d 0 R "
+                      b"/Resources << /Font << /F1 %d 0 R >> >> >>" % (pages_obj, content, font))
+        stream = b"BT /F1 18 Tf 72 720 Td (" + text.encode("latin-1") + b") Tj ET"
+        objs[content] = (b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream
+                         + b"\nendstream")
+    objs[font] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    kids = b" ".join(b"%d 0 R" % (2 * i + 2) for i in range(n_pages))
+    objs[pages_obj] = b"<< /Type /Pages /Kids [" + kids + b"] /Count %d >>" % n_pages
+    objs[catalog] = b"<< /Type /Catalog /Pages %d 0 R >>" % pages_obj
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = {}
+    for num in sorted(objs):
+        offsets[num] = len(out)
+        out += str(num).encode() + b" 0 obj\n" + objs[num] + b"\nendobj\n"
+    xref_pos = len(out)
+    size = catalog + 1
+    out += b"xref\n0 " + str(size).encode() + b"\n0000000000 65535 f \n"
+    for num in range(1, size):
+        out += ("%010d 00000 n \n" % offsets[num]).encode()
+    out += (b"trailer\n<< /Size " + str(size).encode() + b" /Root %d 0 R >>\n" % catalog
+            + b"startxref\n" + str(xref_pos).encode() + b"\n%%EOF")
+    return bytes(out)
+
+
+def _cut_after_page(data: bytes, n: int) -> bytes:
+    """Cut `data` a few bytes into the object after page n's content stream (a mid-object cut)."""
+    marker = b"%d 0 obj" % (2 * n + 2)
+    return data[:data.index(marker) + len(marker) + 5]
+
+
+def test_truncation_note():
+    full = make_tail_tree_pdf(["one", "two"])
+    assert pdf.truncation_note(full) == ""                         # complete: %%EOF trailer
+    assert pdf.truncation_note(b"<html>not a pdf</html>") == ""    # only PDFs are judged
+    cut = full[:200]
+    assert pdf.truncation_note(cut) == "200 bytes stored, end of file missing"
+    from leaderspeech.text_scraper.wayback import SnapshotBytes
+    assert pdf.truncation_note(SnapshotBytes(cut, real_size=1904015)) == "200 of 1904015 bytes stored"
+    assert (pdf.truncation_note(SnapshotBytes(cut, real_size=23680765, hung_up=True))
+            == "200 of 23680765 bytes stored (Archive hung up)")
+
+
+def test_repair_recovers_the_pages_that_survive_the_cut():
+    pikepdf = pytest.importorskip("pikepdf")
+    full = make_tail_tree_pdf(["Primeira pagina do discurso", "Segunda pagina do discurso",
+                               "Terceira pagina perdida"])
+    cut = _cut_after_page(full, 2)                 # page 3's object is cut mid-way
+    with pytest.raises(Exception):
+        pikepdf.open(io.BytesIO(cut)).pages[0]     # unreadable as stored ...
+    fixed = pdf.repair_truncated_pdf(cut)
+    assert fixed is not None
+    with pikepdf.open(io.BytesIO(fixed)) as doc:   # ... readable after the repair
+        assert len(doc.pages) == 2
+
+
+def test_truncated_pdf_text_comes_from_the_surviving_pages():
+    pytest.importorskip("pikepdf")
+    pytest.importorskip("pdfminer")
+    full = make_tail_tree_pdf(["Primeira pagina do discurso", "Segunda pagina do discurso",
+                               "Terceira pagina perdida"])
+    text = pdf.pdf_bytes_to_text(_cut_after_page(full, 2))
+    assert "Primeira pagina" in text and "Segunda pagina" in text
+    assert "Terceira" not in text
+    assert pdf.take_empty_reason() is None
+
+
+def test_repair_gives_up_when_no_page_survives():
+    assert pdf.repair_truncated_pdf(b"%PDF-1.4\n1 0 obj\n<< /Length 9 >>\nstream\nxxxxx") is None
+    assert pdf.repair_truncated_pdf(b"<html></html>") is None
+
+
+def test_a_cut_pdf_that_cannot_be_rebuilt_skips_ocr_and_says_why(monkeypatch):
+    """No page tree survives -> ocrmypdf can't open it either (InputFileError, blank message):
+    don't pay for the doomed calls, and say it was the cut, not a missing text layer."""
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_pypdf", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_ocr", lambda d, language="eng": pytest.fail("OCR on a cut file"))
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 cut mid-way", ocr=True) == ""
+    reason = pdf.take_empty_reason()
+    assert reason.startswith("archived document truncated (20 bytes stored, end of file missing)")
+
+
+def test_ocr_runs_on_the_repaired_file(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(pdf, "repair_truncated_pdf", lambda d: b"%PDF-1.4 repaired\n%%EOF")
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: "")
+    monkeypatch.setattr(pdf, "_extract_pypdf", lambda d: "")
+
+    def fake_ocr(d, language="eng"):
+        seen["data"] = d
+        return "Discurso reconhecido na pagina que sobreviveu"
+    monkeypatch.setattr(pdf, "_extract_ocr", fake_ocr)
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4 cut", ocr=True).startswith("Discurso")
+    assert seen["data"] == b"%PDF-1.4 repaired\n%%EOF"
+
+
+# --- unreadable text layers (glyph codes, letter-spacing) --------------------------------------
+
+LETTER_SPACED = " ".join("M a g a l h a e s P i n t o s e l e v a n t a r a m".split() * 12)
+CID_CODES = " ".join("(cid:%d)" % (40 + i % 60) for i in range(300))
+
+
+@pytest.mark.parametrize("layer", [LETTER_SPACED, CID_CODES])
+def test_a_garbage_layer_is_ocred_and_ocr_wins(monkeypatch, layer):
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: layer)
+    monkeypatch.setattr(pdf, "_extract_ocr",
+                        lambda d, language="eng": "Magalhaes Pinto se levantaram os mineiros em defesa")
+    out = pdf.pdf_bytes_to_text(b"%PDF-1.4 scan\n%%EOF", ocr=True)
+    assert out.startswith("Magalhaes Pinto")
+
+
+def test_a_layer_with_a_few_glyph_codes_is_left_alone(monkeypatch):
+    """Gambia's newsletters: ~1% (cid:) codes in otherwise good text — never OCR'd."""
+    layer = " ".join(["the government will transform livelihoods across the country"] * 40) + " (cid:32)"
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: layer)
+    monkeypatch.setattr(pdf, "_extract_ocr", lambda d, language="eng": pytest.fail("OCR on a good layer"))
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4\n%%EOF", ocr=True) == layer
+
+
+def test_garbage_layer_is_kept_when_ocr_reads_less(monkeypatch):
+    monkeypatch.setattr(pdf, "_extract_pdfminer", lambda d: LETTER_SPACED + " real words here and there")
+    monkeypatch.setattr(pdf, "_extract_ocr", lambda d, language="eng": "")
+    assert pdf.pdf_bytes_to_text(b"%PDF-1.4\n%%EOF", ocr=True).startswith("M a g")
+
+
+def test_describe_never_blank():
+    class InputFileError(Exception):
+        pass
+    assert pdf._describe(InputFileError()) == "InputFileError"
+    assert pdf._describe(ValueError("bad\n  thing")) == "bad thing"

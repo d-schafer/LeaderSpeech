@@ -34,13 +34,18 @@ def _retry_win_lock(fn, *args, attempts: int = 6, delay: float = 0.4):
         f"data/cleaned (or move the data tree outside the synced folder) and re-run."
     ) from last
 
-# The 15 standardized scraper columns (carried through unchanged for mergeability).
+# The standardized scraper columns (carried through unchanged for mergeability).
+# `document_truncated` (non-empty = the body is the surviving pages of a PDF the Archive holds
+# only part of; text_scraper/run.py SCHEMA_COLUMNS) rides along so cleaning or analysis can
+# keep or drop those rows later. The scraper's `date_regex_recovered` is NOT here: the cleaner
+# recomputes it (CLEAN_COLUMNS).
 SCRAPED_COLUMNS = [
     "doc_id", "country", "ISO3N", "speaker", "position",
     "context", "context_originlanguage",
     "title", "title_originlanguage",
     "text", "text_originlanguage",
     "date", "source", "source_language", "dataset", "wayback_capture",
+    "document_truncated",
 ]
 
 # Columns the cleaner adds.

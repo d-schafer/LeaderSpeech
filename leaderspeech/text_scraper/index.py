@@ -45,6 +45,8 @@ COLUMNS = [
     "pagination_type", "renderer",
     "n_speeches", "n_unique_links", "percent_scraped", "links_status",
     "date_min", "date_max", "n_bad_or_missing_date",
+    # rows whose body is the surviving pages of a truncated archived PDF (`document_truncated`)
+    "n_truncated",
     "doc_id_first", "doc_id_last",
     "recipe_file", "csv_file", "last_updated", "links_last_harvested", "notes",
 ]
@@ -198,6 +200,8 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
         "date_min": date_min,
         "date_max": date_max,
         "n_bad_or_missing_date": n_bad,
+        "n_truncated": int(df.get("document_truncated", pd.Series(dtype=str))
+                           .fillna("").astype(str).str.strip().ne("").sum()),
         "doc_id_first": doc_first,
         "doc_id_last": doc_last,
         "recipe_file": yml.as_posix() if yml else "",

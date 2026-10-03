@@ -33,6 +33,10 @@
 source_id: per_congreso_mensajes_wayback
 country: Peru
 source_language: Spanish
+# OCR (2026-09-30): a PDF with no text layer is OCR'd where Tesseract is installed (language
+# from source_language; docs/ocr_setup.md). Elsewhere it fails cleanly as empty_text and a
+# later `run --retry-failed` on an OCR machine recovers it.
+pdf_ocr: true
 renderer: static
 
 start_urls:
@@ -47,6 +51,10 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+    # 2026-10-02: skip stub captures. collapse keeps a URL's EARLIEST capture, and the 1992
+    # Mensaje a la Nación's is a 327-byte stub (later ones ~14.7 KB), so it failed as
+    # "no recipe match". 1,000+ bytes drops 2 of 540 distinct pages (stub-only).
+    - "length:[0-9]{4,}"
   wayback_collapse: urlkey
   wayback_delay: 5.0
 

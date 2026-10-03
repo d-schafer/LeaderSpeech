@@ -1,0 +1,77 @@
+# Panama — presidencia.gob.pa under Ricardo Martinelli (1 Jul 2009 – 30 Jun 2014), via the Internet
+# Archive. Varela onward is pan_presidencia_wayback; 1998–2009 is pan_presidencia_old_wayback.
+#
+# CDX 2026-09-30 (whole domain): ONE article id space under four addresses, folded to the id:
+#   ver_nodo.php?cod=N                     2009–2013  (1,729 distinct ids)
+#   noticia-<section>-numero-N.html        2011–2013  (the same template and ids)
+#   /<N>-<slug>                            the 2013 CMS, which re-published the older articles
+#                                          under the same ids (759 = "Martinelli recibe
+#                                          embajadora de Singapur" in both; ids 1–5,539)
+#   Discursos-<N>-<slug>                   the 2013 CMS's speeches (102; own id space — kept
+#                                          apart by its prefix)
+# The window ENDS at Varela's inauguration: his first site re-used the /<N>-<slug> form with ids
+# restarting at 1, so a later capture of /2-… is a different article.
+# LEFT OUT: Galeria-N-… (2,846 gallery pages), Primera_Dama-N-… (1,668, the First Lady's office —
+# recorded as a candidate), ver_todas.php / transpdama.php (listings), the sub-agency folders
+# (oer/, prodar/, digeca/, conades/, senadis/).
+#
+# Templates (checked 2011, 2013, 2014 captures):
+#   ver_nodo / noticia-…-numero: no h1 — the title is <title>; date the FIRST span.texto-gris
+#     ("Miércoles, 09 de diciembre de 2009 a las 12:52 pm"; a hidden #flotante list repeats other
+#     items' dates — the regex takes the first, which is the article's); body span.texto06
+#     outside #flotante.
+#   2013 CMS (/<N>-… and Discursos-…): title h1.titulo-not, date span.fecha (its "Noticias
+#     Relacionadas" carry other dates — not read), body div.not-body-c.
+# Latin-1 bytes in some captures (undeclared) — the codec pair reads both.
+#
+# OFFLINE fold check: 3,796 documents (first captured 2009 13, 2011 714, 2012 196, 2013 1,587,
+# 2014 1,286). PROBE 2026-09-30 (--spread 12): 3,846 snapshots; title/text/date 11/12, 2009-06-30
+# … 2013-11-10 (the 12th a photo pop-up — now filtered by keep_if).
+source_id: pan_presidencia_martinelli_wayback
+country: Panama
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gob.pa/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.pa(?::\d+)?/(?:ver_nodo\.php\?cod=\d+(?:&amp;?)?|noticia-[A-Za-z_]+-numero-\d+\.html|Discursos-\d+-[^/?#]+|\d+-[A-Za-z][^/?#]{5,})$'
+
+pagination:
+  type: wayback
+  wayback_to: "20140701"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?i)ver_nodo\.php\?cod='
+    - 'noticia-[^/?#]*?-numero-(?=\d+\.html)'
+    - '(?<=\d)\.html$'
+    - '(?<=\d)-[A-Za-z][^/?#]*$'
+  wayback_noise_params: [amp]
+
+# Some ver_nodo ids answer with a photo pop-up page (no article, only gallery script/CSS):
+# filtered here instead of letting the generic extractor write it (ver_nodo.php?cod=998, 2011).
+keep_if:
+  selectors: ["div.not-body-c", "span.texto06:not(#flotante *)"]
+  pattern: '\w{4}'
+
+title:
+  selectors: ["h1.titulo-not", "title"]
+text:
+  selectors: ["div.not-body-c", "span.texto06:not(#flotante *)"]
+date:
+  selectors: ["span.fecha", "span.texto-gris"]
+  regex: '\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ de \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Panama presidency site under Ricardo Martinelli (2009-2014) from the Internet Archive: news and
+  speeches across two CMS generations, folded by article id. No speaker_default.

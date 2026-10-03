@@ -1,0 +1,85 @@
+# Dominican Republic — presidencia.gob.do under Leonel Fernández (2004–2012), the ASP.NET site
+# under /app/, via the Internet Archive (captures 2007–2012). Medina's sites (2012–2020) are
+# dom_presidencia_wayback; Abinader's live site is dom_presidencia.
+#
+# CDX 2026-09-30 (whole domain, first capture per URL, status 200 HTML), one CMS id space under
+# several addresses — folded to the article id:
+#   app/article.aspx?id=N                    (1,136)  2007–2011 skin
+#   app/do_2011/article.aspx?id=N              (467)  2011–12 skin
+#   app/[do_2011/]windows_various/print_news/print_display.aspx?article=N&printPhotos=…  (1,085)
+#   app/[do_2011/]windows_various/print_news/print.aspx?article=N&articleHasPhotos=…       (515)
+#     — the print views of the same articles; kept only where no article capture exists.
+#   app/[do_2011/]pre_discursos_det.aspx?id=N&e=M%2fD%2fYYYY  (61)  the President's speeches;
+#     own id space kept apart (not folded with articles).
+#   app/[do_2011/]pre_calendario.aspx?id=N      (73)  agenda items — trivial, cheap, taken (RULE 1)
+# LEFT OUT, measured: do_2011/rendicion.aspx?cat=1..9 (10) — the CATEGORY INDEX of Fernández's
+# 2012 accountability report; its rendicion_det.aspx detail pages were never captured (one
+# empty-query capture), so the report itself is not in the Archive; pre_decretos_det.aspx (83 —
+# decrees; the same legal register the live site's decretos/ is flagged as), galleries
+# (pre_presidencia_galerias_det, article_photo),
+# profiles (pre_perfiles*), listing pages (pre_discursos.aspx, pre_decretos.aspx, frontpage),
+# the /stor/ media files (flv, swf) and the mobile/ copies (a handful).
+#
+# Selectors (checked on 2007 + 2011 articles, a 2007 speech and a print view):
+#   article  title .a16 (td in 2007, div in 2011); body td.mainNW-txt div.a12; date #News_Date
+#            (2011, hidden but present) else the first "D de Mes del YYYY" inside
+#            td.mainNW-txt (2007). NEVER .fecha_cintillo — the header's site CLOCK (capture day).
+#   speech   title: the second bold div.a12 ("DISCURSO DEL SEÑOR PRESIDENTE …"); body
+#            div.text_area; date from the URL's e=M/D/YYYY (month FIRST — read by named groups).
+#   print    body the innermost td.mainNW-txt-print (it is nested in itself — the outer one
+#            would write the text twice); title p.mrgin-5-noVert; no date (its header date may
+#            be the print day) — the capture date stands in and the cleaner reads the text.
+#   Some 2009 article captures print no date at all (the capture date stands in).
+#
+# OFFLINE fold check (foldcheck.py, whole-domain listing): 1,630 documents (articles 2007–2012 +
+# 61 speeches + agenda + 39 print-only articles); by identity, every article/speech/print id the
+# Archive holds is represented (the 96 unrepresented URLs are listings, photo pages, path aliases).
+# PROBE 2026-09-30 (--spread 12): title/text 11/11 content pages (2007-12 … 2011-10), dates 9/11
+# (a 2009 dateless capture; a print view by design). COVERAGE ~100% of the article id space.
+source_id: dom_presidencia_old_wayback
+country: Dominican Republic
+source_language: Spanish
+renderer: static
+# The 2011 skin DECLARES iso-8859-1 but serves UTF-8 (Medina's 2012-08-16 inauguration speech
+# read as "PosesiÃ³n"); the 2007 skin is honest UTF-8. The codec pair reads both.
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - presidencia.gob.do/app/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?presidencia\.gob\.do(?::\d+)?/app/(?:do_\d{4}/)?(?:article\.aspx\?id=\d+(?:&from=[^&#]*)?|windows_various/print_news/print(?:_display)?\.aspx\?article=\d+(?:&[a-z]+=[^&#]*)?|pre_discursos_det\.aspx\?(?=[^#]*\bid=\d)[^#]*|pre_calendario\.aspx\?id=\d+)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # the 2011 skin's folder, the print views' wrappers and their photo flags -> article.aspx?id=N
+    - '(?i)(?<=/app/)do_\d{4}/'
+    - '(?i)(?<=/app/)windows_various/print_news/print(?:_display)?\.aspx\?article='
+    - '(?i)(?<=/app/)article\.aspx\?id='
+    - '(?i)&(?:printPhotos|articleHasPhotos|from)=[^&#]*'
+  wayback_noise_params: [e]
+
+title:
+  selectors: [".a16", "div.a12 + div.a12", "p.mrgin-5-noVert"]
+text:
+  # articles; 2007 speeches; 2011-skin speeches (the body div follows the .a16 title); print views
+  selectors: ["td.mainNW-txt div.a12", "div.text_area", "div.a16 ~ div.a12", "td.mainNW-txt-print:not(:has(td.mainNW-txt-print))"]
+date:
+  selectors: ["#News_Date", "td.mainNW-txt"]
+  regex: '\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ del? \d{4}'
+  regex_required: true
+  url_regex: '(?i)[?&]e=(?P<month>\d{1,2})%2f(?P<day>\d{1,2})%2f(?P<year>\d{4})'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Dominican Republic presidency ASP.NET site under Leonel Fernandez (captures 2007-2012) from
+  the Internet Archive: news articles (and their print views), the President's speeches, the
+  rendicion de cuentas section and agenda items, folded by article id. No speaker_default.

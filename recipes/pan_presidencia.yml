@@ -1,0 +1,73 @@
+# Panama — Presidencia de la República (presidencia.gob.pa), live, José Raúl Mulino (1 July 2024 →):
+# every publication category of the site. The site was rebuilt at the 2024 handover (Laravel,
+# /publicacion/<slug>); Cortizo's and earlier administrations' sites are pan_presidencia_wayback.
+#
+# Access: an Imperva challenge answers plain HTTP clients with a 212-byte stub; headless
+# Chromium (renderer: js) is served normally. A burst of unpaced requests got the WAF's block
+# page (2026-09-30), so the recipe paces itself (politeness.delay_range 3-5 s); a test of six
+# paced listing pages, page 1 → page 100, all passed.
+#
+# Categories — ALL taken (RULE 1), from the site's own navigation, measured 2026-09-30:
+#   noticias (Prensa)                    100 pages x ~16 = ~1,600   (back to July 2024)
+#   discursos                            ~12   inauguration, UN, first rendición de cuentas …
+#   cumbres-y-reuniones-bilaterales       4 pages
+#   secretaría-* + oficina de electrificación rural (9 secretariats) — 1-3 pages each
+# documentos (the annual Informe a la Nación and other PDFs) is pan_presidencia_documentos: its
+# bodies are attached PDFs, and a pdf_link here would replace a news item's text with any PDF it
+# happens to attach. Out: pagina/actas-del-consejo-de-gabinete (no documents on the page),
+# pagina/ministros, contactenos, transparencia.
+#
+# PROBE 2026-09-30 (--spread 10, paced): 1,205 links across the 12 categories (~12 per page in
+# the main column); title/text/date 10/10, 2024-10-07 … 2026-09-30 (1.1k–14k chars).
+#
+# Selectors (checked on a speech and news pages, rendered): title h1.mb-3 (the listing pages'
+# h1 is the category name, but those are never scraped); date the <small> after the calendar
+# icon ("jueves, 02 de enero 2025"); body the paragraphs after the h1 (h1.mb-3 ~ p). The
+# sidebar ("Noticias Destacadas", col-md-4) is outside the main column the listing reads.
+source_id: pan_presidencia
+country: Panama
+source_language: Spanish
+renderer: js
+
+start_urls:
+  - https://www.presidencia.gob.pa/categoria/noticias
+  - https://www.presidencia.gob.pa/categoria/discursos
+  - https://www.presidencia.gob.pa/categoria/cumbres-y-reuniones-bilaterales
+  - https://www.presidencia.gob.pa/categoria/secretaria-de-asuntos-publicos
+  - https://www.presidencia.gob.pa/categoria/secretaria-de-asuntos-economicos-y-competitividad
+  - https://www.presidencia.gob.pa/categoria/secretaria-del-ferrocarril
+  - https://www.presidencia.gob.pa/categoria/secretaria-de-gabinete-turistico
+  - https://www.presidencia.gob.pa/categoria/secretaria-de-metas
+  - https://www.presidencia.gob.pa/categoria/secretaria-presidencial-para-la-reorganizacion-del-estado-y-asuntos-constitucionales
+  - https://www.presidencia.gob.pa/categoria/secretaria-nacional-de-asociaciones-publico-privadas-snapp-
+  - https://www.presidencia.gob.pa/categoria/oficina-de-electrificacion-rural
+  - https://www.presidencia.gob.pa/categoria/secretaria-social
+
+listing:
+  link_selector: "div.col-md-8.col-lg-9 a[href*='/publicacion/']"
+  link_pattern: '^https://www\.presidencia\.gob\.pa/publicacion/[^/?#]+$'
+
+pagination:
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 150
+
+politeness:
+  delay_range: [3, 5]
+
+title:
+  selectors: ["h1.mb-3"]
+text:
+  selectors: ["h1.mb-3 ~ p"]
+date:
+  selectors: ["i.fa-calendar-days + small"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Panama presidency, live (Mulino, July 2024 -): every publication category - news, speeches,
+  summits, the presidential secretariats - via headless Chromium (an Imperva challenge blocks
+  plain HTTP clients), paced 3-5 s. The Informe a la Nacion PDFs are pan_presidencia_documentos.

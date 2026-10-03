@@ -1,0 +1,76 @@
+# Dominican Republic — Presidencia de la República (presidencia.gob.do), live Drupal site: every
+# news item and speech of Luis Abinader's government, August 2020 → today.
+#
+# The whole host, from its own sitemap (Simple XML Sitemap, an index of ?page=N children;
+# 21,760 <loc>s on 2026-09-30, the same node often listed under https://, https://www. AND
+# http://www. — the run's identity dedupe folds those):
+#   noticias/<slug>     19,277 distinct  news, communiqués, the President's acts and messages
+#   discursos/<slug>        42           speeches 2021–2026 — the body is a PDF in an
+#                                        <iframe class="pdf" data-src=…> (pdf_link below)
+#   series/<s>/<slug>       24           cultural video features ("Amo ser dominicano")
+#   la-brisita/<slug>        8           Christmas-campaign pages
+#   TAKEN: all four (RULE 1; series/la-brisita are trivial, cheap, and the cleaner drops them).
+#   LEFT OUT, measured: decretos/<n-yy> (1,848) and leyes/<n-yy> (28) — each page holds only the
+#     number and a date; the text is an iframed PDF, and a sampled decree (708-21) is an
+#     appointment order ("que nombra a … subdirector ejecutivo de la Autoridad Portuaria"):
+#     a legal register under the decree test → flagged in the outbox (dom_presidencia_decretos),
+#     not scraped. Also out: seccion/ (97 topic listing pages), taxonomy/ + etiquetas/ (tag
+#     listings), institucion/ ministros/ servidores-publicos/ (directories and bios), and the
+#     landing pages (lasemanal, logros, …). LA Semanal — the President's weekly press
+#     conference — exists here only as news about it and as video: an audio candidate (outbox).
+# COVERAGE: 19,351 of the 19,351 content pages (noticias + discursos + series + la-brisita) =
+# 100%; the sections left out are legal registers, listings and directories.
+#
+# Selectors (checked on news 2020/2024, a speech, a series and a la-brisita page):
+#   title  h1 (news, series); the speech template has NO h1 — its title is article h2 (a bare
+#          h2 would first match the "Navegación principal" menu heading).
+#   body   article .field--name-body (a page-level .field--name-body also matches the footer
+#          menu); speeches: the PDF.
+#   date   article time[datetime] — ISO ("2024-12-01T19:18:39-04:00"); the visible text is
+#          "1 de  Diciembre 2024 | 19:18". series / la-brisita pages are undated.
+# DECISION 4 (messages to the legislature are IN): the 27 February rendición de cuentas before
+# the National Assembly is a `discursos` item every year 2021–2026 (+ the 2020 inauguration).
+#
+# PROBE 2026-09-30 (--spread 12): 19,351 links (100% of the content pages above); title/text/
+# date 12/12, 2020-08-20 … 2026-04-24; the speech sampled (rendición de cuentas 2026) took its
+# body from the PDF: 136,310 chars.
+source_id: dom_presidencia
+country: Dominican Republic
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - https://presidencia.gob.do/sitemap.xml
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.do/(?:noticias|discursos|la-brisita)/[^/?#]+$|^https?://(?:www\.)?presidencia\.gob\.do/series/[^/?#]+/[^/?#]+$'
+
+pagination:
+  type: sitemap
+  sitemap_urls:
+    - https://presidencia.gob.do/sitemap.xml   # index -> sitemap.xml?page=1..N
+
+title:
+  selectors: ["article h1", "h1", "article.node--type-speech h2", "article h2"]
+text:
+  selectors: ["article .field--name-body"]
+date:
+  selectors: ["article time[datetime]"]
+  attr: datetime
+  regex: '(?P<value>\d{4}-\d{2}-\d{2})'
+  regex_required: true
+
+# Speech pages: the transcript is the iframed PDF. Scoped to the speech node so a news item that
+# embeds some other PDF keeps its own text.
+pdf_link:
+  selectors: ["article.node--type-speech iframe.pdf"]
+  attr: data-src
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Dominican Republic presidency (presidencia.gob.do), live Drupal via its sitemap: all news
+  (19,277, Aug 2020 - today), the 42 speeches (PDF bodies), and two small feature sections.
+  Decrees and laws are a legal register (flagged, not scraped). Abinader's government; no
+  speaker_default.

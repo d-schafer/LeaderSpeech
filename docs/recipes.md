@@ -709,20 +709,29 @@ Notes and caveats:
 - A relative href is resolved against the page URL. In wayback mode the engine first queries the CDX
   for the **PDF URL's own captures** and fetches the most complete `statuscode:200` one (largest
   `length`) — this avoids an Archive-side **truncated** capture (large files are sometimes stored
-  partial, e.g. cut at exactly 1 MB → 0 chars) that the page-timestamp redirect can land on. It falls
-  back to the page-timestamp capture if CDX has none.
+  partial, e.g. cut at exactly 1 MiB) that the page-timestamp redirect can land on. It falls
+  back to the page-timestamp capture if CDX has none. If every capture is cut, the surviving pages
+  are read and the row is flagged `document_truncated` (see "Truncated archived documents" below).
 - **Missing/non-PDF link → HTML body kept; real-but-unextractable PDF → row fails cleanly.** A page
   with no matching link (or a link that fetches non-PDF bytes) is left untouched, so the same recipe
   still handles its normal inline-HTML speeches. But once a genuine PDF is fetched and yields no text
-  (image-only scan, or a truncated capture), the HTML here is just chrome, so the body is cleared and
-  the row fails as `empty_text` rather than keeping the chrome (and its stray date). Expect a recovery
-  *rate*, not 100%; the run summary reports `bodies_from_linked_pdf`.
-- **`pdf_ocr: true`** turns on an OCR fallback for image-only PDFs that extract 0 chars (also applies
-  to `content_type: pdf` sources). Off by default — it is heavy and needs an extra install
-  (`pip install 'leaderspeech[pdf-ocr]'`) **plus system Tesseract + Ghostscript binaries**; without
-  them a 0-char scan just stays unextractable. Set **`pdf_ocr_language`** to the Tesseract language
-  spec (default `eng`; `+`-joined for non-Latin scans, e.g. `fas+pus+eng` for Dari/Pashto — each
-  language needs its Tesseract language-data pack installed).
+  (image-only scan with OCR off, or a cut capture with nothing readable left), the HTML here is just
+  chrome, so the body is cleared and the row fails as `empty_text` rather than keeping the chrome (and
+  its stray date). Expect a recovery *rate*, not 100%; the run summary reports `bodies_from_linked_pdf`.
+- **`pdf_ocr: true`** turns on an OCR fallback for image-only PDFs — no text layer, or one with
+  fewer than 50 word characters (a page number, a scanner stamp) — for `pdf_link` bodies and
+  `content_type: pdf` sources alike. A layer that is present but **unreadable** is OCR'd too: more
+  than 5% `(cid:NN)` glyph codes, or more than 40% single-letter tokens (letter-spaced text, also
+  what a page reads like when its font object was lost in a cut). The OCR text replaces it only if it
+  reads more real words; a layer with a few glyph codes in good text is left alone. It needs `pip install -e ".[pdf,pdf-ocr]"` **plus a system
+  Tesseract (5.5+) with the language packs** — Ghostscript is NOT needed (the engine asks ocrmypdf
+  for text only, never PDF/A). `scripts/setup_ocr.ps1` sets a machine up and
+  `python -m leaderspeech.text_scraper.ocr_check` verifies it: see **[ocr_setup.md](ocr_setup.md)**.
+  The language comes from `source_language` (`Portuguese` → `por+eng`) unless
+  **`pdf_ocr_language`** overrides it (`+`-joined, e.g. `fas+pus+eng` for Dari/Pashto scans). On a
+  machine without OCR the scan fails cleanly as `empty_text (document has no text layer; OCR
+  unavailable: …)`, does not count toward the circuit breaker, and `run --retry-failed --ocr`
+  recovers it later; `--ocr` also turns OCR on for a run whose recipe doesn't set it.
 - Every PDF-backed page costs one extra fetch (and, over wayback, one CDX lookup + one `wayback_delay`),
   incurred only for pages that actually link a PDF.
 
@@ -853,10 +862,40 @@ date those captures reached the generic extractor and were written as ~100-800-c
 - if that is a shell too — or there is none — the row fails as `archived_block_page`, which is
   **not** counted toward the circuit breaker (it describes a capture, not a block on us);
 - binary documents get the same treatment: a "PDF" capture that replays as a WAF page, or a PDF
-  **cut at 1 MiB / 5 MiB** (no `%%EOF`), falls back once to the largest other capture.
+  **cut at 1 MiB / 5 MiB** (no `%%EOF`), falls back once to the largest other capture. If that is
+  cut too, the longer prefix is kept (next section).
 
 The probe does the same and reports `recovered_from_capture` on a rescued page. Rows written as
 shells before this date are removed with `recipe_tools/purgeblocked.py` (see debugging.md).
+
+## Truncated archived documents (`document_truncated`, 2026-10-02)
+
+The Archive holds many large PDFs only as a **prefix**. Some are stored cut at exactly 1 MiB or
+5 MiB. Others are replayed with the original length and the connection drops after the stored
+1.4–2.9 MB. A PDF keeps its page tree and cross-reference table at the end, so a prefix opens
+nowhere ("damaged" in Adobe), yet its first pages are intact. The engine:
+
+- keeps the bytes when a replay hangs up. It retries once; the same byte count twice means a
+  stored cut, not a network blip, and isn't counted as throttling;
+- rebuilds a page tree over the `/Type /Page` objects that survived (`pdf.repair_truncated_pdf`,
+  pikepdf) and reads those pages, OCR'ing them when the layer is missing or unreadable;
+- writes the row with **`document_truncated`** set. It is the last column of the CSV schema, carried
+  into the cleaned Parquet and the merged deliverable. Example values:
+  `1048576 of 30462354 bytes stored`, `1404466 of 23680765 bytes stored (Archive hung up)`. The
+  original size comes from the replay's `x-archive-orig-x-crawler-content-length`;
+- logs `N kept from TRUNCATED documents` in the DONE line; the index counts `n_truncated`.
+
+Measured on the Biblioteca da Presidência: a 1 MiB speech keeps about one page of speech (≈250–330
+words, after the library's cover sheet). A 5 MiB file or a long message keeps far more (Figueiredo
+1984: 39 pages, 10,022 words). When nothing readable survives, the row fails as `empty_text
+(archived document truncated (…); …)` and does not trip the circuit breaker.
+`recipe_tools/repairpdf.py <wayback-url> --text` writes an openable copy of one capture for a look.
+
+**Routing by CDX mimetype.** In `content_type: auto` (the default) a wayback capture whose CDX
+`mimetype` is `application/pdf` or a Word type goes down the document path even when its URL has no
+`.pdf`, e.g. a Joomla `…/pdf` view. Before this, such a capture was decoded as HTML and the generic
+extractor wrote the raw PDF bytes as a speech (14 rows in `per_presidencia_old_wayback`). The HTML
+path now also refuses any body that starts with `%PDF-` (`binary_document_as_html`).
 
 ## Field reference
 
@@ -872,8 +911,8 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `renderer` | no | `static` (default — a plain HTTP fetch: far faster/lighter, use it whenever it works), `js` (a real headless Chromium), or `cdp` (attach to a user-launched real Chrome — see "Cloudflare-blocked sites"). Escalate to `js` when the content is client-rendered, the pager is JS-`click`, **or a Cloudflare/WAF `403`s the plain client**; escalate to `cdp` when even `js` is CF-blocked. See "How to inspect a site". |
 | `content_type` | no | `auto` (default), `html`, or `pdf`. `pdf` downloads each speech URL's bytes and extracts text with a PDF library instead of BeautifulSoup (see "PDF speech pages"). `auto` treats a page as HTML unless the URL/response says PDF. |
 | `pdf_link` | no | Point at the `<a>` linking a speech PDF from an otherwise chrome-only HTML page; its extracted text becomes the body (see "When the body is a PDF LINKED from an HTML page"). With both `attr` and `regex`, an element lacking the attribute is read as TEXT through the regex (a shortcode-named PDF). |
-| `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs that extract 0 chars (for `pdf_link` or `content_type: pdf`). Needs `pip install 'leaderspeech[pdf-ocr]'` **and** system Tesseract + Ghostscript. |
-| `pdf_ocr_language` | no | Tesseract language spec for `pdf_ocr` (default `eng`; `+`-joined for non-Latin, e.g. `fas+pus+eng` for Dari/Pashto — each needs its language-data pack). |
+| `pdf_ocr` | no | Default `false`. `true` OCRs image-only PDFs (no text layer, or < 50 word chars) for `pdf_link` or `content_type: pdf`. Needs the `pdf-ocr` extra **and** a system Tesseract 5.5+ with language packs (no Ghostscript) — [ocr_setup.md](ocr_setup.md). A run's `--ocr` sets it for that run. |
+| `pdf_ocr_language` | no | Default unset = derived from `source_language` (+`eng` for a non-English source; `ocr.TESSERACT_LANG`). Set only to override, `+`-joined, e.g. `fas+pus+eng` for Dari/Pashto. |
 | `verify_ssl` | no | Default `true`. Set `false` for sites with a broken/incomplete TLS cert chain (common on older gov sites) — symptom: a `CERTIFICATE_VERIFY_FAILED` error. |
 | `user_agent` | no | Override the default honest bot `User-Agent` (used for the page fetch and the api/feed clients). Only needed for a WAF that hard-blocks the bot UA — symptom: `0 links` / empty pages from the bot UA but real content from a browser UA. Use sparingly; the honest UA is the default. |
 | `encoding` | no | Force a character encoding for every page of this source (e.g. `windows-1250`, `iso-8859-7`). **Leave it unset unless you have looked at the raw bytes.** The engine already decodes the way a browser does — the `Content-Type` header's charset first, then the document's own `<meta charset>` / `<meta http-equiv>`. This override exists for the one case neither can answer: pre-1999 hand-written HTML that declares a charset **nowhere**, where the UTF-8 fallback silently turns every non-ASCII byte into `U+FFFD`. Symptom: titles and bodies full of `�` on a page whose `<head>` is empty. Worked example: `ured.predsjednik.hr`, the 1995-98 Croatian presidency site — `Content-Type: text/html`, empty `<head>`, windows-1250 bytes, so `Franjo Tuđman` decodes as `Franjo Tu�man`. It outranks both the header and the `<meta>`, so it also fixes a mirror that *lies* about its encoding. Applies to live fetches and to Wayback captures alike. **A comma-separated pair — `"utf-8,windows-1252"` — is for a MIXED-encoding page:** the first codec wherever the bytes are valid in it, the second for each byte run it rejects (`fetch.decode_mixed`). Symptom: the navigation reads fine but the article is full of `�` (or, forced to one legacy codec, the navigation turns to `BiografÃ­a`). Worked example: `ven_presidencia_wayback` — presidencia.gob.ve declares no charset; its template is UTF-8 but article text comes out of the database as Latin-1 on the 2014–2022 captures (one page: 14 valid UTF-8 characters, 54 stray Latin-1 bytes), while its 2025 captures are clean UTF-8. The pair reads both eras correctly; clean UTF-8 decodes exactly as before. Opt-in only — on an undeclared Central-European page it would replace a visible `�` with a plausible wrong letter. |
@@ -902,7 +941,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `pagination.wayback_adaptive` / `wayback_max_delay` | no | **Adaptive Internet-Archive pacing.** With `wayback_adaptive: true` (or the run flag `--adaptive-wayback`), the inter-fetch delay AUTO-TUNES: it starts at `wayback_delay`, rises whenever IA throttles (ConnectError/429/5xx) and eases back down over clean fetches, converging on the fastest rate IA tolerates from your IP — so a long run doesn't burn minutes on retry backoff. Bounded by `wayback_max_delay` (default 12s; run override `--wayback-max-delay`). Off by default (fixed `wayback_delay`). The end-of-run log prints where it settled. Ideal when a shared IP is being throttled. |
 | `pagination.wayback_filter` | no | A list of raw CDX `filter=` expressions (`field:regex`) ANDed together — e.g. `["mimetype:application/pdf", "statuscode:200"]` to keep only real PDF captures and drop a prefix query's text/html noise. |
 | `pagination.wayback_dedupe_noise_params` | no | Default `true`. Treat two captures as the SAME page when they differ only by a tracking/UI query parameter (`?utm_source=`, `?fbclid=`, `?comment=`, `?print=`, …) and fetch it once. Only a fixed denylist is ignored, so query-ADDRESSED pages (`index.php?speech=204`) keep their identifying params. Set `false` to fetch every query variant as its own document. |
-| `pagination.wayback_identity_strip` | no | **Regexes removed from each captured URL before the one-capture-per-page dedupe** — the PATH-level counterpart of `wayback_noise_params`. Two URLs that differ only by a matched tail count as one document; the first captured wins, and the same rule applies against the state file on later runs. Written for Plone, which serves every File object twice (`…/31.pdf` and `…/31.pdf/@@download/file/31.pdf`) while the Archive holds a PDF capture of one, the other or both: `wayback_identity_strip: ['/@@download/.*$']` takes whichever was captured, once (`bra_biblioteca_wayback`: 1,753 captures → 957 documents). ⚠ Anchor it at the end of the URL, and never strip a part that tells documents apart. |
+| `pagination.wayback_identity_strip` | no | **Regexes removed from each captured URL before the one-capture-per-page dedupe** — the PATH-level counterpart of `wayback_noise_params`. Two URLs that differ only by a matched tail count as one document; the first captured wins (unless its CDX `length` is unknown, "-", and a later twin's is known — such captures often don't replay; 2026-09-30, `ecu_presidencia_old_wayback`), and the same rule applies against the state file on later runs. Written for Plone, which serves every File object twice (`…/31.pdf` and `…/31.pdf/@@download/file/31.pdf`) while the Archive holds a PDF capture of one, the other or both: `wayback_identity_strip: ['/@@download/.*$']` takes whichever was captured, once (`bra_biblioteca_wayback`: 1,753 captures → 957 documents). ⚠ Anchor it at the end of the URL, and never strip a part that tells documents apart. |
 | `pagination.wayback_noise_params` | no | **Extra query parameter NAMES (case-insensitive) that THIS SITE uses as on-page UI toggles**, added to the denylist above. The built-in list is deliberately generic; some CMSes invent their own. Two worked cases: La Moncloa's SharePoint serves one article as `…council.aspx`, `…council.aspx?qfr=130` and `…council.aspx?mode=Dark`; gob.mx re-serves the identical Spanish article under `?idiom=en`, which accounts for **6,593 of that host's 16,866 captures**. Without the knob those become duplicate ROWS, and the recipe usually cannot just anchor the pattern at `$` instead — on La Moncloa, 97 articles were archived ONLY in a query-carrying form. ⚠ List only parameters that do NOT change which document is served: a parameter that ADDRESSES the article would collapse the whole source to one row. |
 | `wayback_extend` | no | Opt-in continuation of a **live** recipe into the Internet Archive after its crawl finishes (see "Auto-continuing a live recipe into the archive"). `true` reuses everything; a mapping supplies overrides. `false`/absent = off. Same-host only. |
 | `wayback_extend.prefix` | no | CDX prefix to enumerate. Default = derived from `start_urls[0]` (host+path). Set it when speeches don't live under the listing path. |
@@ -916,6 +955,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `pagination.api.body` | for POST | The JSON body sent on each POST request (capture it from DevTools). Never mutated across pages. |
 | `pagination.api.body_page_field` | no | Dotted path into `body` where the per-page offset (`start + page_idx*step`) is written each POST request (e.g. `pageRequest.page`). Omit to page a POST by query `param` instead (or for a single request). |
 | `pagination.wayback_keep_listing_paths` | no | Default `false`. The Wayback harvest drops every capture whose PATH equals a `start_url`'s path (the listing index and its `?page=` variants). A site whose ARTICLES are addressed at that same path — WordPress/Drupal at the ROOT (`/?p=N`, `/?q=YYYYMMDD/slug`) under a bare-host `start_url` — loses every article to that rule. `true` skips the drop and lets `link_pattern` alone decide, so the pattern must exclude the listing forms itself (`/\?p=\d+$` admits posts but not `/?cat=`, `/?tag=`, `/?m=` or the home page). Exemplar: `hnd_presidencia_wp_wayback`. |
+| `pagination.wayback_identity_fold` | no | Default `false`. `true` makes the one-capture-per-page dedupe (and the state-file check) ignore ACCENTS and PUNCTUATION in the path (`wayback.fold_slug`): for a CMS migration that re-slugged pages, which the Archive holds under both names — `…-taiw%C3%A1n` / `…-taiwan`, `…%E2%80%9Ccon-la-bandera…` / `…-con-la-bandera…`. Pair it with an `identity_strip` of the old section name when the section was renamed too. Exemplar: `dom_presidencia_wayback` (1,775 of 1,919 communiqués re-published under `noticias/`). Don't use it where generic slugs can be different documents ("COMUNICADO" / "COMUNICADO-"). |
 | `pagination.api.text_is_html` | no | Default `false`. `true` flattens an HTML fragment carried in `text_field` to prose (WordPress `content.rendered`, SharePoint `PublishingPageContent`) instead of storing its tags. See "Carrying the BODY in the JSON". |
 | `pagination.api.text_min_chars` | no | Default `0`. A carried `text_field` body shorter than this (after `text_is_html`) is dropped, so the page is fetched and the page selectors / `pdf_link` apply — for posts whose body is only an embed or shortcode. See "Carrying the BODY in the JSON". |
 | `pagination.api.via_browser` | no | Default `false`. `true` issues the API requests from a headless-Chromium context, for a JS-challenge WAF (F5/BIG-IP TSPD) that stubs plain HTTP clients. See "Reading the API through the browser". |
@@ -930,7 +970,7 @@ shells before this date are removed with `recipe_tools/purgeblocked.py` (see deb
 | `pagination.feed.use_content` | no | Default `true` — populate `text` from the feed body (RSS `content:encoded`/`description`, Atom `content`/`summary`). Set `false` to force a per-speech page fetch. |
 | `title` / `text` / `date` | yes | Each is `{ selectors: [...] }`, an ordered fallback chain. First match wins. |
 | `speaker` / `context` | no | Same shape as above. |
-| `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). |
+| `<field>.attr` | no | Read this attribute instead of element text (e.g. `attr: datetime` on a `<time>` tag). Applies to the WHOLE chain; an element lacking it is a miss and the chain moves on. To read an attribute on ONE selector only, end that selector with **`@<attribute>`** — `["meta[property='article:published_time']@content", ".node-created"]` reads the meta's `content` on one site generation and the visible text on another (2026-09-30; an `@` inside `[...]`/`(...)` stays CSS). If a `regex` names `(?P<value>…)` inside one branch of an alternation and another branch matched, the whole match is the value. |
 | `<field>.regex` | no | Pull a substring out of the matched value (e.g. isolate a date from a label). **If it misses, the unfiltered value is returned** — see `regex_required`. The field gets the WHOLE match, unless the pattern names a group **`(?P<value>…)`** — then only that group (a plain `(…)` group changes nothing, so existing recipes are unaffected). Use it to ANCHOR on context you must not return: a dateline's date without its place name, `(?i)^\W{0,3}(?:[^,.()]{2,60},\s*)?(?P<value>\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4})` — anchored at the body's start, so a historical date further down can never be taken (`bol_presidencia_wayback`). Dates are parsed with all whitespace collapsed: a date split across two text nodes ("2 de marzo de \n2019") used to lose its year to the line break and come out with TODAY's year. |
 | `<field>.regex_required` | no | Default `false`. `true` makes a `regex` MISS count as "this selector didn't match", so the chain moves on and the field can end up blank. **Use it on every body-scoped `date` regex.** With the default, a miss hands the whole matched blob to `dateparser`: on presidentofindia.nic.in, where the headline and the dateline share one `<b>` block, a page reading "New Delhi, 10 th May, 2001" (note the space inside the ordinal) missed the regex, the 169-char HEADLINE went to `dateparser`, and the row was stamped with **today's date**. A blank date beats a plausible wrong one — the resolved date picks the tenure roster, so a wrong year mis-assigns the speaker too. |
 | `<field>.url_regex` | no | Extract the field from the page **URL** when no selector matches (or when there's no DOM — PDFs). Uses `group(1)` if it captures, else the whole match. For `date`, named `(?P<year>)(?P<month>)(?P<day>)` groups assemble an unambiguous ISO date; a **2-digit year** is widened with the POSIX pivot (`69`–`99` → 19xx, `00`–`68` → 20xx), which is what makes DDMMYY filenames like `/sp010108.html` usable. When those three named groups are present but don't form a real date, the field is a **miss** (no fallback to `parse_date`, which would be handed a bare day or year and complete it from today). |

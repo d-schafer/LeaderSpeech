@@ -1,0 +1,73 @@
+# Paraguay — Presidencia de la República (presidencia.gov.py), 2014 → 2026: Horacio Cartes (to Aug
+# 2018), Mario Abdo Benítez (2018–23) and Santiago Peña (Aug 2023 →), via the Internet Archive.
+# The live origin refuses connections from here (decision 2: recorded blocked in the outbox) —
+# so the Archive is also the route to Peña's current site. 2001–2012 is pry_presidencia_old_wayback.
+#
+# CDX 2026-09-30 (whole domain incl. edicion.presidencia.gov.py, first capture per URL), four
+# site generations:
+#   articulo/<N>-<slug>.html + noticia/<N>-<slug>.html   2014–2021, Joomla — the SAME article
+#        under two sections (3,371 of the ids are in both; id 16179 = "Ejecutivo presentó
+#        proyecto que establece gratuidad…" under each) — folded: ~4,150 articles
+#   (index.php/)sala-de-prensa/noticias/<slug>           2021–2023, Concrete5 (www + edicion.)
+#   noticia/<slug>/ and noticias/<slug>/                 2025–2026, WordPress — the same slug
+#        under both — folded
+# The L7 brief's "~3,838 /articulo/ URLs" was one of these sections. LEFT OUT: decretos_*
+# (decree listings — the legal register), galerias-fotos, the historial / categoria listings.
+#
+# Templates (checked 2016, 2022, 2026):
+#   Joomla      title h3.media-heading; date div.txtpie ("Publicado el: Martes, MAYO 31 , 2016");
+#               body div#cuerpo
+#   Concrete5   title from <title> ("… :: Presidencia de la República del Paraguay" cut by the
+#               regex; the page's h1s include a footer "PALACIO DE LÓPEZ"); date the
+#               text-transform:capitalize div ("martes - 29 / marzo / 2022"); body div.col-sm-9
+#   WordPress   title h2.entry-title; date the first DD/MM/YYYY in the article ("03/02/2026",
+#               day first — read under a Spanish-only hint); body article .entry-content
+#
+# OFFLINE fold check: 5,349 documents, first captured 2014 165, 2015 1,299, 2016 2,244, 2017 474,
+# 2018 170, 2019 2, 2020 162, 2021 219, 2022 208, 2023 1, 2024 23, 2025 174, 2026 208 — Abdo's
+# 2018–19 and the 2023–24 handover are thin in the Archive (a measured gap).
+# PROBE 2026-09-30 (--spread 14): 5,349 snapshots (= offline); title/text/date 14/14, 2013-12 …
+# 2022-03; two 2025–26 WordPress pages checked separately (Peña; dates 2025-10-20, 2026-04-21).
+source_id: pry_presidencia_wayback
+country: Paraguay
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gov.py/
+  - edicion.presidencia.gov.py/
+
+listing:
+  link_pattern: '^https?://(?:www\.|edicion\.)?presidencia\.gov\.py(?::\d+)?/(?:(?:articulo|noticia)/\d+-[^/?#]+|(?:index\.php/)?sala-de-prensa/noticias/(?!historial/?$)[a-z0-9-]{10,}/?|noticias?/[a-z0-9-]{10,}/)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20130801"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=://)edicion\.'
+    - '(?<=/)index\.php/(?=sala-de-prensa/)'
+    - '(?<=/)(?:articulo|noticia)/(?=\d+-)'
+    - '(?<=/)noticias?/(?=[a-z])'
+
+title:
+  selectors: ["h3.media-heading", "h2.entry-title", "title"]
+  regex: '^(?P<value>.+?)(?:\s*::.*)?$'
+text:
+  selectors: ["div#cuerpo", "div.col-sm-9", "article .entry-content"]
+date:
+  selectors: ["div.txtpie", "div[style*='capitalize']", "article"]
+  regex: '[A-Za-zÁÉÍÓÚáéíóú]+\s+\d{1,2}\s*,\s*\d{4}|\d{1,2}\s*/\s*[A-Za-z]+\s*/\s*\d{4}|\b\d{2}/\d{2}/\d{4}\b'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Paraguay presidency site 2014-2026 (Cartes, Abdo, Pena) from the Internet Archive - the live
+  origin refuses connections from here. Joomla 2014-21 (articulo/noticia folded), Concrete5
+  2021-23, WordPress 2025-26. No speaker_default.

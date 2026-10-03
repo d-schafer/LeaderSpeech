@@ -26,9 +26,14 @@ How gaps get closed:
 | `tenure_additions/latam_gtm.csv` | 10 | 2015–2026 | [ ] pending (Maldonado 2015–16, Giammattei 2020–24, Arévalo 2024–26) |
 | `tenure_additions/latam_hnd.csv` | 14 | 2002–2026 | [ ] pending (Maduro 2002–06 — a HOLE in the key, not just a tail; Zelaya + Micheletti 2009; Hernández 2022; Castro 2022–26; Asfura 2026 ⚠ see F) |
 | `tenure_additions/latam_nic.csv` | 5 | 2022–2026 | [ ] pending (Ortega 2022–26) |
+| `tenure_additions/latam_dom.csv` | 7 | 2020–2026 | [ ] pending (Abinader 2020–26; the key has Medina through 2020) |
+| `tenure_additions/latam_pan.csv` | 17 | 1998–2026 | [ ] pending (Pérez Balladares 1998–99 and Moscoso 1999–2004 — a HOLE before the key's 2004 start that pan_presidencia_old_wayback reaches; Cortizo 2019–24; Mulino 2024–26) |
+| `tenure_additions/latam_pry.csv` | 13 | 2001–2026 | [ ] pending (González Macchi 2001–03 — before the key's 2003 start, reached by pry_presidencia_old_wayback; Abdo Benítez 2018–23; Peña 2023–26). The key's Paraguay `stateabb` is `PAR`, not PRY |
 | `tenure_additions/afg_islamic_emirate*.csv` | 28 | 2021–2026 | [x] already in the key |
 
-Coming: the LatAm push's L7 will add `latam_pan/dom/pry.csv`.
+L7 (2026-09-30) added `latam_dom/pan/pry.csv`; every LatAm country now has an additions file.
+Also known from L7, not written: the Dominican key starts in 2000 (Fernández 2000 + 2004–12,
+Mejía 2000–04) — the Archive recipes reach 2007, so it covers them.
 
 ## B. Countries the cleaner cannot join to the key at all
 

@@ -327,6 +327,12 @@ class Pagination(BaseModel):
     # decide (it must then exclude the listing forms itself, e.g. require `\?p=\d+$`).
     # presidencia.gob.hn 2014–16 (~1,900 posts at /?p=N) is the exemplar.
     wayback_keep_listing_paths: bool = False
+    # Ignore accents and punctuation in the PATH when deciding that two URLs are one document
+    # (wayback.fold_slug) — for a CMS migration that re-slugged pages without accents, which the
+    # Archive holds under both names ("…-taiw%C3%A1n" and "…-taiwan"). Pair it with an
+    # identity_strip of the old section name when the section was renamed too. Applies to the
+    # harvest fold AND the state-file check. presidencia.gob.do 2013–14 is the exemplar.
+    wayback_identity_fold: bool = False
     api: Optional[ApiConfig] = None        # JSON/search-API config (api type)
     feed: Optional[FeedConfig] = None      # RSS/Atom config (feed type)
 
@@ -464,13 +470,15 @@ class Recipe(BaseModel):
     # so it can't latch onto an unrelated sidebar PDF on a page that already has a real HTML body.
     pdf_link: Optional[FieldSpec] = None
 
-    # OCR fallback for image-only PDFs (a complete scan with no text layer -> 0 chars). Off by
-    # default because it's heavy and needs an extra install (`leaderspeech[pdf-ocr]` + a system
-    # Tesseract + Ghostscript). Applies to both `pdf_link` bodies and `content_type: pdf`. (issue #70)
+    # OCR fallback for image-only PDFs (no text layer, or a near-empty one). Off by default
+    # because it's heavy and needs an extra install (`leaderspeech[pdf-ocr]` + a system
+    # Tesseract; NOT Ghostscript — see docs/ocr_setup.md). Applies to both `pdf_link` bodies and
+    # `content_type: pdf`; a run's `--ocr` turns it on without editing the recipe. (issue #70)
     pdf_ocr: bool = False
-    # Tesseract language spec for `pdf_ocr` — 'eng', or '+'-joined for non-Latin scans, e.g.
-    # 'fas+pus+eng' for Dari/Pashto (each language needs its Tesseract language-data pack installed).
-    pdf_ocr_language: str = "eng"
+    # Tesseract language spec for `pdf_ocr`. Unset (the default) = derived from source_language
+    # (+eng for a non-English source) by ocr.ocr_language_for — 'Portuguese' -> 'por+eng'. Set
+    # it only to override, '+'-joined, e.g. 'fas+pus+eng' for Dari/Pashto scans.
+    pdf_ocr_language: Optional[str] = None
 
     # fixed values when a source is single-leader / single-office
     position: Optional[str] = None

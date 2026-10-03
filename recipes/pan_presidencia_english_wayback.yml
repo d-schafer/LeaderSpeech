@@ -1,0 +1,50 @@
+# Panama — presidencia.gob.pa's ENGLISH pages (/en/…), Varela era (2015 →), via the Internet
+# Archive. The Spanish originals are pan_presidencia_wayback; this is the English mirror kept as
+# its own source, as for other countries' *_english_wayback recipes.
+#
+# CDX 2026-09-30: en/News/<slug> 1,276 captures (2015 678, 2016 384, then a few a year) + small
+# sections — en/Noticias 14, en/Comunicados 12, en/Notas-de-prensa 9, en/Speeches-of-the-
+# President 5, topical sections (Infrastructure, Logistic, Security, Environment …) a few each.
+# All taken except en/Gallery. Numeric /en/News/<n> paths are listing pages (out).
+# Foundation skin (checked 2015, 2016): title h1.title-page (it begins with the section label,
+# "Security Government managed to lower crime rates…"); date small.date — written in SPANISH even
+# here ("Viernes, 18 de septiembre de 2015"; the second small.date, .right, is the author); body
+# div.content-post. Imperva shells filtered by length, as in the Spanish recipe.
+# PROBE 2026-09-30 (--spread 8): 1,103 snapshots (offline: 1,102; 2015 683, 2016 394, then a few
+# a year); title/text 8/8, date 7/8 (an en/Speeches-of-the-President page with no date line).
+source_id: pan_presidencia_english_wayback
+country: Panama
+source_language: English
+renderer: static
+
+start_urls:
+  - presidencia.gob.pa/en/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.pa(?::\d+)?/en/(?!Gallery/|Galeria/)[A-Za-z-]+/(?!\d+$)[^/?#]{6,}$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:([2-9][0-9]{3}|[0-9]{5,})"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h1.title-page", "h1.titulo-noticia-post"]
+text:
+  selectors: ["div.content-post", ".resumen-noticia, .texto-noticia"]
+date:
+  selectors: ["small.date:not(.right)", ".info-noticia-detalle"]
+  regex: '\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ de \d{4}'
+  regex_required: true
+
+position: president
+# the dates are printed in Spanish on the English pages
+date_languages: ["es"]
+
+notes: >
+  Panama presidency's English news pages (2015-2016 mostly, Varela) from the Internet Archive;
+  the English mirror of pan_presidencia_wayback. No speaker_default.

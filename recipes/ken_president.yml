@@ -11,6 +11,10 @@
 source_id: ken_president
 country: Kenya
 source_language: English
+# OCR (2026-09-30): a PDF with no text layer is OCR'd where Tesseract is installed (language
+# from source_language; docs/ocr_setup.md). Elsewhere it fails cleanly as empty_text and a
+# later `run --retry-failed` on an OCR machine recovers it.
+pdf_ocr: true
 content_type: pdf
 renderer: static
 # The listing HTML legitimately contains the string "cloudflare" (email-obfuscation/CDN), which trips

@@ -359,7 +359,11 @@ See **Backfilling for free — `--redate`** above for what it can and cannot rep
 
 ## Cleaned columns
 
-The 15 standardized scraper columns (unchanged, for mergeability) plus: corrected-in-place
+The standardized scraper columns (unchanged, for mergeability) — including `wayback_capture` and
+`document_truncated` (non-empty = the text is the surviving pages of a PDF the Archive holds only
+part of, e.g. `1048576 of 30462354 bytes stored`; recipes.md → "Truncated archived documents").
+The gate does not act on it: to drop partial documents, filter `document_truncated == ""` at
+merge time or in R. Rows cleaned before the column existed carry NA there. Plus: corrected-in-place
 `speaker` / `position` / `date`; audit copies `speaker_scraped` / `date_scraped`; the extracted
 `speaker_type`, `audience`, `speech_type`, `venue`, `detected_language`,
 `speaker_attributed_correct`, `date_matches_metadata`; the date-audit set `date_precision`,

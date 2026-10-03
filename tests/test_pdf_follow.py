@@ -208,3 +208,27 @@ def test_pdf_ocr_flag_is_forwarded(monkeypatch):
     assert ok is True
     assert seen["ocr"] is True
     assert rec["text"] == "ocr recovered text"
+
+
+def test_a_cut_linked_pdf_is_kept_and_flagged(monkeypatch):
+    """The linked PDF's archived capture holds only a prefix (2026-10-02): its surviving pages
+    become the body and the record carries the truncation note for `document_truncated`."""
+    from leaderspeech.text_scraper.wayback import SnapshotBytes
+    cut = SnapshotBytes(b"%PDF-1.4 " + b"x" * 40, real_size=4523670 * 7, hung_up=True)
+    monkeypatch.setattr(run.wayback, "best_capture", lambda url, **kw: None)
+    monkeypatch.setattr(run.wayback, "fetch_snapshot_bytes",
+                        lambda entry, delay=0.0, client=None, pacer=None: ("application/pdf", cut))
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "first pages")
+    rec = {"text": "chrome", "title": "t"}
+    assert run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=True,
+                                timestamp="20210816003406", wayback_client=object()) is True
+    assert rec["text"] == "first pages"
+    assert rec["document_truncated"] == "49 of 31665690 bytes stored (Archive hung up)"
+
+
+def test_a_complete_linked_pdf_is_not_flagged(monkeypatch):
+    monkeypatch.setattr(run, "pdf_bytes_to_text", lambda d, ocr=False, ocr_language="eng": "speech")
+    rec = {"text": "chrome", "title": "t"}
+    assert run._follow_pdf_body(rec, HTML, PAGE_URL, _recipe(), is_wayback=False,
+                                fetcher=FakeFetcher(b"%PDF-1.4 whole\n%%EOF")) is True
+    assert rec["document_truncated"] == ""

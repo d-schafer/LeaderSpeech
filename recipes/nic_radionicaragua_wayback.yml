@@ -1,0 +1,104 @@
+# Nicaragua — Radio Nicaragua (radionicaragua.com.ni), the STATE radio, 2016 → mid-2022, via the
+# Internet Archive: the leaders' speeches, addresses and messages for the years no other source
+# covers. presidencia.gob.ni stops in 2016 (nic_presidencia_wayback) and the live radio site keeps
+# only 117 posts before June 2022 (its archive was reset), so the live recipe nic_radionicaragua
+# starts 2022-06-08. Government-owned → official_gov (decision 1).
+#
+# SCOPE (researcher, 2026-09-30): the leaders' speech / message pages FIRST; the whole 2016–22 news
+# archive (34,938 status-200 HTML URLs) stays a POTENTIAL row (nic_radionicaragua_all), not taken.
+# So this recipe selects by SLUG, on purpose — the one place in the LatAm push where the harvest
+# is narrower than the host, by the researcher's ruling.
+#
+# CDX (saved listing, 145,166 rows, 2026-09-30): five URL generations in the window —
+#   /noticias/ver/titulo:N-slug       2013–16  (old CMS)
+#   /news/view/N/slug                 2016–18  (second CMS; its "Discursos" category
+#                                              news/index/category:discursos)
+#   /YYYY/MM/DD/slug/                 2018–19  (WordPress, Publisher theme)
+#   /slug/   and   /slug/DD/          2019–22  (WordPress; the /DD/ day-suffixed permalink in 2020)
+#   /<category>/slug/                 2023–24  — the live recipe's era; NOT matched here.
+# The link_pattern keeps a URL when its slug names a leader or a leader's address:
+#   Rosario Murillo   multinoticias | companera-rosario | rosario-murillo | rosario-<verb>
+#                     (rosario-en/-al/-desde/-saluda/-destaca/…) | declaraciones-de-rosario
+#   Daniel Ortega     comandante-daniel | presidente-daniel | daniel-ortega | presidente-ortega
+#                     | comandante-presidente | copresidente
+#   any               discurso | mensaje/palabras/saludo/carta/intervencion/comparecencia
+#                     del/de-la presidente/comandante/companera/vicepresidenta/gobierno
+# Bare "rosario" / "mensaje" / "acto" / "encuentro" were measured too noisy (El Rosario, Carazo;
+# football; foreign celebrities). "mensaje-del-presidente-de-<country>" hits are FOREIGN leaders'
+# messages to Nicaragua — kept (cheap; the cleaner's speaker check sorts them).
+# COVERAGE: the 24 archived captures of the speech-category listings (news/index/category:
+# discursos 2016–18, /category/bs-discurso/ 2018–19, /category/discurso/ 2020) link 259 article
+# URLs; the ones the Archive holds are all matched by the pattern except sidebar sports/news
+# links and 2 statements — "declaraciones-de-rosario-…", now added. ~150 listed speech URLs were
+# never captured at all (an Archive gap, not a pattern gap).
+#
+# Selectors, checked on captures from each generation:
+#   2016 old CMS:      title .title-news; body div.text-news. Its .date-news ("27 Sep 2016")
+#                      is ENGLISH-abbreviated: under date_languages ["es"] "21 Apr 2016" parses
+#                      as 2016-10-01 — not used.
+#   2016–18 news/view: title h1.NewPost-title; body section.NewPost-content. The date sits in
+#                      "<span>Discursos: 26/01/2018</span>" — DD/MM, which parses month-first
+#                      the moment "en" is in the hint list — not read (the engine's `attr`
+#                      applies to a whole chain, so it can't share one with the meta below).
+#   2018–22 WordPress: title h1 (one per page, the post's); body div.entry-content.single-post-
+#                      content (2018–20; a bare .entry-content also matches a social-counter
+#                      widget) / article .entry-content (2021–22). DATE: meta article:published_
+#                      time. NOT time.post-published — its datetime is the MODIFIED date when a
+#                      post was edited ("Last updated Jun 11, 2019" on a 2019-06-10 post).
+#   So the 2016–18 pages (~75) carry no selector date: the run stamps the capture date and the
+#   cleaner reads the dateline ("… Multinoticias Canal 4. 27 de Septiembre del 2016:").
+#
+# OFFLINE fold check (recipe_tools/foldcheck.py on the saved listing): 790 kept — 603 root
+# slugs, 35 day-suffixed, 76 /YYYY/MM/DD/, 63 /news/view/, 13 /noticias/ver/; first captured
+# 2016 16, 2017 36, 2018 60, 2019 86, 2020 94, 2021 333, 2022 165. That is every one of the 787
+# slug candidates measured on 2026-09-30 plus 3 "declaraciones-de-rosario" statements.
+# PROBE 2026-09-30 (--spread 12): 797 snapshots (the live query also counts URLs first captured
+# before 2016 and re-captured inside the window); title/text 12/12 (628–22,559 chars); date
+# 11/12 from the meta (the /news/view/ page undated, as designed). The 2016 template checked
+# separately with selcheck (title .title-news, body div.text-news 10,917 chars).
+source_id: nic_radionicaragua_wayback
+country: Nicaragua
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - radionicaragua.com.ni/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?radionicaragua\.com\.ni(?::\d+)?/(?=[^?#]*(?:multinoticias|companer[ao]-rosario|rosario-murillo|(?:(?<=/)|titulo:\d+-)rosario-(?:en|al|desde|durante|saluda|felicita|llama|destaca|anuncia|resalta|informa|comparte|invita|reitera|expresa|agradece|habla|afirma|asegura|hace|presenta|sobre|y-daniel)(?![a-z])|declaraciones-de-(?:la-)?(?:companer[ao]-)?(?:rosario|daniel|comandante|presidente|vicepresidenta)|comandante-daniel|presidente-daniel|daniel-ortega|presidente-ortega|comandante-presidente|copresidente|discurso|(?:mensaje|palabras|saludo|carta|intervencion|comparecencia)-(?:del?-(?:la-)?)?(?:presidente|comandante|companer|copresident|gobierno|vicepresident|rosario|daniel)))(?:noticias/ver/titulo:\d+-[^/?#]+|news/view/\d+/[^/?#]+|\d{4}/\d{2}/\d{2}/[^/?#]+/?|(?!(?:category|categoria|tag|author|page|feed|amp|wp-[a-z-]+|news|noticias|discurso|discursos)(?:/|$))[^/?#]+(?:/\d{1,2})?/?)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20160101"
+  # the live recipe's speech category starts 2022-06-08
+  wayback_to: "20220801"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+keep_if:
+  selectors: ["div.text-news", "section.NewPost-content", "div.entry-content.single-post-content", "article .entry-content"]
+  pattern: '\w{4}'
+
+title:
+  selectors: [".title-news", "h1.NewPost-title", "h1"]
+text:
+  selectors: ["div.text-news", "section.NewPost-content", "div.entry-content.single-post-content", "article .entry-content"]
+date:
+  selectors: ["meta[property='article:published_time']"]
+  attr: content
+  regex: '(?P<value>\d{4}-\d{2}-\d{2})'
+  regex_required: true
+  url_regex: '/(?P<year>20\d\d)/(?P<month>[01]\d)/(?P<day>[0-3]\d)/'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Radio Nicaragua (state radio) 2016 - mid-2022 from the Internet Archive: the leaders' speech
+  and message pages (Rosario Murillo's Multinoticias addresses and statements, Daniel Ortega's
+  speeches, messages), selected by slug across five URL generations. Fills the gap between
+  presidencia.gob.ni (to 2016) and the live radio recipe (from June 2022). The rest of the news
+  archive is a potential row (nic_radionicaragua_all). No speaker_default.

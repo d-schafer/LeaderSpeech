@@ -28,6 +28,10 @@
 source_id: gmb_op_wayback
 country: Gambia
 source_language: English
+# OCR (2026-09-30): a PDF with no text layer is OCR'd where Tesseract is installed (language
+# from source_language; docs/ocr_setup.md). Elsewhere it fails cleanly as empty_text and a
+# later `run --retry-failed` on an OCR machine recovers it.
+pdf_ocr: true
 renderer: static
 # `auto` (was `pdf`): the harvest now mixes PDF attachments and HTML article pages, and the engine
 # routes each by URL / Content-Type. See gmb_op.yml for the full explanation of the dual shape.

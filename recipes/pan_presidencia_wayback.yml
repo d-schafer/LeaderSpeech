@@ -1,0 +1,74 @@
+# Panama — presidencia.gob.pa under Juan Carlos Varela (1 Jul 2014 – 2019) and Laurentino Cortizo
+# (1 Jul 2019 – 30 Jun 2024), via the Internet Archive. The live site (pan_presidencia, Mulino) was
+# rebuilt in 2024 and keeps nothing older; Martinelli's site is pan_presidencia_martinelli_wayback,
+# 1998–2009 is pan_presidencia_old_wayback, the English pages pan_presidencia_english_wayback.
+#
+# CDX 2026-09-30 (whole domain, 278,000+ status-200 rows; first capture per URL), Spanish news:
+#   /<N>-<slug>           Varela's FIRST site, Jul 2014 – mid 2015 (the 2013 CMS Martinelli left;
+#                         ids restart at 1 — "2-Juan-Carlos-Varela-participa-de-eucaristia…").
+#                         Martinelli's own /<N>-<slug> pages share the form and the id range, so
+#                         the window below starts at Varela's inauguration and slugs are NOT
+#                         folded to ids (a few Martinelli pages re-captured after July 2014 come
+#                         along; the run's identity dedupe skips them where that recipe already
+#                         holds the same URL).
+#   Noticias/<slug>       2015 → 2024, 2,547 distinct slugs (2015 749, 2016 403 … 2024 199)
+#   Comunicados/<slug>, Notas-de-prensa/<slug>   small sections (16 + 29)
+# ~1.5% of Noticias slugs are punctuation variants of another ("…-de-56-" / "…-de-5-6-");
+# NOT folded — generic slugs ("COMUNICADO", "COMUNICADO-") can be different communiqués.
+#
+# ⚠ SHELLS: Imperva fronted the site from ~2020; most 2021–25 captures are ~1.2 KB challenge
+# pages (2022: 31 real vs 171 shells; 2024: 29 vs 183). The length filter makes CDX hand back a
+# real capture of a URL where one exists; the engine refuses any shell that still slips through.
+# Cortizo's years are therefore THIN here — a measured Archive gap, not a recipe gap.
+#
+# Templates (checked on captures 2014, 2015, 2018, 2023):
+#   2014–15 /<N>-<slug>: title h1.titulo-not, date span.fecha, body div.not-body-c
+#   2015–16 Noticias (Foundation skin): h1.title-page, small.date (the 2nd, .right, is the
+#           author), div.content-post
+#   2017–24 Noticias/Notas-de-prensa (Bootstrap): h1.titulo-noticia-post, the date span in
+#           .info-noticia-detalle ("jueves, 11 de enero de 2018" — the block also holds the
+#           author and section, so the regex below cuts the date out), body .resumen-noticia +
+#           .texto-noticia
+#
+# OFFLINE fold check: 2,259 documents (first captured 2014 239, 2015 970, 2016 402, 2017 66, 2018
+# 57, 2019 247, 2020 118, 2021 30, 2022 32, 2023 67, 2024 31). PROBE 2026-09-30 (--spread 12): 2,334
+# snapshots (the live CDX also finds a real capture where the first one was a shell); title/
+# text/date 12/12, 2014-06-30 … 2019-10-28.
+source_id: pan_presidencia_wayback
+country: Panama
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - presidencia.gob.pa/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.pa(?::\d+)?/(?:(?:Noticias|Comunicados|Notas-de-prensa)/(?!\d+$)[^/?#]{6,}|\d+-[A-Za-z][^/?#]{5,})$'
+
+pagination:
+  type: wayback
+  wayback_from: "20140701"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # >= 2,000 bytes: skips the ~1.2 KB Imperva challenge captures
+    - "length:([2-9][0-9]{3}|[0-9]{5,})"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["h1.titulo-noticia-post", "h1.title-page", "h1.titulo-not"]
+text:
+  selectors: [".resumen-noticia, .texto-noticia", "div.content-post", "div.not-body-c"]
+date:
+  selectors: [".info-noticia-detalle", "small.date:not(.right)", "span.fecha"]
+  regex: '\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ de \d{4}'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Panama presidency site 2014-2024 (Varela, Cortizo) from the Internet Archive: news,
+  communiques and press notes across three skins. Cortizo-era captures are mostly Imperva
+  challenge pages, so 2020-24 is thin. No speaker_default.
