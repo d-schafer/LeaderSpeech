@@ -22,6 +22,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 import pycountry
 
 from urllib.parse import urljoin
@@ -384,6 +385,21 @@ def _unblocked_alternate(entry: dict, recipe: Recipe, *, client=None, delay: flo
     return html, alt
 
 
+def _unreplayable_capture(exc: Exception, entry) -> bool:
+    """An Archive 404 on a capture whose CDX `length` is unknown ('-').
+
+    The CDX lists such captures but the Archive often cannot replay them, and they come in
+    crawl-batch clusters: `ven_minci_wayback` aborted on 2026-09-27 after 25 in a row (one
+    2011-08-04 batch), `ecu_presidencia_old_wayback` the same way on 2026-09-29. That says
+    something about those captures, not that the Archive is blocking us, so — like a WAF capture
+    or a scan — it is recorded as a failure (retryable) but NOT counted toward the circuit
+    breaker. Captures with a KNOWN length that 404 still count."""
+    if not isinstance(entry, dict) or str(entry.get("length", "")).strip() != "-":
+        return False
+    resp = getattr(exc, "response", None)
+    return isinstance(exc, httpx.HTTPStatusError) and resp is not None and resp.status_code == 404
+
+
 def _complete_document(data) -> bool:
     """Is `data` a whole binary document? A PDF must end in `%%EOF` (within its last 4 KB):
     the Archive stores some large files cut at exactly 1 MB (issue #70), and a cut PDF has no
@@ -724,7 +740,8 @@ def scrape_recipe(
     # rebound), so the nested _scrape_phase below can mutate all shared run-state through
     # closures without a pile of `nonlocal` declarations.
     stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0,
-             "archived_block": 0, "archived_block_recovered": 0, "doc_no_text": 0, "truncated": 0}
+             "archived_block": 0, "archived_block_recovered": 0, "doc_no_text": 0, "truncated": 0,
+             "unreplayable": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -900,7 +917,10 @@ def scrape_recipe(
                 errors.append({"timestamp": stamp(), "url": url, "error": detail[:300]})
                 failed.add(url)
                 stats["failed"] += 1
-                consecutive_fail += 1
+                if is_wayback and _unreplayable_capture(e, todo_item):
+                    stats["unreplayable"] += 1      # a dead capture, not a block (see helper)
+                else:
+                    consecutive_fail += 1
                 log.warning("error: %s :: %s", url, detail[:160])
 
             # circuit breaker: a long unbroken run of failures means we're blocked or the
@@ -1129,10 +1149,12 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" (of which {stats['archived_block']} archived WAF/CAPTCHA captures)"
                  if stats["archived_block"] else "",
+                 f" ({stats['unreplayable']} Archive 404s on unknown-length captures - not "
+                 f"counted toward the circuit breaker)" if stats["unreplayable"] else "",
                  f" ({stats['doc_no_text']} documents with no readable text - see the errors file; "
                  f"--retry-failed --ocr recovers scans)" if stats["doc_no_text"] else "",
                  f" | {stats['truncated']} kept from TRUNCATED documents (only part of the file "
@@ -1178,6 +1200,8 @@ def scrape_recipe(
         "documents_no_text": stats["doc_no_text"],
         # rows written from the surviving pages of a truncated document (`document_truncated`)
         "documents_truncated": stats["truncated"],
+        # Archive 404s on captures whose CDX length is unknown ('-'); breaker-exempt
+        "unreplayable_captures": stats["unreplayable"],
         # keep_if rejections: fetched, judged not this source's content, not written.
         # filtered_out == links_found with 0 scraped => the keep_if is wrong, not the site.
         "filtered_out_this_run": stats["filtered"],

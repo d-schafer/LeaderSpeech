@@ -3,6 +3,8 @@ faking the link harvester and the fetcher."""
 
 import csv
 import json
+
+import httpx
 from pathlib import Path
 
 from leaderspeech.text_scraper import pdf, run
@@ -1474,3 +1476,41 @@ def test_wants_pdf_reads_the_cdx_mimetype():
     assert run.wants_pdf(r, "http://x/discurso", "text/html") is False
     pinned = r.model_copy(update={"content_type": "html"})
     assert run.wants_pdf(pinned, "http://x/a.pdf", "application/pdf") is False   # html pins HTML
+
+
+def _archive_404(entry, **kw):
+    url = f"https://web.archive.org/web/{entry['timestamp']}id_/{entry['original']}"
+    req = httpx.Request("GET", url)
+    raise httpx.HTTPStatusError("Client error '404 NOT FOUND'", request=req,
+                                response=httpx.Response(404, request=req))
+
+
+def test_unknown_length_captures_that_404_do_not_trip_the_circuit_breaker(tmp_path, monkeypatch):
+    """ven_minci_wayback (2026-09-27): a crawl batch of captures the CDX lists with length '-'
+    replays as 404, 25 in a row, and the breaker stopped the run halfway. A dead capture is not a
+    block: record it (retryable) and carry on."""
+    dead = [{"timestamp": "20110804072641", "length": "-",
+             "original": f"https://www.casarosada.gob.ar/informacion/discursos/{i}"} for i in range(1, 9)]
+    last = {"timestamp": "20080101", "length": "4321",
+            "original": "https://www.casarosada.gob.ar/informacion/discursos/99"}
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: dead + [last])
+    monkeypatch.setattr(run.wayback, "fetch_snapshot",
+                        lambda entry, **kw: WAYBACK_HTML if entry["original"] == last["original"]
+                        else _archive_404(entry))
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(tmp_path / "s"),
+                            state_root=str(tmp_path / "st"), max_consecutive_failures=5)
+    assert res["aborted_early"] is False
+    assert res["unreplayable_captures"] == 8 and res["failed_this_run"] == 8
+    assert res["scraped_this_run"] == 1          # the page after the run of 8 is still reached
+
+
+def test_known_length_404s_still_trip_the_circuit_breaker(tmp_path, monkeypatch):
+    dead = [{"timestamp": "20110804072641", "length": "15000",
+             "original": f"https://www.casarosada.gob.ar/informacion/discursos/{i}"} for i in range(1, 9)]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(dead))
+    monkeypatch.setattr(run.wayback, "fetch_snapshot", lambda entry, **kw: _archive_404(entry))
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(tmp_path / "s"),
+                            state_root=str(tmp_path / "st"), max_consecutive_failures=5)
+    assert res["aborted_early"] is True and res["unreplayable_captures"] == 0
