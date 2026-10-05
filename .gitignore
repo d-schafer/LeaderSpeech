@@ -25,6 +25,8 @@ data/cleaned/
 data/clean_state/
 data/_build/
 data/audio_video/
+# inputs + specs for `text_scraper.import_legacy` (earlier projects' tables; specs hold local paths)
+data/imports/
 _data_outside_unorganized/
 
 # --- Source lists ---

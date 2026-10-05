@@ -251,6 +251,45 @@ in, or a recurring headline like "tender announcement"). Causes reported:
 article URLs all carrying the same press-release index; 51 Armenian 2008 URLs all carrying a 2018
 page). Keeping one representative would attach the wrong speech to a real URL.
 
+## Known gap: multi-speaker transcripts (NOT handled yet)
+
+A press conference or interview transcript is one row whose `text` holds **every** speaker —
+journalists, ministers, the moderator — not just the leader. The cleaner keeps it (`speech` /
+`interview`) and records nothing about how much of it is the leader: the model sees only the first
+~500 words, and no column measures the leader's share. For research on the leader's own words this
+matters. Mexico's daily press conferences, for example, run to a median ~50,000 characters, of
+which roughly half are the president's.
+
+**How common (measured 2026-10-05, a sample of ≤150 rows from every scraped source).** A rough
+detector counted upper-case or Q&A speaker labels ("PRESIDENTE ANDRÉS MANUEL LÓPEZ OBRADOR:",
+"PRIME MINISTER:", "Q:", "Pregunta:"). A row was counted multi-speaker at ≥4 turns and ≥2
+distinct labels. That flags **~2.8% of the corpus (~25,000 of ~925,000 rows)**, concentrated in a
+few sources:
+
+| source | share of sampled rows |
+|---|---|
+| `mex_presidencia`, `mex_presidencia_wayback` (the *mañaneras*) — and `mex_presidencia_amlo_import`, which is the same material | ~95% |
+| `aus_pm_wayback`, `aus_pmtranscripts` | 53%, 40% |
+| `usa_whitehouse_obama_briefings` (press-secretary briefings: the leader often does not speak at all) | 29% |
+| `usa_whitehouse_obama`, `_biden`, `_trump` | 21%, 14%, 14% |
+| `bra_mensagem_congresso_wayback`, `ven_alopresidente_transcripts_wayback` | 14%, 13% |
+| everything else | under ~8%; most sources 0–1% |
+
+The detector misses lower-case or mixed-case labels ("Presidente Chávez:") and non-Latin scripts,
+so these are lower bounds for sources written that way.
+
+**Planned (to build):** a deterministic speaker-turn pass, no API cost. It would:
+- split a transcript on its turn labels;
+- decide which labels are the leader (the tenure key's name and the office title in the source
+  language);
+- record `n_turns`, `n_speakers` and `leader_share` (the share of characters spoken by the leader);
+- write a leader-only text column alongside the full `text`.
+
+Until then, treat rows from the sources above with care in any analysis of the leader's own
+language. `mex_presidencia_amlo_import` already carries an English translation of the
+president's turns only, in `mex_presidencia_amlo_import_import_extra.parquet`
+(`text_en_leader_only`, 2,028 of its 2,552 rows).
+
 ## The gate
 
 `accepted` requires all three: the `document_type` is in `keep_document_types` (default `speech`,

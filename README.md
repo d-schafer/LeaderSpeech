@@ -39,6 +39,11 @@ schema below. A per-country state file under `data/state/` records which URLs ha
 over or double-counting. Each run also drops a timestamped log and an errors file next to the CSV — see
 [`docs/debugging.md`](docs/debugging.md) for the stop → fix → `--retry-failed` workflow.
 
+Speeches collected some other way (an earlier project's scrape of pages a site has since deleted) can be
+brought in as a source with `python -m leaderspeech.text_scraper.import_legacy` — same schema, the
+country's `doc_id` counter, and their URLs marked seen so no recipe fetches them again. See
+[`docs/importing.md`](docs/importing.md).
+
 ## The recipe
 
 A recipe is the entire answer to "how do we handle so many different sites." All per-site variation lives
@@ -218,6 +223,7 @@ data/cleaned/                per-country cleaned Parquet (gitignored)
 scripts/key_fixNames.R       authoritative speaker-name standardization key (synced from the research workspace)
 scripts/export_leaderspeech.R  final merge -> fixNames -> LeaderSpeech.parquet/.RData/.csv.gz
 docs/recipes.md              how to author a recipe
+docs/importing.md            how to bring in a table collected elsewhere (import_legacy)
 docs/cleaning.md             how the metadata cleaner works
 docs/translation.md          how the translator works
 docs/leader_tenure.md        how the tenure-key curation loop works

@@ -19,6 +19,7 @@ It is also rebuilt automatically at the end of every `run.scrape_recipe`.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 from datetime import datetime
@@ -117,6 +118,20 @@ def _audio_marker(csv_path: Path) -> Optional[tuple[str, str]]:
     return (renderer, kind)
 
 
+def _import_marker(csv_path: Path) -> Optional[tuple[str, str, str]]:
+    """If this source was IMPORTED (`<id>_import.json`, written by `import_legacy`), return
+    ("import", "legacy_import", notes) for the index. Imported sources have no recipe, so
+    without this they would show blank renderer/pagination columns and look like an orphan."""
+    side = csv_path.with_name(csv_path.stem + "_import.json")
+    if not side.exists():
+        return None
+    try:
+        notes = json.loads(side.read_text(encoding="utf-8")).get("notes", "")
+    except Exception:  # noqa: BLE001
+        notes = ""
+    return ("import", "legacy_import", notes)
+
+
 def docid_sort_key(doc_id: str) -> tuple[str, int]:
     """Sort `UKR0001`-style ids by their NUMBER, not as text.
 
@@ -169,8 +184,11 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
 
     # audio-transcription sources carry their marker in the sidecar, not a recipe
     audio = _audio_marker(csv_path)
+    imported = None if (audio or recipe) else _import_marker(csv_path)
     pagination_type = audio[1] if audio else (recipe.pagination.type.value if recipe else "")
     renderer = audio[0] if audio else (recipe.renderer.value if recipe else "")
+    if imported:
+        renderer, pagination_type = imported[0], imported[1]
 
     # What we KNOW how to fetch, from the link lists this source has left on disk (see
     # `links.py`). A disk hiccup must never sink the index — a failed scan yields blanks.
@@ -208,7 +226,7 @@ def _summarize(source_id, csv_path: Path, df: pd.DataFrame, recipe, yml: Optiona
         "csv_file": csv_path.as_posix(),
         "last_updated": datetime.fromtimestamp(csv_path.stat().st_mtime).isoformat(timespec="seconds"),
         "links_last_harvested": harvested,
-        "notes": (recipe.notes or "") if recipe else "",
+        "notes": (recipe.notes or "") if recipe else (imported[2] if imported else ""),
     }
 
 

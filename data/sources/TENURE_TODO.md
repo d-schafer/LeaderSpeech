@@ -104,6 +104,21 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
   (Chamorro 1990–97, Alemán 1997–2002 missing). No L6 source reaches before 2002, so not needed yet.
 - [ ] **El Salvador 1994–1998** — `slv_presidencia_old_wayback` has a 1998 capture of Calderón
   Sol's pages and a 1997–98 /noticias/ tree; rows written (see A).
+- [ ] **LatAm L8 (planned 2026-10-04, not yet authored)** — what the chunk's sources will need:
+  - **Haiti and Suriname: NO rows at all** (no recipes yet either). L8 writes `latam_hti.csv` /
+    `latam_sur.csv` from scratch (COW 41 HAI / 115 SUR — verify).
+  - **Barbados:** the key has 2011–2018 only (Stuart) → Mottley 2018–26.
+  - **Cuba:** the key has 2002–2008 only → Raúl Castro 2008–18, Díaz-Canel 2018–26; and Fidel
+    1959–2001 if `cuba.cu/gobierno/discursos` (1,161 Spanish speeches 1959–2008) is taken.
+  - **Mexico 1994–1999** (Zedillo) if `zedillo.presidencia.gob.mx` is taken.
+  - **Chile** 2022–26 (Boric, Kast); **Costa Rica** 2018–26 (Alvarado, Chaves, L. Fernández);
+    **Argentina** 2019–26 (A. Fernández, Milei); **Uruguay** 2020–26 (Lacalle Pou, Orsi) — these
+    four are also in C.
+  - **Guyana: the key has 2016–2020 ONLY (5 rows)** → Jagdeo 1999–2011, Ramotar 2011–15,
+    Granger 2015, Ali 2020–26 (op.gov.gy's Archive reaches 2003, GINA 2001).
+  - **Jamaica** 2024–26 (Holness), and Patterson / Simpson Miller / Golding before 2009 if a JIS
+    recipe reaches them. **Trinidad and Tobago** 2024–26 (Rowley, Young, Persad-Bissessar) and
+    Manning 2004–10 (`tto_opm_gov_wayback` already reaches 2004; the key starts 2011).
 
 ## F. Judgement calls about WHO counts (researcher)
 
@@ -126,5 +141,11 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
 - [ ] **El Salvador Dec 2023 – May 2024:** Bukele took leave to run again; a presidential
   designate exercised the office (the site's posts stop naming Bukele Dec 2023 → Jun 2024 but
   never name the designate). `latam_slv.csv` keeps Bukele for 2023–24 — right?
+- [ ] **Haiti 2021–2026 (L8):** no president since 7 July 2021. PM Ariel Henry 2021–24, then the
+  Transitional Presidential Council (Apr 2024 – Feb 2026) alongside PMs Conille and Fils-Aimé
+  *(web search — verify)*. Who is "the leader" for those years: the PM, the Council, both?
+- [ ] **Cuba (L8):** the President (Díaz-Canel) and, since Dec 2019, a Prime Minister (Manuel
+  Marrero). And Fidel's *Reflexiones* columns (7,057 archived URLs) run 2007–2016, mostly after
+  he left office in 2008 — a former leader's statements.
 - [ ] **Ceremonial heads of state:** the "executive" corpus estimate excludes ceremonial heads
   and stays an upper bound until `is_ceremonial` is filled for every country.

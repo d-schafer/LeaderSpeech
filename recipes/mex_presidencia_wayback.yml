@@ -22,6 +22,18 @@ source_language: Spanish
 # BEFORE spending ~4 h of Archive budget here. Parked, low priority: the current focus is
 # English-language and wayback sources, and a Spanish Mexico recipe was not yet intended.
 #
+# ── ✅ DONE 2026-10-05: THE 2024 SCRAPE IS IMPORTED — source `mex_presidencia_amlo_import` ─────────
+# `python -m leaderspeech.text_scraper.import_legacy` wrote 2,552 of its 2,634 pages
+# (2018-11-30 .. 2024-01-18; 82 were already held from this recipe's 2026-07 calibration run) as
+# MEX0141..MEX2692 and marked their URLs seen in data/state/Mexico.json. Measured against this
+# recipe's harvest: 1,462 of its 1,663 distinct transcripts (88%) are in the import. What this
+# recipe still adds is ~200 transcripts (mostly 2024-01-19 .. 2024-09-30, after the old scrape
+# stopped) + ~970 `prensa` items — the run SKIPS the imported ones only because of the
+# `wayback_identity_strip` below (the Archive holds each article both with and without `/es`).
+# Correction to the widening note below: its 16,416 counts the `prensa` prefix across ALL years
+# (mostly Peña Nieto's 2018 captures). Inside this recipe's 2018-12 .. 2024-10 window the harvest
+# is ~2,640 distinct documents (1,663 transcripts + 974 press items).
+#
 # ── RULE 1 WIDENING 2026-08-13 (chunk A7) ───────────────────────────────────────────────────────
 # The recipe was scoped to `version-estenografica` — the stenographic transcripts — and that is one
 # document type inside a much larger stream. cdxbatch on the prefix www.gob.mx/presidencia/prensa:
@@ -58,6 +70,11 @@ pagination:
   wayback_filter: ["statuscode:200", "mimetype:text/html"]
   # See the header — `idiom` alone accounts for 6,593 of this host's 16,866 captures.
   wayback_noise_params: ["idiom", "tab", "state", "sref", "hootpostid"]
+  # The same article is captured as /presidencia/es/articulos/<slug> AND /presidencia/articulos/<slug>
+  # (3,176 harvested captures -> ~2,637 documents). Dropping the `/es` segment makes them one page —
+  # within the harvest AND against the state file, which is what lets the run skip the 2,552
+  # articles imported as mex_presidencia_amlo_import (stored under the /es/…?idiom=es form).
+  wayback_identity_strip: ['(?<=/presidencia)/es(?=/)']
 
 title:
   selectors: [".bottom-buffer", "h1", "title"]
