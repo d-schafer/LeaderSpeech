@@ -1,0 +1,65 @@
+# Suriname — the ministries' news on the government's Umbraco portal (gov.sr, and the same
+# install served as president.gov.sr), 2010 → 2020, via the Internet Archive: the LOW half of the
+# split whose HIGH half is sur_president_wayback (the President's and VP's cabinets, same
+# template). Whole-government (RULE 1); the cleaner sorts the speakers.
+#
+# CDX 2026-10-05 (gov.sr host 2010–22, status-200 HTML): 4,776 ministry article URLs under
+# [sr/]ministerie-van-<x>/actueel/[<archive folder>/]<slug>.aspx — 4,030 directly under
+# actueel/, the rest in archive folders whose names differ per ministry (archief/<YYYY>/,
+# archief/2013-2015/, archief/tot-2016/, nieuwsarchief/<YYYY>/, nieuws-archief/[<YYYY>/],
+# aktueel2011/). Largest: ro 609, defensie 414, juspol 365, onderwijs-wetenschap-en-cultuur 332,
+# arbeid 328, biza 308, lvv 278, buza 179, nh 174, volksgezondheid 163, … The same article can sit
+# under several of those paths, with and without /sr/, and on either host — folded on the slug.
+# Template = sur_president_wayback's Umbraco one: title h1, body div#content opening with the
+# day-first date.
+# OFFLINE fold check: 3,740 documents (after folding); first captured 2011 84 / 2012 76 / 2013
+# 189 / 2014 146 / 2015 618 / 2016 506 / 2017 974 / 2018 1,023 / 2019 124.
+# PROBE 2026-10-05 (--spread 12): 3,740 snapshots (= offline); title/text/date 12/12, 2011-12 …
+# 2019-04, 12 ministries.
+# NOT TAKEN (measured, recorded in the outbox): the ministries' own subdomains (atm.gov.sr ~670
+# captures 2010–20, foreignaffairs ~270, health ~250, sportandyouthaffairs ~210, lvv ~145,
+# education ~135, … ~70 hosts, each its own template); bekendmakingen/, documenten/, FAQ and
+# topic pages; the ?page= listings.
+source_id: sur_gov_wayback
+country: Suriname
+source_language: Dutch
+renderer: static
+
+start_urls:
+  - gov.sr/
+  - president.gov.sr/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:president\.)?gov\.sr(?::\d+)?/(?:sr/)?ministerie-van-[^/?#]+/actueel/(?:[a-z-]*archief[a-z-]*/(?:[\w-]+/)?|aktueel\d{4}/)?(?!\d{4}(?:-\d{4})?\.aspx)[^/?#]+\.aspx$'
+
+pagination:
+  type: wayback
+  wayback_from: "20100101"
+  wayback_to: "20211231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.)?president\.(?=gov\.sr)'
+    - '(?<=\.sr/)sr/'
+    - '(?<=\.sr:80/)sr/'
+    - '(?<=/actueel/)(?:[a-z-]*archief[a-z-]*/(?:[\w-]+/)?|aktueel\d{4}/)'
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: ["div#content"]
+date:
+  selectors: ["div#content"]
+  regex: '^\s*(?P<value>\d{1,2}-\d{1,2}-(?:19|20)\d\d)\b'
+  regex_required: true
+
+position: president
+date_languages: ["nl"]
+
+notes: >
+  Suriname ministries' news on the gov.sr Umbraco portal 2010-2020 from the Internet Archive
+  (~4,000 after folding paths and hosts). LOW half of the split with sur_president_wayback.
+  Ministry subdomains not taken (measured). Day-first dates. No speaker_default.

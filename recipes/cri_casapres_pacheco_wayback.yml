@@ -1,0 +1,64 @@
+# Costa Rica — Casa Presidencial's document store under Miguel Ángel Rodríguez (2001–02) and Abel
+# Pacheco (2002–06), via the Internet Archive: the President's speeches and the press office's
+# bulletins as Word and PDF files, casapres.go.cr/Información/{Discursos,Boletines}/.
+#
+# CDX 2026-10-05 (casapres.go.cr to 2010, status 200, document mimetypes): 1,083 files, of which
+# 645 distinct paths under Información/Discursos and /Boletines (525 Word, 120 PDF):
+#   Discursos/<YYYY>/<month>/<file>.doc   2001 25 / 2002 61 / 2003 70 / 2004 113 / 2005 42 /
+#                                         2006 1 — e.g. "05032003 congreso de literatura CA.doc",
+#                                         "2092002Abel Johannesburgo.doc"
+#   Boletines/<YYYY>/<month>/<file>.doc   2003 58 / 2004 132 / 2005 86 / 2006 2
+#   Boletines/<Month>/<file>.PDF          2001 (Rodríguez), some echoed under a second month
+#                                         folder ("Boletines/Abril/Agosto/1682001Chile.PDF") —
+#                                         folded on the file name
+# The folder is spelled "Informacion" and "Informaci%F3n"; both are taken. The www., bare and
+# ns. hosts are one site (folded). The 264 "PDF" captures of 2010 are Joomla's PDF view of
+# Chinchilla's articles (cri_casapres_chinchilla_wayback has the HTML) and stay out.
+# Pre-2009 HTML on the host is thin and mostly not speech: Informacion/RiendiendoCuentas (562
+# pages, line items of the 2002–06 National Development Plan) — left out; Arias's 2007
+# inicioDiscursos.aspx is a Flash index whose speech files were not archived.
+# Dates: 102 file names open with DDMMYYYY (url_regex); the rest stay blank for the cleaner to
+# read off the document — 106 carry a D-M-YY form instead ("Puntarenas21-5-04.doc"; one
+# url_regex cannot hold both layouts), 422 no date at all ("El Salvador turismo.doc").
+# OFFLINE fold check: 643 documents; first captured 2001 14 / 2002 45 / 2003 83 / 2004 168 /
+# 2005 330 / 2006 3.
+# PROBE 2026-10-05 (--spread 10): 643 snapshots (= offline); text 10/10 from Word and PDF
+# (2.2k–18k chars; Pacheco's "cien días" message of 13 August 2002, 17,973), date 1/10 by design.
+source_id: cri_casapres_pacheco_wayback
+country: Costa Rica
+source_language: Spanish
+renderer: static
+content_type: pdf
+pdf_ocr: true
+
+start_urls:
+  - casapres.go.cr/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.|ns\.)?casapres\.go\.cr(?::\d+)?/informaci(?:o|%f3|ó)n/(?:discursos|boletines)/[^?#]+\.(?:doc|pdf)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20091231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:application/(pdf|msword)"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)ns\.'
+    - '(?i)/informaci(?:o|%f3|ó)n(?=/)'
+    - '(?i)(?<=/boletines/)(?:[a-z]+/)+(?=[^/]+\.pdf$)'
+
+title: {}
+text: {}
+date:
+  url_regex: '(?i)/(?P<day>[0-3]\d)(?P<month>[01]\d)(?P<year>(?:19|20)\d\d)[^/]*\.(?:doc|pdf)$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Costa Rica Casa Presidencial document store 2001-2006 from the Internet Archive: Rodriguez's
+  and Pacheco's speeches (~310 Word files) and press bulletins (~280), ~645 files. Dated from
+  DDMMYYYY file names where present. No speaker_default.

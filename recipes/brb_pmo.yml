@@ -1,0 +1,59 @@
+# Barbados — Prime Minister's Office (pmo.gov.bb), live WordPress, through headless Chromium:
+# every post, May 2018 → today (Mia Mottley; the newest post is the Cabinet sworn in on
+# 16 February 2026 after that month's election).
+#
+# The host is behind Cloudflare: plain HTTP clients get 403 (2026-10-04, the bot UA and a browser
+# UA alike), while a headless Chromium navigation is served the real page every time — hence
+# `renderer: js`. The REST API is open behind the same wall and lists 254 posts, but a REST
+# request from the browser is refused often and unpredictably (403 "Just a moment" on Playwright's
+# request context every time, and on an in-page fetch() some times and not others, 2026-10-05),
+# so this recipe navigates HTML pages only: the nine YEAR archives (/YYYY/, every post is in one)
+# with WordPress's page/{n}/ pager ("Older posts", 10 posts a page).
+# REST counts, for the coverage check (measured 2026-10-05 through the browser): 254 posts —
+# 2018 8 / 2019 22 / 2020 47 / 2021 77 / 2022 44 / 2023 10 / 2024 35 / 2025 10 / 2026 1;
+# categories speeches 52, covid-19 50, latest 47, budget-estimates 35, united-nations 28,
+# caricom 22, press-statements 16, press-release 11, … — RULE 1: every post via the year
+# archives, not the speeches category. 13 institutional pages are not taken.
+# ⚠ Add the next year's archive to start_urls when re-running in a new year.
+# Its home page never reaches networkidle (a live-stream embed); the engine does not wait on it.
+# The Government Information Service's archive is brb_gisbarbados_wayback.
+source_id: brb_pmo
+country: Barbados
+source_language: English
+renderer: js
+
+start_urls:
+  - https://pmo.gov.bb/2018/
+  - https://pmo.gov.bb/2019/
+  - https://pmo.gov.bb/2020/
+  - https://pmo.gov.bb/2021/
+  - https://pmo.gov.bb/2022/
+  - https://pmo.gov.bb/2023/
+  - https://pmo.gov.bb/2024/
+  - https://pmo.gov.bb/2025/
+  - https://pmo.gov.bb/2026/
+
+listing:
+  link_pattern: '^https://pmo\.gov\.bb/20\d\d/\d\d/\d\d/[^/?#]+/?$'
+
+pagination:
+  type: path
+  path_format: "page/{n}/"
+  start: 1
+  step: 1
+  max_pages: 15
+
+title:
+  selectors: ["h2.page-title", "h1.entry-title"]
+text:
+  selectors: ["div.entry-content"]
+date:
+  selectors: ["time.entry-date@datetime", "time.entry-date"]
+
+position: prime minister
+date_languages: ["en"]
+
+notes: >
+  Barbados PMO live WordPress through headless Chromium (Cloudflare 403s plain clients): every
+  post 2018-05 .. 2026-02 (Mottley), 254, via the year archives. English. Add the new year's
+  archive when re-running. No speaker_default.

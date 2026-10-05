@@ -1,0 +1,58 @@
+# Haiti — Présidence de la République (presidence.ht), 2011 → 2016, via the Internet Archive:
+# Michel Martelly's press releases (2011–13) and Jocelerme Privert's blog (2016). The live host
+# refuses connections (2026-10-04). Small: the Archive holds 817 URLs of every type, 128 status-200
+# HTML; nothing of Jovenel Moïse's presidency (2017–21) is on this host, and presidence.gouv.ht has
+# no captures — his addresses come through hti_communication_wayback.
+#
+# Two generations:
+#   press_release/<N>/            2011–13 custom CMS — title the h3 of the info column, body
+#                                 div.body (the page also lists ~240 other releases' titles in a
+#                                 sidebar, never selected); date in the info column ("Jul 12, 2012")
+#   blog/YYYY/MM/DD/<slug>/       2016 WordPress (Privert) — h1.entry-title, .entry-content, date
+#                                 from the URL
+# DATE TRAP: the CMS abbreviates months French-style, and under the "fr" hint "Mar 22, 2012"
+# parses as 2012-10-22 (mar = mardi; the month then comes from today) and "Jui 28" (juin) the
+# same way. The regex accepts only the unambiguous abbreviations; a March or June release keeps
+# a blank date (capture fallback) rather than a wrong one.
+# LEFT OUT: actions/YYYY/MM (empty month listings), resources/?page= (document lists), the
+# institutional pages (constitution, pouvoir-executif, liste-des-presidents-dhaiti), and the
+# test.presidence.ht copies (resource listings only).
+# PROBE 2026-10-05 (--spread 10): 50 snapshots (the offline first-capture count was 21 — many
+# URLs were first captured as redirects); title 10/10, text 9/10 (one page is a live-stream
+# stub), date 9/10 (one "Mar" release left blank by design), 2011-07 … 2016-04.
+source_id: hti_presidence_wayback
+country: Haiti
+source_language: French
+renderer: static
+
+start_urls:
+  - presidence.ht/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidence\.ht(?::\d+)?/(?:press_release/\d+|blog/20\d\d/\d\d/\d\d/[^/?#]+)/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["div.col.info.wide h3", "h1.entry-title"]
+text:
+  selectors: ["div.col.info.wide div.body", ".entry-content"]
+date:
+  selectors: ["div.col.info.wide .date"]
+  regex: '(?:Jan|F[ée]v|Avr|Mai|Jul|Ao[uû]|Sep|Oct|Nov|D[ée]c)\w*\.?\s+\d{1,2},\s+\d{4}'
+  regex_required: true
+  url_regex: '/blog/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["fr"]
+
+notes: >
+  Haiti presidence.ht from the Internet Archive: Martelly's press releases 2011-13 and Privert's
+  2016 blog (~25 pages). Nothing of Moise's presidency on this host. Ambiguous French month
+  abbreviations (Mar, Jui) are left blank. No speaker_default.

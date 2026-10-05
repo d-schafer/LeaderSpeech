@@ -1,0 +1,80 @@
+# Costa Rica — Casa Presidencial under Laura Chinchilla (May 2010 – May 2014), via the Internet
+# Archive: one Joomla install served from casapres.go.cr AND presidencia.go.cr, under /web/,
+# /portal/ and the root, both search-friendly and query-addressed. Speeches (presidencia/
+# presidenta/discursos), the press office's releases (prensa-presidencia) and top headlines.
+#
+# CDX 2026-10-05 (status-200 HTML): casapres.go.cr 43,511 URLs (2009–12 = 42,255), presidencia.go.cr
+# 2009–14 37,666 (2012 = 34,536). Most are crawler noise — JEvents calendars, Phoca galleries,
+# mailto/print components, category listings, a crawler-trap category ("99-casa") echoing every
+# article under it. The articles: 1,996 distinct Joomla ids, served as
+#   …/(centro-de-prensa|prensa)/prensa-presidencia/<id>-<slug>     2012–14, h2.contentheading
+#   …/presidencia/presidenta/discursos/<id>-<slug>                 2012–13, body #ja-current-content p
+#   …/component/content/article/<cat>/<id>-<slug>
+#   …/(web|portal)/index.php?option=com_content&view=article&id=<id>:<slug>&catid=…
+#                                                                    2010–11, .contentheading /
+#                                                                    .article-content
+# The same article appears under up to four of those forms and on both hosts. FOLD on the id
+# PLUS the first letters of the slug — NOT the id alone: the 2010 /web/ install reused ids
+# 416–426 for different articles than the later install ("vivienda-para-clase-media" and
+# "decreto-duelo-nacional" are both id 416), the L6 lesson about CMS migrations. 21 of the 1,996
+# ids carry two slugs; most are retitles of one article ("plan-nacional-de-desarrollo-2010-2014"
+# / "…-201438"), which the 12-letter prefix still folds.
+# Dates: no date element anywhere. The body's dateline is read — press releases open with it
+# ("San José, 21 de octubre de 2010.", "Zapote, miércoles 27 de julio 2011."), speeches carry it
+# after a two-line heading ("Palabras de Laura Chinchilla Miranda / 25° Aniversario de la
+# CONAMAJ / 04 de agosto de 2010") — so up to three short lines may precede it, and it must
+# start its line. Anything else stays blank.
+# Print views (?tmpl=component&print=1), mailto, section pages (id without a slug) are out.
+# OFFLINE fold check: 1,936 documents (portal query 940, presidencia.go.cr prensa 582, the rest
+# spread over the other forms); first captured 2010 47 / 2011 781 / 2012 680 / 2013 428.
+# PROBE 2026-10-05 (--spread 14): 1,936 snapshots (= offline); title/text 14/14, date 8/14,
+# 2010-08 … 2013. The six blanks have no line-initial dateline (they open mid-story, "Esta
+# mañana, …", or after link lines); their 2011–13 captures bound the date from above.
+source_id: cri_casapres_chinchilla_wayback
+country: Costa Rica
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - casapres.go.cr/
+  - presidencia.go.cr/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:casapres|presidencia)\.go\.cr(?::\d+)?/(?:(?:web/|portal/)?index\.php/(?:(?:centro-de-prensa|prensa)/prensa-presidencia|presidencia/presidenta/discursos|component/content/article/[^/?#]+)/\d+-[^/?#]+/?|(?:web/|portal/)?(?:index\.php)?\?(?=[^#]*\bview=article)(?=[^#]*[?&]id=\d+(?::|%3A))(?![^#]*(?:print=1|tmpl=component))[^#]*)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20090101"
+  wayback_to: "20141231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    # one key per article: host → "go.cr", then everything up to the id, then id + 12 slug chars
+    - '(?<=//)(?:www\.)?(?:casapres|presidencia)\.(?=go\.cr)'
+    - '(?<=go\.cr)(?::80)?/(?:[^?#]*/)?(?=\d+-[^/?#]+/?$)'
+    - '(?<=go\.cr)(?::80)?/[^?#]*\?(?:[^#]*?&)?id=(?=\d+(?::|%3A))'
+    - '(?<=go\.cr\d)(?:-|:|%3A)'
+    - '(?<=go\.cr\d\d)(?:-|:|%3A)'
+    - '(?<=go\.cr\d\d\d)(?:-|:|%3A)'
+    - '(?<=go\.cr\d\d\d\d)(?:-|:|%3A)'
+    - '(?<=\d[a-z0-9-]{12})[^/]*$'
+
+title:
+  selectors: ["h2.contentheading", ".contentheading", "title"]
+text:
+  selectors: [".article-content", "#ja-current-content p"]
+date:
+  selectors: [".article-content", "#ja-current-content p"]
+  regex: '(?i)^(?:[^\n]{0,120}\n\s*){0,3}?\s*(?:[A-ZÁÉÍÓÚa-záéíóúñ][^,.\n]{1,40},\s*)?(?:(?:lunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bado|domingo),?\s+)?(?P<value>\d{1,2}\s+de\s+[a-záéíóú]+(?:\s+(?:de|del))?\s+\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Costa Rica Casa Presidencial Joomla under Laura Chinchilla 2010-2014 (casapres.go.cr and
+  presidencia.go.cr, ~2,000 articles after folding the forms on id + slug prefix): speeches,
+  press releases, headlines. Dates from the body's dateline only. No speaker_default.

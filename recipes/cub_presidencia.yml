@@ -28,6 +28,13 @@
 # instead is no better — it is the same articles under a second path, and page_identity keeps the
 # path, so it would write every row twice. Do not re-derive this.
 #
+# PAGER FIX 2026-10-05 (LatAm L8a): each month page lists 9 items and pages with ?page=N (the
+# sidebar counts run to 65 a month — noticias/2025/11); `type: none` read page 1 only. Now
+# query_param from page=1. Tested on two months: noticias/2025/11 → 65 of 65; a 3-item speech
+# month ends with page 2 timing out, which stops that month cleanly. Months added through
+# 2026-10 for both streams (intervenciones 2026/10 is still empty).
+# Known cosmetic issue, not fixed: news titles end with their section label ("… Nacionales").
+#
 # OPERATIONAL: gob.cu began answering HTTP 403 partway through a 101-page month-archive walk from
 # outside Cuba (after ~65 pages, 3 retries each). It is slow and it rate-limits; pace a full run.
 source_id: cub_presidencia
@@ -114,6 +121,9 @@ start_urls:
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/5/
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/6/
   - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/7/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/8/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/9/
+  - https://www.presidencia.gob.cu/es/presidencia/intervenciones/2026/10/
   - https://www.presidencia.gob.cu/es/noticias/2018/4/
   - https://www.presidencia.gob.cu/es/noticias/2018/5/
   - https://www.presidencia.gob.cu/es/noticias/2018/6/
@@ -215,6 +225,8 @@ start_urls:
   - https://www.presidencia.gob.cu/es/noticias/2026/6/
   - https://www.presidencia.gob.cu/es/noticias/2026/7/
   - https://www.presidencia.gob.cu/es/noticias/2026/8/
+  - https://www.presidencia.gob.cu/es/noticias/2026/9/
+  - https://www.presidencia.gob.cu/es/noticias/2026/10/
 
 listing:
   # Two streams now: /es/presidencia/intervenciones/<slug>/ and /es/noticias/<slug>/,
@@ -225,7 +237,15 @@ listing:
   link_pattern: '/es/(?:presidencia/intervenciones|noticias)/(?!category/|author/|\d{4}/)[a-z0-9][a-z0-9-]{10,}/?$'
 
 pagination:
-  type: none
+  # ⚠ FIX 2026-10-05 (LatAm L8a): every month page is itself PAGED — 9 items a page, ?page=2 …
+  # ?page=8, and a page past the end answers 404. With `type: none` only page 1 of each month
+  # was read: 9 of noticias/2025/11's 65 items. ?page=1 serves page 1, so the pager starts there
+  # and runs until a page adds nothing new (or 404s).
+  type: query_param
+  param: page
+  start: 1
+  step: 1
+  max_pages: 12
 
 title:
   selectors: ["h1", "title"]
@@ -245,6 +265,13 @@ date:
   # repair — this is an EXTRACTION fault, which is the one case that justifies --rescrape.
   selectors: [".blog-posts time", "article time", "time"]
   attr: datetime
+
+# gob.cu answered 403 after ~65 unpaced listing pages (2026-08-14); with the month pager the
+# harvest is ~600 listing pages, so pace it.
+politeness:
+  delay_range: [3.0, 6.0]
+  pause_every: 40
+  pause_seconds: 30
 
 position: president
 speaker_default: Miguel Diaz-Canel

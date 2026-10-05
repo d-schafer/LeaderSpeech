@@ -1,0 +1,45 @@
+# Barbados — Government Information Service (gisbarbados.gov.bb), via the Internet Archive: every
+# blog article NOT in brb_gisbarbados_pm_wayback (whose slugs name the PM or mark an address) —
+# the LOW half of the split: the ministries' news, notices and features, ~2009 → 2025.
+# Whole-government (RULE 1); the cleaner sorts the speakers. See the HIGH recipe's header for the
+# CDX measurements, the old-CMS duplicate finding and the template.
+#
+# Size: ~30,970 articles — at the Archive's ~420 pages/h this half alone is ~74 h of fetching.
+# Queue it after the HIGH half and the live brb_pmo.
+source_id: brb_gisbarbados_wayback
+country: Barbados
+source_language: English
+renderer: static
+
+start_urls:
+  - gisbarbados.gov.bb/blog/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?gisbarbados\.gov\.bb(?::\d+)?/blog/(?!(?:tag|page|category)/)(?!(?:[^/?#]*-)?(?:pm|prime-minister|primeminister|mottley|stuart|freundel|thompson|arthur|speech|speeches|address|remarks|statement|message|budget)(?:-[^/?#]*)?/?(?:\?|$))[^/?#]+/?(?:\?.*)?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_noise_params: ["ajaxCalendar", "mo", "yr", "id", "_nonce"]
+
+title:
+  selectors: ["h1.entry-title"]
+text:
+  selectors: [".entry-content"]
+date:
+  selectors:
+    - "meta[property='article:published_time']:not([content$='+00:00'])@content"
+    - "meta[property='article:published_time']@content"
+    - "time.entry-date"
+
+position: prime minister
+date_languages: ["en"]
+
+notes: >
+  Barbados GIS blog (Archive), every article not in brb_gisbarbados_pm_wayback (~30,970,
+  ~2009-2025, whole-government). LOW half of the split; ~74 h of Archive fetching. English. No
+  speaker_default.

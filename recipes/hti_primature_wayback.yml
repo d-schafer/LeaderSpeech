@@ -1,0 +1,78 @@
+# Haiti — Primature (primature.gouv.ht), the Prime Minister's office, 2009 → 2020, via the
+# Internet Archive: the site generations before the current WordPress (2021–, hti_primature).
+# PMs: Michèle Pierre-Louis (2008–09), Jean-Max Bellerive (2009–11), Garry Conille (2011–12),
+# Laurent Lamothe (2012–14), Evans Paul (2015–16), Enex Jean-Charles (2016–17), Jack Guy
+# Lafontant (2017–18), Jean-Henry Céant (2018–19), Jean-Michel Lapin / Fritz-William Michel
+# (2019–20), Joseph Jouthe (2020–21). Presidents in those years: Préval, Martelly, Privert,
+# Moïse — the PM's office reports on both.
+#
+# CDX 2026-10-05 (whole domain, 8,602 URLs of every type; 1,672 status-200 HTML/PDF):
+#   index.php/<section>/<N>-<slug>     2009 Joomla (la-presse, the-news, priorites[/<cat>],
+#                                      grippe-a-h1n1) — ~25 articles; title .contentheading (the
+#                                      h1 is the site banner), body .article-content, no date
+#                                      element (every capture is from 2009, so the capture-date
+#                                      fallback has the right year)
+#   documents/[sectorielles/]<f>.pdf   2012: Garry Conille's Déclaration de Politique Générale
+#                                      (Oct 2011, an address to Parliament) and its sector
+#                                      chapters, the reconstruction-forum note, the 2012
+#                                      contingency plan — 13 PDFs
+#   /?p=<N>                            2012–2020 WordPress, root-addressed — 782 URLs (incl.
+#                                      pages and attachments the cleaner rejects). Imported 2012
+#                                      posts open with a "2012-05-30 15:24:02" timestamp; later
+#                                      ones with a dateline ("Port-au-Prince, le mardi 19
+#                                      Novembre 2013.-"); photo posts carry the caption, dateline
+#                                      included, in the h1. No date element.
+# Root-addressed articles share the start_url's path → wayback_keep_listing_paths (the
+# hnd_presidencia_wp_wayback idiom); the pattern admits /?p=<digits> only, never /?cat=, /?m=,
+# /?page_id= or the home page. ?p=1 is WordPress's default post. Bounded at 2020-12-31: by 2021
+# /?p= redirects into the current site (a 2021 capture of ?p=9056 is its home page).
+# LEFT OUT: detailsactualites[pm].php?id= (3 pages, 2012 — the same items as /?p= posts), the
+# Joomla section listings, mailto/print components, /?feed=, wp-admin/wp-login, /events/ (the
+# current site's ministry notices — 5 captures).
+# OFFLINE fold check: 814 kept (778 /?p=, 23 Joomla, 13 PDFs); first captured 2009 24 / 2012 12
+# / 2013 8 / 2014 23 / 2015 51 / 2016 401 / 2017 127 / 2018 124 / 2019 44. COVERAGE: every
+# article capture before 2021.
+# PROBE 2026-10-05 (--spread 14): 816 snapshots; title 14/14, text 13/14 (a photo post whose
+# caption is its title), date 10/14 — the other four have no dateline (Evans Paul's 2015
+# peacekeepers' day address opens "Monsieur le Ministre…", the 2009 Joomla pages); 2012-05 …
+# 2017-08. Conille's DPG PDF extracts whole (188,498 chars, "11 octobre 2011").
+source_id: hti_primature_wayback
+country: Haiti
+source_language: French
+renderer: static
+
+start_urls:
+  - primature.gouv.ht/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?primature\.gouv\.ht(?::\d+)?/(?:\?p=(?!1$)\d+|index\.php/(?:la-presse|the-news|priorites(?:/[^/?#]+)?|grippe-a-h1n1)/\d+-[^/?#]+|documents/(?:sectorielles/)?[^/?#]+\.pdf)$'
+
+pagination:
+  type: wayback
+  wayback_to: "20201231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html|application/pdf"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+
+title:
+  selectors: [".contentheading", "h1"]
+text:
+  selectors: [".article-content", "div.entry"]
+date:
+  selectors: ["div.entry", "h1"]
+  # start-anchored: the imported 2012 timestamp, or a dateline (place, optional "le" and
+  # weekday, day month year). A date further into the text is never taken.
+  regex: '(?i)^\s*\W{0,3}\s*(?:(?P<value>20\d\d-\d\d-\d\d)\s|(?:[A-ZÉ][^,.\n]{2,40},?\s*)?(?:(?:le|ce)\s+)?(?:(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche),?\s+)?\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})'
+  regex_required: true
+
+position: prime minister
+date_languages: ["fr"]
+
+notes: >
+  Haiti Primature 2009-2020 from the Internet Archive: 2009 Joomla (~25), Conille's 2011
+  Declaration de Politique Generale + chapters (13 PDFs), the 2012-2020 root-addressed
+  WordPress (/?p=N, 782 URLs). Dates from the dateline / imported timestamp only. No
+  speaker_default.

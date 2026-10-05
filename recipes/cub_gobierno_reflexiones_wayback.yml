@@ -1,0 +1,53 @@
+# Cuba — Fidel Castro's "Reflexiones del compañero Fidel" columns on the government portal
+# (cuba.cu/gobierno/reflexiones), March 2007 → 2016, via the Internet Archive. Spanish only.
+#
+# ⚠ RESEARCHER CALL (TENURE_TODO.md §F): Fidel handed over provisionally in July 2006 and left
+# office in February 2008; most of these ~1,000 columns are a FORMER leader's statements. They are
+# authored separately from cub_gobierno_wayback so they can be queued — or not — on that call;
+# the queue entry is commented out until it is made.
+#
+# CDX 2026-10-05: reflexiones/<YYYY>/esp/ — 988 Spanish files (456 f<DDMMYY>e.html, 17 .doc,
+# 13 c…, 7 m…, the rest odd names), plus a translation of each in seven languages (not taken).
+# Some 2007–08 columns are ALSO under discursos/<YYYY>/esp/ with the same file name (e.g.
+# f021007e.html, "LA RESPUESTA DE MILOSEVIC"), which cub_gobierno_wayback takes; the duplicates
+# report will pair them if both recipes run.
+# Same bare-HTML template and the same folder-year date rule as cub_gobierno_wayback.
+# OFFLINE fold check: 497 documents (first captured 2007 46 / 2008 123 / 2009 110 / 2010 85 /
+# 2011 55 / 2012 28 / 2013–16 49). PROBE 2026-10-05 (--spread 8): 497 snapshots; title/text/date
+# 8/8, 2007-05 … 2016-03 ("EL HERMANO OBAMA").
+source_id: cub_gobierno_reflexiones_wayback
+country: Cuba
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - cuba.cu/gobierno/reflexiones/
+
+listing:
+  link_pattern: '^https?://(?:www3?\.)?cuba\.cu(?::\d+)?/gobierno/reflexiones/(?:19|20)\d\d/esp/[^/?#]+\.(?:html?|doc)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html|application/msword"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)www3\.'
+    - '(?<=\.htm)l$'
+
+title:
+  selectors: ["title"]
+text:
+  selectors: ["body"]
+date:
+  url_regex: '/(?P<year>(?:19|20)(?P<yy>\d\d))/esp/[a-z](?P<day>[0-3]\d)(?P<month>[01]\d)(?P=yy)[a-z]?\.(?:html?|doc)$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Cuba: Fidel Castro's Reflexiones columns 2007-2016 (cuba.cu/gobierno, Internet Archive), ~990
+  Spanish files. Mostly written after he left office - queue only on the researcher's call
+  (TENURE_TODO F). No speaker_default.

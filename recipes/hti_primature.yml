@@ -1,0 +1,61 @@
+# Haiti — Primature (primature.gouv.ht), the Prime Minister's office, live WordPress REST:
+# every post, July 2021 → February 2025 (Ariel Henry, the Transitional Presidential Council's
+# PMs Garry Conille and Alix Didier Fils-Aimé).
+#
+# Haiti has had no elected president since Jovenel Moïse's assassination (7 July 2021); the head
+# of government is the PM (who counts as the leader for 2021–26 is a researcher call —
+# TENURE_TODO.md §F). The site's embedded YouTube feed shows Fils-Aimé still PM in late
+# September 2026 ("Point de presse du Premier ministre, samedi 26 septembre 2026"), but the site
+# itself stopped posting on 2025-02-10: 2025–26 comes through hti_communication_wayback's pm/
+# section instead.
+#
+# REST API, measured 2026-10-05 (answers the bot UA): 319 posts, 2021 3 / 2022 17 / 2023 51 /
+# 2024 210 / 2025 38; categories actualite 239, presse 198, affaires-etrangeres-2 141,
+# gouvernement 103, discours 36, … — RULE 1: every post, not the `discours` category. Post types:
+# posts, pages (13, institutional), media; the theme's events/ pages (ministries' notices, 5 in
+# the Archive) are not exposed in the REST. Some posts are in Haitian Creole ("Premye minis …
+# òganize …"); detected_language drives their translation.
+# Bodies from the JSON (content.rendered, text_is_html); no page fetch. Body quartiles 10% 10 /
+# 25% 493 / 50% 1,140 / 75% 2,156 chars — the shortest are photo posts the cleaner rejects.
+# 2013–2020 posts of the older WordPress (root-addressed /?p=N) are hti_primature_wayback.
+# PROBE 2026-10-05 (--spread 10): 319 api entries; title/text/date 10/10, 2021-07 … 2025-02
+# (incl. Henry's 1 January 2024 address, 10,716 chars).
+source_id: hti_primature
+country: Haiti
+source_language: French
+renderer: static
+
+start_urls:
+  - https://www.primature.gouv.ht/wp-json/wp/v2/posts?per_page=100
+
+listing:
+  link_pattern: '^https://www\.primature\.gouv\.ht/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+title:
+  selectors: ["title"]
+  regex: '^(?P<value>.+?)(?:\s+[–-]\s+République d.Haïti.*)?$'
+text:
+  selectors: ["div.post-main-content"]
+date:
+  selectors: ["meta[property='article:published_time']@content"]
+
+position: prime minister
+date_languages: ["fr"]
+
+notes: >
+  Haiti Primature (PM's office) live WordPress REST, every post 2021-07 .. 2025-02 (Henry, Conille,
+  Fils-Aime); 319 posts, bodies from the JSON. The site stopped posting in Feb 2025. French with
+  some Haitian Creole. No speaker_default.

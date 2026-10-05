@@ -1,0 +1,68 @@
+# Suriname — the President's speeches as PDF files, 2010 → 2024, via the Internet Archive: Desi
+# Bouterse's speech store on the Umbraco portal (gov.sr/media/, president.gov.sr/media/) and the
+# 2024 Jaarrede on the current WordPress (gov.sr/wp-content/uploads/).
+#
+# Decision 4: the Jaarrede (the President's annual address to the National Assembly) is taken
+# wherever it is — three Bouterse Jaarredes (2011, 2012, 2016) and Santokhi's of 1 October 2024
+# are archived here.
+#
+# The portal listed the speeches year by year at kabinet-van-de-president/documenten/
+# toespraken-president/toespraken-president-bouterse-<YYYY>.aspx (2010–17; 21 files for 2015,
+# 29 for 2012), linking /media/<id>/<YYMMDD>-<slug>.pdf. But the Archive kept few of the files:
+# of the 456 status-200 PDFs under gov.sr/media/ (CDX 2026-10-05), 25 are speeches or addresses
+# by name; the rest are the ministries' forms, call-ups, laws and reports. The pattern takes the
+# speech-named files and every YYMMDD-prefixed one (the presidency's naming convention — two of
+# them are working documents the cleaner rejects). COVERAGE: every archived file whose name marks
+# a speech; the unarchived ~170 of the year indexes are a measured gap.
+# Dates from the YYMMDD prefix (url_regex, 2-digit year widened); the others ("jaarrede-van-de-
+# president-voor-2017-gehouden-op-30-sept-2016-final.pdf") are left to the cleaner, which reads
+# the dateline.
+# PROBE 2026-10-05 (--spread 8): 25 snapshots; 7/8 extract (4.7k–92k chars; the 2010 inaugural
+# 22k, the 2024 Jaarrede 92k), 2010-08 … 2024-10. The eighth, 141125_toespraak_39_jaar_srefidensi
+# .pdf, is archived only as a 1,255-byte stub that is not a PDF — it will fail, correctly.
+# Some addresses exist in several languages (the 2010 inaugural in English; 2015's in Dutch,
+# English, Spanish and French — only the English 2010 one is archived).
+source_id: sur_president_speeches_wayback
+country: Suriname
+source_language: Dutch
+renderer: static
+content_type: pdf
+pdf_ocr: true
+
+start_urls:
+  - gov.sr/media/
+  - president.gov.sr/media/
+  - gov.sr/wp-content/uploads/
+
+listing:
+  # YYMMDD-prefixed names count only in the Umbraco store: on the WordPress uploads the same
+  # prefix also starts the fisheries' application forms (211013-aanvraagformulier-…) and the gas
+  # study's slides — there only a speech word admits a file.
+  link_pattern: '(?i)^https?://(?:www\.)?(?:president\.)?gov\.sr(?::\d+)?/(?:media/\d+/(?:\d{6}[-_][^/?#]+|[^/?#]*(?:speech|toespraak|jaarrede|regeringsverklaring|inaugur|remarks|address)[^/?#]*)|wp-content/uploads/\d{4}/\d{2}/[^/?#]*(?:speech|toespraak|jaarrede|regeringsverklaring|inaugur|remarks|address)[^/?#]*)\.pdf$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:application/pdf"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.)?president\.(?=gov\.sr)'
+    # one file uploaded twice under two media ids ("2_regeringsverklaring-kruispunt2010-15.pdf"
+    # and "2._regeringsverklaring-…") — fold on the file name
+    - '(?<=/media/)\d+/'
+    - '(?<=/)\d\.?_(?=regeringsverklaring)'
+
+title: {}
+text: {}
+date:
+  url_regex: '/(?P<year>\d{2})(?P<month>\d{2})(?P<day>\d{2})[-_][^/]+\.pdf$'
+
+position: president
+date_languages: ["nl"]
+
+notes: >
+  Suriname President's speech PDFs from the Internet Archive: Bouterse 2010-2017 (the ~25 the
+  Archive kept of ~200 listed; Jaarredes 2011, 2012, 2016, the 2010-15 government declaration)
+  and Santokhi's 2024 Jaarrede. Dated from YYMMDD file names. No speaker_default.

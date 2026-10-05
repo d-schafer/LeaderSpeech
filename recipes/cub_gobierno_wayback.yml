@@ -1,0 +1,64 @@
+# Cuba — the government portal's archive of the leader's speeches (cuba.cu/gobierno), via the
+# Internet Archive: Fidel Castro 1959 → 2008 (Prime Minister 1959–76, President of the Council of
+# State 1976–2008) and Raúl Castro 2008 → 2016, plus the portal's official documents 1998–2016.
+# The live host refuses connections (2026-10-04). Government portal → official_gov.
+#
+# CDX 2026-10-05 (prefix cuba.cu/gobierno/, status 200): 14,887 URLs. Spanish files:
+#   discursos/<YYYY>/esp/f<DDMMYY>e.html     1,264 (1,069 f…, 40 c…, 23 d…, 13 .htm, …) —
+#                                            every year 1959–2008; Fidel's speeches, interventions
+#                                            and, in 2007–08, his first "Reflexiones"
+#   rauldiscursos/<YYYY>/esp/r<DDMMYY>e.html 85 (2008–16; 9 as .doc)
+#   documentos/<YYYY>/esp/<x><DDMMYY>e.html  193 (1998–2016; government statements, press
+#                                            conferences, the Council of State's information notes)
+# NOT TAKEN here: the seven translations of each (ing/fra/por/ita/ale/rus/ara — 355 English
+# speeches, for example; whether a translation is a second source is a researcher call, and as
+# rows they would duplicate the Spanish); reflexiones/ — Fidel's columns 2007–16, mostly after he
+# left office — authored separately as cub_gobierno_reflexiones_wayback (researcher call).
+# Hosts www.cuba.cu, cuba.cu and the 2001 mirror www3.cuba.cu are one site; .htm/.html twins are
+# folded.
+# Pages are bare HTML: title from <title> (the speech's heading — "DISCURSO PRONUNCIADO POR EL
+# COMANDANTE FIDEL CASTRO RUZ, … EN …"), body = the page body.
+# Dates: day and month from the file name, the YEAR from the folder — a two-digit year could not
+# tell 1959 from 2059 — and the regex insists the two agree (backreference), so a misfiled page
+# stays undated rather than dated from the wrong part of the name.
+# OFFLINE fold check: 1,356 documents (discursos 1,099, documentos 181, rauldiscursos 76).
+# PROBE 2026-10-05 (--spread 14): 1,356 snapshots (= offline); title/text/date 13/14 —
+# 1959-01-06 (Santiago), 1960, 1963, 1968, 1972, 1977, 1985 (a 182k-char dialogue), 1992, 1998,
+# 2003, 2007, documentos 2000 and 2004; the miss is one 2016 capture of a Raúl speech that came
+# back empty (five other Raúl pages, 2008–15, extract whole).
+source_id: cub_gobierno_wayback
+country: Cuba
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - cuba.cu/gobierno/
+
+listing:
+  link_pattern: '^https?://(?:www3?\.)?cuba\.cu(?::\d+)?/gobierno/(?:discursos|rauldiscursos|documentos)/(?:19|20)\d\d/esp/[^/?#]+\.(?:html?|doc)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html|application/msword"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)www3\.'
+    - '(?<=\.htm)l$'
+
+title:
+  selectors: ["title"]
+text:
+  selectors: ["body"]
+date:
+  url_regex: '/(?P<year>(?:19|20)(?P<yy>\d\d))/esp/[a-z](?P<day>[0-3]\d)(?P<month>[01]\d)(?P=yy)[a-z]?\.(?:html?|doc)$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Cuba cuba.cu/gobierno archive (Internet Archive): Fidel Castro's speeches 1959-2008 (~1,260
+  Spanish pages), Raul Castro's 2008-2016 (85), government documents 1998-2016 (193). Spanish
+  only; translations and Fidel's Reflexiones are separate calls. No speaker_default.

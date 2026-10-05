@@ -1,0 +1,56 @@
+# Suriname — gov.sr, the government portal (live WordPress REST): every post OUTSIDE the
+# President's and Vice-President's cabinets (categories 86, 87 — those are sur_gov_president),
+# August 2020 → today. The LOW half of a Uruguay-style split: ministries' news, the First Lady's
+# institute, and the portal's `archief`.
+#
+# REST API, measured 2026-10-05: 20,086 posts in all, so ~15,880 here. By category (a post can
+# carry several): archief 9,661 (2020–24), arbeid… 3,017, openbare-werken 1,502, economische-zaken
+# 1,489, defensie 771, buitenlandse-zaken 740, landbouw 664, binnenlandse-zaken 578, onderwijs 565,
+# financien 506, … instituut-van-de-first-lady 197.
+# ⚠ `archief` (category 1596) is partly a RE-IMPORT: 3,036 of its 9,661 posts have a title twin
+# elsewhere on the site, usually the same text under a `-2` slug ("ow-blijft-gestadig-werken-aan-
+# infrastructuurverbetering" / "…-2", 2,466 vs 2,418 chars). The other 6,625 have no twin — they
+# are the 2020–23 news kept nowhere else — so the category is taken whole and the duplicates
+# report flags the twins after cleaning (the REST cannot exclude them).
+# Bodies from the JSON (content.rendered, text_is_html); no page fetch.
+# PROBE 2026-10-05 (--spread 12): 15,878 api entries (2019 33 / 2020 … 2026); title/date 12/12,
+# text 9/12 — the three blanks are tender and form notices whose body is an attachment (the
+# cleaner rejects them).
+source_id: sur_gov
+country: Suriname
+source_language: Dutch
+renderer: static
+
+start_urls:
+  - https://gov.sr/wp-json/wp/v2/posts?categories_exclude=86,87&per_page=100
+
+listing:
+  link_pattern: '^https://(?:www\.)?gov\.sr/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: [".elementor-widget-theme-post-content"]
+date:
+  selectors: ["meta[property='article:published_time']@content"]
+
+position: president
+date_languages: ["nl"]
+
+notes: >
+  Suriname gov.sr live WordPress REST: every post outside the President's/VP's cabinets
+  (~15,880, 2020-08 .. today): ministries, First Lady's institute, the archief category (3,036 of
+  9,661 are re-imported twins). Bodies from the JSON. Dutch. No speaker_default.

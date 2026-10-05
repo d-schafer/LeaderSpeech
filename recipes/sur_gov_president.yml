@@ -1,0 +1,62 @@
+# Suriname — gov.sr, the government portal (live WordPress REST): the posts of the Kabinet van de
+# President (category 86) and the Kabinet van de Vice-President (87), December 2020 → today —
+# Chan Santokhi (2020–25) and Jennifer Simons (July 2025 →; the site tags her cabinet
+# `kabinetsimonsrusland` and its posts "President Simons …", 2026-10-05).
+#
+# gov.sr is the WHOLE-GOVERNMENT portal: its categories are per ministry. This recipe takes the
+# two leader cabinets (the HIGH half of a Uruguay-style split); sur_gov takes every other post.
+# Together they are every post on the site (RULE 1).
+#
+# REST API, measured 2026-10-05 (answers the bot UA through Cloudflare): 20,086 posts; category 86
+# = 3,826 (2020 26 / 2021 377 / 2022 533 / 2023 588 / 2024 766 / 2025 890 / 2026 646), 87 = 382
+# (2022–25); 4,208 together. The President's speeches are posts here ("President Simons:
+# 'Vertrouwen in VN moet dringend worden hersteld'", the 2026 Jaarrede reported topic by topic).
+# Bodies from the JSON (content.rendered, text_is_html), quartiles 1,211 / 1,724 / 2,268 / 2,831
+# chars; no page fetch. The 2024 Jaarrede PDF is in sur_president_speeches_wayback. The cabinet's
+# other 19 `document` posts (category 86) are reports, newsletters, the coalition agreement and
+# the constitution — not taken; one of them, "Stap voor stap naar een beter morgen" (2025), is an
+# image-only PDF.
+# Other post types — gedecoreerden (8,713, the honours register), bekendmaking (1,931 notices,
+# empty bodies), document (2,958 tenders/forms/reports), vacature, aanbestedingen, thema (service
+# pages) — are out.
+# Before December 2020 the portal's posts carry no cabinet category (they sit in `archief`, which
+# sur_gov takes); earlier presidencies are sur_president_wayback (president.gov.sr, 2011–22).
+# PROBE 2026-10-05 (--spread 10): 4,208 api entries; title/text/date 10/10, 2020-12 … 2026-10.
+source_id: sur_gov_president
+country: Suriname
+source_language: Dutch
+renderer: static
+
+start_urls:
+  - https://gov.sr/wp-json/wp/v2/posts?categories=86,87&per_page=100
+
+listing:
+  link_pattern: '^https://(?:www\.)?gov\.sr/[^?#]+$'
+
+pagination:
+  type: api
+  param: page
+  start: 1
+  step: 1
+  api:
+    results_path: "."
+    url_field: link
+    title_field: title.rendered
+    date_field: date
+    text_field: content.rendered
+    text_is_html: true
+
+title:
+  selectors: ["h1"]
+text:
+  selectors: [".elementor-widget-theme-post-content"]
+date:
+  selectors: ["meta[property='article:published_time']@content"]
+
+position: president
+date_languages: ["nl"]
+
+notes: >
+  Suriname gov.sr live WordPress REST: the President's and Vice-President's cabinet posts
+  2020-12 .. today (Santokhi, Simons), 4,208, bodies from the JSON. Every other post on the portal
+  is sur_gov. Dutch. No speaker_default.

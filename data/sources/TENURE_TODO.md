@@ -29,6 +29,11 @@ How gaps get closed:
 | `tenure_additions/latam_dom.csv` | 7 | 2020–2026 | [ ] pending (Abinader 2020–26; the key has Medina through 2020) |
 | `tenure_additions/latam_pan.csv` | 17 | 1998–2026 | [ ] pending (Pérez Balladares 1998–99 and Moscoso 1999–2004 — a HOLE before the key's 2004 start that pan_presidencia_old_wayback reaches; Cortizo 2019–24; Mulino 2024–26) |
 | `tenure_additions/latam_pry.csv` | 13 | 2001–2026 | [ ] pending (González Macchi 2001–03 — before the key's 2003 start, reached by pry_presidencia_old_wayback; Abdo Benítez 2018–23; Peña 2023–26). The key's Paraguay `stateabb` is `PAR`, not PRY |
+| `tenure_additions/latam_hti.csv` | 24 | 2009–2026 | [ ] pending (L8a, NEW country — the key had no Haiti rows: Préval 2009–11, Martelly 2011–16, Privert 2016–17, Moïse 2017–21; and PROVISIONALLY the heads of government since — Henry 2021–24, Conille 2024, Fils-Aimé 2024–26 ⚠ see F) |
+| `tenure_additions/latam_sur.csv` | 20 | 2010–2026 | [ ] pending (L8a, NEW country: Venetiaan 2010, Bouterse 2010–20, Santokhi 2020–25, Jennifer Simons 2025–26 — confirmed from gov.sr's tags) |
+| `tenure_additions/latam_brb.csv` | 12 | 2009–2026 | [ ] pending (L8a: Thompson 2009–10 and Stuart 2010 — before the key's 2011 start, reached by the GIS archive; Mottley 2018–26) |
+| `tenure_additions/latam_cri.csv` | 11 | 2018–2026 | [ ] pending (L8a: Alvarado 2018–22, Chaves 2022–26, Laura Fernández 2026 — confirmed from presidencia.go.cr) |
+| `tenure_additions/latam_cub.csv` | 63 | 1959–2026 | [ ] pending (L8a: Fidel 1959–2001 — cub_gobierno_wayback reaches his 1959 speeches; Raúl 2008–18; Díaz-Canel 2018–26) |
 | `tenure_additions/afg_islamic_emirate*.csv` | 28 | 2021–2026 | [x] already in the key |
 
 L7 (2026-09-30) added `latam_dom/pan/pry.csv`; every LatAm country now has an additions file.
@@ -104,7 +109,9 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
   (Chamorro 1990–97, Alemán 1997–2002 missing). No L6 source reaches before 2002, so not needed yet.
 - [ ] **El Salvador 1994–1998** — `slv_presidencia_old_wayback` has a 1998 capture of Calderón
   Sol's pages and a 1997–98 /noticias/ tree; rows written (see A).
-- [ ] **LatAm L8 (planned 2026-10-04, not yet authored)** — what the chunk's sources will need:
+- [ ] **LatAm L8 (planned 2026-10-04; L8a AUTHORED 2026-10-05 — Haiti, Suriname, Barbados,
+  Costa Rica, Cuba now have additions files, see A; L8b/L8c not yet)** — what the chunk's sources
+  will need:
   - **Haiti and Suriname: NO rows at all** (no recipes yet either). L8 writes `latam_hti.csv` /
     `latam_sur.csv` from scratch (COW 41 HAI / 115 SUR — verify).
   - **Barbados:** the key has 2011–2018 only (Stuart) → Mottley 2018–26.
@@ -144,8 +151,15 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
 - [ ] **Haiti 2021–2026 (L8):** no president since 7 July 2021. PM Ariel Henry 2021–24, then the
   Transitional Presidential Council (Apr 2024 – Feb 2026) alongside PMs Conille and Fils-Aimé
   *(web search — verify)*. Who is "the leader" for those years: the PM, the Council, both?
+  **L8a (2026-10-05) wrote the PMs provisionally into `latam_hti.csv`** (Henry 2021–24, Conille
+  2024, Fils-Aimé 2024–26) so the PM's office's material can be crosschecked; delete those rows
+  if the answer is "the Council". Fils-Aimé is confirmed PM in Sept 2026 by primature.gouv.ht's
+  own video feed. Note the sources: hti_primature is the PM's office, hti_communication_wayback
+  is whole-government — Moïse's 2017–21 addresses come only through the latter.
 - [ ] **Cuba (L8):** the President (Díaz-Canel) and, since Dec 2019, a Prime Minister (Manuel
   Marrero). And Fidel's *Reflexiones* columns (7,057 archived URLs) run 2007–2016, mostly after
-  he left office in 2008 — a former leader's statements.
+  he left office in 2008 — a former leader's statements. **L8a (2026-10-05):** authored as
+  `cub_gobierno_reflexiones_wayback` (497 Spanish columns), queued COMMENTED OUT in
+  `queues/latam/latam_cri_cub.txt` until this is decided.
 - [ ] **Ceremonial heads of state:** the "executive" corpus estimate excludes ceremonial heads
   and stays an upper bound until `is_ceremonial` is filled for every country.

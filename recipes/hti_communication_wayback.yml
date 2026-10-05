@@ -1,0 +1,80 @@
+# Haiti — Ministère de la Communication (communication.gouv.ht), the government's communication
+# ministry, 2013 → 2026, via the Internet Archive. The live host does not resolve (DNS, 2026-10-05).
+# Government-owned → in scope (decision 1, official_gov). It is the main route to Jovenel Moïse's
+# presidency (2017–21): no presidency site of his years is in the Archive (presidence.ht has ~25
+# pages, presidence.gouv.ht none), but this ministry published his addresses ("Allocution du
+# Président de la République … Jovenel Moïse à l'occasion du 217e anniversaire de
+# l'Indépendance", 2021), the Presidency's and the Primature's press notes, and every ministry's
+# news. Whole-government (RULE 1): the cleaner sorts the speakers.
+#
+# CDX 2026-10-05 (whole domain, 33,961 URLs of every type; 5,931 status-200 HTML), three site
+# generations:
+#   archives/<N>                               2013–14 WordPress — body div.post p, date
+#                                              .post .date ("6 June 2014")
+#   [gouv/|communiques/]YYYY/MM/DD/<slug>      early 2016 (19 pages) — body
+#                                              div.post-single-content, date from the URL
+#   [gouv/|communiques/]YYYY/MM/<slug>         2016–24 WordPress ("candidate" theme) — body
+#                                              .post-content
+#   in/[<ministry>/]<slug>, communiques/<slug>, pm/<slug>
+#                                              2024–26 WordPress (lsvr theme) — body
+#                                              div.post__content. This site RE-PUBLISHED the old
+#                                              posts under in/<slug> with their original
+#                                              published_time (2017's "Bilan satisfaisant … CRLDI"
+#                                              is both 2017/07/<slug> and in/<slug>), so the two
+#                                              forms are folded on the slug (identity_strip).
+# Dates: meta article:published_time (2016–26; the 2024–26 pages carry two — local first, then
+# UTC — and the engine takes the first). NOT .post-date: on a 2022 capture of a 2016 article it
+# read "2 août 2022". 2013–14: .post .date.
+# LEFT OUT: actualité-images/<slug> (photo pages, no text), portfolio_post/<slug> (videos), the
+# /embed/ oEmbed stubs, author/, rubrique/ and dans/ listings, at/ tag pages, search pages,
+# cgi-sys suspended-page captures (2019).
+# Language: French, with a share in Haitian Creole (Moïse's 1 January 2021 address, MENFP
+# messages) — the cleaner's detected_language drives translation, not source_language.
+#
+# OFFLINE fold check (foldcheck.py over the saved listing): 2,325 documents — 1,592 of the
+# 2016–24 form + 19 dated-day, 403 communiques/, 98 + 140 in/[<ministry>/], 59 archives/<N>,
+# 14 pm/; 1,535 in/<slug> twins folded into their YYYY/MM originals. COVERAGE ≈ 100% of the
+# article captures (everything left is listings, feeds, oEmbed stubs, photo and video pages).
+# First captured 2013 33 / 2014 16 / 2015–18 51 / 2019 64 / 2020 117 / 2021 203 / 2022 1,000 /
+# 2023 151 / 2024 82 / 2025 368 / 2026 240.
+# PROBE 2026-10-05 (--spread 15): 2,325 snapshots (= offline); title/text/date 15/15,
+# 2013-11 … 2026-03.
+source_id: hti_communication_wayback
+country: Haiti
+source_language: French
+renderer: static
+
+start_urls:
+  - communication.gouv.ht/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?communication\.gouv\.ht(?::\d+)?/(?:archives/\d+|(?:(?:gouv|communiques)/)?20\d\d/\d\d/(?:\d\d/)?(?!\d+/?$)(?!page/)[^/?#]{5,}|(?:in|communiques|pm)/(?:[a-z]{2,6}/)?(?!page/)[^/?#]{8,})/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=/)(?:(?:gouv|communiques)/)?20\d\d/\d\d/(?:\d\d/)?(?=[^/]+/?$)'
+    - '(?<=/)(?:in|communiques|pm)/(?:[a-z]{2,6}/)?(?=[^/]+/?$)'
+
+title:
+  selectors: ["h1.entry-title", "h1"]
+text:
+  selectors: ["div.post__content", ".post-content", "div.post-single-content", "div.post p"]
+date:
+  selectors: ["meta[property='article:published_time']@content", ".post .date"]
+  # the early-2016 theme (YYYY/MM/DD/<slug>, 19 pages) has neither; its URL carries the date
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/[^/]+/?$'
+
+position: president
+date_languages: ["fr", "en"]
+
+notes: >
+  Haiti's Ministry of Communication 2013-2026 from the Internet Archive (live host gone): three
+  WordPress generations; the 2024-26 site re-published old posts under in/<slug>, folded on the
+  slug. Main route to Jovenel Moise's addresses (2017-21). Whole-government news; French with
+  some Haitian Creole. No speaker_default.
