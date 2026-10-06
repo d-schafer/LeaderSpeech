@@ -1,0 +1,85 @@
+# Mexico — Presidencia de la República under Ernesto Zedillo (Dec 1994 – Nov 2000), via the
+# Internet Archive: zedillo.presidencia.gob.mx (the frozen copy of his site, captured 2001–07)
+# and the same pages on www.presidencia.gob.mx while he was in office (captured 1997–2000).
+# Speeches (versiones estenográficas), the spokesman's bulletins, "Pláticas del Presidente"
+# (his Saturday radio talk), tour and state-visit pages, Chiapas communiqués, the annual
+# Informes de Gobierno (decision 4) and the 1999 flood-emergency bulletins.
+#
+# CDX 2026-10-05 (status-200 HTML): zedillo. 8,186 URLs, www 1996–2000 5,812.
+#   pages/disc/<mmmYY>/<DDmmmYY>[-N|bis|…].html   2,834 speeches, 1994-12 … 2000-11
+#   pages/vocero/boletines/com<N>.html            2,544 bulletins (com01 = 15 Oct 1996)
+#   pages/vocero/boletines/bol<N>.html, …          ~130 more bulletins
+#   pages/vocero/platicas/<DDmmmYY>.html               93 radio talks
+#   pages/giras/…, pages/giras_n/…, pages/visitas/…   tours, state visits, joint statements
+#   pub/informe1/, pub/informes/, pages/pub/4info/     Informes de Gobierno chapters
+# On www the 1997–98 tree had no `pages/` prefix (disc/<mmmYY>/…), and its date-named
+# "bulletins" vocero/boletines/<DDmmmYY>.html are the SAME speeches as disc/<mmmYY>/<DDmmmYY>.html
+# (verified: 01ago97 = the welcome for President Wasmosy, both forms). They are folded by file
+# name; the radio talks (vocero/platicas/<DDmmmYY>) are NOT folded — a talk and a speech can
+# share a day. The zedillo. host is listed first so its copy wins the fold: its <title> carries
+# the headline where the 1998 www capture says "Untitled".
+# Left out: the English site (welcome/ — ~44 visit-summary pages, some archived as "Client
+# Validation" shells; recorded as a candidate), JAVA/, images, the Rio Group press kit
+# (pages/grio), search, index pages (disc/abr-00.html etc.).
+#
+# DATES: the body's dateline ("Tuxtla Gutiérrez, Chiapas, 3 de abril del año 2000.", "Los Pinos,
+# octubre 15, 1996"), read only within its first four lines and only with a plain numeric day
+# ("1o. de diciembre" makes dateparser invent one); else the file name (03abr00 → 2000-04-03,
+# parsed under "es"; two-digit years 94–00 resolve to 1994–2000).
+source_id: mex_zedillo_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - zedillo.presidencia.gob.mx/pages/
+  - zedillo.presidencia.gob.mx/pub/
+  - zedillo.presidencia.gob.mx/lluvias/
+  - www.presidencia.gob.mx/pages/
+  - www.presidencia.gob.mx/disc/
+  - www.presidencia.gob.mx/vocero/
+  - www.presidencia.gob.mx/pub/
+  - www.presidencia.gob.mx/lluvias/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?(?:zedillo\.)?presidencia\.gob\.mx(?::80)?/(?:(?:pages/)?(?:disc/[a-z]{3}\d\d/\d\d?[a-z]{3}\d\d[^/?#]*|vocero/(?:boletines|platicas)/[^/?#]+|giras(?:_n)?/[^?#]+|visitas/[^?#]+|chiapas/com/[^/?#]+|pub/(?:informe\w*|4info)/[^/?#]+)|pub/informe\w*/[^/?#]+|lluvias/(?:otras|edos)/[^/?#]+)\.html?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.)?zedillo\.(?=presidencia\.gob\.mx)'
+    - '(?<=presidencia\.gob\.mx)(?::80)?/pages(?=/)'
+    # a speech under disc/<mmmYY>/ and its 1997–98 copy under vocero/boletines/ → one key
+    - '(?<=gob\.mx/)(?:disc/[a-z]{3}\d\d|vocero/boletines)/(?=\d\d?[a-z]{3}\d\d)'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  selectors: ["title"]
+  regex: '^(?!\s*(?:Untitled|Title|Presidencia de la Rep[úu]blica)\s*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["body"]
+date:
+  selectors: ["body"]
+  regex: '(?i)^\s*(?:[^\n]{0,160}\n\s*){0,3}?[^\n]{0,90}?(?P<value>\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|sep?tiembre|octubre|noviembre|diciembre)\s+(?:de|del)(?:\s+a[ñn]o)?\s+\d{4}|(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|sep?tiembre|octubre|noviembre|diciembre)\s+\d{1,2},\s*\d{4})'
+  regex_required: true
+  url_regex: '/(\d\d?(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\d\d)(?:[-_.][^/]*)?\.html?$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Mexico presidency under Ernesto Zedillo 1994-2000 via the Internet Archive
+  (zedillo.presidencia.gob.mx and the same pages on www.presidencia.gob.mx 1997-2000): ~2,830
+  speeches, ~2,700 spokesman bulletins, 93 Platicas del Presidente radio talks, tours and state
+  visits, Informes de Gobierno, 1999 flood bulletins. www's 1997-98 date-named bulletins are
+  the same speeches and are folded by file name. Date from the dateline, else the file name.

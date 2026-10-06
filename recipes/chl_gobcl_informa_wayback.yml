@@ -1,0 +1,44 @@
+# Chile — www.gob.cl "Gobierno informa" stream, Piñera's first term (2010–14), via the Internet
+# Archive. LOW PRIORITY: the whole government's news (ministers, services, regions) — e.g.
+# "12 personas fallecidas por accidentes de tránsito durante celebraciones por Año Nuevo" (the
+# Interior minister). Kept as its own recipe (RULE 1 — collect, let the cleaner decide), like
+# ury_presidencia_news, so it can be queued last without holding back the presidency's own
+# stream (chl_gobcl_pinera_wayback — same site, same selectors).
+# CDX 2026-10-05: informa/YYYY/MM/DD/<slug>.htm — 5,673 distinct (2010: 833, 2011: 1,352,
+# 2012: 1,836, 2013: 1,200, 2014: 452). Crawler echoes under /assets/css/informa/ serve a
+# generic page with no article and are not taken.
+source_id: chl_gobcl_informa_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.gob.cl/informa/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gob\.cl(?::\d+)?/informa/20(?:1[0-4])/\d\d/\d\d/[^/?#]+\.htm$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:[0-9]+"   # unknown-length ("-") captures often do not replay
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["article.post h2.title", "article.post h2", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s+-\s+Gobierno de Chile)?\s*$'
+text:
+  selectors: ["section.body", "article.post"]
+date:
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  LOW PRIORITY. gob.cl's "Gobierno informa" whole-government news stream 2010-2014 (Pinera I),
+  via the Internet Archive; ~5,670 items. Date from the URL. The presidency's own stream on
+  the same site is chl_gobcl_pinera_wayback.

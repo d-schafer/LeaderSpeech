@@ -1,0 +1,67 @@
+# Mexico — gob.mx/presidencia's ENGLISH articles under Enrique Peña Nieto, 2015 – Nov 2018, via
+# the Internet Archive. English text written by the presidency — no machine translation.
+#
+# gob.mx gives each English version its own English slug. CDX 2026-10-05 (distinct slugs):
+#   /presidencia/en/articulos/<slug>   1,124 (809 with English function words in the slug;
+#                                      69 also under the Spanish paths)
+#   /presidencia/en/prensa/<slug>        353 (347 also under /presidencia/prensa/ — the Spanish
+#                                      recipe already takes those, English ones included)
+# The identity strip drops `/en` (and `/es`), so an article mex_presidencia_epn_wayback already
+# holds under its Spanish-path URL is skipped: queue this AFTER it. What remains is the English
+# articulos stream (~1,050).
+# gob.mx also re-serves SPANISH articles under /en/ (a UI language toggle), so `keep_if`
+# requires English running text in the body (five "the"). A rejected page lands in the state
+# file's filtered list; that cannot hide a Spanish article from the Spanish recipe, which runs
+# first.
+# Dates: the date box follows the UI language — "Publication date July 01, 2016" under /en/,
+# "Fecha de publicación …" otherwise — so both are read.
+source_id: mex_presidencia_epn_english_wayback
+country: Mexico
+source_language: English
+renderer: static
+
+start_urls:
+  - www.gob.mx/presidencia/en/articulos
+  - www.gob.mx/presidencia/en/prensa
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gob\.mx(?::\d+)?/presidencia/en/(?:articulos|prensa)/(?!\d+(?:\?|$))[a-z0-9][a-z0-9-]*(?:\?[^#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_from: "20150101"
+  wayback_to: "20181201"
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_noise_params: ["idiom", "tab", "state", "sref", "hootpostid"]
+  wayback_identity_strip: ['(?<=/presidencia)/e[sn](?=/)']
+
+keep_if:
+  selectors: [".article-body"]
+  pattern: '(?i)\bthe\b(?:[\s\S]*?\bthe\b){4}'
+
+title:
+  selectors: ["h1.bottom-buffer", "h2.bottom-buffer", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s*\|\s*Presidencia de la Rep[úu]blica.*)?\s*$'
+text:
+  selectors: [".article-body", "main article"]
+date:
+  selectors: ["section.border-box"]
+  # "Publication date July 01, 2016" (English UI) or "Fecha de publicación 16 de diciembre de
+  # 2015" (Spanish UI). Month NAMES only, so ["es","en"] cannot flip a numeric day and month.
+  regex: '(?i)(?:Fecha de publicaci[óo]n|Publication date):?\s*(?P<value>\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4}|[a-z]+\s+\d{1,2},\s*\d{4})'
+  regex_required: true
+context:
+  selectors: ["section.border-box"]
+  regex: '(?i)(?:Categor[íi]a|Category):?\s*(?P<value>[^\n]{3,60}?)\s*$'
+  regex_required: true
+
+position: president
+date_languages: ["es", "en"]
+
+notes: >
+  ENGLISH articles of gob.mx/presidencia under Enrique Pena Nieto 2015 - Nov 2018 via the
+  Internet Archive (/en/articulos, /en/prensa; own English slugs). Folded against the Spanish
+  recipe by dropping /en; keep_if requires English body text (gob.mx re-serves Spanish under
+  /en/). Queue after mex_presidencia_epn_wayback. No speaker_default.

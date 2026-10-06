@@ -364,3 +364,46 @@ def test_html_parser_rejects_unknown_values():
         Recipe(source_id="t", country="Guatemala", start_urls=["https://x.example/"],
                listing={"link_pattern": "x"}, title={"selectors": ["h1"]},
                text={"selectors": ["p"]}, date={"selectors": ["time"]}, html_parser="html5lib")
+
+
+def test_weekday_date_resolves_a_yearless_date_inside_the_span():
+    # presidencia.gob.mx 2006-08 prints "Jueves, 7 de Junio | Comunicado" with no year.
+    from leaderspeech.text_scraper.extract import weekday_date
+    assert weekday_date("Jueves, 7 de Junio | Comunicado", 2006, 2010) == "2007-06-07"
+    assert weekday_date("Lunes, 4 de Diciembre | Discurso", 2006, 2010) == "2006-12-04"
+    assert weekday_date("Thursday, April 26 | Speech", 2006, 2010) == "2007-04-26"
+    assert weekday_date("Miércoles, 9 de septiembre", 2006, 2010) == "2009-09-09"
+
+
+def test_weekday_date_refuses_ambiguity_a_year_and_nonsense():
+    from leaderspeech.text_scraper.extract import weekday_date
+    # 7 June fell on a Thursday in 2007 AND 2012: a wide span must not guess
+    assert weekday_date("Jueves, 7 de Junio", 2000, 2020) is None
+    # wrong weekday for every year in the span
+    assert weekday_date("Lunes, 7 de Junio", 2007, 2007) is None
+    # a 4-digit year present: the ordinary parser's job, not this one
+    assert weekday_date("Viernes, 28 de Marzo de 2008", 2006, 2010) is None
+    assert weekday_date("Comunicado 154", 2006, 2010) is None
+    assert weekday_date("Lunes, 31 de Febrero", 2006, 2010) is None
+    assert weekday_date(None, 2006, 2010) is None
+
+
+def test_extract_record_uses_weekday_years_only_when_the_chain_yields_no_date():
+    from leaderspeech.text_scraper.extract import extract_record
+    from leaderspeech.text_scraper.recipe import Recipe
+
+    date_spec = {"selectors": [".fecha"], "weekday_years": [2006, 2010],
+                 "regex": r"(?P<value>\d{1,2} de \w+ de \d{4})", "regex_required": True}
+    r = Recipe(source_id="t", country="Mexico", start_urls=["https://x.example/"],
+               listing={"link_pattern": "x"}, title={"selectors": ["h1"]},
+               text={"selectors": ["p"]}, date=date_spec, date_languages=["es"])
+    yearless = "<h1>T</h1><p class='fecha'>Jueves, 7 de Junio | Comunicado</p><p>Cuerpo.</p>"
+    dated = "<h1>T</h1><p class='fecha'>Viernes, 28 de Marzo de 2008 | Comunicado</p><p>C.</p>"
+    assert extract_record(yearless, "https://x.example/a", r)["date"] == "2007-06-07"
+    assert extract_record(dated, "https://x.example/b", r)["date"] == "2008-03-28"
+    plain = Recipe(source_id="t", country="Mexico", start_urls=["https://x.example/"],
+                   listing={"link_pattern": "x"}, title={"selectors": ["h1"]},
+                   text={"selectors": ["p"]},
+                   date={k: v for k, v in date_spec.items() if k != "weekday_years"},
+                   date_languages=["es"])
+    assert extract_record(yearless, "https://x.example/a", plain)["date"] is None

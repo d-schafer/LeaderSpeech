@@ -1,0 +1,70 @@
+# Mexico — Presidencia de la República under Felipe Calderón, 2011–2012: the WordPress site that
+# replaced the presidency's CMS in early 2011, via the Internet Archive — on www.presidencia.gob.mx
+# while live (2011–12 captures) and as the frozen copy calderon.presidencia.gob.mx (crawled 2013:
+# 47,140 captures that year). Posts at /YYYY/MM/<slug>/: speeches ("Diversas intervenciones en
+# …", "Palabras del Presidente …"), communiqués, informative notes, interviews, and the
+# ministries' releases the press room carried.
+#
+# ONLY URL YEARS 2011 AND 2012. The WordPress copy also re-hosts 2006–10 posts (2008: 2,938,
+# 2009: 2,556, 2010: 2,467) — the same items mex_presidencia_calderon_wayback takes under their
+# original CMS URLs (/prensa/?contenido=N, ?DNA=…&Contenido=N), and no key joins a WordPress
+# slug to a CMS id, so taking both would store those years twice. The CMS ran until early 2011
+# (ids first captured in 2011: 811), so a few January–March 2011 items may appear in both.
+# CDX 2026-10-05 (status-200 HTML, calderon. host): URL year 2011 2,534, 2012 2,705.
+# Selectors (2013 copy, verified on a 2011 speech): title .columna.b h2 (a bare h2 also matches
+# the sidebar's "Prensa"), body [id^=nota_interna_contenido] (…_sencillo on most posts), date and
+# type from div.fecha ("20 may 2011 | Discurso").
+source_id: mex_presidencia_calderon_wp_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - calderon.presidencia.gob.mx/2011/
+  - calderon.presidencia.gob.mx/2012/
+  - www.presidencia.gob.mx/2011/
+  - www.presidencia.gob.mx/2012/
+
+listing:
+  link_pattern: '^https?://(?:www\.|calderon\.)?presidencia\.gob\.mx(?::80)?/20(?:11|12)/(?:0[1-9]|1[0-2])/[a-z0-9%][^/?#]*/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    # 263 of the kept URLs' first captures have an unknown CDX length ("-"), which often do not
+    # replay; with this filter the harvest picks a known-length capture where one exists.
+    - "length:[0-9]+"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.|calderon\.)(?=presidencia\.gob\.mx)'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  selectors: [".columna.b h2", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s*\|\s*Presidencia de la Rep[úu]blica.*)?\s*$'
+text:
+  selectors: ["[id^=nota_interna_contenido]", "#nota_interna"]
+date:
+  selectors: ["div.fecha"]
+  regex: '(?i)(?P<value>\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*\.?\s+\d{4})'
+  regex_required: true
+context:
+  selectors: ["div.fecha"]
+  regex: '\|\s*(?P<value>[^|\n]{3,40}?)\s*$'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Mexico presidency under Felipe Calderon 2011-2012: the WordPress site (www.presidencia.gob.mx
+  while live, the 2013 copy calderon.presidencia.gob.mx), URL years 2011-12 only — its re-hosted
+  2006-10 posts are the CMS items mex_presidencia_calderon_wayback takes. Speeches, communiques,
+  notes, interviews, ministry releases. ~5,200 posts. Date and type from div.fecha.

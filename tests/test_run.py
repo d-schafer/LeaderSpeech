@@ -397,6 +397,28 @@ def test_circuit_breaker_aborts_on_consecutive_failures(tmp_path, monkeypatch):
     assert res["failed_this_run"] == 5  # stopped right after the 5th, didn't grind through 20
 
 
+def test_wayback_cdx_timeout_reaches_the_cdx_listing(tmp_path, monkeypatch):
+    """`pagination.wayback_cdx_timeout` is handed to the CDX listing call (default 60 s): a
+    whole-host scan of a mega-host can take longer than a section prefix (2026-10-05:
+    www.presidencia.gob.mx 2012-12 .. 2016 answered in 61.4 s)."""
+    from leaderspeech.text_scraper.recipe import load_recipe
+
+    seen = []
+
+    def fake_lsfq(urls, **k):
+        seen.append(k.get("timeout"))
+        return []
+
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", fake_lsfq)
+    run._harvest_wayback_entries(load_recipe(_wayback_recipe(tmp_path)))
+    slow = tmp_path / "slow.yml"
+    slow.write_text(WAYBACK_RECIPE_YAML.replace(
+        'wayback_to: "20151210" }', 'wayback_to: "20151210", wayback_cdx_timeout: 300 }'),
+        encoding="utf-8")
+    run._harvest_wayback_entries(load_recipe(str(slow)))
+    assert seen == [60.0, 300.0]
+
+
 def test_wayback_recipe_scrapes_archived_snapshots(tmp_path, monkeypatch):
     entries = [
         {"timestamp": "20080100", "original": "https://www.casarosada.gob.ar/informacion/discursos"},

@@ -34,6 +34,10 @@ How gaps get closed:
 | `tenure_additions/latam_brb.csv` | 12 | 2009–2026 | [ ] pending (L8a: Thompson 2009–10 and Stuart 2010 — before the key's 2011 start, reached by the GIS archive; Mottley 2018–26) |
 | `tenure_additions/latam_cri.csv` | 11 | 2018–2026 | [ ] pending (L8a: Alvarado 2018–22, Chaves 2022–26, Laura Fernández 2026 — confirmed from presidencia.go.cr) |
 | `tenure_additions/latam_cub.csv` | 63 | 1959–2026 | [ ] pending (L8a: Fidel 1959–2001 — cub_gobierno_wayback reaches his 1959 speeches; Raúl 2008–18; Díaz-Canel 2018–26) |
+| `tenure_additions/latam_mex.csv` | 10 | 1994–2026 | [ ] pending (L8b: Zedillo 1994–2000 — `mex_zedillo_wayback` reaches his Dec 1994 speeches, the key starts Mexico at 2000; Sheinbaum 2024–26 — confirmed from gob.mx's live press stream) |
+| `tenure_additions/latam_chl.csv` | 7 | 2022–2026 | [ ] pending (L8b: Piñera 2022 (to 11 Mar), Boric 2022–26, José Antonio Kast 2026 — Kast confirmed from prensa.presidencia.cl) |
+| `tenure_additions/latam_arg.csv` | 13 | 2001–2026 | [ ] pending (L8b: the December 2001 interim presidents Puerta, Rodríguez Saá, Camaño ⚠ see F — `arg_presidencia_old_wayback` holds Rodríguez Saá's packets; A. Fernández 2019–23; Milei 2023–26) |
+| `tenure_additions/latam_ury.csv` | 11 | 1998–2026 | [ ] pending (L8b: Sanguinetti 1998–2000 — `ury_presidencia_batlle_wayback` starts in 1998, the key at 2000; Lacalle Pou 2020–25; Orsi 2025–26) |
 | `tenure_additions/afg_islamic_emirate*.csv` | 28 | 2021–2026 | [x] already in the key |
 
 L7 (2026-09-30) added `latam_dom/pan/pry.csv`; every LatAm country now has an additions file.
@@ -110,8 +114,8 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
 - [ ] **El Salvador 1994–1998** — `slv_presidencia_old_wayback` has a 1998 capture of Calderón
   Sol's pages and a 1997–98 /noticias/ tree; rows written (see A).
 - [ ] **LatAm L8 (planned 2026-10-04; L8a AUTHORED 2026-10-05 — Haiti, Suriname, Barbados,
-  Costa Rica, Cuba now have additions files, see A; L8b/L8c not yet)** — what the chunk's sources
-  will need:
+  Costa Rica, Cuba; L8b AUTHORED 2026-10-05 — Mexico, Chile, Argentina, Uruguay: all now have
+  additions files, see A; L8c not yet)** — what the chunk's sources will need:
   - **Haiti and Suriname: NO rows at all** (no recipes yet either). L8 writes `latam_hti.csv` /
     `latam_sur.csv` from scratch (COW 41 HAI / 115 SUR — verify).
   - **Barbados:** the key has 2011–2018 only (Stuart) → Mottley 2018–26.
@@ -133,6 +137,11 @@ date on a 2025 speech). **Check the scraped rows first, then add the leaders.**
   (`bra_presidente_interino_wayback`); Venezuela's Delcy Rodríguez, "presidenta encargada" 2026
   (in `latam_ven.csv`); Bolivia's Vice-President García Linera as acting president (two
   transcripts in `bol_comunicacion_discursos_wayback`). One rule for all.
+- [ ] **Argentina, December 2001 (L8b):** after De la Rúa resigned (20 Dec) the office passed
+  through Ramón Puerta (Senate president, 21–23 Dec), Adolfo Rodríguez Saá (Assembly-elected,
+  23–30 Dec — he announced the debt default), Eduardo Camaño (Chamber president, 31 Dec – 1 Jan)
+  before Duhalde. All three are in `latam_arg.csv`; `arg_presidencia_old_wayback` holds
+  Rodríguez Saá's press packets (e.g. 2001-12-23). Keep the two caretakers, or only Rodríguez Saá?
 - [ ] **Short tenures:** Peru's Manuel Merino (5 days, Nov 2020) is in `latam_per.csv` —
   keep, or leave to the cleaner?
 - [ ] **Nicaragua:** Rosario Murillo's co-presidency since the 2025 constitutional reform (L6).

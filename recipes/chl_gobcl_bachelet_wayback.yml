@@ -1,0 +1,51 @@
+# Chile — www.gob.cl under Michelle Bachelet's second term, via the Internet Archive: the
+# WordPress site (nav: Inicio, Presidenta, La Moneda, Autoridades …) that replaced Piñera's
+# gob.cl in 2014. Posts at /YYYY/MM/DD/<slug>/. Spanish.
+#
+# CDX 2026-10-05 (status-200 HTML, distinct): URL year 2014 1,188, 2015 1,954, 2016 36 ⇒ ~3,180.
+# ⚠ THE ARCHIVE THINS OUT AFTER 2015: 2016–Mar 2018 hold almost nothing here, and the
+# presidency's own prensa.presidencia.cl of those years is archived only from 2016 and sparsely
+# (~40 Bachelet-era ids; the live site answers HTTP 500 for them). Bachelet II 2016–18 is a
+# measured gap.
+# Some posts are English translations under English slugs (2015/06/01/inclusion-law-the-key-
+# changes-to-come-with-the-new-legislation) — kept; the cleaner records the detected language.
+# Selectors: div.post h2 (the page's two <h1> are empty), div.contenido; date from the URL
+# ("Marzo 1, 2015" on the page is the same date).
+source_id: chl_gobcl_bachelet_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.gob.cl/2014/
+  - www.gob.cl/2015/
+  - www.gob.cl/2016/
+  - www.gob.cl/2017/
+  - www.gob.cl/2018/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gob\.cl(?::\d+)?/20(?:1[4-8])/\d\d/\d\d/[^/?#]+/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+
+title:
+  selectors: ["div.post h2", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s+-\s+Gobierno de Chile)?\s*$'
+text:
+  selectors: ["div.contenido", "div.post"]
+date:
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  gob.cl under Michelle Bachelet's second term (WordPress, 2014-) via the Internet Archive,
+  ~3,180 posts, almost all 2014-12 .. 2015; 2016-18 is a measured gap in the Archive. Date
+  from the URL. No speaker_default.

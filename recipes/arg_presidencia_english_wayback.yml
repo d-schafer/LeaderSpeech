@@ -1,0 +1,56 @@
+# Argentina — presidencia.gov.ar, 1995–2002, the ENGLISH pages of the daily press packets, via
+# the Internet Archive. The presidency's own translations — no machine translation.
+# Same day folders as arg_presidencia_old_wayback (read its header); the file name carries the
+# language, and this recipe takes the English code: "in" (1995–2000: agjuin01 = June, English)
+# or "en" (2002: agenen01 = January, English — Duhalde's 1 January 2002 address to the
+# Legislative Assembly, 45 KB). Menem's English pages are mostly his daily schedule; 2002's
+# are speech transcripts. CDX 2026-10-05: 822 English pages, index and item pages (first
+# captured 1997: 617, 1999: 72, 2000: 16, 2001: 22, 2002: 95).
+source_id: arg_presidencia_english_wayback
+country: Argentina
+source_language: English
+renderer: static
+
+start_urls:
+  - www.presidencia.gov.ar/agenda/
+  - jezzabel.presidencia.gov.ar/agenda/
+  - www.presidencia.gov.ar/viaje/
+  - jezzabel.presidencia.gov.ar/viaje/
+  - www.presidencia.gov.ar/2001/noticias/
+  - jezzabel.presidencia.gov.ar/2001/noticias/
+  - casarosada.gov.ar/2001/noticias/
+  - www.presidencia.gov.ar/2002/a_noticias/
+  - jezzabel.presidencia.gov.ar/2002/a_noticias/
+
+listing:
+  # day folder, then ag<month><lang><dd>[a-z].html with the ENGLISH code: "in" (1995–2000) or
+  # "en" (2002) — "agmain01" is March-INglish, "agenen01" January-ENglish
+  link_pattern: '^https?://(?:www\.|jezzabel\.)?(?:presidencia|casarosada)\.gov\.ar(?::\d+)?/(?:agenda/(?:\d{2,4}/)?(?:\d\d|[a-z.]+)|viaje/\d{2,4}/[a-z.]+|2001/noticias/2001/\d\d|2002/a_noticias/\d\d_20\d\d)/\d{6}/ag(?=[a-z]{2,5}?(?:in|en)\d)[a-z]{2,8}?\d\d[a-z]?\.html?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.|jezzabel\.)?(?:presidencia|casarosada)\.gov\.ar'
+
+title:
+  # <title> is either informative ("ACTIVIDAD OFICIAL - 25/03/98") or the site name
+  selectors: ["title"]
+  regex: '^(?!\s*PRESIDENCIA DE LA NACI[OÓ]N ARGENTINA\s*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["body"]
+date:
+  url_regex: '/(?P<year>\d\d)(?P<month>0[1-9]|1[0-2])(?P<day>0[1-9]|[12]\d|3[01])/ag'
+
+position: president
+date_languages: ["en"]
+
+notes: >
+  ENGLISH pages of presidencia.gov.ar's daily press packets 1995-2002 via the Internet Archive
+  (the presidency's own translations: Menem's schedule and state visits, Duhalde's 2002
+  addresses). Date from the day folder. No speaker_default.

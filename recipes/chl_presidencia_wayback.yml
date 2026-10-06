@@ -1,0 +1,52 @@
+# Chile — Prensa Presidencia (prensa.presidencia.cl), ARCHIVED. Wayback companion to the live
+# recipes/chl_presidencia.yml ("yes-and": queue the live recipe first; the identity dedupe then
+# skips every page it already holds — the Archive's http/:80 forms included).
+#
+# Why: the live LISTINGS reach back only to Piñera II for speeches (2018-03) and to Boric for
+# communiqués (2022-03). Piñera II's communiqués and photo-news (2018–22) are still served by id
+# but no longer listed, and Bachelet II's (ids below ~70,000) were wiped (HTTP 500).
+# CDX 2026-10-05 (status-200 HTML, distinct ids): comunicado.aspx 1,380, fotonoticia.aspx 951,
+# discurso.aspx 672 — 3,000 ids, first captured 2016 (12) … 2019 (447) … 2026 (331); by id
+# range ~40 are Bachelet II (13,635–70,000), ~1,500 Piñera II (71,500–187,000), the rest Boric
+# and Kast (overlapping the live recipe). Left out: fotografia.aspx (photo records, 682),
+# CompartirGaleria, agenda, search.
+source_id: chl_presidencia_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - prensa.presidencia.cl/comunicado.aspx
+  - prensa.presidencia.cl/discurso.aspx
+  - prensa.presidencia.cl/fotonoticia.aspx
+
+listing:
+  link_pattern: '^https?://prensa\.presidencia\.cl(?::\d+)?/(?:discurso|comunicado|fotonoticia)\.aspx\?id=\d+$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # the article path IS the start_url path; only the query (?id=) tells articles apart
+  wayback_keep_listing_paths: true
+
+title:
+  selectors: ["#main_ltTitulo", "h1", "title"]
+text:
+  selectors: ["#main_ltContenido", ".texto-bloque"]
+date:
+  selectors: ["#main_ltFEcha", ".fecha", "time"]
+context:
+  selectors: ["#main_ltBajada"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Archived prensa.presidencia.cl (Wayback companion to chl_presidencia): Pinera II's communiques
+  and photo-news 2018-22 that the live site no longer lists, the few archived Bachelet II items,
+  and anything else the Archive holds; the live recipe runs first and the identity dedupe skips
+  what it holds. ~3,000 ids.

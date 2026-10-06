@@ -19,6 +19,12 @@
 # Note this is the same era `arg_casarosada_wayback` reaches for via the Internet Archive,
 # at ~417 pages/h against ~4,467 live — see that recipe's header.
 #
+# ⚠ CORRECTION 2026-10-05 (LatAm L8b): "back to 2003-06" overstates what `archivo` holds. Three
+# 2004 Néstor Kirchner speeches sampled from the archived presidencia.gov.ar (Aeroparque
+# multimodal transport, Paraná, San Lorenzo) are NOT in this recipe's 19,449-link harvest, and
+# none of its slugs names Néstor (the 84 "kirchner" slugs are Cristina's or later). His
+# 2003–07 presidency is arg_presidencia_kirchner_wayback.
+#
 # `slider-principal/<id>-<slug>` is IN THE PATTERN BUT NOT IN start_urls, deliberately.
 # It is the homepage "featured" category and the actividad-oficial listing emits its items
 # INLINE, interleaved by date, under that path — which is how two Milei speeches (51337

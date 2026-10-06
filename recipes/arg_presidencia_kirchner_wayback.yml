@@ -1,0 +1,80 @@
+# Argentina — presidencia.gov.ar under Néstor Kirchner (May 2003 – Dec 2007), with the end of
+# Duhalde's term (2002–03) and the start of Cristina Fernández's (Dec 2007 – 2008), via the
+# Internet Archive. Speeches, communiqués, press releases, the "textos" stream (speeches,
+# press conferences, gacetillas, alocuciones) and the 2005–08 news and speech pages.
+#
+# NOT on the live site: the live arg_casarosada `/informacion/archivo/` was believed to reach
+# 2003; three 2004 Kirchner speeches sampled from here (Aeroparque multimodal transport,
+# Paraná, San Lorenzo) are not in its 19,449-link harvest, and only 84 of its slugs name a
+# Kirchner (mostly Cristina's). So Néstor Kirchner's presidency is this recipe.
+#
+# CDX 2026-10-05 (status-200 HTML, distinct ids per script):
+#   prensaoficial/txt_show2.php?id=N        1,254   "Textos" — discursos, conferencias, gacetillas
+#   prensaoficial/discursos_show.php?id=N     340   the same ids' speeches (txt_show2?id=1026 and
+#                                                   discursos_show?id=1026 are one speech) — FOLDED
+#   prensaoficial/mostrar_news_pr.php?id=N    848   ⚠ a DIFFERENT table: mostrar_news_pr?id=1455 is
+#   prensaoficial/mostrar_news.php?id=N       688     Duhalde in Rome (2003), discursos_show?id=1455
+#   prensaoficial/mostrar_pef.php?id=N        495     Kirchner in Paraná (2004). These scripts are
+#   prensaoficial/mostrar_noti.php?id=N       118     NOT folded with each other or with the above.
+#   Articulo.aspx?cdArticulo=N / Discurso.aspx?cdArticulo=N   485 / 265 (2005–08, disjoint ids)
+# ⇒ 4,164 documents (offline check; first captured 2002: 319, 2003: 903, 2004: 2,101, 2005: 363,
+# 2006: 193, 2007: 278).
+# PARSER: the PHP pages include a whole <html>…</body></html> header INSIDE <head>, so the
+# article sits in a SECOND <body>; lxml drops it (7 chars), html.parser keeps both bodies
+# (2,186 chars on mostrar_news_pr?id=1455) and the `body` selector joins them.
+# DATES: none of these templates prints the article's date — and the 2005–08 span.txtFecha is
+# the site's CLOCK (it equals the capture day every time: the 18 Oct 2007 capture of the 1 March
+# 2007 opening of Congress reads "Jueves 18 de Octubre de 2007"). Not read; rows keep the
+# capture date until the cleaner reads the text.
+source_id: arg_presidencia_kirchner_wayback
+country: Argentina
+source_language: Spanish
+renderer: static
+html_parser: html.parser
+
+start_urls:
+  - www.presidencia.gov.ar/prensaoficial/discursos_show.php
+  - www.presidencia.gov.ar/prensaoficial/txt_show2.php
+  - www.presidencia.gov.ar/prensaoficial/mostrar_news_pr.php
+  - www.presidencia.gov.ar/prensaoficial/mostrar_news.php
+  - www.presidencia.gov.ar/prensaoficial/mostrar_pef.php
+  - www.presidencia.gov.ar/prensaoficial/mostrar_noti.php
+  - www.presidencia.gov.ar/Discurso.aspx
+  - www.presidencia.gov.ar/Articulo.aspx
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gov\.ar(?::\d+)?/(?:prensaoficial/(?:discursos_show|txt_show2|mostrar_news_pr|mostrar_news|mostrar_pef|mostrar_noti)\.php\?id=\d+(?!\d)|(?i:Discurso|Articulo)\.aspx\?(?i:cdArticulo)=\d+(?!\d))(?:&[^#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # the article path IS the start_url path; only ?id= / ?cdArticulo= differs
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # txt_show2 and discursos_show serve the same id → one key
+    - '(?<=/prensaoficial/)(?:txt_show2|discursos_show)(?=\.php\?id=)'
+
+title:
+  selectors: ["span.titNoticiaInterno", "title"]
+  regex: '^(?!\s*(?:Sitio web de la Presidencia de la Naci[oó]n Argentina|Presidencia de la Naci[oó]n Argentina|PRENSA OFICIAL|ACTIVIDAD PRESIDENCIAL[^\n]*)\s*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["span.txtStandardInterno", "body"]
+date:
+  # Deliberately nothing that exists on these pages (see DATES above): span.txtFecha is a clock.
+  selectors: ["time@datetime"]
+context:
+  selectors: ["span.txtCopete"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gov.ar 2002-2008 via the Internet Archive: Nestor Kirchner's speeches, texts,
+  communiques and press releases (PHP press scripts 2002-05, separate id tables per script;
+  ASP.NET 2005-08), ~4,160. Not on the live casarosada archive. html.parser (a second <body>);
+  no on-page dates (txtFecha is a site clock). No speaker_default.

@@ -1,0 +1,61 @@
+# Uruguay — presidencia.gub.uy, mid 2011 – 2021 (José Mujica, Tabaré Vázquez's second term, Luis
+# Lacalle Pou's first year), via the Internet Archive: the news portal
+# comunicacion/comunicacionnoticias/<slug> — before the presidency moved onto gub.uy.
+#
+# CDX 2026-10-05: 17,038 distinct slugs (first captured 2011 328, 2012 989, 2013 1,165, 2014
+# 778, 2015 562, 2016 3,199, 2017 2,766, 2018 2,275, 2019 2,737, 2020 1,443, 2021 796). The
+# 2011–15 WebSphere portal served the same items at wps/wcm/connect/presidencia/
+# portalpresidencia/comunicacion/comunicacionnoticias/<slug> — folded.
+# ⚠ OVERLAP WITH THE LIVE gub.uy: gub.uy migrated part of this archive under NEW slugs (stop
+# words dropped, words reordered: …/a-partir-primero-enero-dgi-gestionara-impuesto-ensenianza-
+# +primaria became …/dgi-gestionara-impuesto-ensenanza-primaria-partir-del-1-enero-2018). A
+# token-overlap match (Jaccard ≥ 0.5) finds ~2,800 of the 17,038 among ury_presidencia_news'
+# 36,265 slugs — ~16%, so ~84% exist only here. The ~2,800 will be stored twice (different
+# URLs; the identity dedupe cannot see a re-slug) — a known duplicate set for the corpus
+# dedupe.
+# Selectors (2017 capture): <title> minus " - Presidencia de la República"; body div#desarrollo;
+# date "Publicado: 10.03.2017" (day-first) — NOT the page header's "10/3/2017 21:52 h.",
+# which is the capture-time clock.
+source_id: ury_presidencia_comunicacion_wayback
+country: Uruguay
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.gub.uy/comunicacion/comunicacionnoticias/
+  - www.presidencia.gub.uy/wps/wcm/connect/presidencia/portalpresidencia/comunicacion/comunicacionnoticias/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.)?presidencia\.gub\.uy(?::\d+)?/(?:wps/wcm/connect/presidencia/portalpresidencia/)?comunicacion/comunicacionnoticias/[a-z0-9][^/?#]*/?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?i)(?<=\.uy)(?::\d+)?/wps/wcm/connect/presidencia/portalpresidencia(?=/comunicacion/)'
+
+title:
+  selectors: ["main#contenidoPrincipal h1", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s+-\s+Presidencia de la Rep[úu]blica.*)?\s*$'
+text:
+  selectors: ["div#desarrollo", "main#contenidoPrincipal", "div.contGralContenido", "div#contenido"]
+date:
+  # 2015-21: "Publicado: 10.03.2017" inside main#contenidoPrincipal. 2011-14 portal skin: a bare
+  # "13/05/2014" line at the top of div#cuerpoIzquierda (after "Noticias / Imprimir contenido /
+  # Achicar texto / Agrandar texto"). Both day-first under "es".
+  selectors: ["main#contenidoPrincipal", "div.contGralContenido", "div#cuerpoIzquierda"]
+  regex: '(?i)(?:Publicado:?\s*|^\s*(?:[^\n]{0,40}\n\s*){0,15}?)(?P<value>\d{1,2}[./]\d{1,2}[./]\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gub.uy news portal mid 2011 - 2021 via the Internet Archive (Mujica, Vazquez II,
+  Lacalle Pou's first year), ~17,000 slugs; the WebSphere-era URLs are folded. ~16% were
+  re-slugged onto gub.uy and will duplicate rows of ury_presidencia_news. Date from
+  "Publicado: DD.MM.YYYY".

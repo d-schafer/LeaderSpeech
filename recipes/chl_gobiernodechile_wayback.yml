@@ -1,0 +1,75 @@
+# Chile — gobiernodechile.cl, the government portal of Michelle Bachelet's first term (2006–10)
+# (Ministerio Secretaría General de Gobierno / Presidencia), via the Internet Archive. The route
+# to Bachelet I: www.presidencia.cl is barely archived after 2007 (2008: 16 HTML captures).
+#
+# CDX 2026-10-05 (status-200 HTML, 2005–2011: 141,371 URLs, of them 97,890 agenda/info.asp
+# and 19,351 efemerides — both out). The article streams, distinct ids:
+#   viewNoticia.aspx?idarticulo=N (+ viewEjeSocial / viewEstado / viewReajuste views)  ~1,050
+#   canal_regional/view-contenido.asp?codArticulo=N[&veregion=R] (regional news)        1,013
+#     — the SAME id space as viewNoticia (194 ids in both): folded on the id
+#   chilenos_exterior/noticias.asp?cod_articulo=N (news for Chileans abroad)              885
+#   discursos/discurso_ministrosd.asp?idarticulo=N (MINISTERS' speeches, 2005–07)         234
+# ⇒ ~3,000. Government news about the President and her government; the ministers' speeches
+# are not the leader's (the cleaner's speaker gate decides). Not taken: the 2005–06 news and
+# speech LISTINGS (historicor.asp, discurso_presidente.asp — pager pages; their detail pages
+# were barely archived: noticias/detalle.asp 14), print views (viewNoticiaImprime), agenda,
+# efemérides, consumer tips, tourist guides, send-to-a-friend forms.
+# DATES: only the regional channel prints the article's date (span.texto-noticia-fecha); the
+# other templates print none (the portal header shows today's date) — those rows keep the
+# Archive capture date until the cleaner reads the text.
+source_id: chl_gobiernodechile_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.gobiernodechile.cl/viewNoticia.aspx
+  - www.gobiernodechile.cl/viewEjeSocial.aspx
+  - www.gobiernodechile.cl/viewEstado.aspx
+  - www.gobiernodechile.cl/viewReajuste.aspx
+  - www.gobiernodechile.cl/Elecciones/viewNoticia.aspx
+  - www.gobiernodechile.cl/canal_regional/view-contenido.asp
+  - www.gobiernodechile.cl/chilenos_exterior/noticias.asp
+  - www.gobiernodechile.cl/discursos/discurso_ministrosd.asp
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gobiernodechile\.cl(?::\d+)?/(?:(?:Elecciones/)?view(?:Noticia|EjeSocial|Estado|Reajuste)\.aspx\?(?:[^#]*?&)?id[Aa]rticulo=\d+(?!\d)(?:&[^#]*)?|(?i:canal(?:_|%5F)regional)/view-contenido\.asp\?(?:[^#]*?&)?codArticulo=\d+(?!\d)(?:&[^#]*)?|chilenos_exterior/noticias\.asp\?cod_articulo=\d+(?!\d)(?:&[^#]*)?|discursos/discurso_ministrosd\.asp\?idarticulo=\d+(?!\d)(?:&[^#]*)?)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # the shared news id space (view*.aspx + the regional channel) → gobiernodechile.cl<id>
+    - '(?<=gobiernodechile\.cl)(?::\d+)?/(?:Elecciones/)?(?:view(?:Noticia|EjeSocial|Estado|Reajuste)\.aspx|(?i:canal(?:_|%5F)regional)/view-contenido\.asp)\?(?:[^#]*?&)?(?:id[Aa]rticulo|codArticulo)=(?=\d)'
+    - '(?<=gobiernodechile\.cl\d\d\d\d)&.*$'
+    - '(?<=gobiernodechile\.cl\d\d\d\d\d)&.*$'
+
+title:
+  selectors: ["div[id$=panelTitulo]", "span.texto-noticia-titulo", "td.texto-noticia-titulo", "td.titNoticiaInt", "td.tceleste12bold", "title"]
+  regex: '^(?!\s*(?:Gobierno de Chile|Canal Regional|Chilenos en el Exterior|Portal de Informaci[óo]n del Gobierno de Chile)\b)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["div[id$=panelTextoContenido]", "td.texto-noticia-contenido", "td.noti", "td.detnoti"]
+date:
+  # Only the regional channel prints the article's own date: span.texto-noticia-fecha
+  # ("22/8/2008" on a 2009-12-20 capture — not a clock; day-first under "es"). The other
+  # templates carry none and stay blank.
+  selectors: ["span.texto-noticia-fecha"]
+  regex: '(?P<value>\d{1,2}[-/]\d{1,2}[-/]\d{4})'
+  regex_required: true
+context:
+  selectors: ["td.notiBajada"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  gobiernodechile.cl (Bachelet I's government portal 2006-2010) via the Internet Archive: news,
+  regional news, news for Chileans abroad, ministers' speeches (~3,000). The only archived
+  route to most of Bachelet's first term. No reliable on-page dates (capture date until the
+  cleaner reads the text).

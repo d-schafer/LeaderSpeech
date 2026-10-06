@@ -1,0 +1,60 @@
+# Chile — www.gob.cl under Sebastián Piñera's first term (Mar 2010 – Mar 2014), via the Internet
+# Archive. In those years gob.cl WAS the presidency's site (nav: Presidente, Primera Dama, La
+# Moneda): speeches, presidential news, featured items, the government blog and infographics.
+# Spanish.
+#
+# CDX 2026-10-05 (status-200 HTML, distinct date+slug): discursos 503, noticias 2,181,
+# destacados 866 (181 of them repeat a noticias item — folded), blog 384, infografias 240
+# ⇒ ~3,990 documents. The URL is /<section>/YYYY/MM/DD/<slug>.htm. A crawler echo of each URL
+# under /assets/css/<section>/… serves a generic page with no article (title "Gobierno de
+# Chile") — not taken. The date comes from the URL path
+# (named groups, unambiguous); the page's own date is unmarked and the sidebar lists other
+# items' dates.
+# Siblings: chl_gobcl_informa_wayback (the "Gobierno informa" whole-government stream, LOW),
+# chl_gobcl_english_wayback (/english/), chl_gobcl_bachelet_wayback (the 2014–16 WordPress).
+# Not taken: agenda/ (the daily schedule, ~1,800), foto-del-dia/, photos/, media/, the First
+# Lady's pages (cecilia-morel-m/, primera-dama/…, prensa-cecilia-morel/ — ~700; recorded as a
+# candidate, as for Panama), legado-bicentenario fichas (project sheets).
+source_id: chl_gobcl_pinera_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.gob.cl/discursos/
+  - www.gob.cl/noticias/
+  - www.gob.cl/destacados/
+  - www.gob.cl/blog/
+  - www.gob.cl/infografias/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gob\.cl(?::\d+)?/(?:discursos|noticias|destacados|blog|infografias)/20(?:1[0-4])/\d\d/\d\d/[^/?#]+\.htm$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:[0-9]+"   # unknown-length ("-") captures often do not replay
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # one key per date+slug, whichever section it was captured under
+  wayback_identity_strip:
+    - '(?<=gob\.cl)(?::\d+)?/(?:discursos|noticias|destacados|blog|infografias)(?=/20\d\d/)'
+
+title:
+  selectors: ["article.post h2.title", "article.post h2", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s+-\s+Gobierno de Chile)?\s*$'
+text:
+  selectors: ["section.body", "article.post"]
+date:
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  gob.cl under Sebastian Pinera's first term 2010-2014 via the Internet Archive (gob.cl was the
+  presidency site then): speeches, presidential news, featured items, blog, infographics,
+  ~3,990 after folding sections. Date from the URL. Whole-government "informa", English and the
+  2014-16 WordPress are sibling recipes.

@@ -1,0 +1,100 @@
+# Mexico — Presidencia de la República, the ENGLISH edition, 2001–2011 (Fox and Calderón), via
+# the Internet Archive. English text, written by the presidency — no machine translation.
+#
+# Same CMS id space as mex_presidencia_fox_wayback / mex_presidencia_calderon_wayback, but the
+# English items carry their OWN ids (2,549 ids appear only under /en/; 67 are shared with a
+# Spanish section), so they are separate documents, not views of the Spanish ones. Forms:
+#   2001–04  /?P=..&Orden=Leer&Tipo=<X>e&Art=<id>  — Tipo with a lowercase "e" (Pe, Ne, Ce, De,
+#            Ee) marks English: Tipo=De Art=1019 is Fox's 3 May 2001 Washington speech, Tipo=Pe
+#            Art=1024 an AP wire story (clippings are part of this stream; the cleaner sorts).
+#   2004–06  /en/activities/<sub>/?contenido=<id>, /en/goodnews/…  (www + the 2007 fox. copy)
+#   2007–10  /en/press[/<sub>]/?contenido=<id>   2,479 ids (speeches, press releases, …)
+#   2009–11  /?DNA=<view>&page=1&Contenido=<id>  English views 88 (press room), 100 (speeches),
+#            102 (press conferences), 103 (news)
+# Left out: /en/cabinet (bios), /en/search, en/enviar.php, the English agenda view (DNA=108)
+# and cabinet views (90, 105–107). French (/fr/, Tipo=Pf/Nf) is not taken (~200 items).
+# Folded on the id like its Spanish siblings, and queued AFTER them: the 67 shared ids are
+# then fetched once, by the Spanish recipe.
+source_id: mex_presidencia_english_wayback
+country: Mexico
+source_language: English
+renderer: static
+# The 2001–04 pages declare no charset and are Latin-1 ("Par�s, Francia" with 34 U+FFFD on
+# one 2002 transcript); the 2004–06 pages decode cleanly as they are. The pair reads both.
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - www.presidencia.gob.mx/en/press
+  - calderon.presidencia.gob.mx/en/press
+  - www.presidencia.gob.mx/en/activities
+  - www.presidencia.gob.mx/en/goodnews
+  - www.presidencia.gob.mx/en/felipecalderon
+  - www.presidencia.gob.mx/en/vicentefox
+  - fox.presidencia.gob.mx/en/activities
+  - fox.presidencia.gob.mx/en/goodnews
+  - www.presidencia.gob.mx/?contenido=
+  - www.presidencia.gob.mx/index.php?contenido=
+  - calderon.presidencia.gob.mx/?contenido=
+  - www.presidencia.gob.mx/?Art=
+  - www.presidencia.gob.mx/index.php?Art=
+
+listing:
+  link_pattern: '^https?://(?:www\.|calderon\.|fox\.)?presidencia\.gob\.mx(?::80)?/(?:en/(?:press|activities|goodnews|felipecalderon|vicentefox)(?:/[a-z_-]+)*/(?:index\.php)?\?(?![^#]*imprimir)(?:[^#]*?&(?:amp;)?)?contenido=\d+(?!\d)(?:(?:&|&amp;)(?:pagina=\d+|lang=en))*|(?:index\.php)?\?(?=[^#]*[?&]DNA=(?:88|100|102|103)(?:&|$))(?![^#]*imprimir)[^#]*?[?&]Contenido=\d+(?!\d)(?:&[^#]*)?|(?:index\.php)?\?(?=[^#]*[?&]Orden=Leer(?:&|$))(?=[^#]*[?&]Tipo=[A-Z]e(?:&|$))(?![^#]*imprimir)[^#]*?[?&]Art=\d+(?!\d)(?:&[^#]*)?)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20010101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "original:.*(Art|ontenido)=[0-9]+.*"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # one key per article id: presidencia.gob.mx<id> (same scheme as the Spanish siblings)
+    - '(?<=//)(?:www\.|fox\.|calderon\.)(?=presidencia\.gob\.mx)'
+    - '(?<=presidencia\.gob\.mx)(?::80)?/[^#]*?[?&](?:amp;)?(?:Art|[Cc]ontenido)=(?=\d)'
+    - '(?<=gob\.mx\d)&.*$'
+    - '(?<=gob\.mx\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d\d)&.*$'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  # The 2001–04 skin has only a generic <title> ("SIP - Discursos"), rejected by the regex.
+  selectors: [".presidencia_subseccion", "div.Titulo_nota_interna", "[class$=_titulo2]", "title"]
+  regex: '^(?!\s*(?:Title|Untitled|SIP\b|Sistema Internet|M[ée]xico - Presiden)[^\n]*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["#presidencia_contenidos_cuerpo", ".presidencia_contenidos_cuerpo", "#nota_prensa", "[class$=_cuerpo]", "td[align=left] > p[align=justify]"]
+date:
+  # "Saturday, November 8, 2008 | Press Release", "2009-07-05 | Discurso" (DNA views), or the
+  # body's dateline ("Washington, D.C. May 3, 2001."). Month NAMES only — no numeric DD/MM is
+  # read, so the English hint cannot flip day and month. 2007's English date element prints no
+  # year ("Thursday, April 26 | Speech") and its body has no dateline: those stay blank.
+  selectors: [".presidencia_articulos_fecha", "[class$=_fecha2]", "div.Fecha_listado", "td[align=left] > p[align=justify]"]
+  regex: '(?i)^[\s\S]{0,200}?(?P<value>\d{4}-\d{2}-\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December),?\s+\d{4})'
+  regex_required: true
+  # Dec 2006 – early 2008 the date element prints NO year ("Jueves, 7 de Junio | Comunicado",
+  # "Thursday, April 26 | Speech"): the regex above misses it (it demands a year), and
+  # weekday_years gives it the one year in 2006–2009 on which that day is that weekday.
+  weekday_years: [2006, 2009]
+context:
+  selectors: [".presidencia_articulos_fecha", "div.Fecha_listado"]
+  regex: '\|\s*(?P<value>[^|\n]{3,40}?)\s*$'
+  regex_required: true
+
+position: president
+date_languages: ["en"]
+
+notes: >
+  ENGLISH edition of the Mexican presidency site 2001-2011 (Fox, Calderon) via the Internet
+  Archive: the presidency's own English press releases, speeches and conferences (own CMS ids,
+  not views of the Spanish items), plus English wire clippings in the 2001-04 stream. Folded on
+  the id; queue after the Spanish siblings. No speaker_default.

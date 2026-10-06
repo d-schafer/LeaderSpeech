@@ -1,0 +1,70 @@
+# Argentina — presidencia.gov.ar, 1996–2002 (Carlos Menem, Fernando de la Rúa, the December 2001
+# interim presidents, Eduardo Duhalde), via the Internet Archive: the daily press packets.
+# Spanish.
+#
+# Before 2003 the site published one FOLDER PER DAY, holding an index page and item pages:
+#   agenda/[<yy>/]<mm>/<yymmdd>/ag<month><lang><dd>[a-z].html   1996–2000 (Menem, De la Rúa)
+#   agenda/<yy>/<country>/<yymmdd>/…, viaje/<yyyy>/<country>/…  Menem's state visits 1995–97
+#   2001/noticias/2001/<mm>/<yymmdd>/…                           2001 (De la Rúa; Puerta,
+#                                                                Rodríguez Saá, Camaño in Dec)
+#   2002/a_noticias/<mm>_<yyyy>/<yymmdd>/…                       Dec 2001 – Oct 2002 (Duhalde)
+# The language is in the file name: sp / esp (or nothing, from mid-2002) = Spanish; in / en =
+# English (→ arg_presidencia_english_wayback); fr, po = French, Portuguese (not taken, ~700).
+# Menem's 1997–99 pages are the president's daily schedule ("09.00hs. El presidente Carlos Menem
+# asiste a …" — engagement notes); from 2000 the packets carry the day's speech transcripts
+# ("Versiones Taquigráficas"), communiqués and press conferences, one per item page.
+# Hosts: www.presidencia.gov.ar, its mirror jezzabel.presidencia.gov.ar, and De la Rúa pages
+# also on casarosada.gov.ar — folded on the path.
+# CDX 2026-10-05 (status-200 HTML) Spanish day pages: 1997–99 ~360, 2000 ~210, 2001 ~1,100,
+# 2002 ~1,000, plus the state-visit packets ⇒ 3,701 after folding the mirror hosts (offline
+# check). The date comes from the day folder (yymmdd, two-digit year: 95–99 → 19xx).
+# Kirchner from 2003 is arg_presidencia_kirchner_wayback; 2008– is the live arg_casarosada.
+source_id: arg_presidencia_old_wayback
+country: Argentina
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.gov.ar/agenda/
+  - jezzabel.presidencia.gov.ar/agenda/
+  - www.presidencia.gov.ar/viaje/
+  - jezzabel.presidencia.gov.ar/viaje/
+  - www.presidencia.gov.ar/2001/noticias/
+  - jezzabel.presidencia.gov.ar/2001/noticias/
+  - casarosada.gov.ar/2001/noticias/
+  - www.presidencia.gov.ar/2002/a_noticias/
+  - jezzabel.presidencia.gov.ar/2002/a_noticias/
+
+listing:
+  # day folder, then ag<month><lang?><dd>[a-z].html — the lookahead drops English (in|en),
+  # French (fr) and Portuguese (po) pages: "agenen01" is January-ENglish, "agjusp01" June-Spanish
+  link_pattern: '^https?://(?:www\.|jezzabel\.)?(?:presidencia|casarosada)\.gov\.ar(?::\d+)?/(?:agenda/(?:\d{2,4}/)?(?:\d\d|[a-z.]+)|viaje/\d{2,4}/[a-z.]+|2001/noticias/2001/\d\d|2002/a_noticias/\d\d_20\d\d)/\d{6}/ag(?![a-z]{2,5}?(?:in|en|fr|po)\d)[a-z]{2,8}?\d\d[a-z]?\.html?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=//)(?:www\.|jezzabel\.)?(?:presidencia|casarosada)\.gov\.ar'
+
+title:
+  # <title> is either informative ("ACTIVIDAD OFICIAL - 25/03/98") or the site name
+  selectors: ["title"]
+  regex: '^(?!\s*PRESIDENCIA DE LA NACI[OÓ]N ARGENTINA\s*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["body"]
+date:
+  url_regex: '/(?P<year>\d\d)(?P<month>0[1-9]|1[0-2])(?P<day>0[1-9]|[12]\d|3[01])/ag'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gov.ar 1996-2002 via the Internet Archive: the daily press packets (one folder per
+  day; Spanish pages only, ~3,700) — Menem's schedule 1997-99, De la Rua's and Duhalde's speech
+  transcripts, communiques and conferences 2000-02, the December 2001 interim presidents.
+  Date from the day folder. No speaker_default.

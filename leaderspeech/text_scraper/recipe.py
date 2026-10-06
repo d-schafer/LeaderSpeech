@@ -88,6 +88,16 @@ class FieldSpec(BaseModel):
     # if the regex captures. For dates, named groups (?P<year>)/(?P<month>)/(?P<day>) are
     # assembled into an ISO date (handy for /YYYY/DD-MM-... archive paths). See docs.
     url_regex: Optional[str] = None
+    # DATE field only. [first_year, last_year], inclusive. Some CMS skins print a date with a
+    # weekday and NO year — presidencia.gob.mx 2006-08: "Jueves, 7 de Junio | Comunicado", on
+    # ~3,800 items. dateparser would complete such a date from TODAY. With this set, when the
+    # chain (and url_regex) yields no date, the text of the first selector that matches is read
+    # for "<weekday>, <day> [de] <month>" or "<weekday>, <month> <day>" (Spanish, English,
+    # Portuguese, French names) and given the ONE year in the range on which that day falls on
+    # that weekday. Blank when no year or more than one fits — a fixed date's weekday moves 1-2
+    # days a year, so a span of up to ~5 years is unambiguous; and blank when the text carries
+    # a 4-digit year (that is the ordinary parser's case, not this one).
+    weekday_years: Optional[tuple[int, int]] = None
 
 
 class Listing(BaseModel):
@@ -298,6 +308,11 @@ class Pagination(BaseModel):
     # ["mimetype:application/pdf", "statuscode:200"] to keep only real PDF captures and
     # drop the text/html listing/redirect noise a prefix query returns. None => no filter.
     wayback_filter: Optional[list[str]] = None
+    # Seconds to wait for each CDX listing query (the harvest is one un-paged CDX call per
+    # start_url). 60 s fits a section prefix; a query that must scan a whole MEGA-host — e.g.
+    # root-addressed slugs (`host/<slug>/`) that no narrower prefix reaches — can take longer:
+    # www.presidencia.gob.mx 2012-12 .. 2016 took 61.4 s for 6,930 rows (2026-10-05).
+    wayback_cdx_timeout: float = 60.0
     # Treat two captures as the SAME page when they differ only by a tracking/UI query
     # parameter (?utm_source=, ?fbclid=, ?comment=disable, ?openVideo=true …) and fetch
     # it once. On by default — it provably cannot lose a document, because only a fixed

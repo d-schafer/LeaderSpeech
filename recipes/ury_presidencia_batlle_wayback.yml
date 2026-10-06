@@ -1,0 +1,56 @@
+# Uruguay — presidencia.gub.uy, 1998–2005 (the end of Julio María Sanguinetti's second term,
+# then Jorge Batlle), via the Internet Archive: the presidency's news service — speeches
+# ("DISCURSO DEL PRESIDENTE DE LA REPUBLICA DR. JORGE BATLLE EN …"), news and communiqués.
+#
+# One file per item, named by date and a daily sequence number — YYYYMMDDNN.htm — under three
+# paths over the years (CDX 2026-10-05, distinct file ids):
+#   sic/noticias/archivo/[<yyyy>/]<mes>/YYYYMMDDNN.htm           1998–2003 (1998–99: <MES><yy>/)
+#   noticias/archivo/<yyyy>/<mes>/…, gxpfiles/data/noticias/archivo/<yyyy>/<mes>/…   2000–05
+# The same file reappears under the later paths and on archivo.presidencia.gub.uy (the
+# presidency's own copy of its old site) — folded on the file id. By file year: 1998 744,
+# 1999 624, 2000 2,033, 2001 2,991, 2002 1,233, 2003 196, 2004 429, 2005 28 ⇒ ~8,280.
+# The date is the file name's (named groups — unambiguous). <title> is the headline.
+# 2004 pages declare no charset and are Latin-1 ("reivindic� su gesti�n"): the codec pair
+# reads them; clean UTF-8 is unaffected.
+# Vázquez I and Mujica (2005–11) are ury_presidencia_vazquez_wayback; 2011–21 is
+# ury_presidencia_comunicacion_wayback; 2013– is the live gub.uy (ury_presidencia).
+source_id: ury_presidencia_batlle_wayback
+country: Uruguay
+source_language: Spanish
+renderer: static
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - www.presidencia.gub.uy/sic/noticias/archivo/
+  - www.presidencia.gub.uy/noticias/archivo/
+  - www.presidencia.gub.uy/gxpfiles/data/noticias/archivo/
+  - archivo.presidencia.gub.uy/sic/noticias/archivo/
+  - archivo.presidencia.gub.uy/noticias/archivo/
+
+listing:
+  link_pattern: '(?i)^https?://(?:www\.|archivo\.)?presidencia\.gub\.uy(?::\d+)?/(?:sic/|gxpfiles/data/)?noticias/archivo/(?:[^/?#]+/){1,2}(?:19|20)\d{8}\.html?$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?i)(?<=//)(?:www\.|archivo\.)?presidencia\.gub\.uy(?::\d+)?/(?:sic/|gxpfiles/data/)?noticias/archivo/[^?#]*/(?=(?:19|20)\d{8}\.html?$)'
+
+title:
+  selectors: ["title"]
+text:
+  selectors: ["body"]
+date:
+  url_regex: '/(?P<year>(?:19|20)\d\d)(?P<month>0[1-9]|1[0-2])(?P<day>0[1-9]|[12]\d|3[01])\d\d\.html?$'
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  presidencia.gub.uy 1998-2005 via the Internet Archive (Sanguinetti's last years, Jorge Batlle):
+  speeches, news and communiques, one YYYYMMDDNN.htm file per item under three successive paths
+  and the archivo. copy, folded on the file id (~8,280). Date from the file name.

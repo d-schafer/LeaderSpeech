@@ -1,0 +1,83 @@
+# Mexico — gob.mx/presidencia under Enrique Peña Nieto, 2015 – Nov 2018, via the Internet
+# Archive. The same host and URL space as mex_presidencia_wayback (AMLO) — this recipe takes the
+# captures made BEFORE AMLO's inauguration (wayback_to 2018-12-01). Press releases, speeches
+# (palabras / versión estenográfica), the "artículos" blog/explainer stream and documentos.
+#
+# CDX 2026-10-05 (2012–2019 captures, status-200 HTML, distinct slugs):
+#   prensa/<slug>           6,162  + es/prensa 326     (6,076 first captured before 2018-12-01)
+#   articulos/<slug>        5,131  + es/articulos 4,797 (5,985 first captured before the cut)
+#   documentos/<slug>          48  + es/documentos 38
+# ⇒ ~12,000 documents once `/es` and the ?idiom= / ?tab= toggles are folded (the identity
+# strip and noise params are the AMLO recipe's, so the two stay consistent against the shared
+# state file). Every URL has a full-size capture (12–20 KB; no bot-wall shells, unlike the
+# 2013–15 site → mex_presidencia_epn_old_wayback). An EPN-era article first captured AFTER
+# 2018-12-01 falls in the AMLO recipe's window instead — still collected, once.
+#
+# LANGUAGE: gob.mx gives English translations their own English slugs, and ~1,000 of the
+# prensa slugs here are English (e.g. prensa/a-country-with-culture-is-a-country-with-a-solid-
+# foundation-…), served with lang='es' like every page — no page-level signal separates them.
+# They are kept (nothing lost); the cleaner records the detected language. /en/articulos (1,124
+# English slugs, 69 also under the Spanish paths) is mex_presidencia_epn_english_wayback.
+# /en/prensa re-serves this recipe's slugs (347 of 353) and is not taken anywhere.
+# gob.mx/epn (EPN's post-2018 archive page): 540 of 656 slugs repeat this host's, the rest are
+# Akamai beacon URLs — measured negative.
+# gob.mx also RE-HOSTED the 2013–15 www.presidencia.gob.mx posts (988 of that site's 1,652
+# slugs reappear here, dated by their original publication: the probe dated one 2013-03-10).
+# This recipe is therefore queued BEFORE mex_presidencia_epn_old_wayback, which folds on the
+# bare slug and so takes only what gob.mx does not hold.
+#
+# SELECTORS (2016 and 2018 skins): title h1.bottom-buffer (2018) / h2.bottom-buffer (2016) — NOT
+# the AMLO recipe's bare `.bottom-buffer`, which matches three elements on the 2016 skin; body
+# .article-body; date from section.border-box ("Fecha de publicación: 10 de marzo de 2016");
+# category ("Comunicado", "Discurso" …) into context.
+source_id: mex_presidencia_epn_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.gob.mx/presidencia/prensa
+  - www.gob.mx/presidencia/es/prensa
+  - www.gob.mx/presidencia/articulos
+  - www.gob.mx/presidencia/es/articulos
+  - www.gob.mx/presidencia/documentos
+  - www.gob.mx/presidencia/es/documentos
+
+listing:
+  # (?!\d+(?:\?|$)): an all-digit "slug" (prensa/50260, articulos/4196) is gob.mx's internal-id
+  # ALIAS of a slugged article — 6 of 6 sampled had their slug twin in this harvest (4,661 such
+  # URLs, which had pushed the probe's count to 16,518).
+  link_pattern: '^https?://(?:www\.)?gob\.mx(?::\d+)?/presidencia/(?:es/)?(?:prensa|articulos|documentos)/(?!\d+(?:\?|$))[a-z0-9][a-z0-9-]*(?:\?[^#]*)?$'
+
+pagination:
+  type: wayback
+  wayback_from: "20150101"
+  wayback_to: "20181201"     # AMLO inauguration — mex_presidencia_wayback covers from here
+  wayback_filter: ["statuscode:200", "mimetype:text/html"]
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_noise_params: ["idiom", "tab", "state", "sref", "hootpostid"]
+  wayback_identity_strip: ['(?<=/presidencia)/es(?=/)']
+
+title:
+  selectors: ["h1.bottom-buffer", "h2.bottom-buffer", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s*\|\s*Presidencia de la Rep[úu]blica.*)?\s*$'
+text:
+  selectors: [".article-body", "main article"]
+date:
+  selectors: ["section.border-box", "section p"]
+  regex: '(?i)(?:Fecha de publicaci[óo]n:?\s*|\|\s*)(?P<value>\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{4})'
+  regex_required: true
+context:
+  selectors: ["section.border-box"]
+  regex: '(?i)Categor[íi]a:?\s*(?P<value>[^\n]{3,60}?)\s*$'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  gob.mx/presidencia under Enrique Pena Nieto 2015 - Nov 2018 via the Internet Archive (captures
+  before 2018-12-01; the AMLO recipe takes later ones): press releases, speeches, articulos,
+  documentos, ~12,000 after folding /es and ?idiom=. ~1,000 English-version press items share
+  the Spanish paths and are kept. No speaker_default.

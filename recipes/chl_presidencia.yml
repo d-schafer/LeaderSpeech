@@ -1,14 +1,33 @@
+# Chile — Prensa Presidencia (prensa.presidencia.cl), the presidency's press site. LIVE, static
+# ASP.NET, query-param pager. The certificate chain is incomplete (verify_ssl: false).
+#
+# ── RULE 1 WIDENING 2026-10-05 (LatAm L8b) ──────────────────────────────────────────────────────
+# This recipe took `discursos.aspx` alone — 1 of the 3 article listings in the site's own nav.
+# Measured on the live pager (6 items per page):
+#     discursos.aspx      351 pages   ~2,100   2018-03 (Piñera II) … today   <- the only one taken
+#     comunicados.aspx    179 pages   ~1,070   2022-03 (Boric) … today      ** ADDED **
+#     fotonoticias.aspx   222 pages   ~1,330   photo-led news items           ** ADDED **
+# All three item types share one id space and one template (#main_ltTitulo / #main_ltContenido /
+# #main_ltFEcha / #main_ltBajada — verified on comunicado 339750, fotonoticia 339846 and
+# comunicado 188309, which is Boric's whole inauguration speech, 19,304 chars). Not taken:
+# fotografias.aspx / videos.aspx (galleries), agenda.aspx (the daily schedule).
+# The site still SERVES older ids its listings no longer show — Piñera II's communiqués
+# (ids ~71,500–187,000, e.g. comunicado.aspx?id=150000 "Presidente anuncia nuevas medidas
+# económicas de apoyo por coronavirus") — but the same id space holds every photo record, so a
+# sweep would be mostly photos; chl_presidencia_wayback takes the archived ones instead. Ids
+# below ~70,000 (Bachelet II, 2014–18) answer HTTP 500: wiped.
 source_id: chl_presidencia
 country: Chile
 source_language: Spanish
 start_urls:
   - https://prensa.presidencia.cl/discursos.aspx
+  - https://prensa.presidencia.cl/comunicados.aspx
+  - https://prensa.presidencia.cl/fotonoticias.aspx
 renderer: static
 verify_ssl: false
 
 listing:
-  link_selector: "h3 a, .texto-busqueda a, table a"
-  link_pattern: 'discurso\.aspx\?id=\d+'
+  link_pattern: '(?:discurso|comunicado|fotonoticia)\.aspx\?id=\d+$'
 
 pagination:
   type: query_param
@@ -29,5 +48,8 @@ context:
 position: president
 date_languages: ["es"]
 notes: >
-  Chile's presidency press site serves individual speeches at discurso.aspx?id=...
-  and paginates the listing by page. Older speeches are on the legacy 2010-2014 site.
+  Chile's presidency press site (prensa.presidencia.cl): speeches (discurso.aspx, 2018-),
+  communiques (comunicado.aspx, 2022-) and photo-news items (fotonoticia.aspx), one id space and
+  template. WIDENED 2026-10-05 (RULE 1) from discursos alone. Earlier years are the Archive's:
+  chl_presidencia_wayback (this host), chl_gobcl_* (gob.cl 2010-16), chl_presidencia_old_wayback
+  (www.presidencia.cl 2001-07).

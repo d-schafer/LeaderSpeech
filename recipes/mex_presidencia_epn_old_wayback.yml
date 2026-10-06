@@ -1,0 +1,73 @@
+# Mexico — Presidencia de la República under Enrique Peña Nieto, Dec 2012 – 2015, BEFORE the
+# presidency moved to gob.mx/presidencia (→ mex_presidencia_epn_wayback): the WordPress site on
+# www.presidencia.gob.mx, via the Internet Archive. Press releases and speeches
+# (articulos-prensa/<slug>, a custom post type) and the blog/explainer posts addressed at the
+# site root (/<slug>/).
+#
+# ⚠ MOST CAPTURES ARE A BOT WALL. From 2013 the site answered crawlers with a ~900-byte
+# JavaScript cookie page ("This site requires JavaScript and Cookies to be enabled"), and the
+# Archive stored it as HTTP 200. Measured 2026-10-05 over ALL captures (uncollapsed):
+#   articulos-prensa/<slug>   2,404 URLs, 851 with a real (≥ 4 KB) capture
+#   /<slug>/ root posts       2,216 URLs, 779 with a real capture
+# So the CDX `length:` filter below keeps only captures of ≥ 3 KB: with collapse=urlkey the
+# capture harvested for each URL is a real one, and the ~3,000 URLs that exist only as the wall
+# never cost a fetch. They are a measured loss (the wall was all the Archive got). The wall's
+# text is also a `block_page_patterns` signature, in case a short real page slips in.
+# Root posts can only be reached by scanning the whole host for the window — 61.4 s for that
+# query, past the default 60 s — hence `wayback_cdx_timeout`.
+# Selectors (WordPress theme "presidencia", 2013 and 2015 captures): article.blog-post h1,
+# div.post-content, and the date ONLY from <time datetime="2013-04-23T20:07:11-05:00"> — its
+# visible text is "23 abr", with no year.
+source_id: mex_presidencia_epn_old_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.gob.mx/articulos-prensa
+  - www.presidencia.gob.mx/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.gob\.mx(?::80)?/(?:articulos-prensa/[a-z0-9][a-z0-9-]*|(?!(?:prensa|gabinete|multimedia|informe|index|imagenes|podcasts|actividades|anexo|mexico|segundoinforme|tercerinforme|primerinforme|buenasnoticias|programas|directorio|estadomayor|reforma\w*|search|wp-\w+|feed|tag|category|author|page|images|pics|articulos-prensa|presidente|primera-dama|staff|gobierno|transparencia|contacto|blog|english|en|licitaciones|servicio-social|mapa-de-sitio|estructura|gabinete-\w+|zonaseconomicasespeciales)(?:/|$))[a-z0-9][a-z0-9-]*)/?$'
+
+pagination:
+  type: wayback
+  wayback_from: "20121201"
+  wayback_to: "20161231"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:([3-9][0-9]{3}|[0-9]{5,})"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_cdx_timeout: 300
+  wayback_noise_params: ["ref"]
+  # Key = the bare slug, so this recipe recognises the posts gob.mx re-hosted (988 of 1,652 www
+  # slugs; mex_presidencia_epn_wayback runs FIRST and holds them under
+  # gob.mx/presidencia/(es/)?prensa|articulos/<slug>[-<gob.mx id>]). The strips run on this
+  # recipe's own URLs and on the state file's alike. gob.mx's id suffix (5–6 digits, or 4
+  # digits that are not a year) is dropped; WordPress's "-2" duplicate numbering is kept.
+  wayback_identity_strip:
+    - '^https?://(?:www\.)?gob\.mx(?::\d+)?/presidencia/(?:es/)?(?:prensa|articulos|documentos)/(?=[a-z0-9])'
+    - '^https?://(?:www\.)?presidencia\.gob\.mx(?::\d+)?/(?:articulos-prensa/)?(?=[a-z0-9][a-z0-9-]*/?(?:\?|$))'
+    - '-(?!(?:19|20)\d\d(?=/?(?:\?|$)))\d{4,6}(?=/?(?:\?|$))'
+    - '/?\?.*$'
+
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  selectors: ["article.blog-post h1.post-title", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s*\|\s*Presidencia de la Rep[úu]blica.*)?\s*$'
+text:
+  selectors: ["div.post-content", "article.blog-post"]
+date:
+  selectors: ["time@datetime"]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Mexico presidency under Enrique Pena Nieto Dec 2012 - 2015 (WordPress on www.presidencia.gob.mx,
+  before gob.mx) via the Internet Archive: press releases/speeches (articulos-prensa) and root
+  blog posts. Most captures are a JavaScript cookie wall; a CDX length filter keeps the ~1,630
+  URLs with a real capture. Date from <time datetime>.

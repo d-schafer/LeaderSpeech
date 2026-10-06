@@ -1,0 +1,87 @@
+# Mexico — Presidencia de la República, the PRESS-CLIPPING streams, 2004–2010, via the Internet
+# Archive. LOW PRIORITY. Two sections of the presidency site that re-published OTHER outlets'
+# articles:
+#   Fox       /buenasnoticias/[<topic>/]?contenido=<id>   "Las Buenas Noticias también son
+#             Noticia" — sampled: El Universal Online / EFE, Notimex, El Financiero, La Crónica
+#   Calderón  /prensa/ultimasnoticias/?contenido=<id>, /ultimasnoticias/<topic>/?contenido=<id>
+#             "Últimas noticias" / "En los medios" — sampled: Notimex / La Crónica de Hoy,
+#             Notimex / El Financiero
+# They sit in the same CMS id space as mex_presidencia_fox_wayback and
+# mex_presidencia_calderon_wayback and fold on the id the same way, so an id those recipes
+# already hold is skipped here. Kept as its own recipe (RULE 1 — collect, let the cleaner
+# decide) because the bulk is general good-news coverage (sport, business, culture) by private
+# media, not the president's own words; some items do report what he said ("Alcanza inversión
+# extranjera meta anual en tercer trimestre: Calderón"). Queue it LAST; dropping it costs
+# little.
+#
+# CDX 2026-10-05: buenasnoticias ~7,800 distinct ids (2004–06; links carry &pagina=N, the
+# listing page they came from — not a listing marker), ultimasnoticias ~5,000 (2007–10).
+source_id: mex_presidencia_clippings_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.gob.mx/buenasnoticias
+  - fox.presidencia.gob.mx/buenasnoticias
+  - www.presidencia.gob.mx/prensa/ultimasnoticias
+  - www.presidencia.gob.mx/ultimasnoticias
+  - calderon.presidencia.gob.mx/prensa/ultimasnoticias
+  - calderon.presidencia.gob.mx/ultimasnoticias
+
+listing:
+  link_pattern: '^https?://(?:www\.|calderon\.|fox\.)?presidencia\.gob\.mx(?::80)?/(?:buenasnoticias|prensa/ultimasnoticias|ultimasnoticias)(?:/[a-z_-]+)*/(?:index\.php)?\?(?![^#]*imprimir)(?:[^#]*?&(?:amp;)?)?contenido=\d+(?!\d)(?:(?:&|&amp;)(?:pagina=\d+|lang=es))*$'
+
+pagination:
+  type: wayback
+  wayback_from: "20040101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "original:.*ontenido=[0-9]+.*"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # one key per article id: presidencia.gob.mx<id> (same scheme as the Fox/Calderón recipes)
+    - '(?<=//)(?:www\.|fox\.|calderon\.)(?=presidencia\.gob\.mx)'
+    - '(?<=presidencia\.gob\.mx)(?::80)?/[^#]*?[?&](?:amp;)?(?:Art|[Cc]ontenido)=(?=\d)'
+    - '(?<=gob\.mx\d)&.*$'
+    - '(?<=gob\.mx\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d\d)&.*$'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  # 2004–06: p.presidencia_<section>_titulo2, or on some 2005 pages p.presidencia_actividades_
+  # titulo (no "2"); [class^=presidencia_] keeps out the p.body_submenu_titulo section banner.
+  selectors: ["[class$=_titulo2]", "[class^=presidencia_][class$=_titulo]", ".presidencia_subseccion"]
+text:
+  selectors: ["[class$=_cuerpo]", "#presidencia_contenidos_cuerpo", ".presidencia_contenidos_cuerpo"]
+date:
+  # "Domingo, 6 de Marzo de 2005" (Fox), "Miércoles, 9 de Septiembre de 2009" (Calderón); a
+  # late-2007 date element has no year, so the body's dateline (first 200 chars) is the fallback.
+  # Those 2005 pages print the date in no element of its own — only in the column text after the
+  # breadcrumb and the title ("INICIO » Buenas Noticias » Educación » <title> Lunes 9 de mayo de
+  # 2005 El Universal …"), so td.presidencia_columna2 is the last resort, read up to 400 chars.
+  selectors: ["[class$=_fecha2]", ".presidencia_articulos_fecha", "#presidencia_contenidos_cuerpo", ".presidencia_contenidos_cuerpo", "td.presidencia_columna2"]
+  regex: '(?i)^[\s\S]{0,400}?(?P<value>\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|sep?tiembre|octubre|noviembre|diciembre)\s+(?:de|del)\s+\d{4})'
+  regex_required: true
+  # Dec 2006 – early 2008 the date element prints NO year ("Jueves, 7 de Junio | Comunicado",
+  # "Thursday, April 26 | Speech"): the regex above misses it (it demands a year), and
+  # weekday_years gives it the one year in 2006–2009 on which that day is that weekday.
+  weekday_years: [2006, 2009]
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  LOW PRIORITY. Mexico presidency's press-clipping sections 2004-2010 (Fox's Buenas Noticias,
+  Calderon's Ultimas noticias / En los medios): other outlets' articles (Notimex, EFE, El
+  Financiero...) re-published on the presidency site, in the same CMS id space as the Fox and
+  Calderon recipes. Mostly general news, some reporting the president. Queue last.

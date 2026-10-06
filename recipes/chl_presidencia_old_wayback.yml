@@ -1,0 +1,82 @@
+# Chile — www.presidencia.cl, 2000–2007 (Ricardo Lagos, Michelle Bachelet's first year), via the
+# Internet Archive. Speeches, press-office news, "Discursos Escogidos", the Conferencias de
+# Humanidades texts, and the Cuenta Pública (the 21 May message to Congress — decision 4) for
+# 2000 and 2003.
+#
+# CDX 2026-10-05 (status-200 HTML), two generations:
+#   2001–04  Perl: scripts/presi_discursos_ve.pl?codigo=N and cgi-bin/presi_ndiscursos_ve.pl?
+#            codigo=N (the same speeches under two script paths — folded on codigo; ~125),
+#            presi_nnotipres.pl?codigo=N (news, 11). NO date anywhere on these pages (title,
+#            place, text) — they keep the capture date until the cleaner reads the text.
+#   2005–07  ASP: view/viewArticulo.asp?idarticulo=N — 1,236 distinct ids, each also served as
+#            a high-contrast copy (viewArticuloContraste, 856), a pocket copy (HomePocketArticulo,
+#            606), a pop-up reader (622) and a print view; folded on the id, the plain view
+#            listed first so it wins. viewDiscursoEscogido.asp (88 selected speeches, own ids),
+#            viewConferenciaHumanidadesTexto.asp (6), viewNotas.asp (5).
+#   cuenta/  the 2000 and 2003 Cuenta Pública chapters.
+# 2008–10 (most of Bachelet I) is barely archived here (2008: 16 HTML captures, 2009: 38) —
+# see chl_gobiernodechile_wayback. Pre-2000 (Frei) captures are static pages: none taken.
+# Left out: agenda pop-ups and frames, photo/video/audio views, the virtual tour
+# (presi_ntour16), the "hitos" milestone pages, the legislative-agenda pop-ups
+# (pop_agenda_legislativa, a bill list), search, send-to-a-friend.
+# ASP selectors: title span.texto-noticia-titulo; body p.texto-contenido (lead + body, both of
+# the story); date span.texto-bajada-foto ("02-01-2006", day-first under "es") — NOT
+# td.texto-fecha, which is the site's clock ("Jueves, 05 de Enero de 2006" on a 2 Jan story).
+source_id: chl_presidencia_old_wayback
+country: Chile
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.cl/view/viewArticulo.asp
+  - www.presidencia.cl/view/viewDiscursoEscogido.asp
+  - www.presidencia.cl/view/viewConferenciaHumanidadesTexto.asp
+  - www.presidencia.cl/view/viewNotas.asp
+  - www.presidencia.cl/view/viewArticuloContraste.asp
+  - www.presidencia.cl/view/HomePocketArticulo.asp
+  - www.presidencia.cl/view/pop-up-lectura-noticia.asp
+  - www.presidencia.cl/cgi-bin/presi_ndiscursos_ve.pl
+  - www.presidencia.cl/scripts/presi_discursos_ve.pl
+  - www.presidencia.cl/scripts/presi_nnotipres.pl
+  - www.presidencia.cl/cuenta/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?presidencia\.cl(?::\d+)?/(?:view/(?:viewArticulo|viewDiscursoEscogido|viewConferenciaHumanidadesTexto|viewNotas|viewArticuloContraste|[Hh]omePocketArticulo|pop-up-lectura-noticia)\.asp\?(?:[^#]*?&(?:amp;)?)?id[Aa]rticulo=\d+(?!\d)(?:&[^#]*)?|(?:scripts|cgi-bin)/presi_n?(?:discursos_ve|notipres)\.pl\?codigo=\d+(?!\d)(?:&[^#]*)?|cuenta/(?:cap\d+|discursos)/[^/?#]+\.html?)$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # article paths equal the start_url paths (only ?idarticulo= / ?codigo= differ)
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # ASP views → presidencia.cl<id>; the two Perl script paths → presidencia.cl/discursos_ve.pl?…
+    - '(?<=presidencia\.cl)(?::\d+)?/view/[^?#]+\.asp\?(?:[^#]*?&(?:amp;)?)?id[Aa]rticulo=(?=\d)'
+    - '(?<=presidencia\.cl\d)&.*$'
+    - '(?<=presidencia\.cl\d\d)&.*$'
+    - '(?<=presidencia\.cl\d\d\d)&.*$'
+    - '(?<=presidencia\.cl\d\d\d\d)&.*$'
+    - '(?<=presidencia\.cl)(?::\d+)?/(?:scripts|cgi-bin)/presi_n?(?=discursos_ve\.pl)'
+
+title:
+  selectors: ["span.texto-noticia-titulo", "td.texto[align=center]", "title"]
+  regex: '^(?!\s*(?:Presidencia de la Rep[úu]blica de Chile|Discursos Presidenciales)\s*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["p.texto-contenido", "td.texto:not([align])", "body"]
+date:
+  selectors: ["span.texto-bajada-foto"]
+  regex: '(?P<value>\d{1,2}-\d{1,2}-\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  www.presidencia.cl 2000-2007 via the Internet Archive: Lagos's speeches (2001-04 Perl
+  generation, no on-page date), the 2005-07 ASP press articles and selected speeches (~1,240,
+  folded across five copies of each), the 2000 and 2003 Cuenta Publica. Bachelet I after 2007
+  is barely archived here. No speaker_default.

@@ -1,0 +1,109 @@
+# Mexico — Presidencia de la República under Felipe Calderón, Dec 2006 – early 2011, via the
+# Internet Archive: the presidency's own CMS on www.presidencia.gob.mx and
+# calderon.presidencia.gob.mx. Speeches, communiqués, news notes, interviews, press
+# conferences, the "Sala de Prensa" stream and the ministries' releases the press room carried
+# (SSP, PGR, Segob, SRE, Salud, Semarnat, Semar …).
+#
+# THE SAME CMS ID SPACE AS FOX'S (see mex_presidencia_fox_wayback): Calderón's items continue
+# from ~28,3xx to ~65,000 (first captured 2007: 3,872 ids, 2008: 6,588, 2009: 9,841, 2010:
+# 5,881, 2011: 811). This recipe takes ids ≥ 28,000; the id is the fold key across every form:
+#   2007–10   /prensa[/<sub>]/[index.php]?contenido=<id>[&pagina=N]   (2007–09 skins)
+#   2009–11   /[index.php]?DNA=<view>[&page=1][&Prensa=<n>]&Contenido=<id> (2009–11 skin)
+# The 2009–11 "DNA" number is a VIEW of an id, not the id. Views taken (sampled 2026-10-05):
+# 85 Sala de Prensa, 109/48 discursos, 42/50 entrevistas, 49/52 notas informativas, 51
+# comunicados (ministries). Left out: 35/108 agenda, 94 photo galleries, 33/59/60/61/90/105/
+# 106/107 cabinet bios, 54–58 programme descriptions, 70 "Sabías qué" history essays, and the
+# English views 88/100/102/103 (→ mex_presidencia_english_wayback). An id is fetched ONCE: the
+# fold keeps the first form in start_urls order, so the 2007–08 /prensa/ skin is listed first.
+# Both hosts serve the same items; www is listed before calderon.
+#
+# NOT HERE: "Últimas noticias" / "En los medios" (/prensa/ultimasnoticias/, /ultimasnoticias/
+# <topic>/) — press CLIPPINGS from Notimex, La Crónica, El Financiero … (sampled: "Notimex La
+# Crónica de Hoy Ciudad de México …") → the LOW sibling mex_presidencia_clippings_wayback, with
+# Fox's Buenas Noticias. And the WordPress site that replaced the CMS in 2011 (/YYYY/MM/<slug>/ on www, and the
+# 2013 frozen copy on calderon.presidencia.gob.mx) → mex_presidencia_calderon_wp_wayback. That
+# copy also re-hosts 2006–10 posts (2008: 2,938) — the same items this recipe takes under their
+# original URLs, so the WP recipe is bounded to 2011–12.
+# CDX: `/?contenido=` and `/index.php?contenido=` are real prefixes for the root-addressed DNA
+# form because CDX urlkeys sort query params (contenido < dna < page < prensa).
+source_id: mex_presidencia_calderon_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+
+start_urls:
+  - www.presidencia.gob.mx/prensa
+  - www.presidencia.gob.mx/felipecalderon
+  - calderon.presidencia.gob.mx/prensa
+  - www.presidencia.gob.mx/actividades
+  - fox.presidencia.gob.mx/actividades
+  - www.presidencia.gob.mx/?contenido=
+  - www.presidencia.gob.mx/index.php?contenido=
+  - calderon.presidencia.gob.mx/?contenido=
+  - calderon.presidencia.gob.mx/index.php?contenido=
+
+listing:
+  # id ≥ 28,000: (?:2[89]\d{3}|[3-9]\d{4}|\d{6})(?!\d)
+  link_pattern: '^https?://(?:www\.|calderon\.|fox\.)?presidencia\.gob\.mx(?::80)?/(?:(?:prensa(?!/ultimasnoticias)|felipecalderon|actividades|foxcontigo|vicentefox)(?:/[a-z_-]+)*/(?:index\.php)?\?(?![^#]*imprimir)(?:[^#]*?&(?:amp;)?)?contenido=(?:2[89]\d{3}|[3-9]\d{4}|\d{6})(?!\d)(?:(?:&|&amp;)(?:pagina=\d+|lang=es))*|(?:index\.php)?\?(?=[^#]*[?&]DNA=(?:85|109|48|42|50|49|52|51)(?:&|$))(?![^#]*imprimir)[^#]*?[?&]Contenido=(?:2[89]\d{3}|[3-9]\d{4}|\d{6})(?!\d)(?:&[^#]*)?)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20061201"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "original:.*ontenido=[0-9]+.*"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # one key per article id: presidencia.gob.mx<id> (same scheme as the Fox recipe)
+    - '(?<=//)(?:www\.|fox\.|calderon\.)(?=presidencia\.gob\.mx)'
+    - '(?<=presidencia\.gob\.mx)(?::80)?/[^#]*?[?&](?:amp;)?(?:Art|[Cc]ontenido)=(?=\d)'
+    - '(?<=gob\.mx\d)&.*$'
+    - '(?<=gob\.mx\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d\d)&.*$'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  # 2007–09: .presidencia_subseccion (a <p> in 2007–08, a <div> in 2009); 2009–11 DNA skin:
+  # div.Titulo_nota_interna; late Fox skin: p.presidencia_<section>_titulo2.
+  selectors: [".presidencia_subseccion", "div.Titulo_nota_interna", "[class$=_titulo2]"]
+text:
+  selectors: ["#presidencia_contenidos_cuerpo", ".presidencia_contenidos_cuerpo", "#nota_prensa", "[class$=_cuerpo]"]
+date:
+  # 2007–09: .presidencia_articulos_fecha "Viernes, 28 de Marzo de 2008 | Comunicado".
+  # 2009–11: div.Fecha_listado "2010-11-05 | Especial" (the event date — the page's
+  # "Última modificación" stamp is an EDIT time, two days later on that item, and is not read).
+  # Late-2007 pages print the date WITHOUT a year ("Viernes, 30 de Noviembre"): the regex
+  # misses, and the body's dateline ("… Ciudad de México Viernes 30 de Noviembre de 2007") is
+  # read instead — only within its first 200 characters.
+  selectors: [".presidencia_articulos_fecha", "[class$=_fecha2]", "div.Fecha_listado", "#presidencia_contenidos_cuerpo", ".presidencia_contenidos_cuerpo"]
+  regex: '(?i)^[\s\S]{0,200}?(?P<value>\d{4}-\d{2}-\d{2}|\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|sep?tiembre|octubre|noviembre|diciembre)\s+(?:de|del)\s+\d{4})'
+  regex_required: true
+  # Dec 2006 – early 2008 the date element prints NO year ("Jueves, 7 de Junio | Comunicado",
+  # "Thursday, April 26 | Speech"): the regex above misses it (it demands a year), and
+  # weekday_years gives it the one year in 2006–2009 on which that day is that weekday.
+  weekday_years: [2006, 2009]
+context:
+  # the item type after the date: Comunicado, Discurso, Entrevista, Nota Informativa, Especial
+  selectors: [".presidencia_articulos_fecha", "div.Fecha_listado"]
+  regex: '\|\s*(?P<value>[^|\n]{3,40}?)\s*$'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Mexico presidency under Felipe Calderon Dec 2006 - early 2011, via the Internet Archive: the
+  presidency's CMS on www.presidencia.gob.mx and calderon.presidencia.gob.mx (ids >= 28,000 of
+  the id space shared with Fox's site), folded on the id across the /prensa/?contenido= and
+  ?DNA=..&Contenido= forms. Speeches, communiques, notes, interviews, conferences and the
+  ministries' releases carried by the press room. 2011-12 WordPress is a separate recipe.
+  No speaker_default.

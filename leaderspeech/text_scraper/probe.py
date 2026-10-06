@@ -422,6 +422,7 @@ def probe(recipe_path: str, n: int = 2, spread: bool = False, extend_wayback: bo
                 match_type=recipe.pagination.wayback_match_type,
                 collapse=recipe.pagination.wayback_collapse,
                 filters=recipe.pagination.wayback_filter,
+                timeout=recipe.pagination.wayback_cdx_timeout,
             )
             entries = wayback.filter_entries_for_recipe(
                 entries,

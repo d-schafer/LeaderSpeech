@@ -9,6 +9,7 @@ strip carriage returns, collapse runs of whitespace, drop empty lines.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime
 from typing import Optional
 
@@ -308,6 +309,74 @@ def parse_date(raw: Optional[str], languages: Optional[list[str]] = None,
     return dt.date().isoformat()
 
 
+# Names for `FieldSpec.weekday_years`, accents stripped (Spanish, English, Portuguese, French).
+_WEEKDAY_NAMES = {
+    "lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6,
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5,
+    "sunday": 6,
+    "segunda-feira": 0, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3,
+    "sexta-feira": 4,
+    "lundi": 0, "mardi": 1, "mercredi": 2, "jeudi": 3, "vendredi": 4, "samedi": 5, "dimanche": 6,
+}
+_MONTH_NAMES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6, "julio": 7,
+    "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6, "july": 7,
+    "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    "janeiro": 1, "fevereiro": 2, "marco": 3, "maio": 5, "junho": 6, "julho": 7, "setembro": 9,
+    "outubro": 10, "novembro": 11, "dezembro": 12,
+    "janvier": 1, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7,
+    "aout": 8, "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12,
+}
+_WD = "|".join(sorted(_WEEKDAY_NAMES, key=len, reverse=True))
+_MO = "|".join(sorted(_MONTH_NAMES, key=len, reverse=True))
+_WEEKDAY_DATE = re.compile(
+    rf"\b(?P<wd>{_WD})\b[\s,.]*(?:(?P<d1>\d{{1,2}})(?:\s+de)?\s+(?P<m1>{_MO})\b"
+    rf"|(?P<m2>{_MO})\s+(?P<d2>\d{{1,2}})\b)")
+
+
+def weekday_date(text: Optional[str], first_year: int, last_year: int) -> Optional[str]:
+    """ISO date for a YEAR-LESS "<weekday>, <day> <month>" (or "<weekday>, <month> <day>"):
+    the one year in [first_year, last_year] on which that day falls on that weekday. None if
+    there is no such phrase, if the text carries a 4-digit year, or if zero or several years
+    fit. See `FieldSpec.weekday_years`."""
+    if not text:
+        return None
+    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    if re.search(r"\b(?:1[89]|20)\d\d\b", t):
+        return None
+    m = _WEEKDAY_DATE.search(t)
+    if not m:
+        return None
+    wd = _WEEKDAY_NAMES[m.group("wd")]
+    day = int(m.group("d1") or m.group("d2"))
+    month = _MONTH_NAMES[m.group("m1") or m.group("m2")]
+    fits = []
+    for year in range(first_year, last_year + 1):
+        try:
+            if datetime(year, month, day).weekday() == wd:
+                fits.append(year)
+        except ValueError:
+            continue
+    if len(fits) != 1:
+        return None
+    return datetime(fits[0], month, day).date().isoformat()
+
+
+def date_from_weekday(soup: BeautifulSoup, spec: Optional[FieldSpec]) -> Optional[str]:
+    """`FieldSpec.weekday_years`: read the first matching date selector's text (no regex) for
+    a year-less weekday date and resolve its year inside the configured span."""
+    if spec is None or not spec.weekday_years:
+        return None
+    first_year, last_year = spec.weekday_years
+    for selector in spec.selectors:
+        elements = _select(soup, selector)
+        if not elements:
+            continue
+        return weekday_date(elements[0].get_text(" "), first_year, last_year)
+    return None
+
+
 def extract_record(html: str, url: str, recipe: Recipe) -> dict:
     """Return the raw per-speech fields (doc_id is assigned later, by run.py)."""
     soup = BeautifulSoup(html, recipe.html_parser)
@@ -326,6 +395,8 @@ def extract_record(html: str, url: str, recipe: Recipe) -> dict:
     if date is None:
         date = date_from_url(recipe.date, url, recipe.date_languages,
                              min_year=recipe.date_min_year)
+    if date is None:
+        date = date_from_weekday(soup, recipe.date)
     return {
         "title": clean_text(field(recipe.title)),
         "text": clean_text(first_match(soup, recipe.text)),

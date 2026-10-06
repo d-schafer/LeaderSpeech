@@ -1,0 +1,114 @@
+# Mexico — Presidencia de la República under Vicente Fox (Dec 2000 – Nov 2006), via the Internet
+# Archive: www.presidencia.gob.mx (2001–06) and fox.presidencia.gob.mx (the frozen copy of Fox's
+# site made in 2007). Speeches, communiqués, interviews, press conferences, tours and visits,
+# the theme streams (crecimiento, desarrollo, orden, buen gobierno) and "Fox Contigo", the
+# weekly radio programme.
+#
+# ONE CMS ID SPACE, THREE URL FORMS (CDX 2026-10-05, status-200 HTML):
+#   2001–04   /?P=<page>&Orden=Leer&Tipo=<type>&Art=<id>       6,519 ids (1 .. 8,893)
+#   2004–06   /<section>/[index.php]?contenido=<id>[&pagina=N]  ~17,700 ids on www (1 .. 28,4xx)
+#   2007      fox.presidencia.gob.mx/<section>/?contenido=<id>  2,367 ids (a copy of the above)
+# The 2004 CMS KEPT the old article ids: Art=8701 (2004 skin) and actividades/discursos/
+# ?contenido=8701 (2006 capture) are the same speech, 8,170 vs 8,181 chars of identical text
+# (verified). So the recipe FOLDS ON THE ID across all forms and hosts. `&pagina=N` is not a
+# listing marker here — it is the listing page the article was linked from, which shifts as new
+# items arrive (contenido=6120 is captured with pagina 39 … 66) — so it stays in the pattern.
+# Calderón's CMS (Dec 2006 – 2011) continued the SAME id space from ~28,3xx; ids ≥ 28,000 are
+# mex_presidencia_calderon_wayback's. The handover is not clean in id order (early-December
+# 2006 items sit in 28,3xx), so a few Calderón items may land here and vice versa — no
+# speaker_default; the cleaner assigns the leader by date.
+#
+# LANGUAGE. The 2001–04 `Tipo` code marks translations with a lowercase second letter (Pe, Ne,
+# Ce, De, Ee = English; Pf, Nf = French — verified: Tipo=Pe Art=1024 is an AP wire story in
+# English, Tipo=Pf Art=1166 a French speech extract). Those forms, /en/ and /fr/ are excluded
+# here; the English ones are mex_presidencia_english_wayback. An English id reached only
+# through a Tipo-less URL would still land here (a few hundred at most); the cleaner records
+# its detected language.
+#
+# NOT HERE: buenasnoticias (~7,800 ids — press CLIPPINGS from private media: EFE, Notimex,
+# El Financiero, El Universal) → the LOW-priority sibling mex_presidencia_buenasnoticias_wayback.
+# Agenda (daily schedule), multimedia (galleries/video), gabinete/directorio (bios), licitaciones,
+# transparencia, pda/ and movil/ (mobile duplicates), enviar.php / califica.php (forms),
+# buscador (search), imprimir=true (print views), mexico/sabiasque (trivia).
+#
+# CDX: the root-addressed Art form is queried as `/?Art=` — CDX urlkeys sort query params, so
+# that prefix returns exactly the Art URLs (17,867 rows in 14 s). A bare `/?` is ignored by CDX
+# and returns the whole host (518,300 rows, 208 s — past the engine's 60 s CDX timeout).
+# `start_urls` order sets which form of an id is kept (first wins): the 2004–06 www skin first
+# (title, date and body in their own elements), the fox. copy next, the 2001–04 skin last.
+source_id: mex_presidencia_fox_wayback
+country: Mexico
+source_language: Spanish
+renderer: static
+# The 2001–04 pages declare no charset and are Latin-1 ("Par�s, Francia" with 34 U+FFFD on
+# one 2002 transcript); the 2004–06 pages decode cleanly as they are. The pair reads both.
+encoding: "utf-8,windows-1252"
+
+start_urls:
+  - www.presidencia.gob.mx/actividades
+  - www.presidencia.gob.mx/foxcontigo
+  - www.presidencia.gob.mx/vicentefox
+  - fox.presidencia.gob.mx/actividades
+  - fox.presidencia.gob.mx/foxcontigo
+  - fox.presidencia.gob.mx/vicentefox
+  - www.presidencia.gob.mx/?Art=
+  - www.presidencia.gob.mx/index.php?Art=
+
+listing:
+  # id < 28,000: (?:\d{1,4}|1\d{4}|2[0-7]\d{3})(?!\d)
+  link_pattern: '^https?://(?:www\.|fox\.)?presidencia\.gob\.mx(?::80)?/(?:(?:actividades|foxcontigo|vicentefox)(?:/[a-z]+)*/(?:index\.php)?\?(?![^#]*imprimir)(?:[^#]*?&(?:amp;)?)?contenido=(?:\d{1,4}|1\d{4}|2[0-7]\d{3})(?!\d)(?:(?:&|&amp;)(?:pagina=\d+|lang=es))*|(?:index\.php)?\?(?=[^#]*[?&]Orden=Leer(?:&|$))(?![^#]*Tipo=[A-Z][a-z])(?![^#]*imprimir)[^#]*?[?&]Art=(?:\d{1,4}|1\d{4}|2[0-7]\d{3})(?!\d)(?:&[^#]*)?)$'
+
+pagination:
+  type: wayback
+  wayback_from: "20010101"
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "original:.*(Art|ontenido)=[0-9]+.*"
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  # Article paths (/actividades/?contenido=N, /?Art=N) equal the start_url paths, so the
+  # listing-path drop would discard every article; the link_pattern (which demands an id)
+  # is the listing filter instead.
+  wayback_keep_listing_paths: true
+  wayback_identity_strip:
+    # one key per article id: presidencia.gob.mx<id>
+    - '(?<=//)(?:www\.|fox\.|calderon\.)(?=presidencia\.gob\.mx)'
+    - '(?<=presidencia\.gob\.mx)(?::80)?/[^#]*?[?&](?:amp;)?(?:Art|[Cc]ontenido)=(?=\d)'
+    - '(?<=gob\.mx\d)&.*$'
+    - '(?<=gob\.mx\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d)&.*$'
+    - '(?<=gob\.mx\d\d\d\d\d)&.*$'
+
+# From ~2009 the site answered crawlers with a JavaScript cookie wall ("This site requires
+# JavaScript and Cookies to be enabled", <title>Client Validation</title>) and the Archive stored
+# it as HTTP 200. As a block signature it is refused and the URL's largest other capture is used.
+block_page_patterns: ["requires javascript and cookies to be enabled"]
+
+title:
+  # 2004–06: p.presidencia_<section>_titulo2; 2007–08 Calderón skin: p.presidencia_subseccion;
+  # 2001–04: no headline element and a generic <title> ("Title", "SIP - Discursos", "Sistema
+  # Internet de la Presidencia…"), which the regex rejects so the title stays blank.
+  selectors: ["[class$=_titulo2]", "p.presidencia_subseccion", "title"]
+  regex: '^(?!\s*(?:Title|Untitled|SIP\b|Sistema Internet|M[ée]xico - Presidencia)[^\n]*$)(?P<value>[\s\S]+)$'
+  regex_required: true
+text:
+  selectors: ["[class$=_cuerpo]", "#presidencia_contenidos_cuerpo", "td[align=left] > p[align=justify]"]
+date:
+  # "Viernes, 29 de Abril de 2005" (p.presidencia_actividades_fecha2) or the body's dateline
+  # ("Los Pinos, 25 de junio de 2001.", "México, D.F., a 6 de agosto de 2002."). Only a plain
+  # numeric day is read: "1o. de diciembre" makes dateparser invent a day.
+  selectors: ["[class$=_fecha2]", "p.presidencia_articulos_fecha", "td[align=left] > p[align=justify]"]
+  regex: '(?i)^[^\n]{0,90}?(?P<value>\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|sep?tiembre|octubre|noviembre|diciembre)\s+(?:de|del)\s+(?:a[ñn]o\s+)?\d{4})'
+  regex_required: true
+
+position: president
+date_languages: ["es"]
+
+notes: >
+  Mexico presidency under Vicente Fox 2001-2006, via the Internet Archive (www.presidencia.gob.mx
+  2001-06 and the 2007 copy fox.presidencia.gob.mx): one CMS id space in three URL forms, folded
+  on the id. Speeches, communiques, interviews, conferences, tours, theme streams, Fox Contigo.
+  English/French translations and the Buenas Noticias press clippings are separate recipes.
+  No speaker_default.

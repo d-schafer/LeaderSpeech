@@ -1,0 +1,44 @@
+# Chile — www.gob.cl's ENGLISH edition under Sebastián Piñera's first term (2011–14), via the
+# Internet Archive. English text written by the government — no machine translation.
+# Same templates as chl_gobcl_pinera_wayback, under /english/<section>/YYYY/MM/DD/<slug>.htm.
+# CDX 2026-10-05 (distinct): latest-news 744, featured 428 (4 shared with latest-news),
+# government-information 268, plus noticias/destacados/english-content/blog (33) ⇒ ~1,460.
+# The slugs and titles are English ("president-pinera-presides-over-video-conference-in-the-
+# national-emergency-center…"). Not taken: english/agenda (the schedule, 769), english/media,
+# ministros/subsecretarios/intendentes (bios).
+source_id: chl_gobcl_english_wayback
+country: Chile
+source_language: English
+renderer: static
+
+start_urls:
+  - www.gob.cl/english/
+
+listing:
+  link_pattern: '^https?://(?:www\.)?gob\.cl(?::\d+)?/english/(?:latest-news|featured|government-information|noticias|destacados|english-content|blog)/20(?:1[0-4])/\d\d/\d\d/[^/?#]+\.htm$'
+
+pagination:
+  type: wayback
+  wayback_filter:
+    - "statuscode:200"
+    - "mimetype:text/html"
+    - "length:[0-9]+"   # unknown-length ("-") captures often do not replay
+  wayback_collapse: urlkey
+  wayback_delay: 5.0
+  wayback_identity_strip:
+    - '(?<=gob\.cl)(?::\d+)?/english/(?:latest-news|featured|government-information|noticias|destacados|english-content|blog)(?=/20\d\d/)'
+
+title:
+  selectors: ["article.post h2.title", "article.post h2", "title"]
+  regex: '^\s*(?P<value>.+?)(?:\s+-\s+Gobierno de Chile)?\s*$'
+text:
+  selectors: ["section.body", "article.post"]
+date:
+  url_regex: '/(?P<year>20\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/'
+
+position: president
+date_languages: ["en"]
+
+notes: >
+  ENGLISH edition of gob.cl under Sebastian Pinera's first term 2011-2014 via the Internet
+  Archive: latest news, featured items, government information (~1,460). Date from the URL.

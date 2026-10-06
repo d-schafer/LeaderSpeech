@@ -616,6 +616,7 @@ def _harvest_wayback_entries(recipe: Recipe) -> list[dict]:
         match_type=recipe.pagination.wayback_match_type,
         collapse=recipe.pagination.wayback_collapse,
         filters=recipe.pagination.wayback_filter,
+        timeout=recipe.pagination.wayback_cdx_timeout,
     )
     return wayback.filter_entries_for_recipe(
         entries,
