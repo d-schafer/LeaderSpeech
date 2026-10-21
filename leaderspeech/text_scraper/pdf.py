@@ -208,6 +208,12 @@ def take_empty_reason() -> Optional[str]:
     return reason
 
 
+def peek_empty_reason() -> Optional[str]:
+    """Why the last PDF extraction came back empty, WITHOUT clearing it (take_empty_reason
+    does). Lets the run tell an empty archived capture from a page whose linked PDF is a scan."""
+    return _last_empty_reason
+
+
 def _warn_once(key: str, msg: str, *args) -> None:
     if key in _warned:
         log.debug(msg, *args)

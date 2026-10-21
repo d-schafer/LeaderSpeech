@@ -868,6 +868,35 @@ date those captures reached the generic extractor and were written as ~100-800-c
 The probe does the same and reports `recovered_from_capture` on a rescued page. Rows written as
 shells before this date are removed with `recipe_tools/purgeblocked.py` (see debugging.md).
 
+**Empty archived captures (2026-10-20).** The Archive also stores some crawls as HTTP-200 records
+with an **empty body**, and the harvest can take that capture while a later one holds the page.
+For example, presidencia.gob.do's November 2015 crawl stored ~500-byte records that replay as 0
+bytes. 62 of `dom_presidencia_wayback`'s 65 `empty_text` failures had a later full capture,
+including a Danilo Medina speech of 15,832 characters. The same pattern shows up in
+`ven_presidencia`, `mda_gov_english`, `zaf_thepresidency` and `rus_kremlin_english`.
+
+The engine now treats a capture that holds nothing like a shell:
+
+- **It triggers on two cases.** An archived HTML capture that yields **no text** (recipe
+  selectors, the generic fallback and any `pdf_link` PDF all empty). Or one that `keep_if`
+  rejected while holding **under 200 characters of visible text**.
+- **It tries one other capture.** The engine fetches the URL's largest other capture (same window
+  and filters as above) and extracts it the same way. That capture is used if it has text and
+  passes `keep_if`. It is stamped in `wayback_capture` and logged as *empty capture; recovered
+  from another capture*, and the DONE line counts it.
+- **Otherwise the verdict stands.** If there is no other capture, it is just as empty, or it
+  cannot be fetched, the row fails as `empty_text` (or is filtered) exactly as before.
+- **Some empties are left alone.** A `keep_if` rejection of a page *with* content is a verdict on
+  the document, so it costs no extra query. Neither does a page whose linked PDF has no text
+  layer: that is a scan, and OCR recovers it.
+
+The `keep_if` case matters because a rule that drops empty bodies would otherwise file an empty
+capture as "filtered", which `--retry-failed` never revisits. Pages filtered that way **before**
+this date stay filtered. Only `--rescrape` re-fetches them.
+
+A run with `--retry-failed` recovers the earlier `empty_text` failures. The probe applies the
+same fallback.
+
 ## Truncated archived documents (`document_truncated`, 2026-10-02)
 
 The Archive holds many large PDFs only as a **prefix**. Some are stored cut at exactly 1 MiB or

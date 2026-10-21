@@ -29,8 +29,8 @@ from .fetch import Fetcher
 from .paginate import extract_links, harvest_links
 from .recipe import FieldSpec, PaginationType, WaybackExtend, load_recipe
 from .pdf import take_empty_reason
-from .run import (_fetch_archived_document, _follow_pdf_body, _is_block_payload,
-                  _unblocked_alternate, wants_pdf)
+from .run import (_extract_capture, _extract_payload, _fetch_archived_document, _follow_pdf_body,
+                  _is_block_payload, _swap_empty_capture, _unblocked_alternate, wants_pdf)
 from . import api, feed, index, wayback
 
 try:
@@ -251,7 +251,7 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
     pages = []
     for item in sample:
         pdf_data = None
-        recovered_from = None     # set when a WAF/CAPTCHA capture was replaced by another
+        recovered_from = None     # set when a WAF/CAPTCHA or EMPTY capture was replaced by another
         try:
             url = item["original"] if is_wayback else item
             # Same gate as the run (run.wants_pdf / looks_like_document): the binary-document
@@ -289,6 +289,19 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
                         continue
                     phtml = alt_html
                     recovered_from = alt.get("timestamp")
+                # Same as the run: a capture that yields nothing (a 0-byte HTTP-200 record, a
+                # shell) is replaced by the URL's largest other capture when that one has text
+                # (run._swap_empty_capture). The linked PDF is only followed to decide this when
+                # the HTML itself is empty, so a pdf_link probe does not fetch every PDF twice.
+                take_empty_reason()
+                drec, _ = _extract_payload("html", phtml, url, recipe, fill_date=False)
+                if not drec["text"] and recipe.pdf_link is not None:
+                    drec, _, _ = _extract_capture(phtml, url, recipe, timestamp=item.get("timestamp"),
+                                                  client=wayback_client, delay=0.0)
+                swap = _swap_empty_capture(item, phtml, drec, recipe, client=wayback_client,
+                                           delay=0.0)
+                if swap is not None:
+                    phtml, recovered_from = swap[0], swap[1].get("timestamp")
             elif want_pdf:
                 _, data = fetcher.get_bytes(url)
                 pdf_data = data if looks_like_document(data) else None
@@ -347,7 +360,7 @@ def _diagnose_pages(sample, recipe, *, fetcher=None, wayback_client=None,
         elif pdf_reason:
             page["empty_reason"] = f"linked PDF: {pdf_reason}"
         if recovered_from:
-            page["recovered_from_capture"] = recovered_from   # the first capture was a WAF shell
+            page["recovered_from_capture"] = recovered_from   # the first was a WAF shell or empty
         pages.append(page)
     return pages
 

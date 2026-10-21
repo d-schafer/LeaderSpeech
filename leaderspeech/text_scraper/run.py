@@ -38,8 +38,8 @@ from .fetch import Fetcher, egress_ip
 from .msword import is_doc_url, is_docx_url
 from .paginate import harvest_links
 from .ocr import ocr_language_for
-from .pdf import (is_pdf_url, looks_like_pdf, pdf_bytes_to_text, take_empty_reason,
-                  truncation_note)
+from .pdf import (is_pdf_url, looks_like_pdf, pdf_bytes_to_text, peek_empty_reason,
+                  take_empty_reason, truncation_note)
 from .recipe import ContentType, PaginationType, Recipe, WaybackExtend, load_recipe
 from . import api, feed, index, wayback
 
@@ -383,6 +383,86 @@ def _unblocked_alternate(entry: dict, recipe: Recipe, *, client=None, delay: flo
     if looks_like_block_page(html, recipe.block_page_patterns):
         return None, alt
     return html, alt
+
+
+# Fewer visible characters than this and an archived capture holds no document: the Archive
+# recorded the URL with HTTP 200 but kept an empty body, a redirect stub or a script-only shell.
+THIN_CAPTURE_CHARS = 200
+
+
+def _thin_capture(html: str) -> bool:
+    """Does this archived capture hold next to nothing (< THIN_CAPTURE_CHARS of visible text)?"""
+    if len(html.strip()) < THIN_CAPTURE_CHARS:
+        return True
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript", "template"]):
+        tag.decompose()
+    return len(" ".join(soup.get_text(" ").split())) < THIN_CAPTURE_CHARS
+
+
+def _capture_is_empty(rec: dict, html: str) -> bool:
+    """Should this archived HTML capture be swapped for another capture of the same URL?
+
+    Yes when it yielded no text (it would fail as `empty_text`). Also when keep_if rejected a
+    THIN capture: a keep_if that drops empty bodies would otherwise turn an empty capture into a
+    silent "filtered", which `--retry-failed` never revisits. A keep_if rejection of a page WITH
+    content is a verdict on the document and stands. So does an empty body from a linked PDF
+    (`pdf_link`) with no text layer: that is a scan, and OCR, not another capture, recovers it."""
+    if peek_empty_reason():
+        return False
+    if rec.get("keep", True):
+        return not rec.get("text")
+    return _thin_capture(html)
+
+
+def _extract_capture(html: str, url: str, recipe: Recipe, *, timestamp: str | None,
+                     client=None, delay: float = 5.0, pacer=None) -> tuple[dict, bool, bool]:
+    """One archived HTML capture, extracted exactly as the run writes it: the recipe selectors,
+    the generic fallback (without its date guess — wayback_capture is the honest fallback), and,
+    under `pdf_link`, the body of the linked PDF. Returns (rec, via_generic, pdf_followed)."""
+    rec, via_generic = _extract_payload("html", html, url, recipe, fill_date=False)
+    followed = _follow_pdf_body(rec, html, url, recipe, is_wayback=True, timestamp=timestamp,
+                                wayback_client=client, wayback_delay=delay, pacer=pacer)
+    return rec, (False if followed else via_generic), followed
+
+
+def _swap_empty_capture(entry: dict, html: str, rec: dict, recipe: Recipe, *, client=None,
+                        delay: float = 5.0, pacer=None):
+    """The capture in hand holds nothing (`_capture_is_empty`): fetch the URL's largest OTHER
+    capture inside the recipe's window and filters, extract it the same way, and return
+    (html, entry, (rec, via_generic, pdf_followed)) when it yields text that keep_if accepts.
+    None otherwise (no other capture, a CDX or fetch error, a WAF/CAPTCHA page, one just as
+    empty), and the caller's verdict (empty_text / filtered) stands unchanged.
+
+    The harvest takes one capture per URL, and the Archive stores some crawls as HTTP-200
+    records with an EMPTY body: 62 of dom_presidencia_wayback's 65 empty_text failures had a later
+    full capture (a Danilo Medina speech: 0 bytes in Nov 2015, 15,832 characters in Mar 2016;
+    measured 2026-10-20), and the same pattern runs through ven_presidencia, mda_gov_english,
+    zaf_thepresidency and rus_kremlin_english. One CDX query and at most one extra fetch, and only
+    for captures that yielded nothing."""
+    if not _capture_is_empty(rec, html):
+        return None
+    alt = wayback.alternate_capture(entry, from_date=recipe.pagination.wayback_from,
+                                    to_date=recipe.pagination.wayback_to,
+                                    filters=recipe.pagination.wayback_filter)
+    if alt is None:
+        return None
+    url = entry.get("original")
+    try:
+        alt_html = wayback.fetch_snapshot(alt, delay=delay, client=client, pacer=pacer,
+                                          encoding=recipe.encoding)
+        if recipe.block_page and looks_like_block_page(alt_html, recipe.block_page_patterns):
+            return None
+        result = _extract_capture(alt_html, url, recipe, timestamp=alt.get("timestamp"),
+                                  client=client, delay=delay, pacer=pacer)
+    except Exception as e:
+        log.info("alternate capture of %s failed (%s); keeping the empty one",
+                 url, type(e).__name__)
+        return None
+    alt_rec = result[0]
+    if not (alt_rec.get("keep", True) and alt_rec.get("text")):
+        return None
+    return alt_html, alt, result
 
 
 def _unreplayable_capture(exc: Exception, entry) -> bool:
@@ -742,7 +822,7 @@ def scrape_recipe(
     # closures without a pile of `nonlocal` declarations.
     stats = {"scraped": 0, "generic": 0, "failed": 0, "filtered": 0, "from_meta": 0, "pdf_body": 0,
              "archived_block": 0, "archived_block_recovered": 0, "doc_no_text": 0, "truncated": 0,
-             "unreplayable": 0}
+             "unreplayable": 0, "empty_capture_recovered": 0}
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
@@ -828,14 +908,23 @@ def scrape_recipe(
                             stats["archived_block_recovered"] += 1
                             log.info("archived block page; recovered from another capture (%s): %s",
                                      wb_capture, url)
-                        rec, via_generic = _extract_payload("html", html, url, phase_recipe, fill_date=False)
-                        # a page that is just a title + a link to the speech PDF: pull the body
-                        # from the archived PDF nearest this capture (see _follow_pdf_body).
-                        if _follow_pdf_body(rec, html, url, phase_recipe, is_wayback=True,
-                                            timestamp=todo_item.get("timestamp"),
-                                            wayback_client=wayback_client, wayback_delay=wayback_delay,
-                                            pacer=pacer):
-                            via_generic = False
+                        # selectors, the generic fallback, and — a page that is just a title + a
+                        # link to the speech PDF — the body of that PDF (see _follow_pdf_body).
+                        rec, via_generic, followed = _extract_capture(
+                            html, url, phase_recipe, timestamp=todo_item.get("timestamp"),
+                            client=wayback_client, delay=wayback_delay, pacer=pacer)
+                        # An EMPTY capture (a 0-byte HTTP-200 record, a shell): try the URL's
+                        # largest other capture once before failing or filtering it.
+                        swap = _swap_empty_capture(todo_item, html, rec, phase_recipe,
+                                                   client=wayback_client, delay=wayback_delay,
+                                                   pacer=pacer)
+                        if swap is not None:
+                            _, alt, (rec, via_generic, followed) = swap
+                            wb_capture = _wayback_capture_iso(alt.get("timestamp"))
+                            stats["empty_capture_recovered"] += 1
+                            log.info("empty capture; recovered from another capture (%s): %s",
+                                     wb_capture, url)
+                        if followed:
                             stats["pdf_body"] += 1
                 else:
                     url = todo_item
@@ -1150,7 +1239,7 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" (of which {stats['archived_block']} archived WAF/CAPTCHA captures)"
                  if stats["archived_block"] else "",
@@ -1162,6 +1251,8 @@ def scrape_recipe(
                  f"is archived; flagged in document_truncated)" if stats["truncated"] else "",
                  f" | {stats['archived_block_recovered']} recovered from another capture after a "
                  f"WAF/CAPTCHA capture" if stats["archived_block_recovered"] else "",
+                 f" | {stats['empty_capture_recovered']} recovered from another capture after an "
+                 f"EMPTY capture" if stats["empty_capture_recovered"] else "",
                  f" | filtered_out={stats['filtered']}" if stats["filtered"] else "",
                  # 0 here on a recipe that sets item_selector means it matched nothing and
                  # the rows landed as bare as they would have without it.
@@ -1197,6 +1288,9 @@ def scrape_recipe(
         "archived_block_pages": stats["archived_block"],
         # WAF/CAPTCHA captures replaced by a real capture of the same URL (and written)
         "archived_block_recovered": stats["archived_block_recovered"],
+        # empty archived captures (0-byte HTTP-200 records, shells) replaced by a capture of the
+        # same URL that has text (and written)
+        "empty_capture_recovered": stats["empty_capture_recovered"],
         # documents (PDFs) with no usable text layer — scans; OCR (`--ocr`) recovers them
         "documents_no_text": stats["doc_no_text"],
         # rows written from the surviving pages of a truncated document (`document_truncated`)

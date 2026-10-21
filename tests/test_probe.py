@@ -453,6 +453,31 @@ def test_probe_reports_archived_captcha_as_a_failure_like_the_run(monkeypatch):
     assert page["recipe_text_len"] > 0
 
 
+def test_probe_replaces_an_empty_capture_like_the_run(monkeypatch):
+    """2026-10-20 (presidencia.gob.do): a capture stored as HTTP 200 with an empty body is
+    replaced by the URL's largest other capture, as the run does — the probe reports that page,
+    not an empty one the run would never write."""
+    recipe = Recipe(
+        source_id="dom_x", country="Dominican Republic",
+        start_urls=["presidencia.gob.do/noticias"],
+        listing={"link_pattern": r"/noticias/"},
+        pagination={"type": "wayback"},
+        title={"selectors": ["h1"]}, text={"selectors": [".field-name-body"]},
+        date={"selectors": ["span.date-display-single"]},
+    )
+    full = ("<html><h1>Danilo Medina se solidariza</h1><div class='field-name-body'>El presidente "
+            "Danilo Medina se unió en solidaridad con la pena colectiva.</div></html>")
+    monkeypatch.setattr(wayback, "alternate_capture",
+                        lambda e, **k: {"original": e["original"], "timestamp": "20190922163448"})
+    monkeypatch.setattr(wayback, "fetch_snapshot",
+                        lambda item, **kw: full if item["timestamp"] == "20190922163448" else "")
+    entry = {"original": "http://presidencia.gob.do/noticias/danilo-medina-se-solidariza",
+             "timestamp": "20151116153536"}
+    [page] = probe._diagnose_pages([entry], recipe, is_wayback=True)
+    assert page["recovered_from_capture"] == "20190922163448"
+    assert page["recipe_text_len"] > 0
+
+
 # --- issue #57: --spread must reach the OLDEST items -------------------------------------
 # Listings are newest-first, so entries[-1] is the oldest item — the one --spread exists to
 # check, and the one the old `i * (len // n)` stepping could never reach.

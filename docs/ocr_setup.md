@@ -82,7 +82,7 @@ need.
 | machine | status |
 |---|---|
 | home desktop | **PASS** 2026-09-30: Tesseract 5.5.3, tessdata_best, 42 packs. |
-| MSU workstation | not set up yet. Run the script there (you have admin). |
+| MSU workstation | **PASS** 2026-10-12: Tesseract 5.5.0 (per-user install), tessdata_best, 39 packs. |
 | laptop | not set up yet. |
 
 ## Using it

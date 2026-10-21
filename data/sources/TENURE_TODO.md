@@ -57,6 +57,17 @@ Measured against every recipe on 2026-09-26 (recipes in brackets):
   `Viet Nam` → `Vietnam` (1), `Lao People's Democratic Republic` → `Laos` (2),
   `Türkiye` → `Turkey` (1), `United States` → `United States of America` (10),
   `Gambia` → `The Gambia` (2).
+- [ ] **No rows for the 2026-10-14 V-Dem gap countries** (outbox rows only, no recipes yet).
+  Of the 49 countries given `none` outbox rows, only Montenegro, North Korea, Taiwan and
+  Tajikistan are in the key. The other 45 need rows before their recipes can be crosschecked:
+  - Africa: Benin, Burkina Faso, Cabo Verde, Central African Republic, Chad, Comoros, Congo,
+    Côte d'Ivoire, Djibouti, Equatorial Guinea, Eritrea, Gabon, Guinea, Guinea-Bissau,
+    Liberia, Libya, Malawi, Mali, Mauritania, Mauritius, Mozambique, Namibia, Niger,
+    Sao Tome and Principe, Senegal, South Sudan, Togo, Tunisia, Zambia.
+  - Elsewhere: Iraq, Yemen, Nepal, Syria, Cambodia, Portugal, Papua New Guinea, Oman,
+    Bosnia and Herzegovina, Qatar, Kosovo, Bahrain.
+  - Not UN member states (inclusion is the researcher's call, see F): Hong Kong, Somaliland,
+    Zanzibar, Palestine.
 - Recommended fix (free, then `clean_structure_metadata.run --regate`): join on `ISO3N`, which
   both the key and every scraped row carry — no alias map to maintain. It does not fix the four
   countries with no rows.

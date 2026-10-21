@@ -578,6 +578,131 @@ def test_archived_captcha_captures_do_not_trip_the_circuit_breaker(tmp_path, mon
     assert res["scraped_this_run"] == 1          # the page after the run of 8 is still reached
 
 
+# --- empty archived captures: swapped for the URL's largest other capture ------------------
+
+def _serve(monkeypatch, pages: dict, default: str = ""):
+    """fetch_snapshot serves pages[timestamp], else `default` (an empty capture)."""
+    monkeypatch.setattr(
+        run.wayback, "fetch_snapshot",
+        lambda entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None:
+            pages.get(entry["timestamp"], default))
+
+
+def test_empty_capture_recovered_from_another_capture(tmp_path, monkeypatch):
+    """The capture the harvest took is an HTTP-200 record with an EMPTY body (dom_presidencia_
+    wayback's Nov-2015 crawl, 2026-10-20) while a later capture holds the page: the row is written
+    from that capture, stamped with its date, and counted as recovered — not failed."""
+    url = "https://www.casarosada.gob.ar/informacion/discursos/7"
+    entries = [{"timestamp": "20151122000000", "original": url, "digest": "EMPTY", "length": "490"}]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    asked = {}
+
+    def _alt(entry, **kw):
+        asked.update(kw, entry=entry)
+        return {"timestamp": "20151201000000", "original": url, "digest": "FULL", "length": "20920"}
+
+    monkeypatch.setattr(run.wayback, "alternate_capture", _alt)
+    _serve(monkeypatch, {"20151201000000": WAYBACK_HTML})
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+
+    assert res["scraped_this_run"] == 1 and res["failed_this_run"] == 0
+    assert res["empty_capture_recovered"] == 1 and res["archived_block_recovered"] == 0
+    assert asked["to_date"] == "20151210"          # searched inside the recipe's own window
+    assert asked["entry"]["digest"] == "EMPTY"     # ... excluding the capture in hand
+    import pandas as pd
+    df = pd.read_csv(out / "Argentina" / "test_wayback.csv", dtype=str).fillna("")
+    assert df["wayback_capture"].tolist() == ["2015-12-01"]
+    assert "Texto archivado" in df["text_originlanguage"].iloc[0] + df["text"].iloc[0]
+
+
+def test_empty_capture_with_no_fuller_capture_still_fails_as_empty_text(tmp_path, monkeypatch):
+    """Every capture is empty, or fetching the other one fails: the verdict is the one the run
+    gave before the fallback existed — an empty_text failure, retryable, not seen."""
+    url = "https://www.casarosada.gob.ar/informacion/discursos/8"
+    entries = [{"timestamp": "20151122000000", "original": url}]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    monkeypatch.setattr(run.wayback, "alternate_capture",
+                        lambda entry, **kw: {"timestamp": "20151201000000", "original": url})
+    _serve(monkeypatch, {}, default="<html><body>  </body></html>")
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+    assert res["scraped_this_run"] == 0 and res["failed_this_run"] == 1
+    assert res["empty_capture_recovered"] == 0
+    errors = (out / "Argentina" / "test_wayback_errors.csv").read_text(encoding="utf-8")
+    assert "empty_text (no recipe match" in errors
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert url in state["failed_urls"] and url not in state["seen_urls"]
+
+    # the other capture cannot be fetched: still empty_text, not the alternate's exception
+    def _boom(entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None):
+        if entry["timestamp"] == "20151201000000":
+            raise httpx.ConnectError("simulated")
+        return ""
+
+    monkeypatch.setattr(run.wayback, "fetch_snapshot", _boom)
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir),
+                            retry_failed=True)
+    assert res["failed_this_run"] == 1 and res["empty_capture_recovered"] == 0
+    errors = (out / "Argentina" / "test_wayback_errors.csv").read_text(encoding="utf-8")
+    assert "ConnectError" not in errors
+
+
+def test_keep_if_rejected_thin_capture_is_retried_but_a_real_rejection_stands(tmp_path, monkeypatch):
+    """A keep_if that drops empty bodies would turn an EMPTY capture into a silent 'filtered',
+    which --retry-failed never revisits — so a thin rejected capture gets the fallback too. A
+    rejected page WITH content is a verdict on the document: no extra CDX query, still filtered."""
+    p = tmp_path / "test_wayback.yml"
+    p.write_text(WAYBACK_RECIPE_YAML + r"""keep_if: { selectors: [".body"], pattern: '\w{4}' }"""
+                 + "\n", encoding="utf-8")
+    thin = "https://www.casarosada.gob.ar/informacion/discursos/1"
+    shell = "https://www.casarosada.gob.ar/informacion/discursos/2"
+    entries = [{"timestamp": "20150101000000", "original": thin},
+               {"timestamp": "20150102000000", "original": shell}]
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    nav = ("<html><h1>Galería</h1><nav>" + "Inicio Noticias Discursos Agenda Contacto " * 10
+           + "</nav><div class='body'></div></html>")       # not thin: ~430 visible characters
+    _serve(monkeypatch, {"20150102000000": nav, "20151201000000": WAYBACK_HTML})
+    asked = []
+
+    def _alt(entry, **kw):
+        asked.append(entry["original"])
+        return {"timestamp": "20151201000000", "original": entry["original"]}
+
+    monkeypatch.setattr(run.wayback, "alternate_capture", _alt)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    res = run.scrape_recipe(str(p), out_root=str(out), state_root=str(state_dir))
+    assert asked == [thin]
+    assert res["scraped_this_run"] == 1 and res["empty_capture_recovered"] == 1
+    assert res["filtered_out_this_run"] == 1 and res["failed_this_run"] == 0
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert state["seen_urls"] == [thin] and state["filtered_urls"] == [shell]
+
+
+def test_an_empty_body_from_a_linked_scan_is_not_an_empty_capture(monkeypatch):
+    """pdf_link: a page whose linked PDF has no text layer comes back with no text, but that is a
+    verdict on the document (OCR recovers it), not on the capture — no second capture fetched."""
+    page = "<html><h1>Discurso</h1><a href='x.pdf'>PDF</a></html>"
+    monkeypatch.setattr(pdf, "_last_empty_reason", "document has no text layer; OCR is off")
+    assert run._capture_is_empty({"text": "", "keep": True}, page) is False
+    monkeypatch.setattr(pdf, "_last_empty_reason", None)
+    assert run._capture_is_empty({"text": "", "keep": True}, page) is True
+    assert run._capture_is_empty({"text": "Texto.", "keep": True}, "") is False
+
+
+def test_thin_capture_counts_visible_text_only():
+    assert run._thin_capture("")
+    assert run._thin_capture("<html><head><script>" + "var a = 1; " * 200
+                             + "</script></head><body></body></html>")
+    assert not run._thin_capture("<html><body><p>" + "palabra " * 40 + "</p></body></html>")
+
+
 def test_wayback_delay_override_paces_archive_fetches(tmp_path, monkeypatch):
     """`--wayback-delay` (scrape_recipe wayback_delay=) overrides the recipe's
     pagination.wayback_delay for the actual archived fetches; None keeps the recipe default (5.0)."""
