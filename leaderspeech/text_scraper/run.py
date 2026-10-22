@@ -183,6 +183,26 @@ def select_unscraped(candidates: list, url_of, skip: set, noise_params=(),
     return kept, already, within
 
 
+def only_failed(todo: list, url_of, failed: set) -> tuple[list, int]:
+    """`--failed-only`: keep just the candidates recorded as FAILED; return (kept, left).
+
+    `--retry-failed` alone re-fetches the failures AND every harvested link not yet scraped.
+    That is right for an ordinary incremental run, and wrong for a recovery queue: a source whose
+    recipe was widened after its last run, or that the Archive has captured more of since, then
+    runs its whole backlog. 2026-10-21, retry_empty_captures: rus_kremlin_english_wayback set off
+    a 39,609-fetch widening the researcher had deferred, to retry 65 failures. `left` counts the
+    never-scraped links this run leaves alone, so they are reported, not silently dropped."""
+    kept = [c for c in todo if url_of(c) in failed]
+    return kept, len(todo) - len(kept)
+
+
+def _retry_note(retry_failed: bool, failed_only: bool, left: int) -> str:
+    if failed_only:
+        return (f"; retrying failures ONLY - {left} never-scraped link(s) left for a normal run"
+                if left else "; retrying failures ONLY")
+    return "; retrying failures" if retry_failed else ""
+
+
 def load_state(path: Path) -> dict:
     if path.exists():
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -720,6 +740,8 @@ def scrape_recipe(
     sample: int | None = None,
     respect_robots: bool = False,
     retry_failed: bool = False,
+    # Retry ONLY the failed URLs (implies retry_failed): links never scraped are left alone.
+    failed_only: bool = False,
     extend_wayback: bool = False,
     rescrape: bool = False,
     wayback_delay: float | None = None,
@@ -736,6 +758,8 @@ def scrape_recipe(
     ocr: bool = False,
 ) -> dict:
     recipe = load_recipe(recipe_path)
+    if failed_only:
+        retry_failed = True
     if ocr and not recipe.pdf_ocr:
         # A copy, not a mutation: every later derivation (extend_recipe, phase recipes) starts
         # from `recipe`, so they all inherit it.
@@ -747,10 +771,10 @@ def scrape_recipe(
     state_path = Path(state_root) / f"{recipe.country}.json"
 
     log_path, log_handler = _add_log_file(out_dir, recipe.source_id)
-    log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s rescrape=%s "
+    log.info("START %s (%s) | max_pages=%s max_links=%s limit=%s retry_failed=%s%s rescrape=%s "
              "respect_robots=%s%s",
              recipe.source_id, recipe.country, max_pages, max_links, limit, retry_failed,
-             rescrape, respect_robots,
+             " (failed only)" if failed_only else "", rescrape, respect_robots,
              f" pdf_ocr=on ({ocr_language_for(recipe)}{', --ocr' if ocr else ''})"
              if recipe.pdf_ocr else "")
 
@@ -826,6 +850,7 @@ def scrape_recipe(
     aborted_early = False
     extended_links_found = 0
     extended_scraped = 0
+    backlog_left = 0          # --failed-only: never-scraped links this run deliberately skipped
     links: list[str] = []
     # Filled by paginate.harvest_links: how pagination ended, and whether it was cut short
     # by a broken pager rather than by reaching the end (see paginate.NORMAL_STOPS).
@@ -1119,6 +1144,9 @@ def scrape_recipe(
             todo_entries, dup_state, dup_batch = select_unscraped(
                 entries, lambda e: e.get("original"), skip, noise_params, identity_strip,
                 fold_slugs=recipe.pagination.wayback_identity_fold)
+            if failed_only:
+                todo_entries, backlog_left = only_failed(
+                    todo_entries, lambda e: e.get("original"), failed)
             if sample:
                 todo_entries = _sample_evenly(todo_entries, sample)
             elif limit:
@@ -1126,13 +1154,15 @@ def scrape_recipe(
             log.info("harvested %d archived capture(s); %d to scrape (%d done, %d known-failed, "
                      "%d filtered out earlier%s)",
                      len(entries), len(todo_entries), len(seen), len(failed), len(filtered),
-                     "; retrying failures" if retry_failed else "")
+                     _retry_note(retry_failed, failed_only, backlog_left))
             _log_identity_dupes(dup_state, dup_batch)
             todo = todo_entries
         else:
             todo, dup_state, dup_batch = select_unscraped(
                 links, lambda u: u, skip, noise_params, identity_strip,
                 fold_slugs=recipe.pagination.wayback_identity_fold)
+            if failed_only:
+                todo, backlog_left = only_failed(todo, lambda u: u, failed)
             if sample:
                 todo = _sample_evenly(todo, sample)
             elif limit:
@@ -1140,7 +1170,7 @@ def scrape_recipe(
             log.info("harvested %d link(s); %d to scrape (%d done, %d known-failed, "
                      "%d filtered out earlier%s)",
                      len(links), len(todo), len(seen), len(failed), len(filtered),
-                     "; retrying failures" if retry_failed else "")
+                     _retry_note(retry_failed, failed_only, backlog_left))
             _log_identity_dupes(dup_state, dup_batch)
 
         aborted_early = _scrape_phase(
@@ -1188,6 +1218,12 @@ def scrape_recipe(
                     ext_entries, lambda e: e.get("original"), skip, noise_params, identity_strip,
                 fold_slugs=recipe.pagination.wayback_identity_fold)
                 _log_identity_dupes(dup_state2, dup_batch2)
+                if failed_only:
+                    todo2, left2 = only_failed(todo2, lambda e: e.get("original"), failed)
+                    backlog_left += left2
+                    if left2:
+                        log.info("[wayback-extend] --failed-only: %d never-scraped capture(s) "
+                                 "left for a normal run", left2)
                 if sample:
                     todo2 = _sample_evenly(todo2, sample)
                 elif limit:
@@ -1239,7 +1275,7 @@ def scrape_recipe(
                         "crawl was cut short by a pager problem, not by reaching the end — treat "
                         "this coverage as INCOMPLETE. See the warning above for the fix.",
                         harvest_stats.get("stop_reason"), len(links))
-        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
+        log.info("DONE %s | scraped=%d generic=%d failed=%d%s%s%s%s%s%s%s%s%s%s%s%s%s | last_doc_num=%d | out=%s",
                  recipe.source_id, stats["scraped"], stats["generic"], stats["failed"],
                  f" (of which {stats['archived_block']} archived WAF/CAPTCHA captures)"
                  if stats["archived_block"] else "",
@@ -1260,6 +1296,8 @@ def scrape_recipe(
                  if stats["from_meta"] else "",
                  f" | {stats['pdf_body']} bodies from linked PDFs" if stats["pdf_body"] else "",
                  f" | +{extended_scraped} via wayback-extend" if extended_scraped else "",
+                 f" | {backlog_left} never-scraped link(s) left (--failed-only)"
+                 if backlog_left else "",
                  " | ABORTED EARLY" if aborted_early else "",
                  " | PAGINATION STOPPED EARLY" if harvest_stats.get("stopped_early") else "",
                  state["last_doc_num"], out_path)
@@ -1305,6 +1343,8 @@ def scrape_recipe(
         "extended_scraped": extended_scraped,          # of those, newly scraped this run
         "rescrape": rescrape,                 # this run re-fetched the source from scratch
         "failed_pending_retry": len(failed),  # re-run with --retry-failed after a fix
+        "failed_only": failed_only,           # this run retried failures only (--failed-only)
+        "backlog_left": backlog_left,         # never-scraped links that --failed-only skipped
         "aborted_early": aborted_early,       # circuit breaker tripped (likely blocked/broken)
         # True => the harvest was truncated by a pager problem, so coverage is incomplete
         # even though the run "succeeded". Always false for wayback/api/feed (no pager).
@@ -1375,7 +1415,13 @@ def main():
     ap.add_argument("--respect-robots", action="store_true",
                     help="honor robots.txt (off by default for this public-record project)")
     ap.add_argument("--retry-failed", action="store_true",
-                    help="re-attempt URLs that previously errored/were empty (use after fixing a recipe)")
+                    help="re-attempt URLs that previously errored/were empty (use after fixing a "
+                         "recipe). NOTE: the run ALSO scrapes every harvested link not yet scraped "
+                         "- a widened recipe's whole backlog. For a recovery run, use --failed-only.")
+    ap.add_argument("--failed-only", action="store_true",
+                    help="re-attempt ONLY the URLs recorded as failed (implies --retry-failed); "
+                         "harvested links never scraped are left for a normal run, and counted in "
+                         "the log. The flag for recovery queues.")
     ap.add_argument("--rescrape", action="store_true",
                     help="re-fetch this ONE source from scratch after fixing its bug: ignore "
                          "seen/failed (re-do ALL harvested links, keeping only keep_if rejects) "
@@ -1429,6 +1475,7 @@ def main():
         sample=args.sample,
         respect_robots=args.respect_robots,
         retry_failed=args.retry_failed,
+        failed_only=args.failed_only,
         extend_wayback=args.extend_wayback,
         rescrape=args.rescrape,
         wayback_delay=args.wayback_delay,

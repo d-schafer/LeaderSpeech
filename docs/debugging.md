@@ -19,7 +19,7 @@ And under `data/state/<Country>.json`:
 | Field | Meaning |
 |-------|---------|
 | `seen_urls` | already scraped — never re-fetched (except by `--rescrape`, which re-does the whole source; see below) |
-| `failed_urls` | errored or empty — skipped on a normal re-run, re-fetched with `--retry-failed` (or `--rescrape`) |
+| `failed_urls` | errored or empty — skipped on a normal re-run, re-fetched with `--retry-failed` (or `--rescrape`). `--failed-only` re-fetches ONLY these, never the not-yet-scraped backlog |
 | `filtered_urls` | fetched, but the recipe's [`keep_if`](recipes.md) judged them not this source's content — a decided rejection, never re-fetched (not even by `--retry-failed`). Loosened the `keep_if`? Delete this list to re-open them. |
 | `last_doc_num` | the per-country `doc_id` counter, so ids stay unique across runs |
 
@@ -76,6 +76,14 @@ python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml
 #    After fixing the recipe, re-attempt the URLs that had failed:
 python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --retry-failed
 
+#    --retry-failed ALSO scrapes every harvested link not yet scraped. Usually that is what
+#    you want, but not in a recovery run: a source whose recipe was widened since its last run
+#    takes its whole backlog with it (2026-10-21: a 65-URL retry of rus_kremlin_english_wayback
+#    set off its deferred 39,609-fetch widening). --failed-only retries the failures ALONE and
+#    logs how many never-scraped links it left ("N never-scraped link(s) left"). The queue
+#    runner's switch is -FailedOnly.
+python -m leaderspeech.text_scraper.run --recipe recipes/<id>.yml --failed-only
+
 #    If the bug produced rows that scraped "successfully" as JUNK (a WAF block page served
 #    as 200, or a thin/wrong extraction) they are `seen`, so --retry-failed will NOT re-do
 #    them. --rescrape re-fetches the WHOLE source from scratch and rewrites its CSV:
@@ -113,7 +121,7 @@ re-cleaning, so the metadata step doesn't skip the fresh rows as already-done: d
 
 | Error in the CSV / log | Likely cause | Fix |
 |------------------------|--------------|-----|
-| `empty_text (no recipe match; generic also empty)` | `text` selectors don't match this page — or, on a **wayback** source, every capture of the page is empty. Since 2026-10-20 the engine first tries the URL's largest other capture when the one in hand yields nothing (recipes.md → "Empty archived captures"), so a remaining failure means that capture was empty too | inspect the page, update the `text` selector chain; if it's a JS page, set `renderer: js`. Wayback failures from before 2026-10-20 may be empty captures with a full one later: `--retry-failed` recovers those (*empty capture; recovered from another capture* in the log) |
+| `empty_text (no recipe match; generic also empty)` | `text` selectors don't match this page — or, on a **wayback** source, every capture of the page is empty. Since 2026-10-20 the engine first tries the URL's largest other capture when the one in hand yields nothing (recipes.md → "Empty archived captures"), so a remaining failure means that capture was empty too | inspect the page, update the `text` selector chain; if it's a JS page, set `renderer: js`. Wayback failures from before 2026-10-20 may be empty captures with a full one later: `--failed-only` recovers those (*empty capture; recovered from another capture* in the log) |
 | `archived_block_page: the Archive's capture (…) is a WAF/CAPTCHA page …` | a **wayback** source: the Internet Archive stored a WAF interstitial (F5 "Please enable JavaScript… Your support ID is", F5 image CAPTCHA, Incapsula, Cloudflare) **with HTTP 200** as this URL's capture. The engine already tried the URL's largest other capture (inside the recipe's window and filters) and that was a shell too, or there was none | nothing to fix in the recipe — the Archive holds no real copy. It is counted as failed but NOT toward the circuit breaker. A `… recovered from another capture` log line is the good case: the shell was replaced by a real capture. Seen on gov.br/planalto (~3-4% of 2024-26 captures) and the Biblioteca da Presidência (~60% of HTML captures) |
 | a wayback run `ABORTING after 25 consecutive failures` on a block of `HTTPStatusError: … '404 NOT FOUND' for url 'https://web.archive.org/web/<ts>id_/…'` | captures the CDX lists with an **unknown length** (`-`) that the Archive cannot replay; they cluster by crawl batch (ven_minci_wayback 2026-09-27, ecu_presidencia_old_wayback 2026-09-29) | since 2026-10-03 these 404s are recorded (retryable) but **not counted toward the circuit breaker**, and the DONE line counts them; the harvest already prefers a known-length twin capture. A run that aborted before then just needs re-running: seen pages are skipped. A recipe can still drop them up front with a `length:[0-9]+` `wayback_filter` |
 | a PDF source with many `empty_text` rows | the Archive's PDF captures are **cut at exactly 1 MiB (or 5 MiB)** — no `%%EOF` — or the PDF is an image-only scan | the engine falls back once to the URL's largest other PDF capture; if every capture is cut, since 2026-10-02 it rebuilds and reads the surviving pages and flags the row `document_truncated` (recipes.md → "Truncated archived documents"). Rows from before that date failed as "no text layer; OCR found no text" with a blank `OCR failed to process a PDF:` warning (ocrmypdf's `InputFileError`); `run --retry-failed --ocr` recovers them. Image-only scans: since 2026-09-30 the error says so — `empty_text (document has no text layer; OCR off / OCR unavailable: … / OCR found no text)` — and they don't trip the circuit breaker. Recover with `run --retry-failed --ocr` on a machine where `python -m leaderspeech.text_scraper.ocr_check` passes; `recipe_tools/ocrbacklog.py` lists the backlog ([ocr_setup.md](ocr_setup.md)) |

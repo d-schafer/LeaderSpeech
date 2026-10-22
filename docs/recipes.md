@@ -894,8 +894,9 @@ The `keep_if` case matters because a rule that drops empty bodies would otherwis
 capture as "filtered", which `--retry-failed` never revisits. Pages filtered that way **before**
 this date stay filtered. Only `--rescrape` re-fetches them.
 
-A run with `--retry-failed` recovers the earlier `empty_text` failures. The probe applies the
-same fallback.
+A run with `--failed-only` recovers the earlier `empty_text` failures without also scraping a
+source's unscraped backlog (`--retry-failed` would do both). The probe applies the same
+fallback.
 
 ## Truncated archived documents (`document_truncated`, 2026-10-02)
 

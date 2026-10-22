@@ -696,6 +696,65 @@ def test_an_empty_body_from_a_linked_scan_is_not_an_empty_capture(monkeypatch):
     assert run._capture_is_empty({"text": "Texto.", "keep": True}, "") is False
 
 
+# --- --failed-only: a recovery run that never touches the unscraped backlog ------------------
+
+def _state_with(state_dir, seen, failed):
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "Argentina.json").write_text(json.dumps(
+        {"last_doc_num": len(seen), "seen_urls": seen, "failed_urls": failed, "filtered_urls": []}),
+        encoding="utf-8")
+
+
+def test_failed_only_retries_failures_and_leaves_the_backlog(tmp_path, monkeypatch):
+    """--retry-failed also scrapes every harvested link not yet scraped (2026-10-21: a retry
+    queue set off rus_kremlin_english_wayback's 39,609-fetch deferred widening). --failed-only
+    fetches the failures alone and COUNTS what it leaves; a later ordinary run still gets it."""
+    done, bad, new = "http://x/a-done", "http://x/b-failed", "http://x/c-never-scraped"
+    monkeypatch.setattr(run, "harvest_links", lambda *a, **k: [done, bad, new])
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    FakeFetcher.behavior = {}
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    _state_with(state_dir, [done], [bad])
+
+    res = run.scrape_recipe(_recipe(tmp_path), out_root=str(out), state_root=str(state_dir),
+                            failed_only=True)
+    assert res["scraped_this_run"] == 1 and res["failed_only"] is True
+    assert res["backlog_left"] == 1
+    state = json.loads((state_dir / "Argentina.json").read_text(encoding="utf-8"))
+    assert sorted(state["seen_urls"]) == [done, bad] and state["failed_urls"] == []
+    assert new not in state["seen_urls"]
+    log = next((out / "Argentina").glob("test_src_*.log")).read_text(encoding="utf-8")
+    assert "retrying failures ONLY - 1 never-scraped link(s) left" in log
+    assert "1 never-scraped link(s) left (--failed-only)" in log      # ... and on the DONE line
+
+    # an ordinary run afterwards picks the backlog up
+    res = run.scrape_recipe(_recipe(tmp_path), out_root=str(out), state_root=str(state_dir))
+    assert res["scraped_this_run"] == 1 and res["backlog_left"] == 0
+
+
+def test_failed_only_on_a_wayback_source(tmp_path, monkeypatch):
+    base = "https://www.casarosada.gob.ar/informacion/discursos/"
+    entries = [{"timestamp": "20100101000000", "original": base + "1"},    # done
+               {"timestamp": "20100102000000", "original": base + "2"},    # failed
+               {"timestamp": "20100103000000", "original": base + "3"}]    # never scraped
+    monkeypatch.setattr(run.wayback, "list_snapshots_for_queries", lambda *a, **k: list(entries))
+    fetched = []
+
+    def _fetch(entry, delay=3.0, timeout=60.0, client=None, pacer=None, encoding=None):
+        fetched.append(entry["original"])
+        return WAYBACK_HTML
+
+    monkeypatch.setattr(run.wayback, "fetch_snapshot", _fetch)
+    monkeypatch.setattr(run, "Fetcher", FakeFetcher)
+    out, state_dir = tmp_path / "scraped", tmp_path / "state"
+    _state_with(state_dir, [base + "1"], [base + "2"])
+
+    res = run.scrape_recipe(_wayback_recipe(tmp_path), out_root=str(out), state_root=str(state_dir),
+                            failed_only=True)
+    assert fetched == [base + "2"]
+    assert res["scraped_this_run"] == 1 and res["backlog_left"] == 1
+
+
 def test_thin_capture_counts_visible_text_only():
     assert run._thin_capture("")
     assert run._thin_capture("<html><head><script>" + "var a = 1; " * 200

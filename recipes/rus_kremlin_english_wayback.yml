@@ -67,6 +67,14 @@ pagination:
   wayback_filter:
     - "statuscode:200"
     - "mimetype:text/html"
+  # ONE article-id space across the sections (measured 2026-10-21): /news/10041,
+  # /transcripts/10041 and /transcripts/<subsection>/<id> serve the SAME article. 6,976 of the
+  # 36,142 harvested ids sit under both news and transcripts. Of 408 twin pairs a run wrote
+  # before this fold, 342 had byte-identical text and the rest differed by a few characters.
+  # Dropping the section from the identity makes a /news twin of an article already held under
+  # /transcripts count as held; within one harvest the first twin wins (news: start_urls order).
+  wayback_identity_strip:
+    - '(?<=/events/president/)(?:news|transcripts|trips)/(?:[a-z_]+/)?(?=\d)'
 
 title:
   selectors: ["h1", ".entry-title", ".read__title", "title"]
